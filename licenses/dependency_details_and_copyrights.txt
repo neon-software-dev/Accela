@@ -1,0 +1,84 @@
+[glm]
+The Happy Bunny License or MIT License
+Copyright (c) 2005 - G-Truc Creation
+https://glm.g-truc.net/
+https://github.com/g-truc/glm
+
+[entt]
+The MIT License (MIT)
+Copyright (c) 2017-2024 Michele Caini, author of EnTT
+https://skypjack.github.io/entt/
+https://github.com/skypjack/entt
+
+[audiofile]
+MIT License
+Copyright (c) 2017 Adam Stark
+https://github.com/adamstark/AudioFile
+
+[assimp]
+Open Asset Import Library (assimp)
+Copyright (c) 2006-2021, assimp team
+https://assimp.org/
+https://github.com/assimp/assimp
+
+Poly2Tri Copyright (c) 2009-2010, Poly2Tri Contributors
+http://code.google.com/p/poly2tri/
+
+[vulkan]
+Files in this repository fall under one of these licenses: Apache-2.0 , MIT
+https://github.com/KhronosGroup/Vulkan-Headers/tree/main
+Copyright 2015-2023 The Khronos Group Inc.
+
+[vulkan-memory-allocator]
+MIT license
+Copyright (c) 2017-2024 Advanced Micro Devices, Inc. All rights reserved.
+https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
+
+[sdl2]
+Zlib license
+Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+https://www.libsdl.org/
+https://github.com/libsdl-org
+
+[sdl2-image]
+Zlib license
+Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+https://www.libsdl.org/projects/old/SDL_image/
+https://github.com/libsdl-org/SDL_image/
+
+[sdl2-ttf]
+Zlib license
+Copyright (C) 1997-2024 Sam Lantinga <slouken@libsdl.org>
+https://wiki.libsdl.org/SDL2_ttf/
+https://github.com/libsdl-org/SDL_ttf
+
+[openvr]
+BSD-3-Clause license
+Copyright (c) 2015, Valve Corporation
+https://github.com/ValveSoftware/openvr
+
+[RTree]
+Custom (Public Domain) + MIT license
+Copyright (c) 2024 Yariv Barkan
+https://github.com/nushoin/RTree
+
+[spirv]
+Custom + MIT license
+Files: All files except for those called out below.
+Copyright (c) 2015-2024 The Khronos Group Inc.
+https://github.com/KhronosGroup/SPIRV-Headers/tree/main
+
+[spirv-reflect]
+Apache License Version 2.0
+https://github.com/KhronosGroup/SPIRV-Reflect
+
+[reactphysics3d]
+Zlib license
+Copyright (c) 2010-2024 Daniel Chappuis http://www.reactphysics3d.com
+https://www.reactphysics3d.com/
+https://github.com/DanielChappuis/reactphysics3d
+
+[openal-soft]
+GNU LGPL Version 2
+https://openal-soft.org/
+https://github.com/kcat/openal-soft
