@@ -1,10 +1,4 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-or-later
- */
- 
-/*
+ /*
  Copyright 2017-2018 Google Inc.
 
  Licensed under the Apache License, Version 2.0 (the "License");

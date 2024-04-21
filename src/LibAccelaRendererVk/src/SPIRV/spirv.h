@@ -1,10 +1,4 @@
 /*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-or-later
- */
- 
-/*
 ** Copyright (c) 2014-2020 The Khronos Group Inc.
 ** 
 ** Permission is hereby granted, free of charge, to any person obtaining a copy
