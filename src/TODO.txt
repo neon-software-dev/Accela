@@ -1,0 +1,38 @@
+- All the public components have scenename parameter - does it make sense to have this per-component or
+    should the entity itself have a scene it belongs to, which the components make use of?
+
+- Call into WorldResources to destroy everything on shutdown
+
+- Terrain Tesselation - vertex normals are all set to the same value, breaks lighting and shadows
+
+- In Sponza, can see background items that should be depth buffered out bleeding through transparent
+    vine textures (need to set up separate pass for translucent objects)
+
+[Shadows]
+    - Validate device properties supports depthBiasClamp feature
+    - Better shadow acne handling
+    - When moving out of object render distance, shadows for distance-culled objects still draw
+	- After offscreen render + deferred lighting, need to run a forward pass with non-deferred lighting for objects
+	    with any transparency
+    - Far todo: change shadow perspective near plane to be right before the closest object that's in sight
+    - Add the ability to "bake" shadow maps in that they're rendered once and never again
+    - Better support for different light types, e.g. point vs spot lights
+    - Cascading shadow maps
+
+- Perf: Sort objects to be rendered from front to back to allow discarding more fragments?
+
+- Perf: VR rendering is too slow, is delays around getWaitPoses the reason?
+    https://steamcommunity.com/app/358720/discussions/0/152391285460288350/
+    https://steamcommunity.com/app/358720/discussions/0/350532795335128039/
+
+- Validate device properties supports needed number of maxColorAttachments
+
+- Remove shared_ptr storage for dependencies and switch to using raw pointers for non-owning refs
+
+- Evaluate all uses of .erase(iterator) and ensure no place uses the iterator afterwards, too many bugs around this
+
+- Make the distinction between world "scenes" and Scenes that can be run more clear. Rename one of them?
+
+- More helper functions in IWorldResources to just bulk load all assets of a type (like what was done with textures)
+
+- Unify patterns for loading different types of resources

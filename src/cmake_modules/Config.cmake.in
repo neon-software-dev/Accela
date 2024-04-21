@@ -1,0 +1,16 @@
+include(CMakeFindDependencyMacro)
+
+find_dependency(glm CONFIG REQUIRED)
+find_dependency(EnTT CONFIG REQUIRED)
+find_dependency(OpenAL REQUIRED)
+find_dependency(AudioFile CONFIG REQUIRED)
+find_dependency(assimp CONFIG REQUIRED)
+find_dependency(Vulkan REQUIRED)
+find_dependency(VulkanMemoryAllocator CONFIG REQUIRED)
+
+find_dependency(SDL2 CONFIG REQUIRED)
+find_dependency(SDL2_image CONFIG REQUIRED)
+find_dependency(SDL2_ttf CONFIG REQUIRED)
+find_dependency(OpenVR REQUIRED)
+
+include("${CMAKE_CURRENT_LIST_DIR}/@ACCELA_TARGETS_EXPORT_NAME@.cmake")

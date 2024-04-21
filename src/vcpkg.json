@@ -1,0 +1,25 @@
+{
+  "dependencies": [
+    "glm",
+    "entt",
+    "audiofile",
+    "assimp",
+    "vulkan",
+    "vulkan-memory-allocator",
+    {
+      "name": "sdl2",
+      "default-features": false,
+      "features": [ "vulkan" ]
+    },
+    {
+      "name": "sdl2-image",
+      "default-features": false,
+      "features": [ "libjpeg-turbo" ]
+    },
+    "sdl2-ttf",
+    "openvr"
+  ],
+  "name": "accela",
+  "version": "0.1.0"
+}
+
