@@ -5,7 +5,7 @@
 ![License](https://img.shields.io/badge/license-GNU%20GPLv3-green?style=flat-square) 
 ![Language](https://img.shields.io/badge/language-C++23-green.svg?style=flat-square) 
 
-Accela is a cross-platform modern C++23 game and render engine utilizing Vulkan 1.3.
+Accela is a cross-platform C++23 game and render engine utilizing Vulkan 1.3.
 
 ## Features
 
@@ -21,6 +21,7 @@ Accela is a cross-platform modern C++23 game and render engine utilizing Vulkan 
 - Height-mapped terrain generation
 - Skybox rendering
 - Text/font rendering
+- For non-game applications, the renderer can be used standalone
 
 ## Disclaimer
 
@@ -30,7 +31,7 @@ Please give Accela a try (while adhering to the license terms) and provide feedb
 
 ## License
 
-Accela is currently distributed via the GPL v3 software license. Please see the LICENSE file for the legally binding details.
+Accela is currently distributed under the GPL v3 software license. Please see the LICENSE file for the legally binding details.
 
 The intent in choosing this license was to accomplish the following:
 1. Users may freely use and modify Accela in private, non-public software
@@ -60,12 +61,11 @@ Pull the project code from Github:
 
 
 Navigate to the project's source and execute CMake:
-```
-cd Accela
-mkdir build
-cd build
-cmake -DACCELA_TARGET_PLATFORM=Desktop -DCMAKE_TOOLCHAIN_FILE="/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake" -DCMAKE_INSTALL_PREFIX="/desired/install/directory" ../src/ 
-```
+
+- `cd Accela`
+- `mkdir build`
+- `cd build`
+- `cmake -DACCELA_TARGET_PLATFORM=Desktop -DCMAKE_TOOLCHAIN_FILE="/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake" -DCMAKE_INSTALL_PREFIX="/desired/install/directory" ../src/`
 
 Build and Install Accela
 
@@ -79,6 +79,8 @@ Once Accela is built and installed, its public includes and libraries will be lo
 A CMake-based client project can then be linked against Accela by passing the following CMake argument when configuring the client project:
 
 - `-DCMAKE_PREFIX_PATH=/accela/install/directory/lib/cmake`
+
+If using a different build system, point it towards the installed includes and libraries as appropriate for that build system.
 
 # Usage
 
