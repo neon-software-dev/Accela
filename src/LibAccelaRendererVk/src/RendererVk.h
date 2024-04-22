@@ -1,7 +1,7 @@
 /*
  * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
  *
- * SPDX-License-Identifier: GPL-3.0-or-later
+ * SPDX-License-Identifier: GPL-3.0-only
  */
  
 #ifndef LIBACCELARENDERERVK_INCLUDE_ACCELA_RENDERER_RENDERERSDL_H
