@@ -419,6 +419,7 @@ void WorldState::OnTerrainRenderableComponentUpdated(entt::registry& registry, e
 void WorldState::OnTransformComponentUpdated(entt::registry& registry, entt::entity entity)
 {
     MarkStateComponentDirty<RenderableStateComponent>(registry, entity);
+    MarkStateComponentDirty<LightRenderableStateComponent>(registry, entity);
 
     // If the component was updated, and not because we're syncing its data from the
     // physics system, then we want to update the physics system with the new data
