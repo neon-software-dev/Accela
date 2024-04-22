@@ -47,7 +47,7 @@ That being said, any user wishing to use Accela **without a GPL v3 license attac
 
 
 ![Alt text](screenshots/cubes.png?raw=true "Cubes")
-*62,500 completely separate entities with independent entity and physics state*
+*62,500 separate entities with independent entity, render, and physics states*
 
 ![Alt text](screenshots/physics.png?raw=true "Physics")
 *A collection of entities with physics state tossed on top of each other on height-mapped terrain*
@@ -92,5 +92,7 @@ If using a different build system, point it towards the installed includes and l
 # Usage
 
 Please see the included TestDesktopApp project in src/TestDesktopApp for a reference implementation of how to use the Accela engine.
+
+The engine currently only supports a programmatic interface for defining scenes. In the future a graphical scene editor will be created which will provide a secondary mechanism for defining scenes.
 
 A full usage guide and API documentation will be coming soon.
