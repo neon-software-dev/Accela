@@ -45,12 +45,8 @@ That being said, any user wishing to use Accela **without a GPL v3 license attac
 ![Alt text](screenshots/vampire_dancing.png?raw=true "Vampire Dancing")
 *Bone-based animated model dancing in Sponza with dynamic lighting and shadow mapping*
 
-
-![Alt text](screenshots/cubes.png?raw=true "Cubes")
-*62,500 separate entities with independent entity, render, and physics states*
-
-![Alt text](screenshots/physics.png?raw=true "Physics")
-*A collection of entities with physics state tossed on top of each other on height-mapped terrain*
+![Alt text](screenshots/cubes.gif?raw=true "Physics")
+*A collection of entities launched into the air with dynamic lighting at over 1000fps*
 
 # Quick Start Guide
 
