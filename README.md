@@ -21,7 +21,7 @@ Accela is a cross-platform C++23 game and render engine utilizing Vulkan 1.3.
 - Positional and global audio sources
 - Height-mapped terrain generation
 - Cubemap-based skybox rendering
-- Arbirtrary text/font rendering
+- Arbitrary text/font rendering
 - For non-game applications, the renderer can be used standalone
 
 ## Disclaimer
@@ -104,7 +104,7 @@ A full usage guide and API documentation will be coming soon.
 
 ## Sample minimal Accela client
 
-This following is minimal complete code example for initializing Accela and giving it control to run a Scene which renders text on the screen and displays a loaded 3D model file.
+This following is a minimal, complete, code example for initializing Accela and giving it control to run a Scene which renders text on the screen and displays a loaded 3D model file.
 
 The text is displayed using one of the helper Entity classes (ScreenTextEntity) that Accela provides. 
 
