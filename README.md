@@ -38,6 +38,12 @@ The intent in choosing this license was to accomplish the following:
 
 That being said, any user wishing to use Accela **without a GPL v3 license attached to it** may contact the owner / copyright holder of Accela to purchase such a license. This process will be standardized when Accela is offically launched.
 
+## Screenshots
+
+![Alt text](screenshots/vampire_dancing.png?raw=true "Vampire Dancing")
+![Alt text](screenshots/cubes.png?raw=true "Cubes")
+![Alt text](screenshots/physics.png?raw=true "Physics")
+
 # Quick Start Guide
 
 ## Building From Source
