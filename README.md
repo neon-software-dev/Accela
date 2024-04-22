@@ -36,7 +36,7 @@ Accela is currently distributed under the GPL v3 software license. Please see th
 
 The intent in choosing this license was to accomplish the following:
 1. Users may freely use and modify Accela in private, non-public software
-2. Users may use and modify Accela in public software, whether free or commericial, but in doing so are required to also adopt GPL v3 for their own software and release that software as free and open source software
+2. Users may use and modify Accela in public software, whether free or commericial, but in doing so are required to also adopt GPL v3 for their own software and release that software as open source software
 
 That being said, any user wishing to use Accela **without a GPL v3 license attached to it** may contact the owner / copyright holder of Accela to purchase such a license. This process will be standardized when Accela is offically launched.
 
