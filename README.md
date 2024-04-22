@@ -79,6 +79,11 @@ Build and Install Accela
 - `make`
 - `make install`
 
+If desired, run the TestDesktopApp that was built:
+
+- `cd TestDesktopApp`
+- `./TestDesktopApp`
+
 ## Integration
 
 Once Accela is built and installed, its public includes and libraries will be located in the previously specified CMake install directory.
