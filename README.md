@@ -91,8 +91,116 @@ If using a different build system, point it towards the installed includes and l
 
 # Usage
 
-Please see the included TestDesktopApp project in src/TestDesktopApp for a reference implementation of how to use the Accela engine.
+Please see the included TestDesktopApp project in src/TestDesktopApp for a full reference implementation of how to use the Accela engine.
 
 The engine currently only supports a programmatic interface for defining scenes. In the future a graphical scene editor will be created which will provide a secondary mechanism for defining scenes.
 
 A full usage guide and API documentation will be coming soon.
+
+## Sample minimal Accela client
+
+This following is minimal complete code example for initializing Accela and giving it control to run a Scene which renders text on the screen and displays a loaded 3D model file.
+
+The text is displayed using one of the helper Entity classes (ScreenTextEntity) that Accela provides. 
+
+The model is displayed by directly manipulating the ECS system to create an entity and attach relevant components to it.
+
+Both are valid mechanisms for defining the game world within Accela.
+
+```
+#include <Accela/Engine/EngineDesktop.h>
+#include <Accela/Engine/Entity/ScreenTextEntity.h>
+#include <Accela/Engine/Component/Components.h>
+
+#include <Accela/Common/Log/StdLogger.h>
+#include <Accela/Common/Metrics/InMemoryMetrics.h>
+
+using namespace Accela;
+
+class TestScene : public Engine::Scene
+{
+    public:
+
+        std::string GetName() const override { return "TestScene"; }
+
+        void OnSceneStart(const Engine::IEngineRuntime::Ptr& engine) override
+        {
+            ConfigureScene(engine);
+            LoadResources(engine);
+            CreateTextEntity(engine);
+            CreateModelEntity(engine);
+        }
+
+        void ConfigureScene(const Engine::IEngineRuntime::Ptr& engine)
+        {
+            engine->GetWorldState()->SetAmbientLighting(Engine::DEFAULT_SCENE, 1.0f, {1,1,1});
+        }
+
+        void LoadResources(const Engine::IEngineRuntime::Ptr& engine)
+        {
+            engine->GetWorldResources()->LoadFontBlocking("font.ttf", 64);
+            engine->GetWorldResources()->RegisterModel("model", *engine->GetAssets()->ReadModelBlocking("model", ".obj"));
+        }
+
+        void CreateTextEntity(const Engine::IEngineRuntime::Ptr& engine)
+        {
+            m_textEntity = Engine::ScreenTextEntity::Create(
+                engine,
+                Engine::ScreenTextEntity::Params()
+                    .WithText("Hello World!")
+                    .WithPosition({0, 0, 0})
+                    .WithTextLayoutMode(Engine::TextLayoutMode::TopLeft)
+                    .WithProperties(Platform::TextProperties(
+                        "font.ttf",                     // Font file name
+                        64,                             // Font size
+                        0,                              // Wrap length
+                        Platform::Color::Red(),         // Foreground color
+                        Platform::Color::Transparent()  // Background color
+                    ))
+            );
+        }
+
+        void CreateModelEntity(const Engine::IEngineRuntime::Ptr& engine)
+        {
+            const auto eid = engine->GetWorldState()->CreateEntity();
+
+            auto modelRenderableComponent = Engine::ModelRenderableComponent{};
+            modelRenderableComponent.modelName = "model";
+            Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, modelRenderableComponent);
+
+            auto transformComponent = Engine::TransformComponent{};
+            transformComponent.SetPosition({0,0,-2});
+            Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, transformComponent);
+        }
+
+    private:
+
+        Engine::ScreenTextEntity::UPtr m_textEntity;
+};
+
+int main()
+{
+    auto desktopEngine = Engine::EngineDesktop(
+        std::make_shared<Common::StdLogger>(Common::LogLevel::Warning),
+        std::make_shared<Common::InMemoryMetrics>()
+    );
+
+    if (!desktopEngine.Startup()) { return 1; }
+
+    desktopEngine.Run(
+        "AppName",
+        1, // App version
+        Engine::WindowParams("Window Title", Render::USize(2560, 1440)),
+        Engine::VROutput::None,
+        std::make_unique<TestScene>()
+    );
+
+    desktopEngine.Shutdown();
+
+    return 0;
+}
+
+
+```
+
+
