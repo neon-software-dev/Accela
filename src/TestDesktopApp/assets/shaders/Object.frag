@@ -183,11 +183,7 @@ FragmentColors CalculateFragmentColors(MaterialPayload materialPayload)
     if (materialPayload.hasAmbientTexture)
     {
         vec4 textureColor = texture(i_ambientSampler, i_fragTexCoord) * materialPayload.ambientTextureBlendFactor;
-        // WARNING! NOTE! We're forcing the texture op to addition below, only for ambient color, because all of our
-        // test models keep erroneously providing an ambient texture but a black ambient color. Forcing addition
-        // as the default for ambient for the moment just to make testing easier without having to fix the models.
-        // To fix, replace the 1 below with materialPayload.ambientTextureOp .
-        fragColors.ambientColor = TextureOp(fragColors.ambientColor, textureColor, 1);
+        fragColors.ambientColor = TextureOp(fragColors.ambientColor, textureColor, materialPayload.ambientTextureOp);
     }
 
     // Diffuse

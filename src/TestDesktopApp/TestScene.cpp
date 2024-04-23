@@ -110,9 +110,9 @@ bool TestScene::LoadAssets()
     //
     Render::ObjectMaterialProperties solidRedMaterial{};
     solidRedMaterial.isAffectedByLighting = true;
-    solidRedMaterial.ambientColor = {0.1f,0.0f,0.0f};
-    solidRedMaterial.diffuseColor = {0.1f,0,0};
-    solidRedMaterial.specularColor = {0.1f,0,0};
+    solidRedMaterial.ambientColor = {1,0,0};
+    solidRedMaterial.diffuseColor = {1,0,0};
+    solidRedMaterial.specularColor = {1,0,0};
     solidRedMaterial.shininess = 32.0f;
     solidRedMaterial.ambientTextureBind = Render::TextureId{Render::INVALID_ID};
     solidRedMaterial.diffuseTextureBind = Render::TextureId{Render::INVALID_ID};
@@ -123,8 +123,8 @@ bool TestScene::LoadAssets()
     const auto terrainTextureId = *engine->GetWorldResources()->Textures()->GetAssetTextureId("rolling_hills_bitmap.png");
     Render::ObjectMaterialProperties terrainMaterial{};
     terrainMaterial.isAffectedByLighting = true;
-    terrainMaterial.ambientColor = {0.0f, 0.0f, 0.0f};
-    terrainMaterial.diffuseColor = {0.0f, 0.0f, 0.0f};
+    terrainMaterial.ambientColor = {1,1,1};
+    terrainMaterial.diffuseColor = {1,1,1};
     terrainMaterial.specularColor = {0.1f, 0.1f, 0.1f};
     terrainMaterial.shininess = 32.0f;
     terrainMaterial.ambientTextureBind = terrainTextureId;

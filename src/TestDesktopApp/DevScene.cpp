@@ -126,8 +126,8 @@ bool DevScene::LoadAssets()
     const auto terrainTextureId = *engine->GetWorldResources()->Textures()->GetAssetTextureId("rolling_hills_bitmap.png");
     Render::ObjectMaterialProperties terrainMaterial{};
     terrainMaterial.isAffectedByLighting = true;
-    terrainMaterial.ambientColor = {0.0f, 0.0f, 0.0f};
-    terrainMaterial.diffuseColor = {0.0f, 0.0f, 0.0f};
+    terrainMaterial.ambientColor = {1,1,1};
+    terrainMaterial.diffuseColor = {1,1,1};
     terrainMaterial.specularColor = {0.1f, 0.1f, 0.1f};
     terrainMaterial.shininess = 32.0f;
     terrainMaterial.ambientTextureBind = terrainTextureId;
