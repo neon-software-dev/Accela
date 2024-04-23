@@ -14,6 +14,8 @@ namespace Accela
 
 static constexpr auto FONT_FILE_NAME = "jovanny_lemonad_bender.otf";
 
+Engine::EnginePerfMonitorEntity::UPtr perfEntity;
+
 void TestScene::OnSceneStart(const Engine::IEngineRuntime::Ptr& engine)
 {
     Scene::OnSceneStart(engine);
@@ -397,6 +399,18 @@ void TestScene::OnKeyEvent(const Engine::IEngineRuntime::Ptr& engine, const Plat
         if (event.key == Platform::Key::C)
         {
             SyncLightToCamera(engine);
+        }
+
+        if (event.key == Platform::Key::P)
+        {
+            if (m_perfMonitor)
+            {
+                m_perfMonitor = std::nullopt;
+            }
+            else
+            {
+                m_perfMonitor = Engine::EnginePerfMonitorEntity::Create(engine, GetEvents(), FONT_FILE_NAME);
+            }
         }
     }
 }

@@ -11,6 +11,7 @@
 #include "Player.h"
 
 #include <Accela/Engine/Scene/Scene.h>
+#include <Accela/Engine/Entity/EnginePerfMonitorEntity.h>
 
 #include <random>
 
@@ -90,6 +91,8 @@ namespace Accela
             Render::MeshId m_terrainHeightMapMeshId{};
             Render::MaterialId m_solidRedMaterialId{};
             Render::MaterialId m_terrainMaterialId{};
+
+            std::optional<Engine::EnginePerfMonitorEntity::UPtr> m_perfMonitor;
 
             std::random_device m_rd;
             std::mt19937 m_mt{m_rd()};

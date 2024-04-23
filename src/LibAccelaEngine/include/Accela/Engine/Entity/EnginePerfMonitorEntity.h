@@ -39,6 +39,7 @@ namespace Accela::Engine
             static EnginePerfMonitorEntity::UPtr Create(
                 IEngineRuntime::Ptr engine,
                 SceneEvents::Ptr sceneEvents,
+                std::string fontName,
                 std::string sceneName = DEFAULT_SCENE,
                 const glm::vec3& position = {0,0,0},
                 uint32_t refreshInterval = 20);
@@ -46,6 +47,7 @@ namespace Accela::Engine
             EnginePerfMonitorEntity(ConstructTag,
                                     IEngineRuntime::Ptr engine,
                                     SceneEvents::Ptr sceneEvents,
+                                    std::string fontName,
                                     std::string sceneName,
                                     const glm::vec3& position,
                                     uint32_t refreshInterval);
@@ -93,6 +95,7 @@ namespace Accela::Engine
 
         private:
 
+            std::string m_fontName;
             glm::vec3 m_position;
             uint32_t m_refreshInterval;
 

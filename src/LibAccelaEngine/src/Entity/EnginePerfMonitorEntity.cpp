@@ -11,12 +11,12 @@
 namespace Accela::Engine
 {
 
-static constexpr char Font_FileName[] = "TimesNewRoman-BoldCond.ttf";
 static constexpr uint8_t Font_Size = 28;
 
 EnginePerfMonitorEntity::UPtr EnginePerfMonitorEntity::Create(
     IEngineRuntime::Ptr engine,
     SceneEvents::Ptr sceneEvents,
+    std::string fontName,
     std::string sceneName,
     const glm::vec3& position,
     uint32_t refreshInterval)
@@ -25,6 +25,7 @@ EnginePerfMonitorEntity::UPtr EnginePerfMonitorEntity::Create(
         ConstructTag{},
         std::move(engine),
         std::move(sceneEvents),
+        std::move(fontName),
         std::move(sceneName),
         position,
         refreshInterval
@@ -37,16 +38,18 @@ EnginePerfMonitorEntity::EnginePerfMonitorEntity(
     ConstructTag,
     IEngineRuntime::Ptr engine,
     SceneEvents::Ptr sceneEvents,
+    std::string fontName,
     std::string sceneName,
     const glm::vec3& position,
     uint32_t refreshInterval)
     : SceneEntity(std::move(engine), std::move(sceneName), std::move(sceneEvents))
+    , m_fontName(std::move(fontName))
     , m_position(position)
     , m_refreshInterval(refreshInterval)
 {
-    if (!m_engine->GetWorldResources()->IsFontLoaded(Font_FileName, Font_Size))
+    if (!m_engine->GetWorldResources()->IsFontLoaded(m_fontName, Font_Size))
     {
-        (void)m_engine->GetWorldResources()->LoadFontBlocking(Font_FileName, Font_Size);
+        (void)m_engine->GetWorldResources()->LoadFontBlocking(m_fontName, Font_Size);
     }
 
     CreateEntities();
@@ -60,7 +63,7 @@ EnginePerfMonitorEntity::~EnginePerfMonitorEntity()
 void EnginePerfMonitorEntity::CreateEntities()
 {
     const auto textProperties = Platform::TextProperties{
-        Font_FileName,
+        m_fontName,
         Font_Size,
         0,
         Platform::Color::Red(),
