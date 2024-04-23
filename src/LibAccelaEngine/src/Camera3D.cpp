@@ -7,7 +7,6 @@
 #include <Accela/Engine/Camera3D.h>
 
 #include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtx/transform.hpp>
 
 namespace Accela::Engine
 {
@@ -68,8 +67,8 @@ void Camera3D::SetPosition(const glm::vec3& position) noexcept
 void Camera3D::RotateBy(float xRotDeg, float yRotDeg)
 {
     const glm::mat4 lookRotation =
-        glm::rotate(yRotDeg, GetUpUnit()) *
-        glm::rotate(xRotDeg, GetRightUnit());
+        glm::rotate(glm::mat4(1), yRotDeg, GetUpUnit()) *
+        glm::rotate(glm::mat4(1), xRotDeg, GetRightUnit());
 
     m_lookUnit = glm::normalize(glm::mat3(lookRotation) * m_lookUnit);
 }

@@ -303,7 +303,7 @@ glm::mat4 ModelView::InterpolateRotation(const NodeKeyFrames& keyFrames, double 
     if (keyFrames.rotationKeyFrames.size() == 1)
     {
         auto rotation = glm::normalize(keyFrames.rotationKeyFrames[0].rotation);
-        return glm::toMat4(rotation);
+        return glm::mat4_cast(rotation);
     }
 
     int p0Index = (int)GetRotationKeyFrameIndex(keyFrames, animationTime);
@@ -318,7 +318,7 @@ glm::mat4 ModelView::InterpolateRotation(const NodeKeyFrames& keyFrames, double 
                                          scaleFactor);
     finalRotation = glm::normalize(finalRotation);
 
-    return glm::toMat4(finalRotation);
+    return glm::mat4_cast(finalRotation);
 }
 
 glm::mat4 ModelView::InterpolateScale(const NodeKeyFrames& keyFrames, double animationTime)

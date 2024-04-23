@@ -8,7 +8,7 @@
 #define LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_MODEL_MODELANIMATION_H
 
 #include <glm/glm.hpp>
-#include <glm/gtx/quaternion.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 #include <vector>
 #include <string>

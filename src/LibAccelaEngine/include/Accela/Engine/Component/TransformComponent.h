@@ -10,8 +10,8 @@
 #include <Accela/Render/Util/Rotation.h>
 
 #include <glm/glm.hpp>
-#include <glm/gtx/transform.hpp>
-#include <glm/gtx/quaternion.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 namespace Accela::Engine
 {
@@ -105,7 +105,7 @@ namespace Accela::Engine
             void SyncTransform()
             {
                 const glm::mat4 translationMat = glm::translate(glm::mat4(1), m_position);
-                const glm::mat4 rotationMat = glm::toMat4(m_orientation);
+                const glm::mat4 rotationMat = glm::mat4_cast(m_orientation);
                 const glm::mat4 scaleMat = glm::scale(glm::mat4(1), m_scale);
 
                 m_transformMatrix = translationMat * rotationMat * scaleMat;

@@ -8,6 +8,8 @@
 
 #include <Accela/Render/RenderLogic.h>
 
+#include <glm/gtc/quaternion.hpp>
+
 #include <algorithm>
 #include <array>
 
@@ -123,7 +125,7 @@ bool SpriteContainsPoint(const IWorldResources::Ptr& resources,
         // Scale
         auto point = in * scale;
         // Orientation
-        point = glm::vec2(glm::rotate(transform.GetOrientation(), glm::vec3(point, 0.0f)));
+        point = glm::vec2(glm::mat4_cast(transform.GetOrientation()) * glm::vec4(point, 0, 1));
         // Translation
         point = point + glm::vec2(virtualPosition);
 

@@ -15,7 +15,7 @@
 #include <Accela/Render/Util/Rect.h>
 
 #include <glm/glm.hpp>
-#include <glm/gtx/quaternion.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 #include <string>
 #include <optional>

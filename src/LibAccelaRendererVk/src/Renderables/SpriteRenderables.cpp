@@ -12,7 +12,6 @@
 #include "../Texture/ITextures.h"
 
 #include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtx/quaternion.hpp>
 
 #include <cassert>
 
@@ -236,7 +235,7 @@ SpritePayload SpriteRenderables::SpriteToPayload(const SpriteRenderable& sprite,
 
     const glm::mat4 translation = glm::translate(glm::mat4(1), sprite.position);
 
-    const glm::mat4 rotation = glm::toMat4(sprite.orientation);
+    const glm::mat4 rotation = glm::mat4_cast(sprite.orientation);
 
     // Scale the sprite by its destination size to make it the correct pixel size on the screen
     glm::mat4 scale = glm::scale(glm::mat4(1), glm::vec3(destSize.w, destSize.h, 0));
