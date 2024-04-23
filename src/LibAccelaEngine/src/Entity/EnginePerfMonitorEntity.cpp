@@ -67,7 +67,7 @@ void EnginePerfMonitorEntity::CreateEntities()
         Font_Size,
         0,
         Platform::Color::Red(),
-        Platform::Color(255,255,255,0)
+        Platform::Color(255,255,255,50)
     };
 
     uint32_t currentYPos = 0;
@@ -243,7 +243,7 @@ uint32_t EnginePerfMonitorEntity::CreateEntity(
     return renderedTextHeight;
 }
 
-void EnginePerfMonitorEntity::OnSimulationStep(const IEngineRuntime::Ptr&, unsigned int)
+void EnginePerfMonitorEntity::OnSimulationStep(unsigned int)
 {
     m_stepCounter++;
     if (m_stepCounter != m_refreshInterval) { return; }

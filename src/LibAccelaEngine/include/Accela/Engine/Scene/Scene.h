@@ -10,8 +10,6 @@
 #include "SceneCallbacks.h"
 #include "SceneEvents.h"
 
-#include <Accela/Render/Id.h>
-
 #include <memory>
 #include <string>
 
@@ -46,23 +44,28 @@ namespace Accela::Engine
             void OnSceneStart(const IEngineRuntime::Ptr& engine) override;
 
             /** Called when the scene is being stopped, and no other callbacks afterwards */
-            void OnSceneStop(const IEngineRuntime::Ptr& engine) override;
+            void OnSceneStop() override;
 
             /** Called every time the engine runs another simulation step */
-            void OnSimulationStep(const IEngineRuntime::Ptr& engine, unsigned int timeStep) override;
+            void OnSimulationStep(unsigned int timeStep) override;
 
             /** Called when a keypress event occurs */
-            void OnKeyEvent(const IEngineRuntime::Ptr& engine, const Platform::KeyEvent& event) override;
+            void OnKeyEvent(const Platform::KeyEvent& event) override;
 
             /** Called when a mouse movement event occurs */
-            void OnMouseMoveEvent(const IEngineRuntime::Ptr& engine, const Platform::MouseMoveEvent& event) override;
+            void OnMouseMoveEvent(const Platform::MouseMoveEvent& event) override;
 
             /** Called when a mouse button event occurs */
-            void OnMouseButtonEvent(const IEngineRuntime::Ptr& engine, const Platform::MouseButtonEvent& event) override;
+            void OnMouseButtonEvent(const Platform::MouseButtonEvent& event) override;
+
+        protected:
+
+            IEngineRuntime::Ptr engine;
 
         private:
 
             SceneEvents::Ptr m_events;
+
     };
 }
 

@@ -55,7 +55,7 @@ namespace Accela::Engine
             void RunStep(const EngineRuntime::Ptr& runtime, const RunState::Ptr& runState);
             void SimulationStep(const EngineRuntime::Ptr& runtime, const RunState::Ptr& runState);
             void PostSimulationStep(const EngineRuntime::Ptr& runtime, const RunState::Ptr& runState);
-            void ProcessEvents(const EngineRuntime::Ptr& runtime, const RunState::Ptr& runState);
+            void ProcessEvents(const RunState::Ptr& runState);
 
             void RenderFrame(const RunState::Ptr& runState);
 

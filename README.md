@@ -126,24 +126,26 @@ class TestScene : public Engine::Scene
 
         void OnSceneStart(const Engine::IEngineRuntime::Ptr& engine) override
         {
-            ConfigureScene(engine);
-            LoadResources(engine);
-            CreateTextEntity(engine);
-            CreateModelEntity(engine);
+	    Scene::OnSceneStart(engine);
+	    
+            ConfigureScene();
+            LoadResources();
+            CreateTextEntity();
+            CreateModelEntity();
         }
 
-        void ConfigureScene(const Engine::IEngineRuntime::Ptr& engine)
+        void ConfigureScene()
         {
             engine->GetWorldState()->SetAmbientLighting(Engine::DEFAULT_SCENE, 1.0f, {1,1,1});
         }
 
-        void LoadResources(const Engine::IEngineRuntime::Ptr& engine)
+        void LoadResources()
         {
             engine->GetWorldResources()->LoadFontBlocking("font.ttf", 64);
             engine->GetWorldResources()->RegisterModel("model", *engine->GetAssets()->ReadModelBlocking("model", ".obj"));
         }
 
-        void CreateTextEntity(const Engine::IEngineRuntime::Ptr& engine)
+        void CreateTextEntity()
         {
             m_textEntity = Engine::ScreenTextEntity::Create(
                 engine,
@@ -161,7 +163,7 @@ class TestScene : public Engine::Scene
             );
         }
 
-        void CreateModelEntity(const Engine::IEngineRuntime::Ptr& engine)
+        void CreateModelEntity()
         {
             const auto eid = engine->GetWorldState()->CreateEntity();
 

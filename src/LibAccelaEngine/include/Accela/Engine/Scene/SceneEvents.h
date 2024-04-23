@@ -39,11 +39,11 @@ namespace Accela::Engine
             // SceneCallbacks
             //
             void OnSceneStart(const IEngineRuntime::Ptr& engine) override;
-            void OnSceneStop(const IEngineRuntime::Ptr& engine) override;
-            void OnSimulationStep(const IEngineRuntime::Ptr& engine, unsigned int timeStep) override;
-            void OnKeyEvent(const IEngineRuntime::Ptr& engine, const Platform::KeyEvent& event) override;
-            void OnMouseMoveEvent(const IEngineRuntime::Ptr& engine, const Platform::MouseMoveEvent& event) override;
-            void OnMouseButtonEvent(const IEngineRuntime::Ptr& engine, const Platform::MouseButtonEvent& event) override;
+            void OnSceneStop() override;
+            void OnSimulationStep(unsigned int timeStep) override;
+            void OnKeyEvent(const Platform::KeyEvent& event) override;
+            void OnMouseMoveEvent(const Platform::MouseMoveEvent& event) override;
+            void OnMouseButtonEvent(const Platform::MouseButtonEvent& event) override;
 
         private:
 

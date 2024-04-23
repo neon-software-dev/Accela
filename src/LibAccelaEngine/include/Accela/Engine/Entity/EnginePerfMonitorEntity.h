@@ -57,7 +57,7 @@ namespace Accela::Engine
             EnginePerfMonitorEntity(const EnginePerfMonitorEntity&) = delete;
             EnginePerfMonitorEntity& operator=(const EnginePerfMonitorEntity&) = delete;
 
-            void OnSimulationStep(const IEngineRuntime::Ptr& engine, unsigned int timeStep) override;
+            void OnSimulationStep(unsigned int timeStep) override;
 
             void Destroy() override;
 

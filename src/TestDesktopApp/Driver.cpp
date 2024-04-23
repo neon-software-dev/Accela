@@ -9,6 +9,7 @@
 #include <Accela/Common/Metrics/InMemoryMetrics.h>
 
 #include "TestScene.h"
+#include "DevScene.h"
 
 int main()
 {
@@ -29,7 +30,7 @@ int main()
         1,
         Engine::WindowParams("TestDesktopApp", Render::USize(2560, 1440)),
         Engine::VROutput::None,
-        std::make_unique<TestScene>()
+        std::make_unique<DevScene>()
     );
 
     desktopEngine.Shutdown();

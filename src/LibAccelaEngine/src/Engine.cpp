@@ -141,7 +141,7 @@ void Engine::RunLoop(const EngineRuntime::Ptr& runtime, const RunState::Ptr& run
     }
 
     m_logger->Log(Common::LogLevel::Info, "Engine: Stopping scene: {}", runState->scene->GetName());
-    runState->scene->OnSceneStop(runtime);
+    runState->scene->OnSceneStop();
 }
 
 void Engine::RunStep(const EngineRuntime::Ptr& runtime, const RunState::Ptr& runState)
@@ -194,14 +194,14 @@ void Engine::SimulationStep(const EngineRuntime::Ptr& runtime, const RunState::P
     //
     // Process any OS events that have happened since the last simulation step
     //
-    ProcessEvents(runtime, runState);
+    ProcessEvents(runState);
 
     //
     // Tell the scene to run a step
     //
     {
         Common::Timer sceneSimulationStepTimer(Engine_SceneSimulationStep_Time);
-        runState->scene->OnSimulationStep(runtime, runState->timeStep);
+        runState->scene->OnSimulationStep(runState->timeStep);
         sceneSimulationStepTimer.StopTimer(m_metrics);
     }
 
@@ -290,7 +290,7 @@ void Engine::ReceiveSceneChange(const EngineRuntime::Ptr& runtime, const RunStat
     m_logger->Log(Common::LogLevel::Info, "Engine: Stopping scene: {}", runState->scene->GetName());
 
     // Stop and destroy the old scene
-    runState->scene->OnSceneStop(runtime);
+    runState->scene->OnSceneStop();
     runState->scene = nullptr;
 
     // Clear out physics system state that the previous scene had created
@@ -345,7 +345,7 @@ void Engine::ReceivePhysicsDebugRenderChange(const EngineRuntime::Ptr& runtime, 
     }
 }
 
-void Engine::ProcessEvents(const EngineRuntime::Ptr& runtime, const RunState::Ptr& runState)
+void Engine::ProcessEvents(const RunState::Ptr& runState)
 {
     const auto worldState = std::dynamic_pointer_cast<WorldState>(runState->worldState);
     const auto renderSettings = worldState->GetRenderSettings();
@@ -364,7 +364,7 @@ void Engine::ProcessEvents(const EngineRuntime::Ptr& runtime, const RunState::Pt
             // Update our internal state around which keys are currently pressed
             std::dynamic_pointer_cast<KeyboardState>(runState->keyboardState)->ProcessKeyEvent(keyEvent);
             // Tell the scene that a key event happened
-            runState->scene->OnKeyEvent(runtime, keyEvent);
+            runState->scene->OnKeyEvent(keyEvent);
         }
         if (std::holds_alternative<Platform::MouseMoveEvent>(event))
         {
@@ -387,7 +387,7 @@ void Engine::ProcessEvents(const EngineRuntime::Ptr& runtime, const RunState::Pt
             mouseMoveEvent.xPos = (unsigned int)virtualPoint.x;
             mouseMoveEvent.yPos = (unsigned int)virtualPoint.y;
 
-            runState->scene->OnMouseMoveEvent(runtime, mouseMoveEvent);
+            runState->scene->OnMouseMoveEvent(mouseMoveEvent);
         }
         else if (std::holds_alternative<Platform::MouseButtonEvent>(event))
         {
@@ -410,7 +410,7 @@ void Engine::ProcessEvents(const EngineRuntime::Ptr& runtime, const RunState::Pt
             mouseButtonEvent.xPos = (unsigned int)virtualPoint.x;
             mouseButtonEvent.yPos = (unsigned int)virtualPoint.y;
 
-            runState->scene->OnMouseButtonEvent(runtime, mouseButtonEvent);
+            runState->scene->OnMouseButtonEvent(mouseButtonEvent);
         }
         else if (std::holds_alternative<Platform::WindowResizeEvent>(event))
         {

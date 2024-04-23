@@ -61,7 +61,7 @@ namespace Accela
             // TODO: This should come from OnMovement, e.g. holding down space should jump higher
             void OnJumpCommanded();
 
-            void OnSimulationStep(const Engine::IEngineRuntime::Ptr& engine, unsigned int timeStep) override;
+            void OnSimulationStep(unsigned int timeStep) override;
 
         private:
 

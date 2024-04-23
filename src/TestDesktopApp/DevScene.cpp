@@ -4,17 +4,19 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
  
-#include "TestScene.h"
+#include "DevScene.h"
 #include "CubeMesh.h"
 
 #include <Accela/Engine/Component/Components.h>
+
+#include <sstream>
 
 namespace Accela
 {
 
 static constexpr auto FONT_FILE_NAME = "jovanny_lemonad_bender.otf";
 
-void TestScene::OnSceneStart(const Engine::IEngineRuntime::Ptr& engine)
+void DevScene::OnSceneStart(const Engine::IEngineRuntime::Ptr& engine)
 {
     Scene::OnSceneStart(engine);
 
@@ -28,7 +30,7 @@ void TestScene::OnSceneStart(const Engine::IEngineRuntime::Ptr& engine)
     CreateSceneEntities();
 }
 
-void TestScene::ConfigureScene()
+void DevScene::ConfigureScene()
 {
     // Set the camera away from the origin, looking at the origin
     engine->GetWorldState()->SetWorldCamera(Engine::DEFAULT_SCENE, std::make_shared<Engine::Camera3D>(glm::vec3{0,1,1}));
@@ -46,7 +48,7 @@ void TestScene::ConfigureScene()
     m_player = Player::Create(engine, Engine::DEFAULT_SCENE, GetEvents(), {0,0.5f,1});
 }
 
-void TestScene::CreateSceneEntities()
+void DevScene::CreateSceneEntities()
 {
     //
     // Configuration for which entities are placed in the test world
@@ -58,7 +60,7 @@ void TestScene::CreateSceneEntities()
     CreateVampireEntity({0,0,-2});
 }
 
-bool TestScene::LoadAssets()
+bool DevScene::LoadAssets()
 {
     //
     // Fonts
@@ -142,7 +144,7 @@ bool TestScene::LoadAssets()
     return true;
 }
 
-void TestScene::CreateLight(const glm::vec3& position)
+void DevScene::CreateLight(const glm::vec3& position)
 {
     const auto eid = engine->GetWorldState()->CreateEntity();
 
@@ -177,7 +179,7 @@ void TestScene::CreateLight(const glm::vec3& position)
     }
 }
 
-void TestScene::CreateVampireEntity(const glm::vec3& position)
+void DevScene::CreateVampireEntity(const glm::vec3& position)
 {
     const auto eid = engine->GetWorldState()->CreateEntity();
 
@@ -198,7 +200,7 @@ void TestScene::CreateVampireEntity(const glm::vec3& position)
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, transformComponent);
 }
 
-void TestScene::CreateFloorEntity(glm::vec3 position,
+void DevScene::CreateFloorEntity(glm::vec3 position,
                                   float sideLength,
                                   glm::quat orientation)
 {
@@ -240,7 +242,7 @@ void TestScene::CreateFloorEntity(glm::vec3 position,
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, boundsComponent);
 }
 
-void TestScene::CreateTerrainEntity(const float& scale, const glm::vec3& position)
+void DevScene::CreateTerrainEntity(const float& scale, const glm::vec3& position)
 {
     const auto eid = engine->GetWorldState()->CreateEntity();
 
@@ -274,7 +276,7 @@ void TestScene::CreateTerrainEntity(const float& scale, const glm::vec3& positio
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, boundsComponent);
 }
 
-void TestScene::CreateCubeEntity(glm::vec3 position,
+void DevScene::CreateCubeEntity(glm::vec3 position,
                                  glm::vec3 scale,
                                  bool isStatic,
                                  glm::vec3 linearVelocity) const
@@ -330,35 +332,201 @@ void TestScene::CreateCubeEntity(glm::vec3 position,
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, boundsComponent);
 }
 
-void TestScene::OnSimulationStep(unsigned int timeStep)
+void DevScene::OnSimulationStep(unsigned int timeStep)
 {
     Scene::OnSimulationStep(timeStep);
 
-    //
-    // Get movement commands from key presses, and apply movement to either the free fly camera or
-    // the player entity, depending on whether we're in free fly mode
-    //
-    const auto movementCommands = GetActiveMovementCommands();
-
-    if (m_freeFlyCamera)
+    // If we're not in command entry mode, get the currently pressed keys and apply them as movement
+    // commands to either the player or camera, depending on free fly mode setting
+    if (!m_commandEntryEntity)
     {
-        // Move the camera
-        ApplyMovementToCamera(movementCommands);
+        if (m_freeFlyCamera)
+        {
+            // Move the camera
+            ApplyMovementToCamera(GetActiveMovementCommands());
+        }
+        else
+        {
+            // Move the player
+            ApplyMovementToPlayer(GetActiveMovementCommands());
+        }
     }
-    else
-    {
-        // Move the player
-        ApplyMovementToPlayer(movementCommands);
 
+    // If we're not free flying, sync the camera position to the player position
+    if (!m_freeFlyCamera)
+    {
         // Sync the camera to the player's position
         engine->GetWorldState()->GetWorldCamera(Engine::DEFAULT_SCENE)->SetPosition(m_player->GetEyesPosition());
     }
 }
 
-void TestScene::OnKeyEvent(const Platform::KeyEvent& event)
+void DevScene::OnKeyEvent(const Platform::KeyEvent& event)
 {
     Scene::OnKeyEvent(event);
 
+    // Exit the app whenever escape is pressed
+    if (event.action == Platform::KeyEvent::Action::KeyPress && event.key == Platform::Key::Escape)
+    {
+        engine->StopEngine();
+        return;
+    }
+
+    // If the command entry prompt is open, funnel key events into typing into it
+    if (m_commandEntryEntity)
+    {
+        OnCommandEntryKeyEvent(event);
+    }
+    // Otherwise if command entry prompt is not open, handle key presses normally
+    else
+    {
+        OnNormalKeyEvent(event);
+    }
+}
+
+void DevScene::OnMouseMoveEvent(const Platform::MouseMoveEvent& event)
+{
+    Scene::OnMouseMoveEvent(event);
+
+    // Apply mouse movements as camera view rotations
+    engine->GetWorldState()->GetWorldCamera("default")->RotateBy(
+        (float)event.yRel * -0.002f,
+        (float)event.xRel * -0.002f
+    );
+}
+
+void DevScene::OnMouseButtonEvent(const Platform::MouseButtonEvent& event)
+{
+    Scene::OnMouseButtonEvent(event);
+
+    if (event.clickType == Platform::ClickType::Press)
+    {
+        // Shoot a cube out when the left mouse button is clicked
+        if (event.button == Platform::MouseButton::Left)
+        {
+            ShootCubeFromCamera();
+        }
+    }
+}
+
+MovementCommands DevScene::GetActiveMovementCommands()
+{
+    MovementCommands movementCommands{};
+
+    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::A)) {
+        movementCommands.SetLeft();
+    }
+    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::D)) {
+        movementCommands.SetRight();
+    }
+    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::W)) {
+        movementCommands.SetForward();
+    }
+    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::S)) {
+        movementCommands.SetBackward();
+    }
+    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::LeftControl)) {
+        movementCommands.SetDown();
+    }
+    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::Space)) {
+        movementCommands.SetUp();
+    }
+
+    return movementCommands;
+}
+
+void DevScene::ApplyMovementToPlayer(const MovementCommands& movementCommands) const
+{
+    const auto xzInput = movementCommands.GetXZNormalizedVector();
+
+    const bool hasNonZeroMovementCommanded = xzInput.has_value();
+
+    if (hasNonZeroMovementCommanded)
+    {
+        m_player->OnMovementCommanded(
+            *xzInput,
+            engine->GetWorldState()->GetWorldCamera(Engine::DEFAULT_SCENE)->GetLookUnit()
+        );
+    }
+}
+
+void DevScene::ApplyMovementToCamera(const MovementCommands& movementCommands) const
+{
+    const auto xyzInput = movementCommands.GetXYZNormalizedVector();
+
+    const bool hasNonZeroMovementCommanded = xyzInput.has_value();
+
+    if (hasNonZeroMovementCommanded)
+    {
+        // Translate camera move speed in the direction that was commanded
+        const glm::vec3 translation = *xyzInput * m_cameraTranslationSpeed;
+        engine->GetWorldState()->GetWorldCamera("default")->TranslateBy(translation);
+    }
+}
+
+void DevScene::SyncLightToCamera() const
+{
+    auto transformComponent = *Engine::GetComponent<Engine::TransformComponent>(engine->GetWorldState(), m_lightEid);
+    transformComponent.SetPosition(engine->GetWorldState()->GetWorldCamera(Engine::DEFAULT_SCENE)->GetPosition());
+    Engine::AddOrUpdateComponent(engine->GetWorldState(), m_lightEid, transformComponent);
+}
+
+void DevScene::ShootCubeFromCamera()
+{
+    //
+    // Create a cube entity
+    //
+    const auto camera = engine->GetWorldState()->GetWorldCamera("default");
+    const float shootSpeed = 10.0f; // m/s
+    const auto shootVelocity = camera->GetLookUnit() * shootSpeed;
+
+    const float scale = std::uniform_real_distribution<float>(0.1f, 0.4f)(m_rd);
+
+    CreateCubeEntity(camera->GetPosition() + camera->GetLookUnit(),
+                     glm::vec3{scale},
+                     false,
+                     shootVelocity);
+
+    //
+    // Play the whoosh sound effect
+    //
+    (void)engine->GetWorldState()->PlayGlobalSound("whoosh", Engine::AudioSourceProperties{});
+}
+
+void DevScene::OnCommandEntryKeyEvent(const Platform::KeyEvent& event)
+{
+    if (event.action == Platform::KeyEvent::Action::KeyPress)
+    {
+        // Close the command entry on tilde presses
+        if (event.key == Platform::Key::BackQuote)
+        {
+            m_commandEntryEntity = std::nullopt;
+            return;
+        }
+
+        // Close and process the command entry on enter press
+        if (event.key == Platform::Key::Return)
+        {
+            HandleCommand((*m_commandEntryEntity)->GetEntry());
+            m_commandEntryEntity = std::nullopt;
+            return;
+        }
+        // Clear last command char on backspace press
+        else if (event.key == Platform::Key::Backspace)
+        {
+            (*m_commandEntryEntity)->DeleteLastEntryChar();
+        }
+        // Otherwise, append the pressed key to the command, if its a typed key
+        else if (Platform::IsTypedKey(event.key))
+        {
+            const auto typedKeyChar = Platform::ToTypedChar(event.key);
+
+            (*m_commandEntryEntity)->AppendToEntry({typedKeyChar});
+        }
+    }
+}
+
+void DevScene::OnNormalKeyEvent(const Platform::KeyEvent& event)
+{
     if (event.action == Platform::KeyEvent::Action::KeyPress)
     {
         // Exit the app when escape is pressed
@@ -408,116 +576,61 @@ void TestScene::OnKeyEvent(const Platform::KeyEvent& event)
                 m_perfMonitor = Engine::EnginePerfMonitorEntity::Create(engine, GetEvents(), FONT_FILE_NAME);
             }
         }
-    }
-}
 
-void TestScene::OnMouseMoveEvent(const Platform::MouseMoveEvent& event)
-{
-    Scene::OnMouseMoveEvent(event);
-
-    // Apply mouse movements as camera view rotations
-    engine->GetWorldState()->GetWorldCamera("default")->RotateBy(
-        (float)event.yRel * -0.002f,
-        (float)event.xRel * -0.002f
-    );
-}
-
-void TestScene::OnMouseButtonEvent(const Platform::MouseButtonEvent& event)
-{
-    Scene::OnMouseButtonEvent(event);
-
-    if (event.clickType == Platform::ClickType::Press)
-    {
-        // Shoot a cube out when the left mouse button is clicked
-        if (event.button == Platform::MouseButton::Left)
+        if (event.key == Platform::Key::BackQuote)
         {
-            ShootCubeFromCamera();
+            if (m_commandEntryEntity)
+            {
+                m_commandEntryEntity = std::nullopt;
+            }
+            else
+            {
+                m_commandEntryEntity = Engine::CommandEntryEntity::Create(engine, Platform::TextProperties(
+                    FONT_FILE_NAME,
+                    64,
+                    0,
+                    Platform::Color::Green(),
+                    Platform::Color(0,0,0,80)
+                ));
+            }
         }
     }
 }
 
-MovementCommands TestScene::GetActiveMovementCommands()
+void DevScene::HandleCommand(const std::string& command)
 {
-    MovementCommands movementCommands{};
+    // Tokenize the command
+    std::vector<std::string> tokens;
+    std::stringstream ss(command);
+    std::string token;
 
-    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::A)) {
-        movementCommands.SetLeft();
-    }
-    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::D)) {
-        movementCommands.SetRight();
-    }
-    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::W)) {
-        movementCommands.SetForward();
-    }
-    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::S)) {
-        movementCommands.SetBackward();
-    }
-    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::LeftControl)) {
-        movementCommands.SetDown();
-    }
-    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::Space)) {
-        movementCommands.SetUp();
-    }
-
-    return movementCommands;
-}
-
-void TestScene::ApplyMovementToPlayer(const MovementCommands& movementCommands) const
-{
-    const auto xzInput = movementCommands.GetXZNormalizedVector();
-
-    const bool hasNonZeroMovementCommanded = xzInput.has_value();
-
-    if (hasNonZeroMovementCommanded)
+    while (std::getline(ss, token, ' '))
     {
-        m_player->OnMovementCommanded(
-            *xzInput,
-            engine->GetWorldState()->GetWorldCamera(Engine::DEFAULT_SCENE)->GetLookUnit()
-        );
+        tokens.push_back(token);
     }
-}
 
-void TestScene::ApplyMovementToCamera(const MovementCommands& movementCommands) const
-{
-    const auto xyzInput = movementCommands.GetXYZNormalizedVector();
+    if (tokens.empty()) { return; }
 
-    const bool hasNonZeroMovementCommanded = xyzInput.has_value();
-
-    if (hasNonZeroMovementCommanded)
+    if (tokens[0] == "set")
     {
-        // Translate camera move speed in the direction that was commanded
-        const glm::vec3 translation = *xyzInput * m_cameraTranslationSpeed;
-        engine->GetWorldState()->GetWorldCamera("default")->TranslateBy(translation);
+        HandleSetCommand(tokens);
     }
 }
 
-void TestScene::SyncLightToCamera() const
+void DevScene::HandleSetCommand(const std::vector<std::string>& tokens)
 {
-    auto transformComponent = *Engine::GetComponent<Engine::TransformComponent>(engine->GetWorldState(), m_lightEid);
-    transformComponent.SetPosition(engine->GetWorldState()->GetWorldCamera(Engine::DEFAULT_SCENE)->GetPosition());
-    Engine::AddOrUpdateComponent(engine->GetWorldState(), m_lightEid, transformComponent);
-}
+    if (tokens.size() != 3)  { return; }
 
-void TestScene::ShootCubeFromCamera()
-{
-    //
-    // Create a cube entity
-    //
-    const auto camera = engine->GetWorldState()->GetWorldCamera("default");
-    const float shootSpeed = 10.0f; // m/s
-    const auto shootVelocity = camera->GetLookUnit() * shootSpeed;
+    Render::RenderSettings renderSettings = engine->GetRenderSettings();
 
-    const float scale = std::uniform_real_distribution<float>(0.1f, 0.4f)(m_rd);
+    const std::string& k = tokens[1];
+    const std::string& v = tokens[2];
 
-    CreateCubeEntity(camera->GetPosition() + camera->GetLookUnit(),
-                     glm::vec3{scale},
-                     false,
-                     shootVelocity);
-
-    //
-    // Play the whoosh sound effect
-    //
-    (void)engine->GetWorldState()->PlayGlobalSound("whoosh", Engine::AudioSourceProperties{});
+    if (k == "freefly")
+    {
+        if (v == "0") { m_freeFlyCamera = false; }
+        if (v == "1") { m_freeFlyCamera = true; }
+    }
 }
 
 }

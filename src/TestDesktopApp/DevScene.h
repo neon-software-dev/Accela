@@ -4,25 +4,28 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
  
-#ifndef TESTDESKTOPAPP_TESTSCENE_H
-#define TESTDESKTOPAPP_TESTSCENE_H
+#ifndef TESTDESKTOPAPP_DEVSCENE_H
+#define TESTDESKTOPAPP_DEVSCENE_H
 
 #include "MovementCommands.h"
 #include "Player.h"
 
 #include <Accela/Engine/Scene/Scene.h>
 #include <Accela/Engine/Entity/EnginePerfMonitorEntity.h>
+#include <Accela/Engine/Entity/CommandEntryEntity.h>
 
 #include <random>
 #include <optional>
+#include <vector>
 
 namespace Accela
 {
-    class TestScene : public Engine::Scene
+    // Dev scene for messy internal testing
+    class DevScene : public Engine::Scene
     {
         public:
 
-            [[nodiscard]] std::string GetName() const override { return "TestScene"; };
+            [[nodiscard]] std::string GetName() const override { return "DevScene"; };
 
             //
             // Methods called by the engine for various scene/engine events
@@ -68,7 +71,7 @@ namespace Accela
 
             /** Functions to turn key presses into camera or player movements */
             [[nodiscard]] MovementCommands GetActiveMovementCommands();
-            void ApplyMovementToPlayer( const MovementCommands& movementCommands) const;
+            void ApplyMovementToPlayer(const MovementCommands& movementCommands) const;
             void ApplyMovementToCamera(const MovementCommands& movementCommands) const;
 
             /** Moves the main light to be position where the world camera is currently positioned */
@@ -76,6 +79,12 @@ namespace Accela
 
             /** Spawns a randomly sized cube that shoots out from the current camera position/look direction */
             void ShootCubeFromCamera();
+
+            void OnCommandEntryKeyEvent(const Platform::KeyEvent& event);
+            void OnNormalKeyEvent(const Platform::KeyEvent& event);
+
+            void HandleCommand(const std::string& command);
+            void HandleSetCommand(const std::vector<std::string>& tokens);
 
         private:
 
@@ -92,10 +101,11 @@ namespace Accela
             Render::MaterialId m_terrainMaterialId{};
 
             std::optional<Engine::EnginePerfMonitorEntity::UPtr> m_perfMonitor;
+            std::optional<Engine::CommandEntryEntity::UPtr> m_commandEntryEntity;
 
             std::random_device m_rd;
             std::mt19937 m_mt{m_rd()};
     };
 }
 
-#endif //TESTDESKTOPAPP_TESTSCENE_H
+#endif //TESTDESKTOPAPP_DEVSCENE_H

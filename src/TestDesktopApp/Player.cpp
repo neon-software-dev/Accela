@@ -220,9 +220,9 @@ std::pair<glm::vec3, glm::vec3> Player::GetUpAndRightFrom(const glm::vec3& lookU
     return std::make_pair(upUnit, rightUnit);
 }
 
-void Player::OnSimulationStep(const Engine::IEngineRuntime::Ptr& engine, unsigned int timeStep)
+void Player::OnSimulationStep(unsigned int timeStep)
 {
-    SceneCallbacks::OnSimulationStep(engine, timeStep);
+    SceneCallbacks::OnSimulationStep(timeStep);
 
     SyncCurrentState();
 

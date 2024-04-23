@@ -31,11 +31,11 @@ namespace Accela::Engine
             virtual ~SceneCallbacks() = default;
 
             virtual void OnSceneStart(const IEngineRuntime::Ptr& engine) { (void)engine; };
-            virtual void OnSceneStop(const IEngineRuntime::Ptr& engine) { (void)engine; };
-            virtual void OnSimulationStep(const IEngineRuntime::Ptr& engine, unsigned int timeStep) { (void)engine; (void)timeStep; };
-            virtual void OnKeyEvent(const IEngineRuntime::Ptr& engine, const Platform::KeyEvent& event) { (void)engine; (void)event; }
-            virtual void OnMouseMoveEvent(const IEngineRuntime::Ptr& engine, const Platform::MouseMoveEvent& event) { (void)engine; (void)event; }
-            virtual void OnMouseButtonEvent(const IEngineRuntime::Ptr& engine, const Platform::MouseButtonEvent& event) { (void)engine; (void)event; }
+            virtual void OnSceneStop() { };
+            virtual void OnSimulationStep(unsigned int timeStep) { (void)timeStep; };
+            virtual void OnKeyEvent(const Platform::KeyEvent& event) { (void)event; }
+            virtual void OnMouseMoveEvent(const Platform::MouseMoveEvent& event) { (void)event; }
+            virtual void OnMouseButtonEvent(const Platform::MouseButtonEvent& event) { (void)event; }
     };
 }
 

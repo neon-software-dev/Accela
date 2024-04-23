@@ -37,43 +37,43 @@ void SceneEvents::OnSceneStart(const IEngineRuntime::Ptr& engine)
     }
 }
 
-void SceneEvents::OnSceneStop(const IEngineRuntime::Ptr& engine)
+void SceneEvents::OnSceneStop()
 {
     for (const auto& listener : m_listeners)
     {
-        listener->OnSceneStop(engine);
+        listener->OnSceneStop();
     }
 }
 
-void SceneEvents::OnSimulationStep(const IEngineRuntime::Ptr& engine, unsigned int timeStep)
+void SceneEvents::OnSimulationStep(unsigned int timeStep)
 {
     for (const auto& listener : m_listeners)
     {
-        listener->OnSimulationStep(engine, timeStep);
+        listener->OnSimulationStep(timeStep);
     }
 }
 
-void SceneEvents::OnKeyEvent(const IEngineRuntime::Ptr& engine, const Platform::KeyEvent& event)
+void SceneEvents::OnKeyEvent(const Platform::KeyEvent& event)
 {
     for (const auto& listener : m_listeners)
     {
-        listener->OnKeyEvent(engine, event);
+        listener->OnKeyEvent(event);
     }
 }
 
-void SceneEvents::OnMouseMoveEvent(const IEngineRuntime::Ptr& engine, const Platform::MouseMoveEvent& event)
+void SceneEvents::OnMouseMoveEvent(const Platform::MouseMoveEvent& event)
 {
     for (const auto& listener : m_listeners)
     {
-        listener->OnMouseMoveEvent(engine, event);
+        listener->OnMouseMoveEvent(event);
     }
 }
 
-void SceneEvents::OnMouseButtonEvent(const IEngineRuntime::Ptr& engine, const Platform::MouseButtonEvent& event)
+void SceneEvents::OnMouseButtonEvent(const Platform::MouseButtonEvent& event)
 {
     for (const auto& listener : m_listeners)
     {
-        listener->OnMouseButtonEvent(engine, event);
+        listener->OnMouseButtonEvent(event);
     }
 }
 
