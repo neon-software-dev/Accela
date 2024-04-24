@@ -92,7 +92,7 @@ namespace Accela::Render
 
             [[nodiscard]] bool BindDescriptorSet0_ShadowMapTextures(const RenderState& renderState,
                                                                     const VulkanDescriptorSetPtr& globalDataDescriptorSet,
-                                                                    const std::unordered_map<LightType, std::vector<TextureId>>& shadowMapTextureIds) const;
+                                                                    const std::unordered_map<ShadowMapType, std::vector<TextureId>>& shadowMapTextureIds) const;
 
             //
             // DescriptorSet 1

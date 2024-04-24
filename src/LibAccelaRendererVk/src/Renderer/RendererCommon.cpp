@@ -29,7 +29,7 @@ inline bool AreUnitVectorsParallel(const glm::vec3& a, const glm::vec3& b)
 
 float GetLightMaxAffectRange(const Light& light)
 {
-    switch (light.lightProperties.base.attenuationMode)
+    switch (light.lightProperties.attenuationMode)
     {
         case AttenuationMode::None:
             // Range is however much range we normally render objects at
@@ -155,20 +155,50 @@ std::expected<Projection::Ptr, bool> GetCameraProjectionTransform(const IVulkanC
     }
 }
 
-std::expected<ViewProjection, bool> GetShadowMapViewProjection(const Light& light, const CubeFace& cubeFace)
+std::expected<ViewProjection, bool> GetShadowMapViewProjection(const Light& light)
 {
-    const auto viewTransform = GetShadowMapViewTransform(light, cubeFace);
+    const auto viewTransform = GetShadowMapViewTransform(light);
     const auto projectionTransform = GetShadowMapProjectionTransform(light);
 
-    if (!projectionTransform)
+    if (!viewTransform) { return std::unexpected(false); }
+    if (!projectionTransform) { return std::unexpected(false); }
+
+    return ViewProjection{*viewTransform, *projectionTransform};
+}
+
+std::expected<glm::mat4, bool> GetShadowMapViewTransform(const Light& light)
+{
+    auto upUnit = glm::vec3(0, 1, 0);
+
+    // glm::lookAt is undefined if the look and up vectors are parallel, so choose
+    // an alternate up vector in those cases
+    if (AreUnitVectorsParallel(light.lightProperties.directionUnit, upUnit))
     {
-        return std::unexpected(false);
+        // If looking up, then our "up" is re-adjusted to be pointing out of the screen
+        if (light.lightProperties.directionUnit.y >= 0.0f)  { upUnit = glm::vec3(0,0,1); }
+
+        // If looking down, then our "up" is re-adjusted to be pointing into the screen
+        else { upUnit = glm::vec3(0,0,-1); }
     }
+
+    return glm::lookAt(
+        light.worldPos,
+        light.worldPos + light.lightProperties.directionUnit,
+        upUnit
+    );
+}
+
+std::expected<ViewProjection, bool> GetShadowMapCubeViewProjection(const Light& light, const CubeFace& cubeFace)
+{
+    const auto viewTransform = GetShadowMapCubeViewTransform(light, cubeFace);
+    const auto projectionTransform = GetShadowMapProjectionTransform(light);
+
+    if (!projectionTransform) { return std::unexpected(false); }
 
     return ViewProjection{viewTransform, *projectionTransform};
 }
 
-glm::mat4 GetShadowMapViewTransform(const Light& light, const CubeFace& cubeFace)
+glm::mat4 GetShadowMapCubeViewTransform(const Light& light, const CubeFace& cubeFace)
 {
     glm::vec3 lookUnit(0);
 
@@ -203,12 +233,28 @@ glm::mat4 GetShadowMapViewTransform(const Light& light, const CubeFace& cubeFace
 
 std::expected<Projection::Ptr, bool> GetShadowMapProjectionTransform(const Light& light)
 {
-    return FrustumProjection::From(
-        90.0f,
-        1.0f,
-        PERSPECTIVE_CLIP_NEAR,
-        GetLightMaxAffectRange(light)
-    );
+    const float lightMaxAffectRange = GetLightMaxAffectRange(light);
+
+    switch (light.lightProperties.projection)
+    {
+        case LightProjection::Perspective:
+            return FrustumProjection::From(
+                90.0f,
+                1.0f,
+                PERSPECTIVE_CLIP_NEAR,
+                lightMaxAffectRange
+            );
+        case LightProjection::Orthographic:
+            return OrthoProjection::From(
+                lightMaxAffectRange,
+                lightMaxAffectRange,
+                PERSPECTIVE_CLIP_NEAR,
+                lightMaxAffectRange
+            );
+    }
+
+    assert(false);
+    return std::unexpected(false);
 }
 
 }

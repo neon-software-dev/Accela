@@ -89,7 +89,8 @@ namespace Accela::Render
 
     struct LightPayload
     {
-        alignas(4) uint32_t lightType{0};
+        alignas(4) uint32_t shadowMapType{0};
+        alignas(16) glm::mat4 lightTransform{1}; // Not used by all light types
         alignas(16) glm::vec3 worldPos{0};
         alignas(4) int32_t shadowMapIndex{-1};
         alignas(4) float maxAffectRange{0.0f};
@@ -127,9 +128,11 @@ namespace Accela::Render
                                                                                     const RenderCamera& camera,
                                                                                     const std::optional<Eye>& eye);
 
-    [[nodiscard]] std::expected<ViewProjection, bool> GetShadowMapViewProjection(const Light& light, const CubeFace& cubeFace);
+    [[nodiscard]] std::expected<ViewProjection, bool> GetShadowMapViewProjection(const Light& light);
+    [[nodiscard]] std::expected<glm::mat4, bool> GetShadowMapViewTransform(const Light& light);
 
-    [[nodiscard]] glm::mat4 GetShadowMapViewTransform(const Light& light, const CubeFace& cubeFace);
+    [[nodiscard]] std::expected<ViewProjection, bool> GetShadowMapCubeViewProjection(const Light& light, const CubeFace& cubeFace);
+    [[nodiscard]] glm::mat4 GetShadowMapCubeViewTransform(const Light& light, const CubeFace& cubeFace);
 
     [[nodiscard]] std::expected<Projection::Ptr, bool> GetShadowMapProjectionTransform(const Light& light);
 }

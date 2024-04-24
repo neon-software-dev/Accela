@@ -26,47 +26,25 @@ namespace Accela::Render
         Exponential
     };
 
-    enum class LightType
+    enum class LightProjection
     {
-        Point
+        Perspective,
+        Orthographic
     };
 
-    struct LightBaseProperties
+    struct LightProperties
     {
         AttenuationMode attenuationMode{AttenuationMode::Exponential};
+        LightProjection projection{LightProjection::Perspective};
 
         glm::vec3 diffuseColor{0};
         glm::vec3 diffuseIntensity{0};
 
         glm::vec3 specularColor{0};
         glm::vec3 specularIntensity{0};
-    };
 
-    struct LightProperties_PointLight
-    {
-
-    };
-
-    struct LightProperties_SpotLight
-    {
         glm::vec3 directionUnit{0,0,-1};
-        float coneFovDegrees{45.0f}; // [0.0 .. 180.0] degree size of the directional cone
-    };
-
-    using LightTypeProperties = std::variant<
-        LightProperties_PointLight,
-        LightProperties_SpotLight
-    >;
-
-    struct LightProperties
-    {
-        LightProperties(const LightBaseProperties& _base, const LightTypeProperties& _type)
-            : base(_base)
-            , type(_type)
-        { }
-
-        LightBaseProperties base;
-        LightTypeProperties type;
+        float coneFovDegrees{360.0f};
     };
 
     /**
@@ -85,19 +63,15 @@ namespace Accela::Render
             , castsShadows(_castsShadows)
             , lightProperties(_lightProperties)
         {
-            if (std::holds_alternative<Render::LightProperties_PointLight>(lightProperties.type))
-            {
-                lightType = Render::LightType::Point;
-            }
+
         }
 
         LightId lightId;
         std::string sceneName;
         glm::vec3 worldPos;
         bool castsShadows;
-        LightProperties lightProperties;
 
-        LightType lightType{Render::LightType::Point};
+        LightProperties lightProperties;
     };
 }
 

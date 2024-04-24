@@ -56,7 +56,8 @@ VulkanSwapChainPtr VulkanObjs::GetSwapChain() const noexcept { return m_swapChai
 VulkanRenderPassPtr VulkanObjs::GetSwapChainRenderPass() const noexcept { return m_swapChainRenderPass; }
 VulkanFramebufferPtr VulkanObjs::GetSwapChainFrameBuffer(const uint32_t& imageIndex) const noexcept { return m_swapChainFrameBuffers[imageIndex]; }
 VulkanRenderPassPtr VulkanObjs::GetOffscreenRenderPass() const noexcept { return m_offscreenRenderPass; }
-VulkanRenderPassPtr VulkanObjs::GetShadowRenderPass() const noexcept { return m_shadowRenderPass; }
+VulkanRenderPassPtr VulkanObjs::GetShadow2DRenderPass() const noexcept { return m_shadow2DRenderPass; }
+VulkanRenderPassPtr VulkanObjs::GetShadowCubeRenderPass() const noexcept { return m_shadowCubeRenderPass; }
 
 bool VulkanObjs::Initialize(bool enableValidationLayers,
                             const RenderSettings& renderSettings)
@@ -125,9 +126,15 @@ bool VulkanObjs::Initialize(bool enableValidationLayers,
         return false;
     }
 
-    if (!CreateShadowRenderPass())
+    if (!CreateShadow2DRenderPass())
     {
-        m_logger->Log(Common::LogLevel::Error, "VulkanObjs: Failed to create shadow render pass");
+        m_logger->Log(Common::LogLevel::Error, "VulkanObjs: Failed to create shadow 2d render pass");
+        return false;
+    }
+
+    if (!CreateShadowCubeRenderPass())
+    {
+        m_logger->Log(Common::LogLevel::Error, "VulkanObjs: Failed to create shadow cube render pass");
         return false;
     }
 
@@ -138,7 +145,8 @@ void VulkanObjs::Destroy()
 {
     m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Destroying Vulkan objects");
 
-    DestroyShadowRenderPass();
+    DestroyShadowCubeRenderPass();
+    DestroyShadow2DRenderPass();
     DestroyOffscreenRenderPass();
     DestroySwapChainFrameBuffers();
     DestroySwapChainRenderPass();
@@ -719,9 +727,52 @@ void VulkanObjs::DestroyOffscreenRenderPass()
     }
 }
 
-bool VulkanObjs::CreateShadowRenderPass()
+bool VulkanObjs::CreateShadow2DRenderPass()
 {
-    m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Creating shadow render pass");
+    m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Creating shadow 2d render pass");
+
+    m_shadow2DRenderPass = CreateShadowRenderPass(std::nullopt, std::nullopt, "Shadow");
+
+    return m_shadow2DRenderPass != nullptr;
+}
+
+void VulkanObjs::DestroyShadow2DRenderPass()
+{
+    if (m_shadow2DRenderPass != nullptr)
+    {
+        m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Destroying shadow 2d render pass");
+        m_shadow2DRenderPass->Destroy();
+        m_shadow2DRenderPass = nullptr;
+    }
+}
+
+bool VulkanObjs::CreateShadowCubeRenderPass()
+{
+    m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Creating shadow cube render pass");
+
+    const std::vector<uint32_t> viewMasks = {0b00111111};
+    const uint32_t correlationMask = 0b00111111;
+
+    m_shadowCubeRenderPass = CreateShadowRenderPass(viewMasks, correlationMask, "ShadowCube");
+
+    return m_shadowCubeRenderPass != nullptr;
+}
+
+void VulkanObjs::DestroyShadowCubeRenderPass()
+{
+    if (m_shadowCubeRenderPass != nullptr)
+    {
+        m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Destroying shadow cube render pass");
+        m_shadowCubeRenderPass->Destroy();
+        m_shadowCubeRenderPass = nullptr;
+    }
+}
+
+VulkanRenderPassPtr VulkanObjs::CreateShadowRenderPass(const std::optional<std::vector<uint32_t>>& multiViewMasks,
+                                                       const std::optional<uint32_t>& multiViewCorrelationMask,
+                                                       const std::string& tag)
+{
+    m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Creating {} render pass", tag);
 
     VulkanRenderPass::Attachment depthAttachment(VulkanRenderPass::AttachmentType::Depth);
     depthAttachment.description.format = VK_FORMAT_D32_SFLOAT; // TODO PERF: need this many bytes?
@@ -750,33 +801,20 @@ bool VulkanObjs::CreateShadowRenderPass()
     dependency_readShadowDepthOutput.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
     dependency_readShadowDepthOutput.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
-    const std::vector<uint32_t> viewMasks = {0b00111111};
-    const uint32_t correlationMask = 0b00111111;
-
-    m_shadowRenderPass = std::make_shared<VulkanRenderPass>(m_logger, m_vulkanCalls, m_physicalDevice, m_device);
-    if (!m_shadowRenderPass->Create(
+    auto renderPass = std::make_shared<VulkanRenderPass>(m_logger, m_vulkanCalls, m_physicalDevice, m_device);
+    if (!renderPass->Create(
         {depthAttachment},
         {shadowPass},
         {dependency_readShadowDepthOutput},
-        viewMasks,
-        correlationMask,
-        "Shadow"))
+        multiViewMasks,
+        multiViewCorrelationMask,
+        tag))
     {
-        m_logger->Log(Common::LogLevel::Fatal, "CreateShadowRenderPass: Failed to create the shadow render pass");
-        return false;
+        m_logger->Log(Common::LogLevel::Fatal, "CreateShadowRenderPass: Failed to create {} render pass", tag);
+        return nullptr;
     }
 
-    return true;
-}
-
-void VulkanObjs::DestroyShadowRenderPass()
-{
-    if (m_shadowRenderPass != nullptr)
-    {
-        m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Destroying shadow render pass");
-        m_shadowRenderPass->Destroy();
-        m_shadowRenderPass = nullptr;
-    }
+    return renderPass;
 }
 
 bool VulkanObjs::CreateSwapChainFrameBuffers()

@@ -53,6 +53,9 @@ namespace Accela::Render
 
             [[nodiscard]] static inline bool LightAffectsViewProjections(const Light& light, const std::vector<ViewProjection>& viewProjections);
 
+            [[nodiscard]] bool IsVolumeTriviallyOutsideLight_Single(const Light& light, const Volume& volume_worldSpace);
+            [[nodiscard]] bool IsVolumeTriviallyOutsideLight_Cube(const Light& light, const Volume& volume_worldSpace);
+
         private:
 
             Common::ILogger::Ptr m_logger;

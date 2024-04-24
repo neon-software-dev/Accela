@@ -127,7 +127,7 @@ bool OrthoProjection::SetNearPlaneDistance(const float& distance)
     m_nearMin.z = -distance;
     m_nearMax.z = -distance;
 
-    return false;
+    return true;
 }
 
 bool OrthoProjection::SetFarPlaneDistance(const float& distance)
@@ -141,7 +141,7 @@ bool OrthoProjection::SetFarPlaneDistance(const float& distance)
     m_farMin.z = -distance;
     m_farMax.z = -distance;
 
-    return false;
+    return true;
 }
 
 void OrthoProjection::ComputeAncillary()

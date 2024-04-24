@@ -55,8 +55,9 @@ void DevScene::CreateSceneEntities()
     // Configuration for which entities are placed in the test world
     //
 
-    CreateLight({0,1,1}, true);
-    CreateTerrainEntity(1.0f, {0, -5, 0});
+    CreateSpotLight({0,1,1}, true);
+    CreatePointLight({1,1,1}, true);
+    CreateTerrainEntity(1.0f, {0, -2.2, 0});
     CreateFloorEntity({0,0,0}, 10);
     CreateVampireEntity({0,0,-2});
 }
@@ -159,25 +160,42 @@ Render::ObjectMaterialProperties DevScene::MakeSolidColorMaterial(const glm::vec
     return solidMaterial;
 }
 
-void DevScene::CreateLight(const glm::vec3& position, bool drawEntity)
+void DevScene::CreatePointLight(const glm::vec3& position, bool drawEntity)
+{
+    auto lightProperties = Render::LightProperties{};
+    lightProperties.attenuationMode = Render::AttenuationMode::Linear;
+    lightProperties.diffuseColor = glm::vec3(1,1,1);
+    lightProperties.diffuseIntensity = glm::vec3(1,1,1);
+    lightProperties.specularColor = glm::vec3(1,1,1);
+    lightProperties.specularIntensity = glm::vec3(1,1,1);
+    lightProperties.directionUnit = glm::vec3(0,0,-1);
+    lightProperties.coneFovDegrees = 360.0f;
+
+    CreateLight(position, drawEntity, lightProperties);
+}
+
+void DevScene::CreateSpotLight(const glm::vec3& position, bool drawEntity)
+{
+    auto lightProperties = Render::LightProperties{};
+    lightProperties.attenuationMode = Render::AttenuationMode::Linear;
+    lightProperties.diffuseColor = glm::vec3(1,1,1);
+    lightProperties.diffuseIntensity = glm::vec3(1,1,1);
+    lightProperties.specularColor = glm::vec3(1,1,1);
+    lightProperties.specularIntensity = glm::vec3(1,1,1);
+    lightProperties.directionUnit = glm::vec3(0,0,-1);
+    lightProperties.coneFovDegrees = 45.0f;
+
+    CreateLight(position, drawEntity, lightProperties);
+}
+
+void DevScene::CreateLight(const glm::vec3& position, bool drawEntity, const Render::LightProperties& properties)
 {
     const auto eid = engine->GetWorldState()->CreateEntity();
 
     //
     // LightComponent
     //
-    auto lightBaseProperties = Render::LightBaseProperties{};
-    lightBaseProperties.attenuationMode = Render::AttenuationMode::Linear;
-    lightBaseProperties.diffuseColor = glm::vec3(1,1,1);
-    lightBaseProperties.diffuseIntensity = glm::vec3(1,1,1);
-    lightBaseProperties.specularColor = glm::vec3(1,1,1);
-    lightBaseProperties.specularIntensity = glm::vec3(1,1,1);
-
-    auto lightTypeProperties = Render::LightProperties_PointLight{};
-
-    auto lightComponent = Engine::LightComponent(
-        Render::LightProperties(lightBaseProperties, lightTypeProperties)
-    );
+    auto lightComponent = Engine::LightComponent(properties);
     lightComponent.castsShadows = true;
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, lightComponent);
 
@@ -490,6 +508,10 @@ void DevScene::ApplyMovementToCamera(const MovementCommands& movementCommands) c
 
 void DevScene::SyncLightToCamera() const
 {
+    auto lightComponent = *Engine::GetComponent<Engine::LightComponent>(engine->GetWorldState(), m_lightEid);
+    lightComponent.lightProperties.directionUnit = engine->GetWorldState()->GetWorldCamera(Engine::DEFAULT_SCENE)->GetLookUnit();
+    Engine::AddOrUpdateComponent(engine->GetWorldState(), m_lightEid, lightComponent);
+
     auto transformComponent = *Engine::GetComponent<Engine::TransformComponent>(engine->GetWorldState(), m_lightEid);
     transformComponent.SetPosition(engine->GetWorldState()->GetWorldCamera(Engine::DEFAULT_SCENE)->GetPosition());
     Engine::AddOrUpdateComponent(engine->GetWorldState(), m_lightEid, transformComponent);
@@ -712,7 +734,7 @@ void DevScene::HandleSpawnCommand(const std::vector<std::string>& tokens)
 
     if (k == "light")
     {
-        CreateLight(engine->GetWorldState()->GetWorldCamera(Engine::DEFAULT_SCENE)->GetPosition(), true);
+        CreatePointLight(engine->GetWorldState()->GetWorldCamera(Engine::DEFAULT_SCENE)->GetPosition(), true);
     }
 }
 

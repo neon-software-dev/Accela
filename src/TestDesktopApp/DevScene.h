@@ -48,7 +48,9 @@ namespace Accela
             [[nodiscard]] static Render::ObjectMaterialProperties MakeSolidColorMaterial(const glm::vec3& color);
 
             /** Add a light at the specified position */
-            void CreateLight(const glm::vec3& position, bool drawEntity);
+            void CreatePointLight(const glm::vec3& position, bool drawEntity);
+            void CreateSpotLight(const glm::vec3& position, bool drawEntity);
+            void CreateLight(const glm::vec3& position, bool drawEntity, const Render::LightProperties& properties);
 
             /** Add the dancing vampire model at the specified position */
             void CreateVampireEntity(const glm::vec3& position);

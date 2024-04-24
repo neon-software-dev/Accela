@@ -53,7 +53,7 @@ void TestScene::CreateSceneEntities()
     //
 
     CreateLight({0,1,1});
-    CreateTerrainEntity(1.0f, {0, -5, 0});
+    CreateTerrainEntity(1.0f, {0, -2.2, 0});
     CreateFloorEntity({0,0,0}, 10);
     CreateVampireEntity({0,0,-2});
 }
@@ -149,18 +149,15 @@ void TestScene::CreateLight(const glm::vec3& position)
     //
     // LightComponent
     //
-    auto lightBaseProperties = Render::LightBaseProperties{};
-    lightBaseProperties.attenuationMode = Render::AttenuationMode::Linear;
-    lightBaseProperties.diffuseColor = glm::vec3(1,1,1);
-    lightBaseProperties.diffuseIntensity = glm::vec3(1,1,1);
-    lightBaseProperties.specularColor = glm::vec3(1,1,1);
-    lightBaseProperties.specularIntensity = glm::vec3(1,1,1);
+    auto lightProperties = Render::LightProperties{};
+    lightProperties.projection = Render::LightProjection::Perspective;
+    lightProperties.attenuationMode = Render::AttenuationMode::Linear;
+    lightProperties.diffuseColor = glm::vec3(1,1,1);
+    lightProperties.diffuseIntensity = glm::vec3(1,1,1);
+    lightProperties.specularColor = glm::vec3(1,1,1);
+    lightProperties.specularIntensity = glm::vec3(1,1,1);
 
-    auto lightTypeProperties = Render::LightProperties_PointLight{};
-
-    auto lightComponent = Engine::LightComponent(
-        Render::LightProperties(lightBaseProperties, lightTypeProperties)
-    );
+    auto lightComponent = Engine::LightComponent(Render::LightProperties(lightProperties));
     lightComponent.castsShadows = true;
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, lightComponent);
 

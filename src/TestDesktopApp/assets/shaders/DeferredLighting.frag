@@ -29,7 +29,8 @@ struct ViewProjectionPayload
 
 struct LightPayload
 {
-    uint lightType;
+    uint shadowMapType;
+    mat4 lightTransform;
     vec3 worldPos;
     int shadowMapIndex;
     float maxAffectRange;
@@ -87,12 +88,14 @@ struct CalculatedLight
 
 const uint Max_Light_Count = 16;
 
-const uint LIGHT_TYPE_POINT = 0;
+const uint SHADOW_MAP_TYPE_SINGLE = 0;
+const uint SHADOW_MAP_TYPE_CUBE = 1;
 
 CalculatedLight CalculateFragmentLighting(MaterialPayload fragmentMaterial);
 float GetFragShadowLevel(LightPayload lightData, vec3 fragPosition_worldSpace);
 float GetLightFragDepth(LightPayload lightData, vec3 fragPosition_worldSpace);
-float GetLightClosestFragDepth_PointLight(LightPayload lightData, vec3 fragPosition_worldSpace);
+float GetLightClosestFragDepth_Single(LightPayload lightData, vec3 fragPosition_worldSpace);
+float GetLightClosestFragDepth_Cube(LightPayload lightData, vec3 fragPosition_worldSpace);
 
 float MapRange(float val, float min1, float max1, float min2, float max2)
 {
@@ -125,7 +128,8 @@ layout(set = 0, binding = 2) readonly buffer LightPayloadBuffer
     LightPayload data[];
 } i_lightData;
 
-layout(set = 0, binding = 3) uniform samplerCube i_shadowSampler_cubeMap[Max_Light_Count];
+layout(set = 0, binding = 3) uniform sampler2D i_shadowSampler[Max_Light_Count]; // Samplers for spot lights
+layout(set = 0, binding = 4) uniform samplerCube i_shadowSampler_cubeMap[Max_Light_Count]; // Samplers for point lights
 
 // Set 2 - Material Data
 layout(set = 2, binding = 0) readonly buffer MaterialPayloadBuffer
@@ -347,11 +351,17 @@ float GetFragShadowLevel(LightPayload lightData, vec3 fragPosition_worldSpace)
     // Depth distance [0,1] from the light to the closet fragment to the light along the provided position vector
     float lightToClosestFragDepth = 1.0f;
 
-    switch (lightData.lightType)
+    switch (lightData.shadowMapType)
     {
-        case LIGHT_TYPE_POINT:
+        case SHADOW_MAP_TYPE_SINGLE:
         {
-            lightToClosestFragDepth = GetLightClosestFragDepth_PointLight(lightData, fragPosition_worldSpace);
+            lightToClosestFragDepth = GetLightClosestFragDepth_Single(lightData, fragPosition_worldSpace);
+        }
+        break;
+
+        case SHADOW_MAP_TYPE_CUBE:
+        {
+            lightToClosestFragDepth = GetLightClosestFragDepth_Cube(lightData, fragPosition_worldSpace);
         }
         break;
 
@@ -370,7 +380,21 @@ float GetLightFragDepth(LightPayload lightData, vec3 fragPosition_worldSpace)
     return length(lightToFrag) / lightData.maxAffectRange;
 }
 
-float GetLightClosestFragDepth_PointLight(LightPayload lightData, vec3 fragPosition_worldSpace)
+float GetLightClosestFragDepth_Single(LightPayload lightData, vec3 fragPosition_worldSpace)
+{
+    const vec4 fragPosition_lightClipSpace = lightData.lightTransform * vec4(fragPosition_worldSpace, 1);
+
+    const vec3 fragPosition_lightNDCSpace = fragPosition_lightClipSpace.xyz / fragPosition_lightClipSpace.w;
+
+    // The coordinates to sample the light's shadow map at
+    const vec2 shadowSampleCoords = fragPosition_lightNDCSpace.xy * 0.5f + 0.5f;
+
+    const float closestDepth = texture(i_shadowSampler[lightData.shadowMapIndex], shadowSampleCoords).r;
+
+    return closestDepth;
+}
+
+float GetLightClosestFragDepth_Cube(LightPayload lightData, vec3 fragPosition_worldSpace)
 {
     // Vector from the light to the fragment to use when sampling the light's shadow cube map
     vec3 lightToFrag_worldSpace = fragPosition_worldSpace - lightData.worldPos;
@@ -389,7 +413,6 @@ float GetLightClosestFragDepth_PointLight(LightPayload lightData, vec3 fragPosit
         lightToFrag_worldSpace.z = -lightToFrag_worldSpace.z;
     }
 
-    // Sample the light's shadow cube map to get the closest depth value along the provided direction vector
     const float closestDepth = texture(i_shadowSampler_cubeMap[lightData.shadowMapIndex], lightToFrag_worldSpace).r;
 
     return closestDepth;

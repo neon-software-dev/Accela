@@ -59,7 +59,8 @@ namespace Accela::Render
             [[nodiscard]] VulkanRenderPassPtr GetSwapChainRenderPass() const noexcept;
             [[nodiscard]] VulkanFramebufferPtr GetSwapChainFrameBuffer(const uint32_t& imageIndex) const noexcept;
             [[nodiscard]] VulkanRenderPassPtr GetOffscreenRenderPass() const noexcept;
-            [[nodiscard]] VulkanRenderPassPtr GetShadowRenderPass() const noexcept;
+            [[nodiscard]] VulkanRenderPassPtr GetShadow2DRenderPass() const noexcept;
+            [[nodiscard]] VulkanRenderPassPtr GetShadowCubeRenderPass() const noexcept;
 
         private:
 
@@ -85,11 +86,19 @@ namespace Accela::Render
             void DestroySwapChainRenderPass();
             bool CreateOffscreenRenderPass();
             void DestroyOffscreenRenderPass();
-            bool CreateShadowRenderPass();
-            void DestroyShadowRenderPass();
+            bool CreateShadow2DRenderPass();
+            void DestroyShadow2DRenderPass();
+            bool CreateShadowCubeRenderPass();
+            void DestroyShadowCubeRenderPass();
 
             bool CreateSwapChainFrameBuffers();
             void DestroySwapChainFrameBuffers();
+
+        private:
+
+            VulkanRenderPassPtr CreateShadowRenderPass(const std::optional<std::vector<uint32_t>>& multiViewMasks,
+                                                       const std::optional<uint32_t>& multiViewCorrelationMask,
+                                                       const std::string& tag);
 
         private:
 
@@ -111,7 +120,8 @@ namespace Accela::Render
 
             VulkanSwapChainPtr m_swapChain;
             VulkanRenderPassPtr m_swapChainRenderPass;
-            VulkanRenderPassPtr m_shadowRenderPass;
+            VulkanRenderPassPtr m_shadow2DRenderPass;
+            VulkanRenderPassPtr m_shadowCubeRenderPass;
             std::vector<VulkanFramebufferPtr> m_swapChainFrameBuffers;
 
             VulkanRenderPassPtr m_offscreenRenderPass;

@@ -144,6 +144,8 @@ void Lights::ProcessUpdatedLights(const WorldUpdate& update, const VulkanCommand
         const auto it = m_lights.find(light.lightId);
         if (it != m_lights.cend())
         {
+            // TODO! Recreate framebuffers if shadow type changed
+
             it->second.light = light;
             // TODO Perf: Only invalidate if light properties actually changed
             // TODO Perf: Only invalidate if something affecting shadow changed
@@ -218,40 +220,70 @@ void Lights::InvalidateShadowMapsByBounds(const std::vector<AABB>& boundingBoxes
             // Ignore bad/empty bounding boxes
             if (boundingBox.IsEmpty()) { continue; }
 
-            // Get the list of shadow map cube faces that the light's cone touches. We only need to invalidate
-            // shadow maps that the light can possibly affect.
-            const auto litCubeFaces = GetCubeFacesAffectedByLightCone(lightIt.second.light);
+            bool triviallyOutsideShadowMap = false;
 
-            // For each shadow map cube face, invalidate it if the bounding box isn't trivially outside the
-            // light's view projection for that face
-            for (const auto& cubeFace : litCubeFaces)
+            switch (lightIt.second.shadowMapType)
             {
-                const auto shadowMapViewProjection = GetShadowMapViewProjection(
-                    lightIt.second.light,
-                    static_cast<CubeFace>(cubeFace)
-                );
+                case ShadowMapType::Single:
+                    triviallyOutsideShadowMap = IsVolumeTriviallyOutsideLight_Single(lightIt.second.light, boundingBox.GetVolume());
+                break;
+                case ShadowMapType::Cube:
+                    triviallyOutsideShadowMap = IsVolumeTriviallyOutsideLight_Cube(lightIt.second.light, boundingBox.GetVolume());
+                break;
+            }
 
-                if (!shadowMapViewProjection)
-                {
-                    m_logger->Log(Common::LogLevel::Error,
-                      "Lights::InvalidateShadowMapsByBounds: Failed to generate shadow map view projection for light: {}",
-                      lightIt.first.id);
-                    continue;
-                }
-
-                const bool triviallyOutside = VolumeTriviallyOutsideProjection(
-                    boundingBox.GetVolume(),
-                    shadowMapViewProjection->GetTransformation()
-                );
-
-                if (!triviallyOutside)
-                {
-                    lightIt.second.shadowInvalidated = true;
-                    break;
-                }
+            // If it's not trivially outside the shadow map, invalidate the shadow map
+            if (!triviallyOutsideShadowMap)
+            {
+                lightIt.second.shadowInvalidated = true;
+                break;
             }
         }
     }
+}
+
+bool Lights::IsVolumeTriviallyOutsideLight_Single(const Light& light, const Volume& volume_worldSpace)
+{
+    const auto shadowMapViewProjection = GetShadowMapViewProjection(light);
+    if (!shadowMapViewProjection)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "Lights::IsVolumeTriviallyOutsideLight_SpotLight: Failed to generate shadow map view projection for light: {}",
+          light.lightId.id
+        );
+        return false;
+    }
+
+    return VolumeTriviallyOutsideProjection(
+        volume_worldSpace,
+        shadowMapViewProjection->GetTransformation()
+    );
+}
+
+bool Lights::IsVolumeTriviallyOutsideLight_Cube(const Light& light, const Volume& volume_worldSpace)
+{
+    // Get the list of shadow map cube faces that the light's cone touches. We only need to invalidate
+    // shadow maps that the light can possibly affect.
+    const auto litCubeFaces = GetCubeFacesAffectedByLightCone(light);
+
+    // For each shadow map cube face, invalidate the light's shadow map if the bounding box isn't trivially outside the
+    // light's view projection for that face
+    return std::ranges::all_of(litCubeFaces, [&](const auto& cubeFace){
+        const auto shadowMapViewProjection = GetShadowMapCubeViewProjection(light, static_cast<CubeFace>(cubeFace));
+        if (!shadowMapViewProjection)
+        {
+            m_logger->Log(Common::LogLevel::Error,
+                "Lights::IsRegionTriviallyOutsideLight_Point: Failed to generate shadow map view projection for light: {}",
+                light.lightId.id
+            );
+            return false;
+        }
+
+        return VolumeTriviallyOutsideProjection(
+            volume_worldSpace,
+            shadowMapViewProjection->GetTransformation()
+        );
+    });
 }
 
 void Lights::OnShadowMapSynced(const LightId& lightId)
@@ -276,9 +308,28 @@ std::expected<FrameBufferId, bool> Lights::CreateShadowFramebuffer(const Light& 
     std::vector<std::pair<TextureDefinition, std::string>> attachments;
 
     // Depth Attachment
-    const auto texture = Texture::Empty(INVALID_ID, TextureUsage::DepthCubeAttachment, shadowFramebufferSize, 6, std::format("DepthCube-{}", tag));
-    const auto textureView = TextureView::ViewAsCube(TextureView::DEFAULT, TextureView::Aspect::ASPECT_DEPTH_BIT);
-    const auto textureSampler = TextureSampler(CLAMP_ADDRESS_MODE);
+    Texture texture{};
+    TextureView textureView{};
+    TextureSampler textureSampler{CLAMP_ADDRESS_MODE};
+    VulkanRenderPassPtr renderPass{};
+
+    switch (GetShadowMapType(light))
+    {
+        case ShadowMapType::Single:
+        {
+            texture = Texture::Empty(INVALID_ID, TextureUsage::DepthAttachment, shadowFramebufferSize, 1, std::format("ShadowDepth-{}", tag));
+            textureView = TextureView::ViewAs2D(TextureView::DEFAULT, TextureView::Aspect::ASPECT_DEPTH_BIT);
+            renderPass = m_vulkanObjs->GetShadow2DRenderPass();
+        }
+        break;
+        case ShadowMapType::Cube:
+        {
+            texture = Texture::Empty(INVALID_ID, TextureUsage::DepthCubeAttachment, shadowFramebufferSize, 6, std::format("ShadowDepthCube-{}", tag));
+            textureView = TextureView::ViewAsCube(TextureView::DEFAULT, TextureView::Aspect::ASPECT_DEPTH_BIT);
+            renderPass = m_vulkanObjs->GetShadowCubeRenderPass();
+        }
+        break;
+    }
 
     attachments.emplace_back(
         TextureDefinition(texture, {textureView}, textureSampler),
@@ -287,7 +338,7 @@ std::expected<FrameBufferId, bool> Lights::CreateShadowFramebuffer(const Light& 
 
     if (!m_framebuffers->CreateFramebuffer(
         framebufferId,
-        m_vulkanObjs->GetShadowRenderPass(),
+        renderPass,
         attachments,
         shadowFramebufferSize,
         1,

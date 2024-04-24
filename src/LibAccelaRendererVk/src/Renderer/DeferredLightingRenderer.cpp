@@ -379,35 +379,37 @@ bool DeferredLightingRenderer::BindDescriptorSet0_Lights(const RenderState& rend
     //
     const auto defaultLightTextures = std::vector<TextureId>(Max_Light_Count, Render::TextureId(Render::INVALID_ID));
 
-    std::unordered_map<LightType, std::vector<TextureId>> shadowMapTextureIds {
-        {LightType::Point, defaultLightTextures}
+    std::unordered_map<ShadowMapType, std::vector<TextureId>> shadowMapTextureIds {
+        {ShadowMapType::Single, defaultLightTextures},
+        {ShadowMapType::Cube, defaultLightTextures}
     };
 
     // TODO Perf: Cull out lights that are a certain distance away from the camera
     for (unsigned int lightIndex = 0; lightIndex < lights.size(); ++lightIndex)
     {
-        const Light& light = lights[lightIndex].light;
+        const LoadedLight& loadedLight = lights[lightIndex];
+        const Light& light = loadedLight.light;
 
         LightPayload lightPayload{};
-        lightPayload.lightType = static_cast<uint32_t>(light.lightType);
+        lightPayload.shadowMapType = static_cast<uint32_t>(loadedLight.shadowMapType);
         lightPayload.worldPos = light.worldPos;
         lightPayload.maxAffectRange = GetLightMaxAffectRange(light);
-        lightPayload.attenuationMode = static_cast<uint32_t>(light.lightProperties.base.attenuationMode);
-        lightPayload.diffuseColor = light.lightProperties.base.diffuseColor;
-        lightPayload.diffuseIntensity = light.lightProperties.base.diffuseIntensity;
-        lightPayload.specularColor = light.lightProperties.base.specularColor;
-        lightPayload.specularIntensity = light.lightProperties.base.specularIntensity;
+        lightPayload.attenuationMode = static_cast<uint32_t>(light.lightProperties.attenuationMode);
+        lightPayload.diffuseColor = light.lightProperties.diffuseColor;
+        lightPayload.diffuseIntensity = light.lightProperties.diffuseIntensity;
+        lightPayload.specularColor = light.lightProperties.specularColor;
+        lightPayload.specularIntensity = light.lightProperties.specularIntensity;
+        lightPayload.directionUnit = light.lightProperties.directionUnit;
+        lightPayload.coneFovDegrees = light.lightProperties.coneFovDegrees;
 
-        switch (light.lightType)
+        // Single shadow maps need their light-space transform supplied to the lighting shader. Cube
+        // shadow maps don't as we can do the transformation manually.
+        if (loadedLight.shadowMapType == ShadowMapType::Single)
         {
-            case LightType::Point:
-            {
-                assert(std::holds_alternative<LightProperties_PointLight>(light.lightProperties.type));
+            const auto lightViewProjection = GetShadowMapViewProjection(light);
+            assert(lightViewProjection);
 
-                lightPayload.directionUnit = glm::vec3(0,0,-1);
-                lightPayload.coneFovDegrees = 360.0f;
-            }
-            break;
+            lightPayload.lightTransform = lightViewProjection->GetTransformation();
         }
 
         // If the light has a shadow map, update its payload to know about it (from its -1 default),
@@ -415,7 +417,7 @@ bool DeferredLightingRenderer::BindDescriptorSet0_Lights(const RenderState& rend
         const auto lightShadowMapIt = shadowMaps.find(light.lightId);
         if (lightShadowMapIt != shadowMaps.cend())
         {
-            shadowMapTextureIds[light.lightType][lightIndex] = lightShadowMapIt->second;
+            shadowMapTextureIds[loadedLight.shadowMapType][lightIndex] = lightShadowMapIt->second;
             lightPayload.shadowMapIndex = (int)lightIndex;
         }
 
@@ -455,11 +457,19 @@ bool DeferredLightingRenderer::BindDescriptorSet0_Lights(const RenderState& rend
 
 bool DeferredLightingRenderer::BindDescriptorSet0_ShadowMapTextures(const RenderState& renderState,
                                                                     const VulkanDescriptorSetPtr& globalDataDescriptorSet,
-                                                                    const std::unordered_map<LightType, std::vector<TextureId>>& shadowMapTextureIds) const
+                                                                    const std::unordered_map<ShadowMapType, std::vector<TextureId>>& shadowMapTextureIds) const
 {
     //
     // Cube shadow map binding details
     //
+    const auto shadowMapBindingDetails = (*renderState.programDef)->GetBindingDetailsByName("i_shadowSampler");
+    if (!shadowMapBindingDetails)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "DeferredLightingRenderer::BindDescriptorSet0_ShadowMapTextures: No such shadow map binding point exists: i_shadowSampler");
+        return false;
+    }
+
     const auto shadowMapBindingDetails_Cube = (*renderState.programDef)->GetBindingDetailsByName("i_shadowSampler_cubeMap");
     if (!shadowMapBindingDetails_Cube)
     {
@@ -471,6 +481,7 @@ bool DeferredLightingRenderer::BindDescriptorSet0_ShadowMapTextures(const Render
     //
     // Missing texture binds
     //
+    const auto missingTexture = m_textures->GetMissingTexture();
     const auto missingCubeTexture = m_textures->GetMissingCubeTexture();
 
     //
@@ -485,7 +496,16 @@ bool DeferredLightingRenderer::BindDescriptorSet0_ShadowMapTextures(const Render
     {
         switch (typeIt.first)
         {
-            case LightType::Point:
+            case ShadowMapType::Single:
+            {
+                shadowBindingDetails = *shadowMapBindingDetails;
+                shadowImageViewName = TextureView::DEFAULT;
+                missingTextureImageView = missingTexture.vkImageViews.at(TextureView::DEFAULT);
+                missingTextureSampler = missingTexture.vkSampler;
+            }
+                break;
+
+            case ShadowMapType::Cube:
             {
                 shadowBindingDetails = *shadowMapBindingDetails_Cube;
                 shadowImageViewName = TextureView::DEFAULT;

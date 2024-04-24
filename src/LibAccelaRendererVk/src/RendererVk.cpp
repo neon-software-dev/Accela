@@ -941,14 +941,32 @@ void RendererVk::RefreshShadowMapsAsNeeded(const RenderParams& renderParams,
 
 bool RendererVk::RefreshShadowMap(const RenderParams& renderParams,
                                   const VulkanCommandBufferPtr& commandBuffer,
-                                  const std::vector<ViewProjection>& viewProjections,
+                                  const std::vector<ViewProjection>&,
                                   const LoadedLight& loadedLight)
 {
     //
     // Gather data / validation
     //
     auto& currentFrame = m_frames.GetCurrentFrame();
-    const auto shadowRenderPass = m_vulkanObjs->GetShadowRenderPass();
+
+    VulkanRenderPassPtr shadowRenderPass{};
+    unsigned int numShadowMapLayers = 1;
+
+    switch (loadedLight.shadowMapType)
+    {
+        case ShadowMapType::Single:
+        {
+            shadowRenderPass = m_vulkanObjs->GetShadow2DRenderPass();
+            numShadowMapLayers = 1;
+        }
+            break;
+        case ShadowMapType::Cube:
+        {
+            shadowRenderPass = m_vulkanObjs->GetShadowCubeRenderPass();
+            numShadowMapLayers = 6;
+        }
+        break;
+    }
 
     if (!loadedLight.shadowFrameBufferId)
     {
@@ -986,7 +1004,7 @@ bool RendererVk::RefreshShadowMap(const RenderParams& renderParams,
             m_vulkanObjs->GetCalls(),
             commandBuffer,
             shadowMapTexture.allocation.vkImage,
-            Layers(0, 6),
+            Layers(0, numShadowMapLayers),
             Levels(0, 1),
             VK_IMAGE_ASPECT_DEPTH_BIT,
             // Deferred lighting fragment shader must finish sampling from the shadow map
@@ -997,10 +1015,10 @@ bool RendererVk::RefreshShadowMap(const RenderParams& renderParams,
             ImageTransition(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL)
         );
 
-        if (!StartRenderPass(m_vulkanObjs->GetShadowRenderPass(), shadowFramebuffer->GetFramebuffer(), commandBuffer)) { return false; }
+        if (!StartRenderPass(shadowRenderPass, shadowFramebuffer->GetFramebuffer(), commandBuffer)) { return false; }
 
             //
-            // Clear any existing the shadow map data
+            // Clear any existing shadow map data
             //
             VkClearAttachment vkClearAttachment{};
             vkClearAttachment.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
@@ -1019,18 +1037,35 @@ bool RendererVk::RefreshShadowMap(const RenderParams& renderParams,
             //
             std::vector<ViewProjection> shadowViewProjections;
 
-            (void)viewProjections;
-
-            for (unsigned int cubeFaceIndex = 0; cubeFaceIndex < 6; ++cubeFaceIndex)
+            switch (loadedLight.shadowMapType)
             {
-                const auto viewProjection = GetShadowMapViewProjection(loadedLight.light, static_cast<CubeFace>(cubeFaceIndex));
-                if (!viewProjection)
+                case ShadowMapType::Single:
                 {
-                    m_logger->Log(Common::LogLevel::Error, "RendererVk::RefreshShadowMap: Failed to generate shadow map ViewProjection");
-                    return false;
-                }
+                    const auto viewProjection = GetShadowMapViewProjection(loadedLight.light);
+                    if (!viewProjection)
+                    {
+                        m_logger->Log(Common::LogLevel::Error, "RendererVk::RefreshShadowMap: Failed to generate shadow map ViewProjection");
+                        return false;
+                    }
 
-                shadowViewProjections.push_back(*viewProjection);
+                    shadowViewProjections.push_back(*viewProjection);
+                }
+                break;
+                case ShadowMapType::Cube:
+                {
+                    for (unsigned int cubeFaceIndex = 0; cubeFaceIndex < 6; ++cubeFaceIndex)
+                    {
+                        const auto viewProjection = GetShadowMapCubeViewProjection(loadedLight.light, static_cast<CubeFace>(cubeFaceIndex));
+                        if (!viewProjection)
+                        {
+                            m_logger->Log(Common::LogLevel::Error, "RendererVk::RefreshShadowMap: Failed to generate shadow map ViewProjection");
+                            return false;
+                        }
+
+                        shadowViewProjections.push_back(*viewProjection);
+                    }
+                }
+                break;
             }
 
             m_objectRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())

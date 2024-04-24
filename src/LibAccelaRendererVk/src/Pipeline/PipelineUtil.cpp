@@ -174,10 +174,12 @@ std::expected<VulkanPipelinePtr, bool> GetPipeline(
     //
     // Delete the old pipeline, if different
     //
-    if (oldPipelineHash.has_value() && pipelineConfig.GetUniqueKey() != oldPipelineHash.value())
+    // TODO: Verify that this is no longer needed and add metrics around number of created pipelines
+    (void)oldPipelineHash;
+    /*if (oldPipelineHash.has_value() && pipelineConfig.GetUniqueKey() != oldPipelineHash.value())
     {
         pipelines->DestroyPipeline(*oldPipelineHash);
-    }
+    }*/
 
     //
     // Create/Get the pipeline
