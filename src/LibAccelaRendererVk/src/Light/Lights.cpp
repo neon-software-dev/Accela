@@ -74,7 +74,7 @@ std::vector<LoadedLight> Lights::GetSceneLights(const std::string& sceneName, co
         }
 
         // If the light doesn't affect the view projection space, ignore it
-        if (!LightAffectsViewProjections(lightIt.second.light, viewProjections))
+        if (!LightAffectsViewProjections(lightIt.second, viewProjections))
         {
             continue;
         }
@@ -225,10 +225,10 @@ void Lights::InvalidateShadowMapsByBounds(const std::vector<AABB>& boundingBoxes
             switch (lightIt.second.shadowMapType)
             {
                 case ShadowMapType::Single:
-                    triviallyOutsideShadowMap = IsVolumeTriviallyOutsideLight_Single(lightIt.second.light, boundingBox.GetVolume());
+                    triviallyOutsideShadowMap = IsVolumeTriviallyOutsideLight_Single(lightIt.second, boundingBox.GetVolume());
                 break;
                 case ShadowMapType::Cube:
-                    triviallyOutsideShadowMap = IsVolumeTriviallyOutsideLight_Cube(lightIt.second.light, boundingBox.GetVolume());
+                    triviallyOutsideShadowMap = IsVolumeTriviallyOutsideLight_Cube(lightIt.second, boundingBox.GetVolume());
                 break;
             }
 
@@ -242,14 +242,14 @@ void Lights::InvalidateShadowMapsByBounds(const std::vector<AABB>& boundingBoxes
     }
 }
 
-bool Lights::IsVolumeTriviallyOutsideLight_Single(const Light& light, const Volume& volume_worldSpace)
+bool Lights::IsVolumeTriviallyOutsideLight_Single(const LoadedLight& loadedLight, const Volume& volume_worldSpace)
 {
-    const auto shadowMapViewProjection = GetShadowMapViewProjection(light);
+    const auto shadowMapViewProjection = GetShadowMapViewProjection(loadedLight);
     if (!shadowMapViewProjection)
     {
         m_logger->Log(Common::LogLevel::Error,
           "Lights::IsVolumeTriviallyOutsideLight_SpotLight: Failed to generate shadow map view projection for light: {}",
-          light.lightId.id
+          loadedLight.light.lightId.id
         );
         return false;
     }
@@ -260,21 +260,21 @@ bool Lights::IsVolumeTriviallyOutsideLight_Single(const Light& light, const Volu
     );
 }
 
-bool Lights::IsVolumeTriviallyOutsideLight_Cube(const Light& light, const Volume& volume_worldSpace)
+bool Lights::IsVolumeTriviallyOutsideLight_Cube(const LoadedLight& loadedLight, const Volume& volume_worldSpace)
 {
     // Get the list of shadow map cube faces that the light's cone touches. We only need to invalidate
     // shadow maps that the light can possibly affect.
-    const auto litCubeFaces = GetCubeFacesAffectedByLightCone(light);
+    const auto litCubeFaces = GetCubeFacesAffectedByLightCone(loadedLight.light);
 
     // For each shadow map cube face, invalidate the light's shadow map if the bounding box isn't trivially outside the
     // light's view projection for that face
     return std::ranges::all_of(litCubeFaces, [&](const auto& cubeFace){
-        const auto shadowMapViewProjection = GetShadowMapCubeViewProjection(light, static_cast<CubeFace>(cubeFace));
+        const auto shadowMapViewProjection = GetShadowMapCubeViewProjection(loadedLight, static_cast<CubeFace>(cubeFace));
         if (!shadowMapViewProjection)
         {
             m_logger->Log(Common::LogLevel::Error,
                 "Lights::IsRegionTriviallyOutsideLight_Point: Failed to generate shadow map view projection for light: {}",
-                light.lightId.id
+                loadedLight.light.lightId.id
             );
             return false;
         }
@@ -388,9 +388,9 @@ Render::USize Lights::GetShadowFramebufferSize(const RenderSettings& renderSetti
     return Shadow_Low_Quality_Size;
 }
 
-bool Lights::LightAffectsViewProjections(const Light& light, const std::vector<ViewProjection>& viewProjections)
+bool Lights::LightAffectsViewProjections(const LoadedLight& loadedLight, const std::vector<ViewProjection>& viewProjections)
 {
-    const Sphere lightSphere(light.worldPos, GetLightMaxAffectRange(light));
+    const Sphere lightSphere(loadedLight.light.worldPos, GetLightMaxAffectRange(loadedLight.light));
 
     return std::ranges::any_of(viewProjections, [&](const auto& viewProjection){
         const auto boundingVolume = viewProjection.GetWorldSpaceAABB().GetVolume();

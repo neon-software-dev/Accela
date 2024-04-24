@@ -155,10 +155,10 @@ std::expected<Projection::Ptr, bool> GetCameraProjectionTransform(const IVulkanC
     }
 }
 
-std::expected<ViewProjection, bool> GetShadowMapViewProjection(const Light& light)
+std::expected<ViewProjection, bool> GetShadowMapViewProjection(const LoadedLight& loadedLight)
 {
-    const auto viewTransform = GetShadowMapViewTransform(light);
-    const auto projectionTransform = GetShadowMapProjectionTransform(light);
+    const auto viewTransform = GetShadowMapViewTransform(loadedLight);
+    const auto projectionTransform = GetShadowMapProjectionTransform(loadedLight);
 
     if (!viewTransform) { return std::unexpected(false); }
     if (!projectionTransform) { return std::unexpected(false); }
@@ -166,39 +166,39 @@ std::expected<ViewProjection, bool> GetShadowMapViewProjection(const Light& ligh
     return ViewProjection{*viewTransform, *projectionTransform};
 }
 
-std::expected<glm::mat4, bool> GetShadowMapViewTransform(const Light& light)
+std::expected<glm::mat4, bool> GetShadowMapViewTransform(const LoadedLight& loadedLight)
 {
     auto upUnit = glm::vec3(0, 1, 0);
 
     // glm::lookAt is undefined if the look and up vectors are parallel, so choose
     // an alternate up vector in those cases
-    if (AreUnitVectorsParallel(light.lightProperties.directionUnit, upUnit))
+    if (AreUnitVectorsParallel(loadedLight.light.lightProperties.directionUnit, upUnit))
     {
         // If looking up, then our "up" is re-adjusted to be pointing out of the screen
-        if (light.lightProperties.directionUnit.y >= 0.0f)  { upUnit = glm::vec3(0,0,1); }
+        if (loadedLight.light.lightProperties.directionUnit.y >= 0.0f)  { upUnit = glm::vec3(0,0,1); }
 
         // If looking down, then our "up" is re-adjusted to be pointing into the screen
         else { upUnit = glm::vec3(0,0,-1); }
     }
 
     return glm::lookAt(
-        light.worldPos,
-        light.worldPos + light.lightProperties.directionUnit,
+        loadedLight.light.worldPos,
+        loadedLight.light.worldPos + loadedLight.light.lightProperties.directionUnit,
         upUnit
     );
 }
 
-std::expected<ViewProjection, bool> GetShadowMapCubeViewProjection(const Light& light, const CubeFace& cubeFace)
+std::expected<ViewProjection, bool> GetShadowMapCubeViewProjection(const LoadedLight& loadedLight, const CubeFace& cubeFace)
 {
-    const auto viewTransform = GetShadowMapCubeViewTransform(light, cubeFace);
-    const auto projectionTransform = GetShadowMapProjectionTransform(light);
+    const auto viewTransform = GetShadowMapCubeViewTransform(loadedLight, cubeFace);
+    const auto projectionTransform = GetShadowMapProjectionTransform(loadedLight);
 
     if (!projectionTransform) { return std::unexpected(false); }
 
     return ViewProjection{viewTransform, *projectionTransform};
 }
 
-glm::mat4 GetShadowMapCubeViewTransform(const Light& light, const CubeFace& cubeFace)
+glm::mat4 GetShadowMapCubeViewTransform(const LoadedLight& loadedLight, const CubeFace& cubeFace)
 {
     glm::vec3 lookUnit(0);
 
@@ -225,25 +225,31 @@ glm::mat4 GetShadowMapCubeViewTransform(const Light& light, const CubeFace& cube
     }
 
     return glm::lookAt(
-        light.worldPos,
-        light.worldPos + lookUnit,
+        loadedLight.light.worldPos,
+        loadedLight.light.worldPos + lookUnit,
         upUnit
     );
 }
 
-std::expected<Projection::Ptr, bool> GetShadowMapProjectionTransform(const Light& light)
+std::expected<Projection::Ptr, bool> GetShadowMapProjectionTransform(const LoadedLight& loadedLight)
 {
-    const float lightMaxAffectRange = GetLightMaxAffectRange(light);
+    const float lightMaxAffectRange = GetLightMaxAffectRange(loadedLight.light);
 
-    switch (light.lightProperties.projection)
+    switch (loadedLight.light.lightProperties.projection)
     {
         case LightProjection::Perspective:
+        {
+            const float projectionFov =
+                loadedLight.shadowMapType == ShadowMapType::Cube ? 90.0f :
+                loadedLight.light.lightProperties.coneFovDegrees;
+
             return FrustumProjection::From(
-                90.0f,
+                projectionFov,
                 1.0f,
                 PERSPECTIVE_CLIP_NEAR,
                 lightMaxAffectRange
             );
+        }
         case LightProjection::Orthographic:
             return OrthoProjection::From(
                 lightMaxAffectRange,

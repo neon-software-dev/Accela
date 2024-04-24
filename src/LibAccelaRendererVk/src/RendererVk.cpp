@@ -1041,7 +1041,7 @@ bool RendererVk::RefreshShadowMap(const RenderParams& renderParams,
             {
                 case ShadowMapType::Single:
                 {
-                    const auto viewProjection = GetShadowMapViewProjection(loadedLight.light);
+                    const auto viewProjection = GetShadowMapViewProjection(loadedLight);
                     if (!viewProjection)
                     {
                         m_logger->Log(Common::LogLevel::Error, "RendererVk::RefreshShadowMap: Failed to generate shadow map ViewProjection");
@@ -1055,7 +1055,7 @@ bool RendererVk::RefreshShadowMap(const RenderParams& renderParams,
                 {
                     for (unsigned int cubeFaceIndex = 0; cubeFaceIndex < 6; ++cubeFaceIndex)
                     {
-                        const auto viewProjection = GetShadowMapCubeViewProjection(loadedLight.light, static_cast<CubeFace>(cubeFaceIndex));
+                        const auto viewProjection = GetShadowMapCubeViewProjection(loadedLight, static_cast<CubeFace>(cubeFaceIndex));
                         if (!viewProjection)
                         {
                             m_logger->Log(Common::LogLevel::Error, "RendererVk::RefreshShadowMap: Failed to generate shadow map ViewProjection");

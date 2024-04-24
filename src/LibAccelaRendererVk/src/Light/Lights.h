@@ -51,10 +51,10 @@ namespace Accela::Render
             [[nodiscard]] bool RecreateShadowFramebuffer(LoadedLight& loadedLight, const RenderSettings& renderSettings) const;
             [[nodiscard]] static Render::USize GetShadowFramebufferSize(const RenderSettings& renderSettings);
 
-            [[nodiscard]] static inline bool LightAffectsViewProjections(const Light& light, const std::vector<ViewProjection>& viewProjections);
+            [[nodiscard]] static inline bool LightAffectsViewProjections(const LoadedLight& loadedLight, const std::vector<ViewProjection>& viewProjections);
 
-            [[nodiscard]] bool IsVolumeTriviallyOutsideLight_Single(const Light& light, const Volume& volume_worldSpace);
-            [[nodiscard]] bool IsVolumeTriviallyOutsideLight_Cube(const Light& light, const Volume& volume_worldSpace);
+            [[nodiscard]] bool IsVolumeTriviallyOutsideLight_Single(const LoadedLight& loadedLight, const Volume& volume_worldSpace);
+            [[nodiscard]] bool IsVolumeTriviallyOutsideLight_Cube(const LoadedLight& loadedLight, const Volume& volume_worldSpace);
 
         private:
 

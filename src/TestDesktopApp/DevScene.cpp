@@ -55,11 +55,11 @@ void DevScene::CreateSceneEntities()
     // Configuration for which entities are placed in the test world
     //
 
-    CreateSpotLight({0,1,1}, true);
+    CreateSpotLight({0,0,0}, true);
     CreatePointLight({1,1,1}, true);
     CreateTerrainEntity(1.0f, {0, -2.2, 0});
-    CreateFloorEntity({0,0,0}, 10);
-    CreateVampireEntity({0,0,-2});
+    //CreateFloorEntity({0,0,0}, 10);
+    //CreateVampireEntity({0,0,-2});
 }
 
 bool DevScene::LoadAssets()
@@ -182,8 +182,8 @@ void DevScene::CreateSpotLight(const glm::vec3& position, bool drawEntity)
     lightProperties.diffuseIntensity = glm::vec3(1,1,1);
     lightProperties.specularColor = glm::vec3(1,1,1);
     lightProperties.specularIntensity = glm::vec3(1,1,1);
-    lightProperties.directionUnit = glm::vec3(0,0,-1);
-    lightProperties.coneFovDegrees = 45.0f;
+    lightProperties.directionUnit = glm::vec3(1,0,0);
+    lightProperties.coneFovDegrees = 90.0f;
 
     CreateLight(position, drawEntity, lightProperties);
 }

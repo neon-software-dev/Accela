@@ -96,6 +96,7 @@ float GetFragShadowLevel(LightPayload lightData, vec3 fragPosition_worldSpace);
 float GetLightFragDepth(LightPayload lightData, vec3 fragPosition_worldSpace);
 float GetLightClosestFragDepth_Single(LightPayload lightData, vec3 fragPosition_worldSpace);
 float GetLightClosestFragDepth_Cube(LightPayload lightData, vec3 fragPosition_worldSpace);
+bool IsPointWithinLightCone(LightPayload light, vec3 point_worldSpace);
 
 float MapRange(float val, float min1, float max1, float min2, float max2)
 {
@@ -243,17 +244,9 @@ CalculatedLight CalculateFragmentLighting(MaterialPayload fragmentMaterial)
         // Shouldn't ever be the case with non-zero perspective near planes
         if (fragToLightDistance == 0.0f) {  continue; }
 
-        // Unit vector of the light cone, in view space
-        const vec3 lightOrientationUnit_viewSpace = mat3(viewTransform) * lightData.directionUnit;
-
-        // How aligned the light's orientation is with the vector from the light to the fragment [-1, 1]
-        const float directionAlignment = dot(lightOrientationUnit_viewSpace, -fragTolightUnit_viewSpace);
-
-        // Minimum alignment required to be within the light's cone's affected area
-        const float minConeAlignment = MapRange(lightData.coneFovDegrees / 2.0f, 0.0f, 180.0f, -1.0f, 1.0f) * -1.0f;
-
-        // If the fragment is outside the light's cone, the light doesn't hit it
-        if (directionAlignment < minConeAlignment)
+        // If the fragment is outside the light's cone, the light obviously doesn't hit it, ignore it
+        const bool fragmentWithinLightCone = IsPointWithinLightCone(lightData, fragPosition_worldSpace);
+        if (!fragmentWithinLightCone)
         {
             continue;
         }
@@ -416,4 +409,14 @@ float GetLightClosestFragDepth_Cube(LightPayload lightData, vec3 fragPosition_wo
     const float closestDepth = texture(i_shadowSampler_cubeMap[lightData.shadowMapIndex], lightToFrag_worldSpace).r;
 
     return closestDepth;
+}
+
+bool IsPointWithinLightCone(LightPayload light, vec3 point_worldSpace)
+{
+    const vec3 lightToPoint_worldSpaceUnit = normalize(point_worldSpace - light.worldPos);
+    const float vectorAlignment = dot(light.directionUnit, lightToPoint_worldSpaceUnit);
+
+    const float alignmentAngleDegrees = degrees(acos(vectorAlignment));
+
+    return alignmentAngleDegrees <= light.coneFovDegrees / 2.0f;
 }

@@ -11,6 +11,7 @@
 
 #include "../InternalCommon.h"
 
+#include "../Light/LoadedLight.h"
 #include "../Util/Projection.h"
 #include "../Util/ViewProjection.h"
 
@@ -128,13 +129,13 @@ namespace Accela::Render
                                                                                     const RenderCamera& camera,
                                                                                     const std::optional<Eye>& eye);
 
-    [[nodiscard]] std::expected<ViewProjection, bool> GetShadowMapViewProjection(const Light& light);
-    [[nodiscard]] std::expected<glm::mat4, bool> GetShadowMapViewTransform(const Light& light);
+    [[nodiscard]] std::expected<ViewProjection, bool> GetShadowMapViewProjection(const LoadedLight& light);
+    [[nodiscard]] std::expected<glm::mat4, bool> GetShadowMapViewTransform(const LoadedLight& light);
 
-    [[nodiscard]] std::expected<ViewProjection, bool> GetShadowMapCubeViewProjection(const Light& light, const CubeFace& cubeFace);
-    [[nodiscard]] glm::mat4 GetShadowMapCubeViewTransform(const Light& light, const CubeFace& cubeFace);
+    [[nodiscard]] std::expected<ViewProjection, bool> GetShadowMapCubeViewProjection(const LoadedLight& light, const CubeFace& cubeFace);
+    [[nodiscard]] glm::mat4 GetShadowMapCubeViewTransform(const LoadedLight& light, const CubeFace& cubeFace);
 
-    [[nodiscard]] std::expected<Projection::Ptr, bool> GetShadowMapProjectionTransform(const Light& light);
+    [[nodiscard]] std::expected<Projection::Ptr, bool> GetShadowMapProjectionTransform(const LoadedLight& light);
 }
 
 #endif //LIBACCELARENDERERVK_SRC_RENDERER_RENDERERCOMMON_H

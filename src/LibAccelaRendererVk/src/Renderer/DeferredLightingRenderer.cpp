@@ -406,7 +406,7 @@ bool DeferredLightingRenderer::BindDescriptorSet0_Lights(const RenderState& rend
         // shadow maps don't as we can do the transformation manually.
         if (loadedLight.shadowMapType == ShadowMapType::Single)
         {
-            const auto lightViewProjection = GetShadowMapViewProjection(light);
+            const auto lightViewProjection = GetShadowMapViewProjection(loadedLight);
             assert(lightViewProjection);
 
             lightPayload.lightTransform = lightViewProjection->GetTransformation();
