@@ -66,7 +66,7 @@ namespace Accela::Engine
                          std::shared_ptr<IEngineRuntime> engine,
                          EntityId eid,
                          std::string sceneName,
-                         const Params& params);
+                         Params params);
             ~SpriteEntity() override;
 
             SpriteEntity(const SpriteEntity&) = delete;
@@ -110,14 +110,7 @@ namespace Accela::Engine
         private:
 
             std::optional<EntityId> m_eid;
-
-            std::optional<Render::TextureId> m_textureId;
-            std::optional<Render::URect> m_srcPixelRect;
-            std::optional<Render::FSize> m_dstVirtualSize;
-
-            std::optional<glm::vec3> m_position;
-            std::optional<glm::vec2> m_scale;
-            std::optional<glm::quat> m_orientation;
+            std::optional<Params> m_params;
     };
 }
 

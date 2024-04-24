@@ -55,11 +55,11 @@ void DevScene::CreateSceneEntities()
     // Configuration for which entities are placed in the test world
     //
 
-    CreateSpotLight({0,0,0}, true);
-    CreatePointLight({1,1,1}, true);
+    CreateSpotLight({0,1,0}, true);
+    CreatePointLight({2,1,2}, true);
     CreateTerrainEntity(1.0f, {0, -2.2, 0});
-    //CreateFloorEntity({0,0,0}, 10);
-    //CreateVampireEntity({0,0,-2});
+    CreateFloorEntity({0,0,0}, 10);
+    CreateVampireEntity({0,0,-2});
 }
 
 bool DevScene::LoadAssets()
