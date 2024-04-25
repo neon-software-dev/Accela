@@ -476,12 +476,7 @@ bool ObjectRenderer::BindPipeline(RenderState& renderState,
                                   const std::optional<ShadowRenderData>& shadowRenderData)
 {
     //
-    // If the program is already bound, nothing to do
-    //
-    if (renderState.programDef == renderBatch.params.programDef) { return true; }
-
-    //
-    // Otherwise, get the pipeline for this batch
+    // Get the pipeline for this batch
     //
     const auto pipelineExpect = GetBatchPipeline(renderBatch, renderType, renderPass, framebuffer);
     if (!pipelineExpect)
@@ -489,6 +484,11 @@ bool ObjectRenderer::BindPipeline(RenderState& renderState,
         m_logger->Log(Common::LogLevel::Error, "ObjectRenderer::BindPipeline: GetBatchPipeline failed");
         return false;
     }
+
+    //
+    // If the pipeline is already bound, nothing to do
+    //
+    if (renderState.pipeline == *pipelineExpect) { return true; }
 
     //
     // Bind the pipeline

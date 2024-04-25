@@ -416,6 +416,7 @@ bool Textures::CreateTextureImageSampler(LoadedTexture& loadedTexture, const Tex
     {
         case SamplerAddressMode::Wrap: uSamplerMode = VK_SAMPLER_ADDRESS_MODE_REPEAT; break;
         case SamplerAddressMode::Clamp: uSamplerMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; break;
+        case SamplerAddressMode::Mirror: uSamplerMode = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT; break;
     }
 
     VkSamplerAddressMode vSamplerMode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
@@ -423,6 +424,7 @@ bool Textures::CreateTextureImageSampler(LoadedTexture& loadedTexture, const Tex
     {
         case SamplerAddressMode::Wrap: vSamplerMode = VK_SAMPLER_ADDRESS_MODE_REPEAT; break;
         case SamplerAddressMode::Clamp: vSamplerMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; break;
+        case SamplerAddressMode::Mirror: vSamplerMode = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT; break;
     }
 
     VkSamplerCreateInfo samplerInfo{};

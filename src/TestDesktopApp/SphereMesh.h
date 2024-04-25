@@ -13,7 +13,7 @@
 
 namespace Accela
 {
-    std::vector<Render::MeshVertex> CreateSphereMeshVertices(float sideLength) {
+    static std::vector<Render::MeshVertex> CreateSphereMeshVertices(float sideLength) {
         float radius = sideLength / 2.0f;
 
         std::vector<Render::MeshVertex> result;
@@ -61,7 +61,7 @@ namespace Accela
         return result;
     }
 
-    std::vector<uint32_t> CreateSphereMeshIndices()
+    static std::vector<uint32_t> CreateSphereMeshIndices()
     {
         unsigned int sectorCount = 20;
         unsigned int stackCount = 20;

@@ -57,12 +57,14 @@ void DevScene::CreateSceneEntities()
 
     //CreateSpotLight({0,1,0}, true);
     CreatePointLight({2,1,2}, true);
-    CreateTerrainEntity(1.0f, {0, -2.2, 0});
+    //CreateTerrainEntity(1.0f, {0, -2.2, 0});
     CreateFloorEntity({0,0,0}, 20);
     //CreateModelEntity("dancing_vampire", {0,0,-2}, glm::vec3(1.0f),
     //                  Engine::ModelAnimationState(Engine::ModelAnimationType::Looping, "Hips"));
     //CreateModelEntity("AlphaBlendModeTest", {0,0,0});
-    CreateModelEntity("TextureSettingsTest", {0,3,0}, glm::vec3(0.5f));
+    //CreateModelEntity("TextureSettingsTest", {0,3,0}, glm::vec3(0.5f));
+    CreateModelEntity("CesiumMan", {0,0.1f,-2}, glm::vec3(1.0f),
+                      Engine::ModelAnimationState(Engine::ModelAnimationType::Looping, ""));
 }
 
 bool DevScene::LoadAssets()
@@ -149,6 +151,8 @@ bool DevScene::LoadAssets()
     if (!model || !engine->GetWorldResources()->RegisterModel("AlphaBlendModeTest", *model)) { return false; }
     model = engine->GetAssets()->ReadModelBlocking("TextureSettingsTest", ".glb");
     if (!model || !engine->GetWorldResources()->RegisterModel("TextureSettingsTest", *model)) { return false; }
+    model = engine->GetAssets()->ReadModelBlocking("CesiumMan", ".glb");
+    if (!model || !engine->GetWorldResources()->RegisterModel("CesiumMan", *model)) { return false; }
 
     return true;
 }

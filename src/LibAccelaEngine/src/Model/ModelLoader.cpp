@@ -131,6 +131,9 @@ ModelMaterial ModelLoader::ProcessMaterial(const aiMaterial* pMaterial) const
     ai_int blendFunc{0};
     pMaterial->Get(AI_MATKEY_BLEND_FUNC, blendFunc);
 
+    ai_int twoSided{0};
+    pMaterial->Get(AI_MATKEY_TWOSIDED, twoSided);
+
     ai_int shadingModel{1};
     pMaterial->Get(AI_MATKEY_SHADING_MODEL, shadingModel);
 
@@ -169,6 +172,48 @@ ModelMaterial ModelLoader::ProcessMaterial(const aiMaterial* pMaterial) const
         rawMaterial.alphaCutoff = gltfAlphaCutoff;
     }
 
+    /*
+    // Debug logging for material properties
+    m_logger->Log(Common::LogLevel::Error, "------ MATERIAL: {} -------", rawMaterial.name);
+
+    for (unsigned int x = 0; x < pMaterial->mNumProperties; ++x)
+    {
+        auto* pProperty = pMaterial->mProperties[x];
+        const std::string key = std::string(pProperty->mKey.C_Str());
+
+        m_logger->Log(Common::LogLevel::Error, "[Key: {} ]", key);
+
+        switch (pProperty->mType)
+        {
+            case aiPTI_Float:
+            case aiPTI_Double:
+            {
+                double val{0.0};
+                pMaterial->Get(key.c_str(), 0, 0, val);
+                m_logger->Log(Common::LogLevel::Error, "{}", val);
+            }
+            break;
+            case aiPTI_String:
+            {
+                aiString val{};
+                pMaterial->Get(key.c_str(), 0, 0, val);
+                m_logger->Log(Common::LogLevel::Error, "{}", val.C_Str());
+            }
+            break;
+            case aiPTI_Integer:
+            {
+                unsigned int val{0};
+                pMaterial->Get(key.c_str(), 0, 0, val);
+                m_logger->Log(Common::LogLevel::Error, "{}", val);
+            }
+            break;
+            case aiPTI_Buffer:
+            case _aiPTI_Force32Bit:
+                m_logger->Log(Common::LogLevel::Error, "Unhandled");
+            break;
+        }
+    }*/
+
     return rawMaterial;
 }
 
@@ -191,6 +236,7 @@ std::vector<ModelTexture> ModelLoader::GetMaterialTextures(const aiMaterial* pMa
         pMaterial->Get(AI_MATKEY_MAPPINGMODE_U(type, textureIndex), aiUMapMode);
         if (aiUMapMode == aiTextureMapMode_Wrap) { uAddressMode = Render::SamplerAddressMode::Wrap; }
         else if (aiUMapMode == aiTextureMapMode_Clamp) { uAddressMode = Render::SamplerAddressMode::Clamp; }
+        else if (aiUMapMode == aiTextureMapMode_Mirror) { uAddressMode = Render::SamplerAddressMode::Mirror; }
 
         //
         // Sampler V Address Mode
@@ -201,6 +247,7 @@ std::vector<ModelTexture> ModelLoader::GetMaterialTextures(const aiMaterial* pMa
         pMaterial->Get(AI_MATKEY_MAPPINGMODE_V(type, textureIndex), aiVMapMode);
         if (aiVMapMode == aiTextureMapMode_Wrap) { vAddressMode = Render::SamplerAddressMode::Wrap; }
         else if (aiVMapMode == aiTextureMapMode_Clamp) { vAddressMode = Render::SamplerAddressMode::Clamp; }
+        else if (aiVMapMode == aiTextureMapMode_Mirror) { vAddressMode = Render::SamplerAddressMode::Mirror; }
 
         //
         // Texture blend factor

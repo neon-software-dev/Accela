@@ -14,12 +14,14 @@ namespace Accela::Render
     enum class SamplerAddressMode
     {
         Wrap,
-        Clamp
+        Clamp,
+        Mirror
     };
 
     using UVAddressMode = std::pair<SamplerAddressMode, SamplerAddressMode>;
     static constexpr UVAddressMode WRAP_ADDRESS_MODE = std::make_pair(SamplerAddressMode::Wrap, SamplerAddressMode::Wrap);
     static constexpr UVAddressMode CLAMP_ADDRESS_MODE = std::make_pair(SamplerAddressMode::Clamp, SamplerAddressMode::Clamp);
+    static constexpr UVAddressMode MIRROR_ADDRESS_MODE = std::make_pair(SamplerAddressMode::Mirror, SamplerAddressMode::Mirror);
 
     struct TextureSampler
     {

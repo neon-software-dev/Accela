@@ -42,11 +42,13 @@ namespace Accela
             void ConfigureScene();
             void CreateSceneEntities();
 
+            [[nodiscard]] static Render::ObjectMaterialProperties MakeSolidColorMaterial(const glm::vec3& color);
+
             /** Add a light at the specified position */
             void CreateLight(const glm::vec3& position);
 
             /** Add the dancing vampire model at the specified position */
-            void CreateVampireEntity(const glm::vec3& position);
+            void CreateCesiumManEntity(const glm::vec3& position);
 
             /** Add a floor object at the specified position/orientation with a certain x/z side length */
             void CreateFloorEntity(glm::vec3 position,
@@ -87,8 +89,10 @@ namespace Accela
             Engine::EntityId m_lightEid{0};
             Render::TextureId m_skyBoxTextureId{};
             Render::MeshId m_cubeMeshId{};
+            Render::MeshId m_sphereMeshId{};
             Render::MeshId m_terrainHeightMapMeshId{};
             Render::MaterialId m_solidRedMaterialId{};
+            Render::MaterialId m_solidWhiteMaterialId{};
             Render::MaterialId m_terrainMaterialId{};
 
             std::optional<Engine::EnginePerfMonitorEntity::UPtr> m_perfMonitor;

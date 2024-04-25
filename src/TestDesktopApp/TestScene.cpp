@@ -6,6 +6,7 @@
  
 #include "TestScene.h"
 #include "CubeMesh.h"
+#include "SphereMesh.h"
 
 #include <Accela/Engine/Component/Components.h>
 
@@ -55,7 +56,7 @@ void TestScene::CreateSceneEntities()
     CreateLight({0,1,1});
     CreateTerrainEntity(1.0f, {0, -2.2, 0});
     CreateFloorEntity({0,0,0}, 10);
-    CreateVampireEntity({0,0,-2});
+    CreateCesiumManEntity({0,0.05f,-2});
 }
 
 bool TestScene::LoadAssets()
@@ -92,6 +93,12 @@ bool TestScene::LoadAssets()
                                                                    "Cube");
     if (m_cubeMeshId == Render::INVALID_ID) { return false; }
 
+    m_sphereMeshId = engine->GetWorldResources()->RegisterStaticMesh(CreateSphereMeshVertices(1.0f),
+                                                                     CreateSphereMeshIndices(),
+                                                                     Render::MeshUsage::Immutable,
+                                                                     "Sphere");
+    if (m_sphereMeshId == Render::INVALID_ID) { return false; }
+
     //
     // Height Maps
     //
@@ -108,17 +115,11 @@ bool TestScene::LoadAssets()
     //
     // Materials
     //
-    Render::ObjectMaterialProperties solidRedMaterial{};
-    solidRedMaterial.isAffectedByLighting = true;
-    solidRedMaterial.ambientColor = {1,0,0};
-    solidRedMaterial.diffuseColor = {1,0,0};
-    solidRedMaterial.specularColor = {1,0,0};
-    solidRedMaterial.shininess = 32.0f;
-    solidRedMaterial.ambientTextureBind = Render::TextureId{Render::INVALID_ID};
-    solidRedMaterial.diffuseTextureBind = Render::TextureId{Render::INVALID_ID};
-    solidRedMaterial.specularTextureBind = Render::TextureId{Render::INVALID_ID};
-    m_solidRedMaterialId = engine->GetWorldResources()->RegisterObjectMaterial(solidRedMaterial, "solidRed");
+    m_solidRedMaterialId = engine->GetWorldResources()->RegisterObjectMaterial(MakeSolidColorMaterial({1,0,0}), "red");
     if (m_solidRedMaterialId == Render::INVALID_ID) { return false; }
+
+    m_solidWhiteMaterialId = engine->GetWorldResources()->RegisterObjectMaterial(MakeSolidColorMaterial({1,1,1}), "white");
+    if (m_solidWhiteMaterialId == Render::INVALID_ID) { return false; }
 
     const auto terrainTextureId = *engine->GetWorldResources()->Textures()->GetAssetTextureId("rolling_hills_bitmap.png");
     Render::ObjectMaterialProperties terrainMaterial{};
@@ -136,10 +137,24 @@ bool TestScene::LoadAssets()
     //
     // Models
     //
-    const auto model = engine->GetAssets()->ReadModelBlocking("dancing_vampire", ".dae");
-    if (!model || !engine->GetWorldResources()->RegisterModel("dancing_vampire", *model)) { return false; }
+    const auto model = engine->GetAssets()->ReadModelBlocking("CesiumMan", ".glb");
+    if (!model || !engine->GetWorldResources()->RegisterModel("CesiumMan", *model)) { return false; }
 
     return true;
+}
+
+Render::ObjectMaterialProperties TestScene::MakeSolidColorMaterial(const glm::vec3& color)
+{
+    Render::ObjectMaterialProperties solidMaterial{};
+    solidMaterial.isAffectedByLighting = true;
+    solidMaterial.ambientColor = color;
+    solidMaterial.diffuseColor = color;
+    solidMaterial.specularColor = color;
+    solidMaterial.shininess = 32.0f;
+    solidMaterial.ambientTextureBind = Render::TextureId{Render::INVALID_ID};
+    solidMaterial.diffuseTextureBind = Render::TextureId{Render::INVALID_ID};
+    solidMaterial.specularTextureBind = Render::TextureId{Render::INVALID_ID};
+    return solidMaterial;
 }
 
 void TestScene::CreateLight(const glm::vec3& position)
@@ -168,13 +183,23 @@ void TestScene::CreateLight(const glm::vec3& position)
     transformComponent.SetPosition(position);
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, transformComponent);
 
+    //
+    // ObjectRenderableComponent
+    //
+    auto objectRenderableComponent = Engine::ObjectRenderableComponent{};
+    objectRenderableComponent.sceneName = "default";
+    objectRenderableComponent.meshId = m_sphereMeshId;
+    objectRenderableComponent.materialId = m_solidWhiteMaterialId;
+    objectRenderableComponent.shadowPass = false;
+    Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, objectRenderableComponent);
+
     if (m_lightEid == 0)
     {
         m_lightEid = eid;
     }
 }
 
-void TestScene::CreateVampireEntity(const glm::vec3& position)
+void TestScene::CreateCesiumManEntity(const glm::vec3& position)
 {
     const auto eid = engine->GetWorldState()->CreateEntity();
 
@@ -183,8 +208,8 @@ void TestScene::CreateVampireEntity(const glm::vec3& position)
     //
     auto modelRenderableComponent = Engine::ModelRenderableComponent{};
     modelRenderableComponent.sceneName = "default";
-    modelRenderableComponent.modelName = "dancing_vampire";
-    modelRenderableComponent.animationState = Engine::ModelAnimationState(Engine::ModelAnimationType::Looping, "Hips");
+    modelRenderableComponent.modelName = "CesiumMan";
+    modelRenderableComponent.animationState = Engine::ModelAnimationState(Engine::ModelAnimationType::Looping, "");
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, modelRenderableComponent);
 
     //
