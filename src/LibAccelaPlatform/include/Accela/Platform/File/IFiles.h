@@ -15,6 +15,8 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <cstddef>
+#include <optional>
 
 namespace Accela::Platform
 {
@@ -48,6 +50,7 @@ namespace Accela::Platform
             [[nodiscard]] virtual std::expected<std::vector<std::string>, bool> ListFilesInAssetsSubdir(const std::string& subdir) const = 0;
             [[nodiscard]] virtual std::expected<Common::ImageData::Ptr, unsigned int> LoadAssetTexture(const std::string& fileName) const = 0;
             [[nodiscard]] virtual std::expected<Common::ImageData::Ptr, unsigned int> LoadAssetModelTexture(const std::string& modelName, const std::string& fileName) const = 0;
+            [[nodiscard]] virtual std::expected<Common::ImageData::Ptr, bool> LoadCompressedTexture(const std::vector<std::byte>& data, const std::size_t& dataByteSize, const std::optional<std::string>& dataFormatHint) const = 0;
             [[nodiscard]] virtual std::expected<std::vector<unsigned char>, bool> LoadAssetFile(const std::string& subdir, const std::string& fileName) const = 0;
 
             /**

@@ -50,6 +50,9 @@ namespace Accela::Engine
 
             static ModelAnimation ProcessAnimation(const aiAnimation* pAnimation);
 
+            static void ProcessEmbeddedTextures(const Model::Ptr& model, const aiScene* pScene);
+            static void ProcessEmbeddedTexture(const ModelMaterial& material, const aiTexture* pAiTexture, ModelTexture& modelTexture);
+
             std::vector<ModelTexture> GetMaterialTextures(const aiMaterial* pMaterial, aiTextureType type) const;
 
             static ModelNode::Ptr FindNodeByName(const Model::Ptr& model, const std::string& name);

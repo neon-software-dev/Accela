@@ -52,6 +52,40 @@ std::expected<Common::ImageData::Ptr, unsigned int> SDLFiles::LoadAssetTexture(c
     return LoadTexture(filePath);
 }
 
+std::expected<Common::ImageData::Ptr, bool>
+SDLFiles::LoadCompressedTexture(const std::vector<std::byte>& data,
+                                const size_t& dataByteSize,
+                                const std::optional<std::string>& dataFormatHint) const
+{
+    auto pRwOps = SDL_RWFromMem((void*)data.data(), (int)dataByteSize);
+
+    SDL_Surface* pSurface{nullptr};
+
+    if (dataFormatHint)
+    {
+        pSurface = IMG_LoadTyped_RW(pRwOps, 1, dataFormatHint->c_str());
+    }
+    else
+    {
+        pSurface = IMG_Load_RW(pRwOps, 1);
+    }
+
+    if (pSurface == nullptr)
+    {
+        m_logger->Log(Common::LogLevel::Error, "LoadCompressedTexture: IMG_Load failed, had data format? {}", dataFormatHint.has_value());
+        return std::unexpected(false);
+    }
+
+    auto imageData = SDLSurfaceToImageData(m_logger, pSurface);
+    if (imageData == nullptr)
+    {
+        m_logger->Log(Common::LogLevel::Error, "LoadCompressedTexture: SDLSurfaceToImageData failed");
+        return std::unexpected(false);
+    }
+
+    return imageData;
+}
+
 std::expected<Common::ImageData::Ptr, unsigned int>
 SDLFiles::LoadAssetModelTexture(const std::string& modelName, const std::string& fileName) const
 {
@@ -200,6 +234,7 @@ Common::ImageData::Ptr SDLFiles::SDLSurfaceToImageData(const Common::ILogger::Pt
     );
 
     SDL_UnlockSurface(pFormattedSurface);
+    SDL_FreeSurface(pSurface);
 
     return loadResult;
 }

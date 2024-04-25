@@ -98,8 +98,7 @@ bool Materials::CreateMaterial(const Material::Ptr& material)
     // Record a record of the material and start a transfer of its data to the GPU
     //
     LoadedMaterial loadedMaterial{};
-    loadedMaterial.id = material->materialId;
-    loadedMaterial.type = material->type;
+    loadedMaterial.material = material;
     loadedMaterial.payloadBuffer = *bufferExpect;
     loadedMaterial.payloadByteOffset = (*bufferExpect)->GetDataByteSize();
     loadedMaterial.payloadByteSize = renderMaterial.payloadBytes.size();
@@ -111,14 +110,14 @@ bool Materials::CreateMaterial(const Material::Ptr& material)
     VulkanFuncs vulkanFuncs(m_logger, m_vulkanObjs);
 
     // Mark the material as loading
-    m_materialsLoading.insert(loadedMaterial.id);
+    m_materialsLoading.insert(loadedMaterial.material->materialId);
 
     BufferAppend bufferAppend{};
     bufferAppend.pData = renderMaterial.payloadBytes.data();
     bufferAppend.dataByteSize = renderMaterial.payloadBytes.size();
 
     return vulkanFuncs.QueueSubmit(
-        std::format("LoadMaterial-{}", loadedMaterial.id.id),
+        std::format("LoadMaterial-{}", loadedMaterial.material->materialId.id),
         m_postExecutionOps,
         m_vkTransferQueue,
         m_transferCommandPool,
@@ -181,17 +180,17 @@ bool Materials::UpdateMaterial(const Material::Ptr& material)
     VulkanFuncs vulkanFuncs(m_logger, m_vulkanObjs);
 
     // Mark the material as loading
-    m_materialsLoading.insert(loadedMaterial.id);
+    m_materialsLoading.insert(loadedMaterial.material->materialId);
 
     return vulkanFuncs.QueueSubmit(
-        std::format("UpdateMaterial-{}", loadedMaterial.id.id),
+        std::format("UpdateMaterial-{}", loadedMaterial.material->materialId.id),
         m_postExecutionOps,
         m_vkTransferQueue,
         m_transferCommandPool,
         [=,this](const VulkanCommandBufferPtr& commandBuffer, VkFence vkFence) {
             if (!UpdateMaterial(ExecutionContext::GPU(commandBuffer, vkFence), loadedMaterial, renderMaterial))
             {
-                m_logger->Log(Common::LogLevel::Error, "Materials: Failed to upload payload data to GPU for material {}", loadedMaterial.id.id);
+                m_logger->Log(Common::LogLevel::Error, "Materials: Failed to upload payload data to GPU for material {}", loadedMaterial.material->materialId.id);
                 return;
             }
 
@@ -213,13 +212,13 @@ bool Materials::UpdateMaterial(const ExecutionContext& executionContext,
     if (payloadBufferUpdate.dataByteSize != loadedMaterial.payloadByteSize)
     {
         m_logger->Log(Common::LogLevel::Error,
-          "Materials: UpdateMaterial: Material payload byte size change currently not supported, for material: ", loadedMaterial.id.id);
+          "Materials: UpdateMaterial: Material payload byte size change currently not supported, for material: ", loadedMaterial.material->materialId.id);
         return false;
     }
 
     if (!loadedMaterial.payloadBuffer->Update(executionContext, {payloadBufferUpdate}))
     {
-        m_logger->Log(Common::LogLevel::Error, "Materials: Failed to update payload data for material {}", loadedMaterial.id.id);
+        m_logger->Log(Common::LogLevel::Error, "Materials: Failed to update payload data for material {}", loadedMaterial.material->materialId.id);
         return false;
     }
 
@@ -289,25 +288,27 @@ void Materials::DestroyMaterial(MaterialId materialId, bool destroyImmediately)
 
 void Materials::OnMaterialLoadFinished(const LoadedMaterial& loadedMaterial)
 {
-    m_logger->Log(Common::LogLevel::Debug, "Materials: Material load finished for material: {}", loadedMaterial.id.id);
+    const auto materialId = loadedMaterial.material->materialId;
 
-    m_materialsLoading.erase(loadedMaterial.id);
+    m_logger->Log(Common::LogLevel::Debug, "Materials: Material load finished for material: {}", materialId.id);
 
-    if (m_materialsToDestroy.contains(loadedMaterial.id))
+    m_materialsLoading.erase(materialId);
+
+    if (m_materialsToDestroy.contains(materialId))
     {
-        m_logger->Log(Common::LogLevel::Debug, "Meshes: Loaded mesh should be destroyed: {}", loadedMaterial.id.id);
+        m_logger->Log(Common::LogLevel::Debug, "Meshes: Loaded mesh should be destroyed: {}", materialId.id);
 
-        m_materialsToDestroy.erase(loadedMaterial.id);
+        m_materialsToDestroy.erase(materialId);
 
         // Can immediately destroy since PostExecutionOps will only run the load fence's
         // queued work once both it is done and all frames have since finished their work.
-        DestroyMaterial(loadedMaterial.id, true);
+        DestroyMaterial(materialId, true);
     }
 }
 
 void Materials::DestroyMaterialObjects(const LoadedMaterial& loadedMaterial)
 {
-    m_logger->Log(Common::LogLevel::Debug, "Materials: Destroying material objects: {}", loadedMaterial.id.id);
+    m_logger->Log(Common::LogLevel::Debug, "Materials: Destroying material objects: {}", loadedMaterial.material->materialId.id);
 
     // TODO: Support destroying materials
 
@@ -337,7 +338,8 @@ RenderMaterial Materials::ObjectMaterialToRenderMaterial(const ObjectMaterial::P
     materialPayload.ambientColor = material->properties.ambientColor;
     materialPayload.diffuseColor = material->properties.diffuseColor;
     materialPayload.specularColor = material->properties.specularColor;
-    materialPayload.opacity = material->properties.opacity;
+    materialPayload.alphaMode = static_cast<uint32_t>(material->properties.alphaMode);
+    materialPayload.alphaCutoff = material->properties.alphaCutoff;
     materialPayload.shininess = material->properties.shininess;
 
     materialPayload.hasAmbientTexture = material->properties.ambientTextureBind != TextureId{INVALID_ID};

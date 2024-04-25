@@ -25,6 +25,8 @@
 #include "../Vulkan/VulkanDescriptorSet.h"
 #include "../Vulkan/VulkanCommandBuffer.h"
 
+#include <Accela/Render/Material/ObjectMaterial.h>
+
 #include <format>
 #include <algorithm>
 #include <set>
@@ -174,16 +176,45 @@ std::vector<ObjectRenderable> ObjectRenderer::GetObjectsToRender(const std::stri
         .GetVisibleObjects(sceneName, totalViewSpaceAABB.GetVolume());
 
     //
-    // For shadow passes, only include objects that specify they're part of shadow passes
+    // Filter the objects by the render operation we're performing
     //
-    if (renderType == RenderType::Shadow)
-    {
-        auto filteredObjectsView = objectsToRender | std::ranges::views::filter([](const ObjectRenderable& objectRenderable){
-            return objectRenderable.shadowPass;
-        });
+    auto filteredObjectsView = objectsToRender | std::ranges::views::filter([&](const ObjectRenderable& objectRenderable){
+        //
+        // If we're doing a shadow pass and the object shouldn't be included in shadow passes, filter it out
+        //
+        if (renderType == RenderType::Shadow && !objectRenderable.shadowPass)
+        {
+            return false;
+        }
 
-        objectsToRender = std::vector<ObjectRenderable>(filteredObjectsView.begin(), filteredObjectsView.end());
-    }
+        const auto loadedMaterial = m_materials->GetLoadedMaterial(objectRenderable.materialId);
+        if (!loadedMaterial)
+        {
+            return false;
+        }
+
+        const auto objectMaterial = std::dynamic_pointer_cast<ObjectMaterial>(loadedMaterial->material);
+
+        //
+        // If we're doing an opaque pass and the object doesn't have an opaque material, filter it out
+        //
+        if (renderType == RenderType::GpassOpaque && objectMaterial->properties.alphaMode != AlphaMode::Opaque)
+        {
+            return false;
+        }
+
+        //
+        // If we're doing a translucent pass and the object has an opaque material, filter it out
+        //
+        if (renderType == RenderType::GpassTranslucent && objectMaterial->properties.alphaMode == AlphaMode::Opaque)
+        {
+            return false;
+        }
+
+        return true;
+    });
+
+    objectsToRender = std::vector<ObjectRenderable>(filteredObjectsView.begin(), filteredObjectsView.end());
 
     return objectsToRender;
 }
@@ -193,8 +224,8 @@ std::function<bool(const ObjectRenderer::ObjectRenderBatch&, const ObjectRendere
 {
     // a
     const auto aProgramName = a.params.programDef->GetProgramName();
-    const auto aMaterialId = a.params.loadedMaterial.id;
-    const auto aMaterialType = a.params.loadedMaterial.type;
+    const auto aMaterialId = a.params.loadedMaterial.material->materialId;
+    const auto aMaterialType = a.params.loadedMaterial.material->type;
     BufferId aMeshDataBufferId{};
     if (a.params.meshDataBuffer)
     {
@@ -203,8 +234,8 @@ std::function<bool(const ObjectRenderer::ObjectRenderBatch&, const ObjectRendere
 
     // b
     const auto bProgramName = b.params.programDef->GetProgramName();
-    const auto bMaterialId = b.params.loadedMaterial.id;
-    const auto bMaterialType = b.params.loadedMaterial.type;
+    const auto bMaterialId = b.params.loadedMaterial.material->materialId;
+    const auto bMaterialType = b.params.loadedMaterial.material->type;
     BufferId bMeshDataBufferId{};
     if (b.params.meshDataBuffer)
     {
@@ -340,7 +371,7 @@ std::expected<ProgramDefPtr, bool> ObjectRenderer::GetMeshProgramDef(const Rende
         {
             switch (renderType)
             {
-                case RenderType::Gpass: programDef = m_programs->GetProgramDef("Object"); break;
+                case RenderType::GpassOpaque: case RenderType::GpassTranslucent: programDef = m_programs->GetProgramDef("Object"); break;
                 case RenderType::Shadow: programDef = m_programs->GetProgramDef("ObjectShadow"); break;
             }
         }
@@ -349,7 +380,7 @@ std::expected<ProgramDefPtr, bool> ObjectRenderer::GetMeshProgramDef(const Rende
         {
             switch (renderType)
             {
-                case RenderType::Gpass: programDef = m_programs->GetProgramDef("BoneObject"); break;
+                case RenderType::GpassOpaque: case RenderType::GpassTranslucent: programDef = m_programs->GetProgramDef("BoneObject"); break;
                 case RenderType::Shadow: programDef = m_programs->GetProgramDef("BoneObjectShadow"); break;
             }
         }
@@ -379,7 +410,7 @@ void ObjectRenderer::RenderBatch(RenderState& renderState,
     // Setup
     //
     const auto batchProgramName = renderBatch.params.programDef->GetProgramName();
-    const auto batchMaterialId = renderBatch.params.loadedMaterial.id;
+    const auto batchMaterialId = renderBatch.params.loadedMaterial.material->materialId;
 
     BufferId batchMeshDataBufferId{};
     if (renderBatch.params.meshDataBuffer)
@@ -810,7 +841,7 @@ bool ObjectRenderer::BindDescriptorSet3(RenderState& renderState,
     //
     const auto drawDescriptorSet = m_descriptorSets->CachedAllocateDescriptorSet(
         (*renderState.programDef)->GetDescriptorSetLayouts()[3],
-        std::format("ObjectRenderer-DS3-{}-{}-{}", batchMeshDataBufferId.id, renderBatch.params.loadedMaterial.id.id, m_frameIndex)
+        std::format("ObjectRenderer-DS3-{}-{}-{}", batchMeshDataBufferId.id, renderBatch.params.loadedMaterial.material->materialId.id, m_frameIndex)
     );
     if (!drawDescriptorSet)
     {
@@ -853,7 +884,7 @@ bool ObjectRenderer::BindDescriptorSet3_DrawData(const RenderState& renderState,
         m_buffers,
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
         renderBatchNumObjects,
-        std::format("ObjectRenderer-DrawData-{}-{}-{}", m_frameIndex, batchMeshDataBufferId.id, renderBatch.params.loadedMaterial.id.id)
+        std::format("ObjectRenderer-DrawData-{}-{}-{}", m_frameIndex, batchMeshDataBufferId.id, renderBatch.params.loadedMaterial.material->materialId.id)
     );
     if (!drawDataBufferExpect)
     {
@@ -972,7 +1003,7 @@ bool ObjectRenderer::BindDescriptorSet3_BoneData(const RenderState& renderState,
         m_buffers,
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
         allObjectsBoneTransforms.size(),
-        std::format("ObjectRenderer-DS3-BoneTransforms-{}-{}", renderBatch.params.loadedMaterial.id.id, m_frameIndex)
+        std::format("ObjectRenderer-DS3-BoneTransforms-{}-{}", renderBatch.params.loadedMaterial.material->materialId.id, m_frameIndex)
     );
     if (!boneTransformsBufferExpect)
     {
@@ -1065,7 +1096,7 @@ std::expected<VulkanPipelinePtr, bool> ObjectRenderer::GetBatchPipeline(
 
     switch (renderType)
     {
-        case RenderType::Gpass: cullFace = CullFace::Back; break;
+        case RenderType::GpassOpaque: case RenderType::GpassTranslucent: cullFace = CullFace::Back; break;
         case RenderType::Shadow: cullFace = CullFace::Front; break; // Fixes peter-panning effect
     }
 
@@ -1080,6 +1111,15 @@ std::expected<VulkanPipelinePtr, bool> ObjectRenderer::GetBatchPipeline(
         };
     }
 
+    uint32_t subpassIndex{0};
+
+    switch (renderType)
+    {
+        case RenderType::GpassOpaque:       subpassIndex = Offscreen_GPassOpaqueSubpass_Index; break;
+        case RenderType::GpassTranslucent:  subpassIndex = Offscreen_GPassTranslucentSubpass_Index; break;
+        case RenderType::Shadow:            subpassIndex = Offscreen_GPassOpaqueSubpass_Index; break;
+    }
+
     auto pipeline = GetPipeline(
         m_logger,
         m_vulkanObjs,
@@ -1087,7 +1127,7 @@ std::expected<VulkanPipelinePtr, bool> ObjectRenderer::GetBatchPipeline(
         m_pipelines,
         batchProgram,
         renderPass,
-        Offscreen_GPassSubpass_Index,
+        subpassIndex,
         viewport,
         cullFace,
         PolygonFillMode::Fill,
@@ -1165,7 +1205,7 @@ ObjectRenderer::ObjectRenderBatch::Key ObjectRenderer::GetBatchKey(const ObjectR
     }
 
     return std::hash<std::string>{}(std::format("{}-{}-{}",
-        params.programDef->GetProgramName(), params.loadedMaterial.id.id, meshDataBufferId.id));
+        params.programDef->GetProgramName(), params.loadedMaterial.material->materialId.id, meshDataBufferId.id));
 }
 
 }

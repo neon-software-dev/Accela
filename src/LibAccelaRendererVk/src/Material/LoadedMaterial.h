@@ -21,8 +21,7 @@ namespace Accela::Render
 {
     struct LoadedMaterial
     {
-        MaterialId id{INVALID_ID};
-        Material::Type type{};
+        Material::Ptr material;
 
         DataBufferPtr payloadBuffer;
         std::size_t payloadByteOffset{0};

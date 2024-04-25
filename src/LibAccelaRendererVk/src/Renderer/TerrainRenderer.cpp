@@ -356,7 +356,7 @@ std::expected<VulkanPipelinePtr, bool> TerrainRenderer::GetBatchPipeline(const V
         m_pipelines,
         m_programDef,
         renderPass,
-        Offscreen_GPassSubpass_Index,
+        Offscreen_GPassOpaqueSubpass_Index,
         viewport,
         CullFace::Back,
         PolygonFillMode::Fill,

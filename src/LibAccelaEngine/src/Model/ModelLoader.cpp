@@ -22,6 +22,9 @@ namespace Accela::Engine
 
 static const unsigned int MAX_BONES_PER_VERTEX = 4;
 
+#define AI_MATKEY_GLTF_ALPHAMODE "$mat.gltf.alphaMode", 0, 0
+#define AI_MATKEY_GLTF_ALPHACUTOFF "$mat.gltf.alphaCutoff", 0, 0
+
 ModelLoader::ModelLoader(Common::ILogger::Ptr logger, Platform::IFiles::Ptr files)
     : m_logger(std::move(logger)), m_files(std::move(files))
 {
@@ -61,6 +64,7 @@ Model::Ptr ModelLoader::LoadModel(const std::string& filePath) const
     auto model = std::make_shared<Model>();
 
     ProcessMaterials(model, pScene);
+    ProcessEmbeddedTextures(model, pScene);
     ProcessMeshes(model, pScene);
     ProcessNodes(model, pScene);
     ProcessSkeletons(model);
@@ -89,6 +93,14 @@ void ModelLoader::ProcessMaterials(const Model::Ptr& model, const aiScene* pScen
         const ModelMaterial material = ProcessMaterial(pMaterial);
         model->materials[materialIndex] = material;
     }
+}
+
+std::optional<Render::AlphaMode> ToAlphaMode(const aiString& value)
+{
+    if (value == aiString("OPAQUE")) { return Render::AlphaMode::Opaque; }
+    if (value == aiString("MASK")) { return Render::AlphaMode::Mask; }
+    if (value == aiString("BLEND")) { return Render::AlphaMode::Blend; }
+    return std::nullopt;
 }
 
 ModelMaterial ModelLoader::ProcessMaterial(const aiMaterial* pMaterial) const
@@ -140,6 +152,22 @@ ModelMaterial ModelLoader::ProcessMaterial(const aiMaterial* pMaterial) const
     ai_real shininess{0.0f};
     pMaterial->Get(AI_MATKEY_SHININESS, shininess);
     rawMaterial.shininess = shininess;
+
+    //
+    // GLTF specific
+    //
+    aiString gltfAlphaModeStr;
+    pMaterial->Get(AI_MATKEY_GLTF_ALPHAMODE, gltfAlphaModeStr);
+    const auto gltfAlphaMode = ToAlphaMode(gltfAlphaModeStr);
+
+    ai_real gltfAlphaCutoff{1.0f};
+    pMaterial->Get(AI_MATKEY_GLTF_ALPHACUTOFF, gltfAlphaCutoff);
+
+    if (gltfAlphaMode)
+    {
+        rawMaterial.alphaMode = *gltfAlphaMode;
+        rawMaterial.alphaCutoff = gltfAlphaCutoff;
+    }
 
     return rawMaterial;
 }
@@ -576,6 +604,79 @@ ModelAnimation ModelLoader::ProcessAnimation(const aiAnimation* pAnimation)
     }
 
     return modelAnimation;
+}
+
+void ModelLoader::ProcessEmbeddedTextures(const Model::Ptr& model, const aiScene* pScene)
+{
+    // Go over all textures in all materials, and attempt to load the texture from the model itself
+    for (auto& materialIt : model->materials)
+    {
+        for (auto& texture : materialIt.second.ambientTextures)
+        {
+            ProcessEmbeddedTexture(materialIt.second, pScene->GetEmbeddedTexture(texture.fileName.c_str()), texture);
+        }
+        for (auto& texture : materialIt.second.diffuseTextures)
+        {
+            ProcessEmbeddedTexture(materialIt.second, pScene->GetEmbeddedTexture(texture.fileName.c_str()), texture);
+        }
+        for (auto& texture : materialIt.second.specularTextures)
+        {
+            ProcessEmbeddedTexture(materialIt.second, pScene->GetEmbeddedTexture(texture.fileName.c_str()), texture);
+        }
+    }
+}
+
+void ModelLoader::ProcessEmbeddedTexture(const ModelMaterial& material, const aiTexture* pAiTexture, ModelTexture& modelTexture)
+{
+    // If pAiTexture is null then the model has no embedded texture, nothing to do
+    if (pAiTexture == nullptr)
+    {
+        return;
+    }
+
+    // Since embedded textures don't use real file names (.e.g. "*1"), rewrite the texture's file name to at least be
+    // unique, so there aren't file name collisions across textures/materials
+    modelTexture.fileName = material.name + modelTexture.fileName;
+
+    ModelEmbeddedData embeddedData{};
+
+    std::size_t numDataBytes = pAiTexture->mWidth * pAiTexture->mHeight * 4;
+
+    // If the texture's height is set to zero, then the embedded data is compressed raw data with a byte size
+    // equal to the width's value
+    if (pAiTexture->mHeight == 0)
+    {
+        numDataBytes = pAiTexture->mWidth;
+    }
+
+    // Load the embedded texture data from the model
+    embeddedData.data = std::vector<std::byte>(
+        (std::byte*)pAiTexture->pcData,
+        (std::byte*)pAiTexture->pcData + numDataBytes
+    );
+
+    embeddedData.dataWidth = pAiTexture->mWidth;
+    embeddedData.dataHeight = pAiTexture->mHeight;
+
+    // If we have uncompressed data, swizzle the data from BGRA to RGBA
+    // TODO Perf: Better way to handle this?
+    if (pAiTexture->mHeight != 0)
+    {
+        for (std::size_t x = 0; x < embeddedData.data.size(); x = x + 4)
+        {
+            std::swap(embeddedData.data[x], embeddedData.data[x+2]);
+        }
+    }
+
+    const bool formatHintZeroed = std::ranges::all_of(pAiTexture->achFormatHint, [](char c){
+        return c == 0;
+    });
+    if (!formatHintZeroed)
+    {
+        embeddedData.dataFormat = pAiTexture->achFormatHint;
+    }
+
+    modelTexture.embeddedData = embeddedData;
 }
 
 ModelNode::Ptr ModelLoader::FindNodeByName(const Model::Ptr& model, const std::string& name)

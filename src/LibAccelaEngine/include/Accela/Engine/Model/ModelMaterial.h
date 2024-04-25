@@ -10,13 +10,25 @@
 #include <Accela/Render/Texture/TextureSampler.h>
 #include <Accela/Render/Material/ObjectMaterial.h>
 
+#include <Accela/Common/ImageData.h>
+
 #include <glm/glm.hpp>
 
 #include <vector>
 #include <string>
+#include <optional>
+#include <cstddef>
 
 namespace Accela::Engine
 {
+    struct ModelEmbeddedData
+    {
+        std::vector<std::byte> data;
+        std::size_t dataWidth{0};
+        std::size_t dataHeight{0};
+        std::optional<std::string> dataFormat;
+    };
+
     struct ModelTexture
     {
         ModelTexture(std::string _filename,
@@ -33,6 +45,8 @@ namespace Accela::Engine
         Render::UVAddressMode uvAddressMode;
         float texBlendFactor;
         Render::TextureOp texOp;
+
+        std::optional<ModelEmbeddedData> embeddedData;
     };
 
     /**
@@ -46,6 +60,8 @@ namespace Accela::Engine
         glm::vec3 diffuseColor{0};
         glm::vec3 specularColor{0};
         float opacity{1.0f};
+        std::optional<Render::AlphaMode> alphaMode{Render::AlphaMode::Blend};
+        std::optional<float> alphaCutoff{0.01f};
         float shininess{0.0f};
 
         std::vector<ModelTexture> ambientTextures;

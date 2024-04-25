@@ -45,7 +45,8 @@ struct MaterialPayload
     vec3 ambientColor;
     vec3 diffuseColor;
     vec3 specularColor;
-    float opacity;
+    uint alphaMode;
+    float alphaCutoff;
     float shininess;
 
     bool hasAmbientTexture;
@@ -63,6 +64,10 @@ struct MaterialPayload
     bool hasNormalTexture;
 };
 
+const uint ALPHA_MODE_OPAQUE = 0;
+const uint ALPHA_MODE_MASK = 1;
+const uint ALPHA_MODE_BLEND = 2;
+
 //
 // Internal
 //
@@ -74,6 +79,7 @@ struct FragmentColors
 };
 
 FragmentColors CalculateFragmentColors(MaterialPayload materialPayload);
+FragmentColors ProcessAlphaMode(MaterialPayload materialPayload, FragmentColors fragmentColors);
 vec3 CalculateFragmentModelNormal(MaterialPayload materialPayload);
 
 //
@@ -139,14 +145,16 @@ void main()
     //
     // Determine the fragment's colors as reported by the model's material
     //
-    const FragmentColors fragmentColors = CalculateFragmentColors(materialPayload);
+    FragmentColors fragmentColors = CalculateFragmentColors(materialPayload);
 
-    // To help with transparency, discard fragments that are sufficiently close to fully transparent,
-    // so that they don't override what might have already been behind them in the depth buffer with
-    // a transparent pixel
-    // TODO: Need to add a separate forward pass for objects with any transparency, after the deferred pass
-    if (fragmentColors.diffuseColor.a < 0.001f) {  discard;  }
+    //
+    // Transform the fragment colors by the material's alpha mode
+    //
+    fragmentColors = ProcessAlphaMode(materialPayload, fragmentColors);
 
+    //
+    // Calculate the fragment's view-space normal for lighting shader to use
+    //
     const vec3 fragmentNormal_modelSpace = CalculateFragmentModelNormal(materialPayload);
     const mat3 normalMVTransform = mat3(transpose(inverse(i_viewProjectionData.data[gl_ViewIndex].viewTransform * objectPayload.modelTransform)));
     const vec3 fragmentNormal_viewSpace = normalize(normalMVTransform * fragmentNormal_modelSpace);
@@ -203,6 +211,31 @@ FragmentColors CalculateFragmentColors(MaterialPayload materialPayload)
     }
 
     return fragColors;
+}
+
+FragmentColors ProcessAlphaMode(MaterialPayload materialPayload, FragmentColors fragmentColors)
+{
+    if (materialPayload.alphaMode == ALPHA_MODE_OPAQUE)
+    {
+        // "The rendered output is fully opaque and any alpha value is ignored."
+        fragmentColors.ambientColor.a = 1.0f;
+        fragmentColors.diffuseColor.a = 1.0f;
+        fragmentColors.specularColor.a = 1.0f;
+    }
+    else if (materialPayload.alphaMode == ALPHA_MODE_MASK)
+    {
+        // "The rendered output is either fully opaque or fully transparent depending on the alpha value and
+        // the specified alpha cutoff value."
+        fragmentColors.ambientColor.a = fragmentColors.ambientColor.a >= materialPayload.alphaCutoff ? 1.0f : 0.0f;
+        fragmentColors.diffuseColor.a = fragmentColors.diffuseColor.a >= materialPayload.alphaCutoff ? 1.0f : 0.0f;
+        fragmentColors.specularColor.a = fragmentColors.specularColor.a >= materialPayload.alphaCutoff ? 1.0f : 0.0f;
+    }
+    else if (materialPayload.alphaMode == ALPHA_MODE_BLEND)
+    {
+        // no-op - use the alphas as specified by the material
+    }
+
+    return fragmentColors;
 }
 
 vec3 CalculateFragmentModelNormal(MaterialPayload materialPayload)

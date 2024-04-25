@@ -751,15 +751,15 @@ void RendererVk::OffscreenRender(const std::string& sceneName,
     const auto offscreenRenderPass = m_vulkanObjs->GetOffscreenRenderPass();
 
     //
-    // GPass Subpass
+    // GPass Opaque Subpass
     //
     {
-        CmdBufferSectionLabel sectionLabel(m_vulkanObjs->GetCalls(), graphicsCommandBuffer, "GPass");
+        CmdBufferSectionLabel sectionLabel(m_vulkanObjs->GetCalls(), graphicsCommandBuffer, "GPassOpaque");
 
         m_objectRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
             .Render(
                 sceneName,
-                RenderType::Gpass,
+                RenderType::GpassOpaque,
                 renderParams,
                 graphicsCommandBuffer,
                 offscreenRenderPass,
@@ -776,6 +776,27 @@ void RendererVk::OffscreenRender(const std::string& sceneName,
                 offscreenRenderPass,
                 framebufferObjs.GetFramebuffer(),
                 viewProjections
+            );
+    }
+
+    //
+    // GPass Translucent Subpass
+    //
+    {
+        CmdBufferSectionLabel sectionLabel(m_vulkanObjs->GetCalls(), graphicsCommandBuffer, "GPassTranslucent");
+
+        graphicsCommandBuffer->CmdNextSubpass();
+
+        m_objectRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
+            .Render(
+                sceneName,
+                RenderType::GpassTranslucent,
+                renderParams,
+                graphicsCommandBuffer,
+                offscreenRenderPass,
+                framebufferObjs.GetFramebuffer(),
+                viewProjections,
+                std::nullopt
             );
     }
 

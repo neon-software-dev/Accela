@@ -144,16 +144,28 @@ void Lights::ProcessUpdatedLights(const WorldUpdate& update, const VulkanCommand
         const auto it = m_lights.find(light.lightId);
         if (it != m_lights.cend())
         {
-            // TODO! Recreate framebuffers if shadow type changed
+            const bool shadowMapTypeChanged = it->second.shadowMapType != GetShadowMapType(light);
 
             it->second.light = light;
+            it->second.shadowMapType = GetShadowMapType(light);
+
             // TODO Perf: Only invalidate if light properties actually changed
             // TODO Perf: Only invalidate if something affecting shadow changed
             it->second.shadowInvalidated = true;
+
+            // If the light's shadow map type changed recreate its framebuffer for the new type
+            if (shadowMapTypeChanged)
+            {
+                if (!RecreateShadowFramebuffer(it->second, m_vulkanObjs->GetRenderSettings()))
+                {
+                    m_logger->Log(Common::LogLevel::Error,
+                        "Lights::ProcessUpdatedLights: Failed to recreate light framebuffer");
+                }
+            }
         }
         else
         {
-            m_logger->Log(Common::LogLevel::Error,
+            m_logger->Log(Common::LogLevel::Warning,
                 "Lights::ProcessUpdatedLights: Light doesn't exist, ignoring, id: ", light.lightId.id);
         }
     }

@@ -54,7 +54,8 @@ struct MaterialPayload
     vec3 ambientColor;
     vec3 diffuseColor;
     vec3 specularColor;
-    float opacity;
+    uint alphaMode;
+    float alphaCutoff;
     float shininess;
 
     bool hasAmbientTexture;
@@ -176,21 +177,6 @@ void main()
     surfaceColor = clamp(surfaceColor, vec4(0, 0, 0, 0), vec4(1, 1, 1, 1));
 
     o_fragColor = surfaceColor;
-
-    /*const vec3 fragPosition_worldSpace = subpassLoad(i_vertexPosition_worldSpace).rgb;
-    const vec3 lightToFrag = fragPosition_worldSpace - i_lightData.data[0].worldPos;
-    const float lightClosestDepth = GetLightClosestFragDepth(i_lightData.data[0], fragPosition_worldSpace);
-    const float fragDepth = GetFragLightDepth(i_lightData.data[0], fragPosition_worldSpace);
-
-    const vec3 samplePostion = vec3(
-        lightToFrag.x,
-        lightToFrag.y,
-        lightToFrag.z
-    );
-
-    const float sampled = texture(i_shadowSampler[i_lightData.data[0].shadowMapIndex], samplePostion).r;
-
-    o_fragColor = vec4(fragDepth, fragDepth, fragDepth, 1.0f);*/
 }
 
 CalculatedLight CalculateFragmentLighting(MaterialPayload fragmentMaterial)

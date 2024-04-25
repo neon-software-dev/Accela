@@ -325,6 +325,20 @@ WorldResources::LoadModelMeshMaterial(RegisteredModel& registeredModel, const st
     objectMaterialProperties.diffuseColor = material.diffuseColor;
     objectMaterialProperties.specularColor = material.specularColor;
     objectMaterialProperties.opacity = material.opacity;
+
+    // If the material supplied alpha mode (gltf models) then use its values directly
+    if (material.alphaMode)
+    {
+        objectMaterialProperties.alphaMode = *material.alphaMode;
+        objectMaterialProperties.alphaCutoff = *material.alphaCutoff;
+    }
+    // Otherwise, use the material's opacity field to determine alpha mode
+    else
+    {
+        objectMaterialProperties.alphaMode = material.opacity == 1.0f ? Render::AlphaMode::Opaque : Render::AlphaMode::Blend;
+        objectMaterialProperties.alphaCutoff = 0.01f;
+    }
+
     objectMaterialProperties.shininess = material.shininess;
 
     // Textures
@@ -399,36 +413,84 @@ std::expected<Render::TextureId, bool> WorldResources::LoadModelMaterialTexture(
 {
     const auto loadedTextureIt = registeredModel.loadedTextures.find(modelTexture.fileName);
 
+    // If the texture is already loaded from a previous material, don't load it again
     if (loadedTextureIt != registeredModel.loadedTextures.cend())
     {
         return loadedTextureIt->second;
     }
-    else
-    {
-        const auto textureId = m_renderer->GetIds()->textureIds.GetId();
 
-        const auto textureData = m_files->LoadAssetModelTexture(modelName, modelTexture.fileName);
-        if (!textureData)
+    const auto textureId = m_renderer->GetIds()->textureIds.GetId();
+
+    std::optional<Common::ImageData::Ptr> textureData;
+
+    //
+    // If the model's texture had embedded data, process it into an ImageData
+    //
+    if (modelTexture.embeddedData)
+    {
+        const bool embeddedDataIsCompressed = modelTexture.embeddedData->dataHeight == 0;
+
+        // If the embedded data is compressed, rely on platform to uncompress it into an image
+        if (embeddedDataIsCompressed)
+        {
+            const auto textureLoadExpect = m_files->LoadCompressedTexture(
+                modelTexture.embeddedData->data,
+                modelTexture.embeddedData->dataWidth,
+                modelTexture.embeddedData->dataFormat);
+            if (!textureLoadExpect)
+            {
+                m_logger->Log(Common::LogLevel::Error,
+                  "LoadModelMaterialTexture: Failed to interpret compressed texture data: {}", modelTexture.fileName);
+                return std::unexpected(false);
+            }
+
+            textureData = *textureLoadExpect;
+        }
+        // Otherwise, if the embedded data is uncompressed, we can interpret it directly
+        else
+        {
+            textureData = std::make_shared<Common::ImageData>(
+                modelTexture.embeddedData->data,
+                1,
+                modelTexture.embeddedData->dataWidth,
+                modelTexture.embeddedData->dataHeight,
+                Common::ImageData::PixelFormat::RGBA32
+            );
+        }
+    }
+
+    //
+    // If the model texture has no embedded data, we need to load its data from disk
+    //
+    if (!textureData)
+    {
+        const auto textureLoadExpect = m_files->LoadAssetModelTexture(modelName, modelTexture.fileName);
+        if (!textureLoadExpect)
         {
             m_logger->Log(Common::LogLevel::Error, "LoadModelMaterialTexture: Failed to load texture file: {}", modelTexture.fileName);
             return std::unexpected(false);
         }
 
-        const auto texture = Render::Texture::FromImageData(textureId, Render::TextureUsage::ImageMaterial, 1, *textureData, modelTexture.fileName);
-        const auto textureView = Render::TextureView::ViewAs2D(Render::TextureView::DEFAULT, Render::TextureView::Aspect::ASPECT_COLOR_BIT);
-        const auto textureSampler = Render::TextureSampler(modelTexture.uvAddressMode);
-
-        m_renderer->CreateTexture(texture, textureView, textureSampler, true);
-        //if (!) TODO
-        //{
-            //m_renderer->GetIds()->textureIds.ReturnId(textureId);
-            //return std::unexpected(false);
-        //}
-
-        registeredModel.loadedTextures.insert(std::make_pair(modelTexture.fileName, textureId));
-
-        return textureId;
+        textureData = *textureLoadExpect;
     }
+
+    //
+    // Register the texture and its data as a Texture in the renderer
+    //
+    const auto texture = Render::Texture::FromImageData(textureId, Render::TextureUsage::ImageMaterial, 1, *textureData, modelTexture.fileName);
+    const auto textureView = Render::TextureView::ViewAs2D(Render::TextureView::DEFAULT, Render::TextureView::Aspect::ASPECT_COLOR_BIT);
+    const auto textureSampler = Render::TextureSampler(modelTexture.uvAddressMode);
+
+    m_renderer->CreateTexture(texture, textureView, textureSampler, true);
+    //if (!) TODO
+    //{
+        //m_renderer->GetIds()->textureIds.ReturnId(textureId);
+        //return std::unexpected(false);
+    //}
+
+    registeredModel.loadedTextures.insert(std::make_pair(modelTexture.fileName, textureId));
+
+    return textureId;
 }
 
 std::optional<RegisteredModel> WorldResources::GetRegisteredModel(const std::string& modelName) const

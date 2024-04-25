@@ -26,6 +26,13 @@ namespace Accela::Render
         SignedAdd
     };
 
+    enum class AlphaMode
+    {
+        Opaque,
+        Mask,
+        Blend
+    };
+
     /**
      * Properties associated with an object material
      */
@@ -37,6 +44,8 @@ namespace Accela::Render
         glm::vec3 diffuseColor{0};
         glm::vec3 specularColor{0};
         float opacity{1.0f};
+        AlphaMode alphaMode{AlphaMode::Opaque};
+        float alphaCutoff{1.0f};
         float shininess{0.0f};
 
         TextureId ambientTextureBind{INVALID_ID};

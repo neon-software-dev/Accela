@@ -52,8 +52,10 @@ namespace Accela
             void CreateSpotLight(const glm::vec3& position, bool drawEntity);
             void CreateLight(const glm::vec3& position, bool drawEntity, const Render::LightProperties& properties);
 
-            /** Add the dancing vampire model at the specified position */
-            void CreateVampireEntity(const glm::vec3& position);
+            void CreateModelEntity(const std::string& modelName,
+                                   const glm::vec3& position,
+                                   const glm::vec3& scale = glm::vec3(1.0f),
+                                   const std::optional<Engine::ModelAnimationState>& animationState = std::nullopt);
 
             /** Add a floor object at the specified position/orientation with a certain x/z side length */
             void CreateFloorEntity(glm::vec3 position,

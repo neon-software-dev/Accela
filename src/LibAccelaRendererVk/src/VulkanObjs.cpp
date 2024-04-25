@@ -626,25 +626,45 @@ bool VulkanObjs::CreateOffscreenRenderPass()
     // Subpass Dependencies
     //
 
-    // Color dependency between GPass and Lighting subpasses
-    VkSubpassDependency dependency_readGpassColorOutput{};
-    dependency_readGpassColorOutput.srcSubpass = Offscreen_GPassSubpass_Index;
-    dependency_readGpassColorOutput.dstSubpass = Offscreen_LightingSubpass_Index;
-    dependency_readGpassColorOutput.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency_readGpassColorOutput.dstStageMask = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT;
-    dependency_readGpassColorOutput.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    dependency_readGpassColorOutput.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    dependency_readGpassColorOutput.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+    // Color dependency between GPass Opaque and GPass Translucent subpasses
+    VkSubpassDependency dependency_readGpassOpaqueColorOutput{};
+    dependency_readGpassOpaqueColorOutput.srcSubpass = Offscreen_GPassOpaqueSubpass_Index;
+    dependency_readGpassOpaqueColorOutput.dstSubpass = Offscreen_GPassTranslucentSubpass_Index;
+    dependency_readGpassOpaqueColorOutput.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency_readGpassOpaqueColorOutput.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    dependency_readGpassOpaqueColorOutput.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependency_readGpassOpaqueColorOutput.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    dependency_readGpassOpaqueColorOutput.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
-    // Depth dependency between GPass and Forward subpasses
-    VkSubpassDependency dependency_readGpassDepthOutput{};
-    dependency_readGpassDepthOutput.srcSubpass = Offscreen_GPassSubpass_Index;
-    dependency_readGpassDepthOutput.dstSubpass = Offscreen_ForwardSubpass_Index;
-    dependency_readGpassDepthOutput.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    dependency_readGpassDepthOutput.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    dependency_readGpassDepthOutput.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-    dependency_readGpassDepthOutput.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-    dependency_readGpassDepthOutput.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+    // Depth dependency between GPass Opaque and GPass Translucent subpasses
+    VkSubpassDependency dependency_readGpassOpaqueDepthOutput{};
+    dependency_readGpassOpaqueDepthOutput.srcSubpass = Offscreen_GPassOpaqueSubpass_Index;
+    dependency_readGpassOpaqueDepthOutput.dstSubpass = Offscreen_GPassTranslucentSubpass_Index;
+    dependency_readGpassOpaqueDepthOutput.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    dependency_readGpassOpaqueDepthOutput.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    dependency_readGpassOpaqueDepthOutput.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+    dependency_readGpassOpaqueDepthOutput.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+    dependency_readGpassOpaqueDepthOutput.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+    // Color dependency between GPass Translucent and Lighting subpasses
+    VkSubpassDependency dependency_readGpassTranslucentColorOutput{};
+    dependency_readGpassTranslucentColorOutput.srcSubpass = Offscreen_GPassTranslucentSubpass_Index;
+    dependency_readGpassTranslucentColorOutput.dstSubpass = Offscreen_LightingSubpass_Index;
+    dependency_readGpassTranslucentColorOutput.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency_readGpassTranslucentColorOutput.dstStageMask = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT;
+    dependency_readGpassTranslucentColorOutput.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependency_readGpassTranslucentColorOutput.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    dependency_readGpassTranslucentColorOutput.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+    // Depth dependency between GPass Translucent and Forward subpasses
+    VkSubpassDependency dependency_readGpassTranslucentDepthOutput{};
+    dependency_readGpassTranslucentDepthOutput.srcSubpass = Offscreen_GPassTranslucentSubpass_Index;
+    dependency_readGpassTranslucentDepthOutput.dstSubpass = Offscreen_ForwardSubpass_Index;
+    dependency_readGpassTranslucentDepthOutput.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    dependency_readGpassTranslucentDepthOutput.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    dependency_readGpassTranslucentDepthOutput.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+    dependency_readGpassTranslucentDepthOutput.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+    dependency_readGpassTranslucentDepthOutput.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
     // Color dependency between Lighting and Forward subpasses
     VkSubpassDependency dependency_readLightingColorOutput{};
@@ -697,12 +717,15 @@ bool VulkanObjs::CreateOffscreenRenderPass()
         },
         {
             gSubpass,
+            gSubpass,
             lightingSubpass,
             forwardSubpass
         },
         {
-            dependency_readGpassColorOutput,
-            dependency_readGpassDepthOutput,
+            dependency_readGpassOpaqueColorOutput,
+            dependency_readGpassOpaqueDepthOutput,
+            dependency_readGpassTranslucentColorOutput,
+            dependency_readGpassTranslucentDepthOutput,
             dependency_readLightingColorOutput,
             dependency_readColorOutput
         },

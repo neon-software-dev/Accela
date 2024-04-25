@@ -55,11 +55,14 @@ void DevScene::CreateSceneEntities()
     // Configuration for which entities are placed in the test world
     //
 
-    CreateSpotLight({0,1,0}, true);
+    //CreateSpotLight({0,1,0}, true);
     CreatePointLight({2,1,2}, true);
     CreateTerrainEntity(1.0f, {0, -2.2, 0});
-    CreateFloorEntity({0,0,0}, 10);
-    CreateVampireEntity({0,0,-2});
+    CreateFloorEntity({0,0,0}, 20);
+    //CreateModelEntity("dancing_vampire", {0,0,-2}, glm::vec3(1.0f),
+    //                  Engine::ModelAnimationState(Engine::ModelAnimationType::Looping, "Hips"));
+    //CreateModelEntity("AlphaBlendModeTest", {0,0,0});
+    CreateModelEntity("TextureSettingsTest", {0,3,0}, glm::vec3(0.5f));
 }
 
 bool DevScene::LoadAssets()
@@ -140,8 +143,12 @@ bool DevScene::LoadAssets()
     //
     // Models
     //
-    const auto model = engine->GetAssets()->ReadModelBlocking("dancing_vampire", ".dae");
+    auto model = engine->GetAssets()->ReadModelBlocking("dancing_vampire", ".dae");
     if (!model || !engine->GetWorldResources()->RegisterModel("dancing_vampire", *model)) { return false; }
+    model = engine->GetAssets()->ReadModelBlocking("AlphaBlendModeTest", ".glb");
+    if (!model || !engine->GetWorldResources()->RegisterModel("AlphaBlendModeTest", *model)) { return false; }
+    model = engine->GetAssets()->ReadModelBlocking("TextureSettingsTest", ".glb");
+    if (!model || !engine->GetWorldResources()->RegisterModel("TextureSettingsTest", *model)) { return false; }
 
     return true;
 }
@@ -222,7 +229,10 @@ void DevScene::CreateLight(const glm::vec3& position, bool drawEntity, const Ren
     }
 }
 
-void DevScene::CreateVampireEntity(const glm::vec3& position)
+void DevScene::CreateModelEntity(const std::string& modelName,
+                                 const glm::vec3& position,
+                                 const glm::vec3& scale,
+                                 const std::optional<Engine::ModelAnimationState>& animationState)
 {
     const auto eid = engine->GetWorldState()->CreateEntity();
 
@@ -230,9 +240,8 @@ void DevScene::CreateVampireEntity(const glm::vec3& position)
     // ModelRenderableComponent
     //
     auto modelRenderableComponent = Engine::ModelRenderableComponent{};
-    modelRenderableComponent.sceneName = "default";
-    modelRenderableComponent.modelName = "dancing_vampire";
-    modelRenderableComponent.animationState = Engine::ModelAnimationState(Engine::ModelAnimationType::Looping, "Hips");
+    modelRenderableComponent.modelName = modelName;
+    modelRenderableComponent.animationState = animationState;
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, modelRenderableComponent);
 
     //
@@ -240,6 +249,7 @@ void DevScene::CreateVampireEntity(const glm::vec3& position)
     //
     auto transformComponent = Engine::TransformComponent{};
     transformComponent.SetPosition(position);
+    transformComponent.SetScale(scale);
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, transformComponent);
 }
 
