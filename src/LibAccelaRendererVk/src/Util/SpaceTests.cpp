@@ -12,6 +12,22 @@
 namespace Accela::Render
 {
 
+uint8_t CalculateClipCode(const glm::mat4& projection, const glm::vec3& point)
+{
+    uint8_t outCode{0};
+
+    const auto clipPoint = projection * glm::vec4(point, 1);
+
+    if (clipPoint.x < -clipPoint.w) { outCode |= 0x01; }
+    if (clipPoint.x > clipPoint.w)  { outCode |= 0x02; }
+    if (clipPoint.y < -clipPoint.w) { outCode |= 0x04; }
+    if (clipPoint.y > clipPoint.w)  { outCode |= 0x08; }
+    if (clipPoint.z < 0)            { outCode |= 0x10; }
+    if (clipPoint.z > clipPoint.w)  { outCode |= 0x20; }
+
+    return outCode;
+}
+
 bool VolumeTriviallyOutsideProjection(const Volume& volume, const glm::mat4& projection)
 {
     const auto boundingPoints = volume.GetBoundingPoints();
@@ -21,18 +37,11 @@ bool VolumeTriviallyOutsideProjection(const Volume& volume, const glm::mat4& pro
 
     for (unsigned int x = 0; x < 8; ++x)
     {
-        const auto clipPoint = projection * glm::vec4(boundingPoints[x], 1);
-
-        if (clipPoint.x < -clipPoint.w) { outCodes[x] |= 0x01; }
-        if (clipPoint.x > clipPoint.w)  { outCodes[x] |= 0x02; }
-        if (clipPoint.y < -clipPoint.w) { outCodes[x] |= 0x04; }
-        if (clipPoint.y > clipPoint.w)  { outCodes[x] |= 0x08; }
-        if (clipPoint.z < 0)            { outCodes[x] |= 0x10; }
-        if (clipPoint.z > clipPoint.w)  { outCodes[x] |= 0x20; }
+        outCodes[x] = CalculateClipCode(projection, boundingPoints[x]);
     }
 
-    // If all bounding points fall outside (one or more of) the same plane, the aabb can be trivially classified
-    // as being completely outside the projectionFrustum
+    // If all bounding points fall outside the projection's area, the volume can be classified as
+    // being trivially outside the projection's area
     const bool triviallyOutside =
         (   outCodes[0] & outCodes[1] & outCodes[2] & outCodes[3] &
             outCodes[4] & outCodes[5] & outCodes[6] & outCodes[7]

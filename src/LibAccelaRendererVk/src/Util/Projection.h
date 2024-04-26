@@ -26,6 +26,8 @@ namespace Accela::Render
 
             virtual ~Projection() = default;
 
+            [[nodiscard]] virtual Ptr Clone() const = 0;
+
             [[nodiscard]] virtual glm::mat4 GetProjectionMatrix() const noexcept = 0;
 
             [[nodiscard]] virtual float GetNearPlaneDistance() const noexcept = 0;

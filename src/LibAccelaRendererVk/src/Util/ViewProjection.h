@@ -13,6 +13,8 @@
 
 #include <glm/glm.hpp>
 
+#include <utility>
+
 namespace Accela::Render
 {
     struct ViewProjection
@@ -21,6 +23,33 @@ namespace Accela::Render
             : viewTransform(_viewTransform)
             , projectionTransform(std::move(_projectionTransform))
         { }
+
+        ViewProjection(const ViewProjection& other)
+            : viewTransform(other.viewTransform)
+            , projectionTransform(other.projectionTransform->Clone())
+        { }
+
+        ViewProjection& operator=(const ViewProjection& other)
+        {
+            if (this == &other) return *this;
+
+            viewTransform = other.viewTransform;
+            projectionTransform = other.projectionTransform->Clone();
+
+            return *this;
+        }
+
+        ViewProjection(ViewProjection&& other) noexcept
+            : viewTransform(std::exchange(other.viewTransform, {}))
+            , projectionTransform(std::exchange(other.projectionTransform, nullptr))
+        {}
+
+        ViewProjection& operator=(ViewProjection&& other) noexcept
+        {
+            std::swap(viewTransform, other.viewTransform);
+            std::swap(projectionTransform, other.projectionTransform);
+            return *this;
+        }
 
         [[nodiscard]] glm::mat4 GetTransformation() const
         {

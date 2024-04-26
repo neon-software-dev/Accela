@@ -133,6 +133,11 @@ FrustumProjection::FrustumProjection(Tag,
     ComputeAncillary();
 }
 
+Projection::Ptr FrustumProjection::Clone() const
+{
+    return std::make_shared<FrustumProjection>(Tag{}, m_nearMin, m_nearMax, m_farMin, m_farMax);
+}
+
 glm::mat4 FrustumProjection::GetProjectionMatrix() const noexcept
 {
     return m_projection;

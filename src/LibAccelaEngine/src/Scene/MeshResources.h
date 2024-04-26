@@ -69,6 +69,8 @@ namespace Accela::Engine
 
             void DestroyMesh(const Render::MeshId& meshId) override;
 
+            void DestroyAll() override;
+
             //
             // Other
             //

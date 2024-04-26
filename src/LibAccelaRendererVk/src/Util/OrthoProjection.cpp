@@ -58,6 +58,11 @@ std::expected<Projection::Ptr, bool> OrthoProjection::From(const float& width,
     );
 }
 
+Projection::Ptr OrthoProjection::Clone() const
+{
+    return std::make_shared<OrthoProjection>(Tag{}, m_nearMin, m_nearMax, m_farMin, m_farMax);
+}
+
 OrthoProjection::OrthoProjection(Tag,
                                  const glm::vec3& nearMin,
                                  const glm::vec3& nearMax,

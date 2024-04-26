@@ -89,6 +89,7 @@ namespace Accela::Render
             //
             // Projection
             //
+            [[nodiscard]] Projection::Ptr Clone() const override;
             [[nodiscard]] glm::mat4 GetProjectionMatrix() const noexcept override;
             [[nodiscard]] float GetNearPlaneDistance() const noexcept override;
             [[nodiscard]] float GetFarPlaneDistance() const noexcept override;

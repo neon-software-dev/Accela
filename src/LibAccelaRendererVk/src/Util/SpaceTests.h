@@ -18,6 +18,12 @@
 
 namespace Accela::Render
 {
+    /**
+     * Calculates the clip code for the result of applying a projection to a point. (The clip code
+     * sets a bit for each plane where the transformed point lies outside the area of the projection,
+     * with a clip code of zero meaning the transformed point is within the projection).
+     */
+    [[nodiscard]] uint8_t CalculateClipCode(const glm::mat4& projection, const glm::vec3& point);
 
     /**
      * Returns whether an AABB is trivially outside the bounds of a projectionFrustum.
