@@ -46,7 +46,7 @@ That being said, any user wishing to use Accela **without a GPL v3 license attac
 *Bone-based animated model dancing in Sponza with dynamic lighting and shadow mapping*
 
 ![Alt text](screenshots/cubes.gif?raw=true "Physics")
-*A collection of entities launched into the air with dynamic lighting at over 1000fps*
+*A collection of entities launched into the air over height-mapped terrain with dynamic lighting*
 
 # Quick Start Guide
 
