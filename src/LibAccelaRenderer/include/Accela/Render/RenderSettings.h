@@ -67,6 +67,9 @@ namespace Accela::Render
 
         // Whether to render objects at all (for debugging purposes)
         bool renderObjects{true};
+
+        // Whether to render objects in wireframe
+        bool objectsWireframe{false};
     };
 }
 

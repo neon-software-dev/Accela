@@ -1120,6 +1120,13 @@ std::expected<VulkanPipelinePtr, bool> ObjectRenderer::GetBatchPipeline(
         case RenderType::Shadow:            subpassIndex = Offscreen_GPassOpaqueSubpass_Index; break;
     }
 
+    auto fillMode = PolygonFillMode::Fill;
+
+    if (m_vulkanObjs->GetRenderSettings().objectsWireframe)
+    {
+        fillMode = PolygonFillMode::Line;
+    }
+
     auto pipeline = GetPipeline(
         m_logger,
         m_vulkanObjs,
@@ -1130,7 +1137,7 @@ std::expected<VulkanPipelinePtr, bool> ObjectRenderer::GetBatchPipeline(
         subpassIndex,
         viewport,
         cullFace,
-        PolygonFillMode::Fill,
+        fillMode,
         pushConstantRanges,
         m_frameIndex,
         oldPipelineHash

@@ -749,6 +749,13 @@ void DevScene::HandleSetCommand(const std::vector<std::string>& tokens)
         renderSettings.framesInFlight = std::stoi(v);
         engine->SetRenderSettings(renderSettings);
     }
+    else if (k == "rs.objects.wireframe")
+    {
+        if (tokens.size() != 3) { return; }
+        if (v == "0") { renderSettings.objectsWireframe = false; }
+        if (v == "1") { renderSettings.objectsWireframe = true; }
+        engine->SetRenderSettings(renderSettings);
+    }
 }
 
 void DevScene::HandleSpawnCommand(const std::vector<std::string>& tokens)
