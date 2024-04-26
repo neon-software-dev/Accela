@@ -62,6 +62,7 @@ namespace Accela::Render
             VulkanDescriptorSetPtr m_descriptorSet;
 
             MeshId m_meshId{MeshId(INVALID_ID)};
+            std::optional<PresentScaling> m_presentScaling;
             std::optional<USize> m_renderSize;
             std::optional<USize> m_targetSize;
             std::optional<std::size_t> m_pipelineHash;

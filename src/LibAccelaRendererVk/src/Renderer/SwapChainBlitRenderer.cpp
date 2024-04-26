@@ -212,7 +212,10 @@ void SwapChainBlitRenderer::Render(const VulkanCommandBufferPtr& commandBuffer,
 
 bool SwapChainBlitRenderer::ConfigureMeshFor(const RenderSettings& renderSettings, const USize& targetSize)
 {
-    if (m_renderSize && m_targetSize && (*m_renderSize == renderSettings.resolution) && (*m_targetSize == targetSize))
+    if ((m_renderSize && m_targetSize && m_presentScaling) &&
+        (*m_renderSize == renderSettings.resolution) &&
+        (*m_targetSize == targetSize) &&
+        (*m_presentScaling == renderSettings.presentScaling))
     {
         // No change in render resolution or target resolution, nothing to update
         return true;
@@ -288,6 +291,7 @@ bool SwapChainBlitRenderer::ConfigureMeshFor(const RenderSettings& renderSetting
     // Update state
     //
     m_meshId = meshId;
+    m_presentScaling = renderSettings.presentScaling;
     m_renderSize = renderSettings.resolution;
     m_targetSize = targetSize;
 

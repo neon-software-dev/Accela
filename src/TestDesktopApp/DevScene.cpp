@@ -730,6 +730,12 @@ void DevScene::HandleSetCommand(const std::vector<std::string>& tokens)
         renderSettings.shadowQuality = static_cast<Render::QualityLevel>(std::stoi(v));
         engine->SetRenderSettings(renderSettings);
     }
+    else if (k == "rs.present_scaling")
+    {
+        if (tokens.size() != 3) { return; }
+        renderSettings.presentScaling = static_cast<Render::PresentScaling>(std::stoi(v));
+        engine->SetRenderSettings(renderSettings);
+    }
     else if (k == "rs.vsync")
     {
         if (tokens.size() != 3) { return; }
