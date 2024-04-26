@@ -105,7 +105,7 @@ bool SpriteRenderer::CreateSpriteMesh()
         std::format("SpriteRenderer-{}", m_frameIndex)
     );
 
-    if (!m_meshes->LoadMesh(mesh, MeshUsage::Static))
+    if (!m_meshes->LoadMesh(mesh, MeshUsage::Static, std::promise<bool>{}))
     {
         m_logger->Log(Common::LogLevel::Error, "SpriteRenderer: Failed to create sprite mesh");
         m_ids->meshIds.ReturnId(mesh->id);

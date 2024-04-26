@@ -56,23 +56,7 @@ namespace Accela::Engine
                            AudioManagerPtr audioManager);
 
             [[nodiscard]] ITextureResources::Ptr Textures() const override;
-
-            // Meshes
-            [[nodiscard]] Render::MeshId RegisterStaticMesh(std::vector<Render::MeshVertex> vertices,
-                                                            std::vector<uint32_t> indices,
-                                                            Render::MeshUsage usage,
-                                                            const std::string& tag) override;
-
-            [[nodiscard]] Render::MeshId GenerateHeightMapMesh(const Render::TextureId& heightMapTextureId,
-                                                               const Render::USize& heightMapDataSize,
-                                                               const Render::USize& meshSize_worldSpace,
-                                                               const float& displacementFactor,
-                                                               Render::MeshUsage usage,
-                                                               const std::string& tag) override;
-
-            [[nodiscard]] std::optional<HeightMapData::Ptr> GetHeightMapData(const Render::MeshId& heightMapMeshId) const;
-
-            void DestroyMesh(Render::MeshId meshId) override;
+            [[nodiscard]] IMeshResources::Ptr Meshes() const override;
 
             // Materials
             [[nodiscard]] Render::MaterialId RegisterObjectMaterial(const Render::ObjectMaterialProperties& properties,
@@ -93,8 +77,6 @@ namespace Accela::Engine
             [[nodiscard]] std::optional<RegisteredModel> GetRegisteredModel(const std::string& modelName) const;
 
         private:
-
-            [[nodiscard]] Render::MeshId RegisterMesh(const Render::Mesh::Ptr& mesh, Render::MeshUsage usage);
 
             std::expected<Render::MaterialId, bool> LoadModelMeshMaterial(RegisteredModel& registeredModel,
                                                                          const std::string& modelName,
@@ -124,12 +106,10 @@ namespace Accela::Engine
             AudioManagerPtr m_audioManager;
 
             ITextureResources::Ptr m_textures;
+            IMeshResources::Ptr m_meshes;
 
             // Models registered via RegisterModel calls
             std::unordered_map<std::string, RegisteredModel> m_registeredModels;
-
-            // HeightMaps created via GenerateHeightMapMesh calls
-            std::unordered_map<Render::MeshId, HeightMapData::Ptr> m_registeredHeightMaps;
     };
 }
 

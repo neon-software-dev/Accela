@@ -16,6 +16,7 @@
 #include <vulkan/vulkan.h>
 
 #include <optional>
+#include <future>
 
 namespace Accela::Render
 {
@@ -29,8 +30,8 @@ namespace Accela::Render
                                     VkQueue vkTransferQueue) = 0;
             virtual void Destroy() = 0;
 
-            [[nodiscard]] virtual bool LoadMesh(const Mesh::Ptr& mesh, MeshUsage usage) = 0;
-            [[nodiscard]] virtual bool UpdateMesh(const Mesh::Ptr& mesh) = 0;
+            [[nodiscard]] virtual bool LoadMesh(const Mesh::Ptr& mesh, MeshUsage usage, std::promise<bool> resultPromise) = 0;
+            [[nodiscard]] virtual bool UpdateMesh(const Mesh::Ptr& mesh, std::promise<bool> resultPromise) = 0;
             [[nodiscard]] virtual std::optional<LoadedMesh> GetLoadedMesh(MeshId meshId) const = 0;
             virtual void DestroyMesh(MeshId meshId, bool destroyImmediately) = 0;
     };

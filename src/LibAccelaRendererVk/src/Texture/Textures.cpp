@@ -178,14 +178,14 @@ void Textures::CreateTextureFilled(const Texture& texture,
     }
 
     m_textures.insert(std::make_pair(texture.id, loadedTexture.value()));
-    SyncMetrics();
 
     //
     // Asynchronously fill the texture image with the provided data, and generate mipmaps as needed
     //
     m_logger->Log(Common::LogLevel::Debug, "CreateTextureFilled: Starting data transfer for texture: {}", texture.id.id);
-
     FillImageWithData(*loadedTexture, *(texture.data), mipLevels, generateMipMaps, std::move(resultPromise));
+
+    SyncMetrics();
 }
 
 std::expected<LoadedTexture, bool> Textures::CreateTextureObjects(const Texture& texture,
@@ -558,10 +558,8 @@ void Textures::FillImageWithData(const LoadedTexture& loadedTexture,
 {
     VulkanFuncs vulkanFuncs(m_logger, m_vulkanObjs);
 
-    const auto loadingTexture = std::make_shared<LoadingTexture>(std::move(resultPromise));
-
     // Mark the texture as loading
-    m_texturesLoading.insert({loadedTexture.textureId, loadingTexture});
+    m_texturesLoading.insert({loadedTexture.textureId, std::make_shared<LoadingTexture>(std::move(resultPromise))});
 
     vulkanFuncs.QueueSubmit(
         std::format("FillImageWithData-{}", loadedTexture.textureId.id),

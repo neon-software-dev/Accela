@@ -244,9 +244,11 @@ bool RendererVk::OnDestroyTexture(TextureId textureId)
     return true;
 }
 
-bool RendererVk::OnCreateMesh(const Mesh::Ptr& mesh, MeshUsage meshUsage)
+bool RendererVk::OnCreateMesh(std::promise<bool> resultPromise,
+                              const Mesh::Ptr& mesh,
+                              MeshUsage meshUsage)
 {
-    return m_meshes->LoadMesh(mesh, meshUsage);
+    return m_meshes->LoadMesh(mesh, meshUsage, std::move(resultPromise));
 }
 
 bool RendererVk::OnDestroyMesh(MeshId meshId)

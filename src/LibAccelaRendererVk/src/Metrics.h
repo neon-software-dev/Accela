@@ -23,6 +23,8 @@ namespace Accela::Render
 
     // Meshes system
         static constexpr char Renderer_Meshes_Count[] = "Renderer_Meshes_Count";
+        static constexpr char Renderer_Meshes_Loading_Count[] = "Renderer_Meshes_Loading_Count";
+        static constexpr char Renderer_Meshes_ToDestroy_Count[] = "Renderer_Meshes_ToDestroy_Count";
         static constexpr char Renderer_Meshes_ByteSize[] = "Renderer_Meshes_ByteSize";
 
     // Textures system

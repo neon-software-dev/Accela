@@ -8,6 +8,7 @@
 
 #include "../Metrics.h"
 #include "../Scene/WorldResources.h"
+#include "../Scene/MeshResources.h"
 
 #include <Accela/Common/Assert.h>
 
@@ -51,7 +52,7 @@ void EnableRP3DLogging(reactphysics3d::PhysicsCommon& physicsCommon)
     physicsCommon.setLogger(rp3dLogger);
 }
 
-Physics::Physics(Common::ILogger::Ptr logger, Common::IMetrics::Ptr metrics, std::shared_ptr<WorldResources> worldResources)
+Physics::Physics(Common::ILogger::Ptr logger, Common::IMetrics::Ptr metrics, IWorldResourcesPtr worldResources)
     : m_logger(std::move(logger))
     , m_metrics(std::move(metrics))
     , m_worldResources(std::move(worldResources))
@@ -311,7 +312,8 @@ std::expected<reactphysics3d::CollisionShape*, bool> Physics::CreateCollisionSha
 {
     const auto boundsHeightMap = std::get<Bounds_HeightMap>(boundsComponent.bounds);
 
-    const auto heightMapDataOpt = m_worldResources->GetHeightMapData(boundsHeightMap.heightMapMeshId);
+    const auto heightMapDataOpt = std::dynamic_pointer_cast<MeshResources>(m_worldResources->Meshes())
+        ->GetHeightMapData(boundsHeightMap.heightMapMeshId);
     if (!heightMapDataOpt)
     {
         m_logger->Log(Common::LogLevel::Error,

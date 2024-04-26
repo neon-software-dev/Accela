@@ -95,7 +95,7 @@ void Meshes::Destroy()
     SyncMetrics();
 }
 
-bool Meshes::LoadMesh(const Mesh::Ptr& mesh, MeshUsage usage)
+bool Meshes::LoadMesh(const Mesh::Ptr& mesh, MeshUsage usage, std::promise<bool> resultPromise)
 {
     if (m_meshes.find(mesh->id) != m_meshes.cend())
     {
@@ -105,15 +105,15 @@ bool Meshes::LoadMesh(const Mesh::Ptr& mesh, MeshUsage usage)
 
     switch (usage)
     {
-        case MeshUsage::Dynamic: return LoadCPUMesh(mesh);
-        case MeshUsage::Static: return LoadGPUMesh(mesh);
-        case MeshUsage::Immutable: return LoadImmutableMesh(mesh);
+        case MeshUsage::Dynamic: return LoadCPUMesh(mesh, std::move(resultPromise));
+        case MeshUsage::Static: return LoadGPUMesh(mesh, std::move(resultPromise));
+        case MeshUsage::Immutable: return LoadImmutableMesh(mesh, std::move(resultPromise));
     }
 
     return false;
 }
 
-bool Meshes::LoadCPUMesh(const Mesh::Ptr& mesh)
+bool Meshes::LoadCPUMesh(const Mesh::Ptr& mesh, std::promise<bool> resultPromise)
 {
     m_logger->Log(Common::LogLevel::Info, "Meshes: Loading CPU mesh {}", mesh->id.id);
 
@@ -196,7 +196,7 @@ bool Meshes::LoadCPUMesh(const Mesh::Ptr& mesh)
     loadedMesh.dataByteSize = dataByteSize;
     loadedMesh.boundingBox_modelSpace = CalculateRenderBoundingBox(mesh);
 
-    if (!UpdateCPUMeshBuffers(loadedMesh, mesh))
+    if (!UpdateCPUMeshBuffers(loadedMesh, mesh, std::move(resultPromise)))
     {
         m_logger->Log(Common::LogLevel::Error, "Meshes: Failed to upload mesh data to CPU for mesh {}", mesh->id.id);
         m_buffers->DestroyBuffer((*verticesBuffer)->GetBuffer()->GetBufferId());
@@ -210,7 +210,7 @@ bool Meshes::LoadCPUMesh(const Mesh::Ptr& mesh)
     return true;
 }
 
-bool Meshes::LoadGPUMesh(const Mesh::Ptr& mesh)
+bool Meshes::LoadGPUMesh(const Mesh::Ptr& mesh, std::promise<bool> resultPromise)
 {
     m_logger->Log(Common::LogLevel::Info, "Meshes: Loading GPU mesh {}", mesh->id.id);
 
@@ -305,10 +305,10 @@ bool Meshes::LoadGPUMesh(const Mesh::Ptr& mesh)
     m_meshes.insert({mesh->id, loadedMesh});
     SyncMetrics();
 
-    return UpdateGPUMeshBuffers(loadedMesh, mesh);
+    return UpdateGPUMeshBuffers(loadedMesh, mesh, std::move(resultPromise));
 }
 
-bool Meshes::LoadImmutableMesh(const Mesh::Ptr& mesh)
+bool Meshes::LoadImmutableMesh(const Mesh::Ptr& mesh, std::promise<bool> resultPromise)
 {
     m_logger->Log(Common::LogLevel::Info, "Meshes: Loading immutable mesh {}", mesh->id.id);
 
@@ -374,6 +374,10 @@ bool Meshes::LoadImmutableMesh(const Mesh::Ptr& mesh)
     }
 
     m_meshes.insert({mesh->id, loadedMesh});
+
+    // Mark the mesh as loading
+    m_meshesLoading.insert({loadedMesh.id, std::make_shared<LoadingMesh>(std::move(resultPromise))});
+
     SyncMetrics();
 
     VulkanFuncs vulkanFuncs(m_logger, m_vulkanObjs);
@@ -384,9 +388,6 @@ bool Meshes::LoadImmutableMesh(const Mesh::Ptr& mesh)
         m_vkTransferQueue,
         m_transferCommandPool,
         [=,this](const VulkanCommandBufferPtr& commandBuffer, VkFence vkFence) {
-            // Mark the mesh as loading
-            m_meshesLoading.insert(mesh->id);
-
             const auto executionContext = ExecutionContext::GPU(commandBuffer, vkFence);
 
             meshBuffers->vertexBuffer->PushBack(executionContext, BufferAppend{.pData = verticesPayload.data(), .dataByteSize = verticesPayload.size()});
@@ -398,7 +399,7 @@ bool Meshes::LoadImmutableMesh(const Mesh::Ptr& mesh)
             }
 
             // When the transfer has finished, handle post load tasks
-            m_postExecutionOps->Enqueue(vkFence, [=,this](){ OnMeshLoadFinished(loadedMesh); });
+            m_postExecutionOps->EnqueueFrameless(vkFence, [=,this](){ OnMeshLoadFinished(loadedMesh); });
         }
     );
 }
@@ -644,7 +645,7 @@ std::optional<std::vector<unsigned char>> Meshes::GetDataPayload(const Mesh::Ptr
     return std::nullopt;
 }
 
-bool Meshes::UpdateMesh(const Mesh::Ptr& mesh)
+bool Meshes::UpdateMesh(const Mesh::Ptr& mesh, std::promise<bool> resultPromise)
 {
     const auto it = m_meshes.find(mesh->id);
     if (it == m_meshes.cend())
@@ -654,12 +655,17 @@ bool Meshes::UpdateMesh(const Mesh::Ptr& mesh)
     }
 
     //
+    // Update mesh loaded data
+    //
+    it->second.boundingBox_modelSpace = CalculateRenderBoundingBox(mesh);
+
+    //
     // Update mesh buffer data
     //
     switch (it->second.usage)
     {
-        case MeshUsage::Dynamic:  return UpdateCPUMeshBuffers(it->second, mesh);
-        case MeshUsage::Static: return UpdateGPUMeshBuffers(it->second, mesh);
+        case MeshUsage::Dynamic:    return UpdateCPUMeshBuffers(it->second, mesh, std::move(resultPromise));
+        case MeshUsage::Static:     return UpdateGPUMeshBuffers(it->second, mesh, std::move(resultPromise));
         case MeshUsage::Immutable:
         {
             m_logger->Log(Common::LogLevel::Error, "Meshes: UpdateMesh: Asked to update immutable mesh: {}", mesh->id.id);
@@ -667,28 +673,29 @@ bool Meshes::UpdateMesh(const Mesh::Ptr& mesh)
         }
     }
 
-    //
-    // Update mesh loaded data
-    //
-    it->second.boundingBox_modelSpace = CalculateRenderBoundingBox(mesh);
-
+    assert(false);
     return false;
 }
 
-bool Meshes::UpdateCPUMeshBuffers(const LoadedMesh& loadedMesh, const Mesh::Ptr& newMeshData)
+bool Meshes::UpdateCPUMeshBuffers(const LoadedMesh& loadedMesh, const Mesh::Ptr& newMeshData, std::promise<bool> resultPromise)
 {
     if (!UpdateMeshBuffers(ExecutionContext::CPU(), loadedMesh, newMeshData))
     {
         m_logger->Log(Common::LogLevel::Error, "Meshes: Failed to update CPU mesh {}", newMeshData->id.id);
+        resultPromise.set_value(false);
         return false;
     }
 
+    resultPromise.set_value(true);
     return true;
 }
 
-bool Meshes::UpdateGPUMeshBuffers(const LoadedMesh& loadedMesh, const Mesh::Ptr& newMeshData)
+bool Meshes::UpdateGPUMeshBuffers(const LoadedMesh& loadedMesh, const Mesh::Ptr& newMeshData, std::promise<bool> resultPromise)
 {
     VulkanFuncs vulkanFuncs(m_logger, m_vulkanObjs);
+
+    // Mark the mesh as loading
+    m_meshesLoading.insert({loadedMesh.id, std::make_shared<LoadingMesh>(std::move(resultPromise))});
 
     return vulkanFuncs.QueueSubmit(
         std::format("UpdateGPUMesh-{}", newMeshData->id.id),
@@ -696,9 +703,6 @@ bool Meshes::UpdateGPUMeshBuffers(const LoadedMesh& loadedMesh, const Mesh::Ptr&
         m_vkTransferQueue,
         m_transferCommandPool,
         [=,this](const VulkanCommandBufferPtr& commandBuffer, VkFence vkFence) {
-            // Mark the mesh as loading
-            m_meshesLoading.insert(newMeshData->id);
-
             if (!UpdateMeshBuffers(ExecutionContext::GPU(commandBuffer, vkFence), loadedMesh, newMeshData))
             {
                 m_logger->Log(Common::LogLevel::Error, "Meshes: Failed to upload mesh data to GPU for mesh {}", newMeshData->id.id);
@@ -810,6 +814,18 @@ void Meshes::OnMeshLoadFinished(const LoadedMesh& loadedMesh)
 {
     m_logger->Log(Common::LogLevel::Debug, "Meshes: Mesh load finished for mesh: {}", loadedMesh.id.id);
 
+    const auto it = m_meshesLoading.find(loadedMesh.id);
+    if (it == m_meshesLoading.cend())
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "Meshes: Mesh load finished for mesh while has no loading record: {}", loadedMesh.id.id);
+        return;
+    }
+
+    // Mark the mesh as finished loading
+    it->second->resultPromise.set_value(true);
+
+    // The mesh is no longer loading
     m_meshesLoading.erase(loadedMesh.id);
 
     if (m_meshesToDestroy.contains(loadedMesh.id))
@@ -818,10 +834,12 @@ void Meshes::OnMeshLoadFinished(const LoadedMesh& loadedMesh)
 
         m_meshesToDestroy.erase(loadedMesh.id);
 
-        // Can immediately destroy since PostExecutionOps will only run the load fence's
-        // queued work once both it is done and all frames have since finished their work.
-        DestroyMesh(loadedMesh.id, true);
+        // Enqueuing the objects destruction as this method's callback is frameless, and we want to wait for all
+        // in-progress frames to finish before destroying the texture's objects
+        m_postExecutionOps->Enqueue_Current([=,this]() { DestroyMeshObjects(loadedMesh); });
     }
+
+    SyncMetrics();
 }
 
 std::optional<LoadedMesh> Meshes::GetLoadedMesh(MeshId meshId) const
@@ -907,6 +925,8 @@ void Meshes::DestroyMeshObjects(const LoadedMesh& loadedMesh)
 void Meshes::SyncMetrics()
 {
     m_metrics->SetCounterValue(Renderer_Meshes_Count, m_meshes.size());
+    m_metrics->SetCounterValue(Renderer_Meshes_Loading_Count, m_meshesLoading.size());
+    m_metrics->SetCounterValue(Renderer_Meshes_ToDestroy_Count, m_meshesToDestroy.size());
 
     std::size_t totalByteSize = 0;
 

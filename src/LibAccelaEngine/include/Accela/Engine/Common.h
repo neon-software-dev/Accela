@@ -12,6 +12,19 @@
 namespace Accela::Engine
 {
     using EntityId = std::uint32_t;
+
+    enum class ResultWhen
+    {
+        /**
+         * A resource is ready to be used
+         */
+        Ready,
+
+        /**
+         * A resource is fully loaded into the GPU
+         */
+        FullyLoaded
+    };
 }
 
 #endif //LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_COMMON_H

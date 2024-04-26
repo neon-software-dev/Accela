@@ -87,29 +87,34 @@ bool TestScene::LoadAssets()
     //
     // Meshes
     //
-    m_cubeMeshId = engine->GetWorldResources()->RegisterStaticMesh(CubeVertices,
-                                                                   CubeIndices,
-                                                                   Render::MeshUsage::Immutable,
-                                                                   "Cube");
+    m_cubeMeshId = engine->GetWorldResources()->Meshes()->LoadStaticMesh(
+        CubeVertices,
+        CubeIndices,
+        Render::MeshUsage::Immutable,
+        "Cube",
+        Engine::ResultWhen::Ready).get();
     if (m_cubeMeshId == Render::INVALID_ID) { return false; }
 
-    m_sphereMeshId = engine->GetWorldResources()->RegisterStaticMesh(CreateSphereMeshVertices(1.0f),
-                                                                     CreateSphereMeshIndices(),
-                                                                     Render::MeshUsage::Immutable,
-                                                                     "Sphere");
+    m_sphereMeshId = engine->GetWorldResources()->Meshes()->LoadStaticMesh(
+        CreateSphereMeshVertices(1.0f),
+        CreateSphereMeshIndices(),
+        Render::MeshUsage::Immutable,
+        "Sphere",
+        Engine::ResultWhen::Ready).get();
     if (m_sphereMeshId == Render::INVALID_ID) { return false; }
 
     //
     // Height Maps
     //
-    m_terrainHeightMapMeshId = engine->GetWorldResources()->GenerateHeightMapMesh(
+    m_terrainHeightMapMeshId = engine->GetWorldResources()->Meshes()->LoadHeightMapMesh(
         *engine->GetWorldResources()->Textures()->GetAssetTextureId("rolling_hills_heightmap.png"),
         Render::USize(300,300), // How many data points to create from the height map image
         Render::USize(100,100), // World-space x/z size of the resulting terrain mesh
         20.0f, // Constant that's multiplied against height map height values
         Render::MeshUsage::Immutable,
-        "TerrainHeightMap"
-    );
+        "TerrainHeightMap",
+        Engine::ResultWhen::Ready
+    ).get();
     if (m_terrainHeightMapMeshId == Render::INVALID_ID) { return false; }
 
     //

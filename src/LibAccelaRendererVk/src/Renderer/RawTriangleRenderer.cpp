@@ -209,7 +209,7 @@ std::expected<MeshId, bool> RawTriangleRenderer::CreateTrianglesMesh(const std::
 
     const auto mesh = std::make_shared<StaticMesh>(meshId, vertices, indices, "RawTriangles");
 
-    if (!m_meshes->LoadMesh(mesh, MeshUsage::Dynamic))
+    if (!m_meshes->LoadMesh(mesh, MeshUsage::Dynamic, std::promise<bool>{}))
     {
         m_ids->meshIds.ReturnId(meshId);
         return std::unexpected(false);

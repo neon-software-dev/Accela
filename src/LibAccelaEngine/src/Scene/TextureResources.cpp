@@ -155,7 +155,7 @@ Render::TextureId TextureResources::OnLoadAssetTextureInternal(const std::vector
     const auto assetHash = GetAssetHash(assetTextureNames);
 
     //
-    // If the asset already has a record, return failure
+    // If the asset already has a record, return it
     //
     {
         std::lock_guard<std::mutex> assetsLock(m_assetsMutex);
@@ -163,7 +163,7 @@ Render::TextureId TextureResources::OnLoadAssetTextureInternal(const std::vector
         const auto it = m_assetToTexture.find(assetHash);
         if (it != m_assetToTexture.cend())
         {
-            return {Render::INVALID_ID};
+            return it->second;
         }
 
         //

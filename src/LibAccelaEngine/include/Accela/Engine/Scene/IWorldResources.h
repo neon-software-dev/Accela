@@ -8,6 +8,7 @@
 #define LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_SCENE_IWORLDRESOURCES_H
 
 #include <Accela/Engine/Scene/ITextureResources.h>
+#include <Accela/Engine/Scene/IMeshResources.h>
 #include <Accela/Engine/Scene/TextRender.h>
 #include <Accela/Engine/Model/Model.h>
 
@@ -35,59 +36,11 @@ namespace Accela::Engine
 
             virtual ~IWorldResources() = default;
 
-            //
-            // Textures (split into its own subsystem)
-            //
-
+            /** Interface to texture resource management */
             [[nodiscard]] virtual ITextureResources::Ptr Textures() const = 0;
 
-            //
-            // Meshes
-            //
-
-            /**
-             * Register a manually specified mesh's data.
-             *
-             * @param vertices The mesh's vertices
-             * @param indices The mesh's indices
-             * @param usage The mesh's usage pattern
-             * @param tag A debug tag to associate with the mesh
-             *
-             * @return The MeshId associated with the registered Mesh, or Render::INVALID_ID on error
-             */
-            [[nodiscard]] virtual Render::MeshId RegisterStaticMesh(std::vector<Render::MeshVertex> vertices,
-                                                                    std::vector<uint32_t> indices,
-                                                                    Render::MeshUsage usage,
-                                                                    const std::string& tag) = 0;
-
-            /**
-             * Generates a mesh from a provided (previously loaded) height map texture.
-             *
-             * Creates a mesh of heightMapDataSize.w x heightMapDataSize.h data points, read from the height map texture,
-             * and creates a mesh that's meshSize_worldSpace size, containing a vertex for each data point.
-             *
-             * @param heightMapTextureId The TextureId of the height map to use
-             * @param heightMapDataSize The dimensions of the height map data to create
-             * @param meshSize_worldSpace The world space size of the produced mesh
-             * @param displacementFactor Height scaling factor multiplied against each data point
-             * @param usage The usage of the provided mesh
-             * @param tag Debug tag to associate with the mesh
-             *
-             * @return The MeshId of the generated mesh, or INVALID_ID on error
-             */
-            [[nodiscard]] virtual Render::MeshId GenerateHeightMapMesh(const Render::TextureId& heightMapTextureId,
-                                                                       const Render::USize& heightMapDataSize,
-                                                                       const Render::USize& meshSize_worldSpace,
-                                                                       const float& displacementFactor,
-                                                                       Render::MeshUsage usage,
-                                                                       const std::string& tag) = 0;
-
-            /**
-             * Destroy a previously loaded mesh
-             *
-             * @param meshId The MeshId of the mesh to be destroyed
-             */
-            virtual void DestroyMesh(Render::MeshId meshId) = 0;
+            /** Interface to mesh resource management */
+            [[nodiscard]] virtual IMeshResources::Ptr Meshes() const = 0;
 
             //
             // Materials

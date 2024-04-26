@@ -52,7 +52,9 @@ namespace Accela::Render
                                  const TextureSampler& textureSampler,
                                  bool generateMipMaps) override;
             bool OnDestroyTexture(TextureId textureId) override;
-            bool OnCreateMesh(const Mesh::Ptr& mesh, MeshUsage meshUsage) override;
+            bool OnCreateMesh(std::promise<bool> resultPromise,
+                              const Mesh::Ptr& mesh,
+                              MeshUsage meshUsage) override;
             bool OnDestroyMesh(MeshId meshId) override;
             bool OnCreateMaterial(const Material::Ptr& material) override;
             bool OnDestroyMaterial(MaterialId materialId) override;

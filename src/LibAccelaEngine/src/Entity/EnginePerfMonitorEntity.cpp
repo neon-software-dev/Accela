@@ -145,6 +145,20 @@ void EnginePerfMonitorEntity::CreateEntities()
     );
     currentYPos += CreateEntity(
         Common::MetricType::Counter,
+        "Renderer: Meshes Loading Count: ",
+        "Renderer_Meshes_Loading_Count",
+        textProperties,
+        currentYPos
+    );
+    currentYPos += CreateEntity(
+        Common::MetricType::Counter,
+        "Renderer: Meshes ToDestroy Count: ",
+        "Renderer_Meshes_ToDestroy_Count",
+        textProperties,
+        currentYPos
+    );
+    currentYPos += CreateEntity(
+        Common::MetricType::Counter,
         "Renderer: Meshes ByteSize: ",
         "Renderer_Meshes_ByteSize",
         textProperties,

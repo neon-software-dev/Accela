@@ -168,7 +168,7 @@ void RendererBase::OnTaskMessageReceived(const RenderTaskMessage::Ptr& msg)
             FulfillDirect<RenderTask_DestroyTexture>(msg, std::bind_front(&RendererBase::OnDestroyTexture, this));
         break;
         case RenderTaskType::CreateMesh:
-            FulfillDirect<RenderTask_CreateMesh>(msg, std::bind_front(&RendererBase::OnCreateMesh, this));
+            FulfillManual<RenderTask_CreateMesh>(msg, std::bind_front(&RendererBase::OnCreateMesh, this));
         break;
         case RenderTaskType::DestroyMesh:
             FulfillDirect<RenderTask_DestroyMesh>(msg, std::bind_front(&RendererBase::OnDestroyMesh, this));

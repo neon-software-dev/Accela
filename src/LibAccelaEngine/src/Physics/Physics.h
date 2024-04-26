@@ -24,15 +24,13 @@
 
 namespace Accela::Engine
 {
-    class WorldResources;
-
     class Physics : public IPhysics, public IPhysicsRuntime
     {
         public:
 
             Physics(Common::ILogger::Ptr logger,
                     Common::IMetrics::Ptr metrics,
-                    std::shared_ptr<WorldResources> worldResources);
+                    IWorldResourcesPtr worldResources);
             ~Physics() override;
 
             //
@@ -122,7 +120,7 @@ namespace Accela::Engine
 
             Common::ILogger::Ptr m_logger;
             Common::IMetrics::Ptr m_metrics;
-            std::shared_ptr<WorldResources> m_worldResources;
+            IWorldResourcesPtr m_worldResources;
 
             reactphysics3d::PhysicsCommon m_physicsCommon;
             reactphysics3d::PhysicsWorld* m_pPhysicsWorld{nullptr};

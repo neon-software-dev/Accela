@@ -25,6 +25,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <optional>
+#include <future>
 
 namespace Accela::Render
 {
@@ -43,10 +44,23 @@ namespace Accela::Render
                             VkQueue vkTransferQueue) override;
             void Destroy() override;
 
-            [[nodiscard]] bool LoadMesh(const Mesh::Ptr& mesh, MeshUsage usage) override;
-            [[nodiscard]] bool UpdateMesh(const Mesh::Ptr& mesh) override;
+            [[nodiscard]] bool LoadMesh(const Mesh::Ptr& mesh, MeshUsage usage, std::promise<bool> resultPromise) override;
+            [[nodiscard]] bool UpdateMesh(const Mesh::Ptr& mesh, std::promise<bool> resultPromise) override;
             [[nodiscard]] std::optional<LoadedMesh> GetLoadedMesh(MeshId meshId) const override;
             void DestroyMesh(MeshId meshId, bool destroyImmediately) override;
+
+        private:
+
+            struct LoadingMesh
+            {
+                using Ptr = std::shared_ptr<LoadingMesh>;
+
+                explicit LoadingMesh(std::promise<bool> _resultPromise)
+                    : resultPromise(std::move(_resultPromise))
+                {}
+
+                std::promise<bool> resultPromise;
+            };
 
         private:
 
@@ -84,9 +98,9 @@ namespace Accela::Render
 
         private:
 
-            [[nodiscard]] bool LoadCPUMesh(const Mesh::Ptr& mesh);
-            [[nodiscard]] bool LoadGPUMesh(const Mesh::Ptr& mesh);
-            [[nodiscard]] bool LoadImmutableMesh(const Mesh::Ptr& mesh);
+            [[nodiscard]] bool LoadCPUMesh(const Mesh::Ptr& mesh, std::promise<bool> resultPromise);
+            [[nodiscard]] bool LoadGPUMesh(const Mesh::Ptr& mesh, std::promise<bool> resultPromise);
+            [[nodiscard]] bool LoadImmutableMesh(const Mesh::Ptr& mesh, std::promise<bool> resultPromise);
 
             [[nodiscard]] static std::vector<unsigned char> GetVerticesPayload(const Mesh::Ptr& mesh);
             [[nodiscard]] static std::size_t GetVerticesCount(const Mesh::Ptr& mesh);
@@ -96,8 +110,8 @@ namespace Accela::Render
 
             [[nodiscard]] std::expected<ImmutableMeshBuffers, bool> EnsureImmutableBuffers(const MeshType& meshType);
 
-            [[nodiscard]] bool UpdateCPUMeshBuffers(const LoadedMesh& loadedMesh, const Mesh::Ptr& newMeshData);
-            [[nodiscard]] bool UpdateGPUMeshBuffers(const LoadedMesh& loadedMesh, const Mesh::Ptr& newMeshData);
+            [[nodiscard]] bool UpdateCPUMeshBuffers(const LoadedMesh& loadedMesh, const Mesh::Ptr& newMeshData, std::promise<bool> resultPromise);
+            [[nodiscard]] bool UpdateGPUMeshBuffers(const LoadedMesh& loadedMesh, const Mesh::Ptr& newMeshData, std::promise<bool> resultPromise);
             bool UpdateMeshBuffers(const ExecutionContext& executionContext, const LoadedMesh& loadedMesh, const Mesh::Ptr& newMeshData);
 
             [[nodiscard]] static AABB CalculateRenderBoundingBox(const Mesh::Ptr& mesh);
@@ -125,7 +139,7 @@ namespace Accela::Render
 
             std::unordered_map<MeshId, LoadedMesh> m_meshes;
 
-            std::unordered_set<MeshId> m_meshesLoading;
+            std::unordered_map<MeshId, LoadingMesh::Ptr> m_meshesLoading;
             std::unordered_set<MeshId> m_meshesToDestroy;
 
             std::unordered_map<MeshType, DataBufferPtr> m_immutableMeshVertexBuffers;

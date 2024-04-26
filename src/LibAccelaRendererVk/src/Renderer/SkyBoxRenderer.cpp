@@ -158,7 +158,7 @@ bool SkyBoxRenderer::CreateSkyBoxMesh()
         std::format("SkyBoxRenderer-{}", m_frameIndex)
     );
 
-    if (!m_meshes->LoadMesh(mesh, MeshUsage::Static))
+    if (!m_meshes->LoadMesh(mesh, MeshUsage::Static, std::promise<bool>{}))
     {
         m_logger->Log(Common::LogLevel::Error, "SkyBoxRenderer: Failed to create skybox mesh");
         m_ids->meshIds.ReturnId(mesh->id);

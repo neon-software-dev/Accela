@@ -7,6 +7,7 @@
 #ifndef LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_SCENE_ITEXTURERESOURCES_H
 #define LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_SCENE_ITEXTURERESOURCES_H
 
+#include <Accela/Engine/Common.h>
 #include <Accela/Engine/TextureData.h>
 
 #include <Accela/Engine/Scene/TextRender.h>
@@ -26,19 +27,6 @@
 
 namespace Accela::Engine
 {
-    enum class ResultWhen
-    {
-        /**
-         * Return a result when the texture can be used
-         */
-        Ready,
-
-        /**
-         * Return a result when the texture is fully loaded into the GPU
-         */
-        FullyLoaded
-    };
-
     /**
      * Encapsulates texture resource operations
      */

@@ -268,7 +268,7 @@ bool SwapChainBlitRenderer::ConfigureMeshFor(const RenderSettings& renderSetting
     //
     if (m_meshId.IsValid())
     {
-        if (!m_meshes->UpdateMesh(mesh))
+        if (!m_meshes->UpdateMesh(mesh, std::promise<bool>{}))
         {
             m_logger->Log(Common::LogLevel::Error, "SwapChainBlitRenderer: Failed to update mesh: {}", m_meshId.id);
             return false;
@@ -276,7 +276,7 @@ bool SwapChainBlitRenderer::ConfigureMeshFor(const RenderSettings& renderSetting
     }
     else
     {
-        if (!m_meshes->LoadMesh(mesh, MeshUsage::Dynamic))
+        if (!m_meshes->LoadMesh(mesh, MeshUsage::Dynamic, std::promise<bool>{}))
         {
             m_logger->Log(Common::LogLevel::Error, "SwapChainBlitRenderer: Failed to create mesh");
             m_ids->meshIds.ReturnId(mesh->id);

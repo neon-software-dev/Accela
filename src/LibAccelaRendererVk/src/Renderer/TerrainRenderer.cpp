@@ -104,7 +104,7 @@ bool TerrainRenderer::CreateTerrainMesh()
         std::format("TerrainMesh-{}", m_frameIndex)
     );
 
-    if (!m_meshes->LoadMesh(mesh, MeshUsage::Static))
+    if (!m_meshes->LoadMesh(mesh, MeshUsage::Static, std::promise<bool>{}))
     {
         m_logger->Log(Common::LogLevel::Error, "TerrainRenderer: Failed to create terrain mesh");
         m_ids->meshIds.ReturnId(mesh->id);

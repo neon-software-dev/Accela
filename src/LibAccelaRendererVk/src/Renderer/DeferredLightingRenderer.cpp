@@ -111,7 +111,7 @@ bool DeferredLightingRenderer::CreateMesh()
         std::format("DeferredLighting-{}", m_frameIndex)
     );
 
-    if (!m_meshes->LoadMesh(mesh, MeshUsage::Static))
+    if (!m_meshes->LoadMesh(mesh, MeshUsage::Static, std::promise<bool>{}))
     {
         m_logger->Log(Common::LogLevel::Error, "DeferredLightingRenderer: Failed to create mesh");
         m_ids->meshIds.ReturnId(mesh->id);

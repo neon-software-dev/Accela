@@ -70,7 +70,9 @@ namespace Accela::Render
                                          const TextureSampler& textureSampler,
                                          bool generateMipMaps) = 0;
             virtual bool OnDestroyTexture(TextureId textureId) = 0;
-            virtual bool OnCreateMesh(const Mesh::Ptr& mesh, MeshUsage meshUsage) = 0;
+            virtual bool OnCreateMesh(std::promise<bool> resultPromise,
+                                      const Mesh::Ptr& mesh,
+                                      MeshUsage meshUsage) = 0;
             virtual bool OnDestroyMesh(MeshId meshId) = 0;
             virtual bool OnCreateMaterial(const Material::Ptr& material) = 0;
             virtual bool OnDestroyMaterial(MaterialId materialId) = 0;
