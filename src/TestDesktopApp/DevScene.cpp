@@ -156,14 +156,10 @@ bool DevScene::LoadAssets()
     //
     // Models
     //
-    auto model = engine->GetAssets()->ReadModelBlocking("dancing_vampire", ".dae");
-    if (!model || !engine->GetWorldResources()->Models()->LoadModel("dancing_vampire", *model, Engine::ResultWhen::Ready).get()) { return false; }
-    model = engine->GetAssets()->ReadModelBlocking("AlphaBlendModeTest", ".glb");
-    if (!model || !engine->GetWorldResources()->Models()->LoadModel("AlphaBlendModeTest", *model, Engine::ResultWhen::Ready).get()) { return false; }
-    model = engine->GetAssets()->ReadModelBlocking("TextureSettingsTest", ".glb");
-    if (!model || !engine->GetWorldResources()->Models()->LoadModel("TextureSettingsTest", *model, Engine::ResultWhen::Ready).get()) { return false; }
-    model = engine->GetAssets()->ReadModelBlocking("CesiumMan", ".glb");
-    if (!model || !engine->GetWorldResources()->Models()->LoadModel("CesiumMan", *model, Engine::ResultWhen::Ready).get()) { return false; }
+    if (!engine->GetWorldResources()->Models()->LoadAssetsModel("dancing_vampire", "dae", Engine::ResultWhen::Ready).get()) { return false; }
+    if (!engine->GetWorldResources()->Models()->LoadAssetsModel("AlphaBlendModeTest", "glb", Engine::ResultWhen::Ready).get()) { return false; }
+    if (!engine->GetWorldResources()->Models()->LoadAssetsModel("TextureSettingsTest", "glb", Engine::ResultWhen::Ready).get()) { return false; }
+    if (!engine->GetWorldResources()->Models()->LoadAssetsModel("CesiumMan", "glb", Engine::ResultWhen::Ready).get()) { return false; }
 
     return true;
 }

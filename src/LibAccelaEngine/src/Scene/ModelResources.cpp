@@ -6,6 +6,8 @@
  
 #include "ModelResources.h"
 
+#include <Accela/Engine/IEngineAssets.h>
+
 #include <Accela/Platform/File/IFiles.h>
 
 #include <Accela/Render/IRenderer.h>
@@ -26,14 +28,30 @@ struct BoolResultMessage : public Common::ResultMessage<bool>
 
 ModelResources::ModelResources(Common::ILogger::Ptr logger,
                                std::shared_ptr<Render::IRenderer> renderer,
+                               std::shared_ptr<IEngineAssets> assets,
                                std::shared_ptr<Platform::IFiles> files,
                                std::shared_ptr<Common::MessageDrivenThreadPool> threadPool)
    : m_logger(std::move(logger))
    , m_renderer(std::move(renderer))
+   , m_assets(std::move(assets))
    , m_files(std::move(files))
    , m_threadPool(std::move(threadPool))
 {
 
+}
+
+std::future<bool> ModelResources::LoadAssetsModel(const std::string& modelName, const std::string& fileExtension, ResultWhen resultWhen)
+{
+    auto message = std::make_shared<BoolResultMessage>();
+    auto messageFuture = message->CreateFuture();
+
+    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& message){
+        std::dynamic_pointer_cast<BoolResultMessage>(message)->SetResult(
+            OnLoadAssetsModel(modelName, fileExtension, resultWhen)
+        );
+    });
+
+    return messageFuture;
 }
 
 std::future<bool> ModelResources::LoadModel(const std::string& modelName, const Model::Ptr& model, ResultWhen resultWhen)
@@ -48,6 +66,19 @@ std::future<bool> ModelResources::LoadModel(const std::string& modelName, const 
     });
 
     return messageFuture;
+}
+
+bool ModelResources::OnLoadAssetsModel(const std::string& modelName, const std::string& fileExtension, ResultWhen resultWhen)
+{
+    const auto modelExpect = m_assets->ReadModelBlocking(modelName, fileExtension);
+    if (!modelExpect)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "ModelResources::OnLoadAssetsModel: Failed to load model from assets, name: {}", modelName);
+        return false;
+    }
+
+    return OnLoadModel(modelName, *modelExpect, resultWhen);
 }
 
 bool ModelResources::OnLoadModel(const std::string& modelName, const Model::Ptr& model, ResultWhen resultWhen)

@@ -29,18 +29,25 @@ namespace Accela::Render
 
 namespace Accela::Engine
 {
+    class IEngineAssets;
+
     class ModelResources : public IModelResources
     {
         public:
 
             ModelResources(Common::ILogger::Ptr logger,
                            std::shared_ptr<Render::IRenderer> renderer,
+                           std::shared_ptr<IEngineAssets> assets,
                            std::shared_ptr<Platform::IFiles> files,
                            std::shared_ptr<Common::MessageDrivenThreadPool> threadPool);
 
             //
             // IModelResources
             //
+            [[nodiscard]] std::future<bool> LoadAssetsModel(const std::string& modelName,
+                                                            const std::string& fileExtension,
+                                                            ResultWhen resultWhen) override;
+
             [[nodiscard]] std::future<bool> LoadModel(const std::string& modelName,
                                                       const Model::Ptr& model,
                                                       ResultWhen resultWhen) override;
@@ -55,6 +62,10 @@ namespace Accela::Engine
             [[nodiscard]] std::optional<RegisteredModel> GetLoadedModel(const std::string& modelName) const;
 
         private:
+
+            [[nodiscard]] bool OnLoadAssetsModel(const std::string& modelName,
+                                                 const std::string& fileExtension,
+                                                 ResultWhen resultWhen);
 
             [[nodiscard]] bool OnLoadModel(const std::string& modelName,
                                            const Model::Ptr& model,
@@ -82,6 +93,7 @@ namespace Accela::Engine
 
             Common::ILogger::Ptr m_logger;
             std::shared_ptr<Render::IRenderer> m_renderer;
+            std::shared_ptr<IEngineAssets> m_assets;
             std::shared_ptr<Platform::IFiles> m_files;
             std::shared_ptr<Common::MessageDrivenThreadPool> m_threadPool;
 

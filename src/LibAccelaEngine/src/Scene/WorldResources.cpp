@@ -48,7 +48,7 @@ WorldResources::WorldResources(Common::ILogger::Ptr logger,
     , m_materials(std::make_shared<MaterialResources>(m_logger, m_renderer, m_threadPool))
     , m_audio(std::make_shared<AudioResources>(m_logger, m_audioManager))
     , m_fonts(std::make_shared<FontResources>(m_logger, m_text, m_threadPool))
-    , m_models(std::make_shared<ModelResources>(m_logger, m_renderer, m_files, m_threadPool))
+    , m_models(std::make_shared<ModelResources>(m_logger, m_renderer, m_assets, m_files, m_threadPool))
 {
 
 }

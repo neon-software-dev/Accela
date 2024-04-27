@@ -68,7 +68,7 @@ namespace Accela::Engine
              * extension) of the model file that's contained directly within that directory.
              *
              * @param modelName The directory name of the model to be read
-             * @param modelExtension The file extension of the model file
+             * @param modelExtension The file extension of the model file (e.g. "glb")
              *
              * @return The data of the model, or false on error
              */

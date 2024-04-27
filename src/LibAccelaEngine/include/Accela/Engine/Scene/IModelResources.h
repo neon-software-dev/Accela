@@ -28,7 +28,20 @@ namespace Accela::Engine
             virtual ~IModelResources() = default;
 
             /**
-             * Loads a model for rendering
+             * Loads a model from assets directory for rendering
+             *
+             * @param modelName The name of the model within assets
+             * @param fileExtension The filename of the model (e.g. "glb")
+             * @param resultWhen When the operation's future should be signaled
+             *
+             * @return A future for the result of the operation
+             */
+            [[nodiscard]] virtual std::future<bool> LoadAssetsModel(const std::string& modelName,
+                                                                    const std::string& fileExtension,
+                                                                    ResultWhen resultWhen) = 0;
+
+            /**
+             * Loads a model from supplied model data for rendering
              *
              * @param modelName A unique name to identify the model
              * @param model The model's data

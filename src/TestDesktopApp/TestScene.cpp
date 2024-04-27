@@ -148,8 +148,7 @@ bool TestScene::LoadAssets()
     //
     // Models
     //
-    const auto model = engine->GetAssets()->ReadModelBlocking("CesiumMan", ".glb");
-    if (!model || !engine->GetWorldResources()->Models()->LoadModel("CesiumMan", *model, Engine::ResultWhen::Ready).get()) { return false; }
+    if (!engine->GetWorldResources()->Models()->LoadAssetsModel("CesiumMan", "glb", Engine::ResultWhen::Ready).get()) { return false; }
 
     return true;
 }

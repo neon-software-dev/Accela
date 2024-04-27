@@ -111,7 +111,7 @@ EngineAssets::ReadModelBlocking(const std::string& modelName, const std::string&
 {
     const auto modelsDirectory = m_files->GetAssetsSubdirectory(Platform::MODELS_DIR);
     const auto modelDirectory = m_files->GetSubdirPath(modelsDirectory, modelName);
-    const auto modelFilePath = modelDirectory + modelName + modelExtension;
+    const auto modelFilePath = modelDirectory + modelName + "." + modelExtension;
 
     auto model = m_modelLoader.LoadModel(modelFilePath);
     if (model == nullptr)
