@@ -41,7 +41,7 @@ namespace Accela::Render
             virtual bool CreateTextureEmpty(const Texture& texture,
                                             const std::vector<TextureView>& textureViews,
                                             const TextureSampler& textureSampler) = 0;
-            virtual void CreateTextureFilled(const Texture& texture,
+            virtual bool CreateTextureFilled(const Texture& texture,
                                              const std::vector<TextureView>& textureViews,
                                              const TextureSampler& textureSampler,
                                              bool generateMipMaps,

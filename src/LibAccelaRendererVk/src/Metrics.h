@@ -32,6 +32,12 @@ namespace Accela::Render
         static constexpr char Renderer_Textures_Loading_Count[] = "Renderer_Textures_Loading_Count";
         static constexpr char Renderer_Textures_ToDestroy_Count[] = "Renderer_Textures_ToDestroy_Count";
 
+    // Materials system
+        static constexpr char Renderer_Materials_Count[] = "Renderer_Materials_Count";
+        static constexpr char Renderer_Materials_Loading_Count[] = "Renderer_Materials_Loading_Count";
+        static constexpr char Renderer_Materials_ToDestroy_Count[] = "Renderer_Materials_ToDestroy_Count";
+        static constexpr char Renderer_Materials_ByteSize[] = "Renderer_Materials_ByteSize";
+
     // Buffers system
         static constexpr char Renderer_Buffers_Count[] = "Renderer_Buffers_Count";
         static constexpr char Renderer_Buffers_ByteSize[] = "Renderer_Buffers_ByteSize";

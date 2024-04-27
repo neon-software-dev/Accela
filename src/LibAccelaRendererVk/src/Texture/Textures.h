@@ -41,7 +41,7 @@ namespace Accela::Render
             bool CreateTextureEmpty(const Texture& texture,
                                     const std::vector<TextureView>& textureViews,
                                     const TextureSampler& textureSampler) override;
-            void CreateTextureFilled(const Texture& texture,
+            bool CreateTextureFilled(const Texture& texture,
                                      const std::vector<TextureView>& textureViews,
                                      const TextureSampler& textureSampler,
                                      bool generateMipMaps,
@@ -50,19 +50,6 @@ namespace Accela::Render
             LoadedTexture GetMissingTexture() override;
             LoadedTexture GetMissingCubeTexture() override;
             void DestroyTexture(TextureId textureId, bool destroyImmediately) override;
-
-        private:
-
-            struct LoadingTexture
-            {
-                using Ptr = std::shared_ptr<LoadingTexture>;
-
-                explicit LoadingTexture(std::promise<bool> _resultPromise)
-                    : resultPromise(std::move(_resultPromise))
-                {}
-
-                std::promise<bool> resultPromise;
-            };
 
         private:
 
@@ -90,13 +77,16 @@ namespace Accela::Render
              * Initiates an asynchronous data transfer of the provided image's data to the provided texture. Also
              * generates mipmaps as requested.
              */
-            void FillImageWithData(const LoadedTexture& loadedTexture,
-                                   const Common::ImageData::Ptr& imageData,
-                                   const uint32_t& mipLevels,
-                                   bool generateMipMaps,
-                                   std::promise<bool> resultPromise);
+            [[nodiscard]] bool TransferImageData(const LoadedTexture& loadedTexture,
+                                                 const Common::ImageData::Ptr& imageData,
+                                                 const uint32_t& mipLevels,
+                                                 bool generateMipMaps,
+                                                 bool initialDataTransfer,
+                                                 std::promise<bool> resultPromise);
 
-            void OnTextureLoadFinished(const LoadedTexture& loadedTexture);
+            [[nodiscard]] bool OnTextureTransferFinished(bool commandsSuccessful,
+                                                         const LoadedTexture& loadedTexture,
+                                                         bool initialDataTransfer);
 
             void SyncMetrics();
 
@@ -114,9 +104,9 @@ namespace Accela::Render
 
             TextureId m_missingTextureId{INVALID_ID};
             TextureId m_missingCubeTextureId{INVALID_ID};
-            std::unordered_map<TextureId, LoadedTexture> m_textures;
 
-            std::unordered_map<TextureId, LoadingTexture::Ptr> m_texturesLoading;
+            std::unordered_map<TextureId, LoadedTexture> m_textures;
+            std::unordered_set<TextureId> m_texturesLoading;
             std::unordered_set<TextureId> m_texturesToDestroy;
     };
 }

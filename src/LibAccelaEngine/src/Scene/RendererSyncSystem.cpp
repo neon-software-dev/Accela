@@ -11,7 +11,7 @@
 #include "../Component/RenderableStateComponent.h"
 #include "../Component/LightRenderableStateComponent.h"
 #include "../Component/ModelAnimationComponent.h"
-#include "../Scene/WorldResources.h"
+#include "../Scene/ModelResources.h"
 #include "../Scene/WorldState.h"
 #include "../Model/ModelView.h"
 
@@ -294,7 +294,7 @@ void RendererSyncSystem::SyncModelRenderables(const RunState::Ptr&, entt::regist
 std::optional<ModelPose> RendererSyncSystem::GetModelPose(const std::string& modelName,
                                                           const std::optional<ModelAnimationState>& animationState)
 {
-    const auto registeredModelOpt = std::dynamic_pointer_cast<WorldResources>(m_worldResources)->GetRegisteredModel(modelName);
+    const auto registeredModelOpt = std::dynamic_pointer_cast<ModelResources>(m_worldResources->Models())->GetLoadedModel(modelName);
     if (!registeredModelOpt)
     {
         return std::nullopt;

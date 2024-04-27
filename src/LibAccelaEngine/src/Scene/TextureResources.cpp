@@ -335,7 +335,7 @@ void TextureResources::DestroyTexture(const Render::TextureId& textureId)
 {
     if (!textureId.IsValid()) { return; }
 
-    m_logger->Log(Common::LogLevel::Debug, "TextureResources::DestroyTexture: Destroying texture, id: {}", textureId.id);
+    m_logger->Log(Common::LogLevel::Info, "TextureResources::DestroyTexture: Destroying texture, id: {}", textureId.id);
 
     std::lock_guard<std::mutex> assetsLock(m_assetsMutex);
     std::lock_guard<std::mutex> texturesLock(m_texturesMutex);

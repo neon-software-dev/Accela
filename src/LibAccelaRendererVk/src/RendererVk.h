@@ -56,7 +56,8 @@ namespace Accela::Render
                               const Mesh::Ptr& mesh,
                               MeshUsage meshUsage) override;
             bool OnDestroyMesh(MeshId meshId) override;
-            bool OnCreateMaterial(const Material::Ptr& material) override;
+            bool OnCreateMaterial(std::promise<bool> resultPromise,
+                                  const Material::Ptr& material) override;
             bool OnDestroyMaterial(MaterialId materialId) override;
             bool OnCreateFrameBuffer(FrameBufferId frameBufferId, const std::vector<TextureId>& attachmentTextures) override;
             bool OnDestroyFrameBuffer(FrameBufferId frameBufferId) override;

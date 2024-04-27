@@ -16,6 +16,7 @@
 #include <vulkan/vulkan.h>
 
 #include <optional>
+#include <future>
 
 namespace Accela::Render
 {
@@ -29,8 +30,8 @@ namespace Accela::Render
                                     VkQueue vkTransferQueue) = 0;
             virtual void Destroy() = 0;
 
-            [[nodiscard]] virtual bool CreateMaterial(const Material::Ptr& material) = 0;
-            [[nodiscard]] virtual bool UpdateMaterial(const Material::Ptr& material) = 0;
+            [[nodiscard]] virtual bool CreateMaterial(const Material::Ptr& material, std::promise<bool> resultPromise) = 0;
+            [[nodiscard]] virtual bool UpdateMaterial(const Material::Ptr& material, std::promise<bool> resultPromise) = 0;
             [[nodiscard]] virtual std::optional<LoadedMaterial> GetLoadedMaterial(MaterialId materialId) const = 0;
             [[nodiscard]] virtual std::optional<DataBufferPtr> GetMaterialBufferForType(const Material::Type& materialType) const = 0;
             virtual void DestroyMaterial(MaterialId materialId, bool destroyImmediately) = 0;

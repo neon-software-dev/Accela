@@ -38,10 +38,6 @@ namespace Accela::Engine
     {
         public:
 
-            //
-            // IMeshResources
-            //
-
             MeshResources(Common::ILogger::Ptr logger,
                           std::shared_ptr<ITextureResources> textures,
                           std::shared_ptr<Render::IRenderer> renderer,
@@ -49,6 +45,9 @@ namespace Accela::Engine
                           std::shared_ptr<Platform::IFiles> files,
                           std::shared_ptr<Common::MessageDrivenThreadPool> threadPool);
 
+            //
+            // IMeshResources
+            //
             [[nodiscard]] std::future<Render::MeshId> LoadStaticMesh(
                 const std::vector<Render::MeshVertex>& vertices,
                 const std::vector<uint32_t>& indices,

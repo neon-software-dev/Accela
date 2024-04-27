@@ -14,6 +14,7 @@
 
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace Accela::Engine
 {
@@ -32,6 +33,9 @@ namespace Accela::Engine
         //
         // model mesh index -> loaded mesh data
         std::unordered_map<unsigned int, LoadedModelMesh> loadedMeshes;
+
+        // Materials that were loaded for the model's meshes
+        std::unordered_set<Render::MaterialId> loadedMaterials;
 
         // The unique textures that were loaded for the model's materials. (Note that
         // textures could theoretically be re-used between meshes, so this is mainly to

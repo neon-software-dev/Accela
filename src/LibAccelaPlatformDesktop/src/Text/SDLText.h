@@ -33,6 +33,7 @@ namespace Accela::Platform
             bool IsFontLoaded(const std::string& fontFileName, uint8_t fontSize) override;
             void UnloadFont(const std::string& fontFileName) override;
             void UnloadFont(const std::string& fontFileName, uint8_t fontSize) override;
+            void UnloadAllFonts() override;
 
             std::expected<RenderedText, bool> RenderText(const std::string& text, const TextProperties& properties) const override;
 

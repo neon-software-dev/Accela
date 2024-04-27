@@ -18,6 +18,7 @@
 #include "../VMA/IVMA.h"
 #include "../Buffer/IBuffers.h"
 #include "../Util/VulkanFuncs.h"
+#include "../Util/Futures.h"
 
 #include <Accela/Render/IVulkanCalls.h>
 
@@ -113,7 +114,7 @@ bool Textures::CreateTextureEmpty(const Texture& texture, const std::vector<Text
     return true;
 }
 
-void Textures::CreateTextureFilled(const Texture& texture,
+bool Textures::CreateTextureFilled(const Texture& texture,
                                    const std::vector<TextureView>& textureViews,
                                    const TextureSampler& textureSampler,
                                    bool generateMipMapsRequested,
@@ -122,16 +123,14 @@ void Textures::CreateTextureFilled(const Texture& texture,
     if (!texture.data.has_value())
     {
         m_logger->Log(Common::LogLevel::Error, "CreateTextureFilled: Texture has no data provided: {}", texture.id.id);
-        resultPromise.set_value(false);
-        return;
+        return ErrorResult(resultPromise);
     }
 
     const auto it = m_textures.find(texture.id);
     if (it != m_textures.cend())
     {
         m_logger->Log(Common::LogLevel::Warning, "CreateTextureFilled: Texture already exists: {}", texture.id.id);
-        resultPromise.set_value(false);
-        return;
+        return ErrorResult(resultPromise);
     }
 
     //
@@ -173,19 +172,25 @@ void Textures::CreateTextureFilled(const Texture& texture,
     {
         m_logger->Log(Common::LogLevel::Error,
           "CreateTextureFilled: Failed to create texture objects for texture: {}", texture.id.id);
-        resultPromise.set_value(false);
-        return;
+        return ErrorResult(resultPromise);
     }
 
+    // Create a record of the texture
     m_textures.insert(std::make_pair(texture.id, loadedTexture.value()));
+
+    SyncMetrics();
 
     //
     // Asynchronously fill the texture image with the provided data, and generate mipmaps as needed
     //
-    m_logger->Log(Common::LogLevel::Debug, "CreateTextureFilled: Starting data transfer for texture: {}", texture.id.id);
-    FillImageWithData(*loadedTexture, *(texture.data), mipLevels, generateMipMaps, std::move(resultPromise));
-
-    SyncMetrics();
+    return TransferImageData(
+        *loadedTexture,
+        *(texture.data),
+        mipLevels,
+        generateMipMaps,
+        true,
+        std::move(resultPromise)
+    );
 }
 
 std::expected<LoadedTexture, bool> Textures::CreateTextureObjects(const Texture& texture,
@@ -347,8 +352,7 @@ bool Textures::CreateTextureImage(LoadedTexture& loadedTexture, const Texture& t
     return true;
 }
 
-bool Textures::CreateTextureImageView(LoadedTexture& loadedTexture,
-                                      const TextureView& textureView) const
+bool Textures::CreateTextureImageView(LoadedTexture& loadedTexture, const TextureView& textureView) const
 {
     if (loadedTexture.vkImageViews.contains(textureView.name))
     {
@@ -549,24 +553,36 @@ bool Textures::DoesDeviceSupportMipMapGeneration(const VkFormat& vkFormat) const
     return vkFormatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
 }
 
-// TODO: If this method can ever be called more than once for a texture, it needs to be able to handle multiple parallel transfers
-void Textures::FillImageWithData(const LoadedTexture& loadedTexture,
+bool Textures::TransferImageData(const LoadedTexture& loadedTexture,
                                  const Common::ImageData::Ptr& imageData,
                                  const uint32_t& mipLevels,
                                  bool generateMipMaps,
+                                 bool initialDataTransfer,
                                  std::promise<bool> resultPromise)
 {
+    m_logger->Log(Common::LogLevel::Debug,
+      "Textures::TransferImageData: Starting data transfer for texture: {}", loadedTexture.textureId.id);
+
+    // If we're already actively transferring data to the texture, error out
+    if (m_texturesLoading.contains(loadedTexture.textureId))
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "Textures::TransferImageData: A data transfer for the texture is already in progress, id: {}", loadedTexture.textureId.id);
+        return ErrorResult(resultPromise);
+    }
+
     VulkanFuncs vulkanFuncs(m_logger, m_vulkanObjs);
 
-    // Mark the texture as loading
-    m_texturesLoading.insert({loadedTexture.textureId, std::make_shared<LoadingTexture>(std::move(resultPromise))});
-
-    vulkanFuncs.QueueSubmit(
-        std::format("FillImageWithData-{}", loadedTexture.textureId.id),
+    return vulkanFuncs.QueueSubmit<bool>(
+        std::format("TransferImageData-{}", loadedTexture.textureId.id),
         m_postExecutionOps,
         m_vkTransferQueue,
         m_transferCommandPool,
         [&](const VulkanCommandBufferPtr& commandBuffer, VkFence vkFence)  {
+
+            // Mark the texture as loading
+            m_texturesLoading.insert(loadedTexture.textureId);
+            SyncMetrics();
 
             // After the data transfer the image should be ready to be read by a shader
             VkImageLayout finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -595,6 +611,7 @@ void Textures::FillImageWithData(const LoadedTexture& loadedTexture,
             if (!transferResult)
             {
                 m_logger->Log(Common::LogLevel::Error, "TransferImageToTexture: Failed to transfer data to GPU image");
+                return false;
             }
 
             //
@@ -612,9 +629,13 @@ void Textures::FillImageWithData(const LoadedTexture& loadedTexture,
                 );
             }
 
-            // When the transfer's work/fence has finished, handle post load tasks
-            m_postExecutionOps->EnqueueFrameless(vkFence, [=,this](){ OnTextureLoadFinished(loadedTexture); });
-        }
+            return true;
+        },
+        [=,this](bool commandsSuccessful){
+            return OnTextureTransferFinished(commandsSuccessful, loadedTexture, initialDataTransfer);
+        },
+        std::move(resultPromise),
+        EnqueueType::Frameless
     );
 }
 
@@ -654,8 +675,9 @@ void Textures::DestroyTexture(TextureId textureId, bool destroyImmediately)
     // Whether destroying the texture's objects immediately or not below, erase our knowledge
     // of the texture; no future render work is allowed to use it
     m_textures.erase(it);
+    m_texturesToDestroy.erase(textureId);
 
-    ////
+    SyncMetrics();
 
     // If a texture's data transfer is still happening, need to wait until the transfer has finished before
     // destroying the texture's Vulkan objects. Mark the texture as to be deleted and bail out.
@@ -663,6 +685,7 @@ void Textures::DestroyTexture(TextureId textureId, bool destroyImmediately)
     {
         m_logger->Log(Common::LogLevel::Debug, "Textures: Postponing destroy of texture: {}", textureId.id);
         m_texturesToDestroy.insert(textureId);
+        return;
     }
     else if (destroyImmediately)
     {
@@ -674,41 +697,39 @@ void Textures::DestroyTexture(TextureId textureId, bool destroyImmediately)
         m_logger->Log(Common::LogLevel::Debug, "Textures: Enqueueing texture destroy: {}", textureId.id);
         m_postExecutionOps->Enqueue_Current([=,this]() { DestroyTextureObjects(texture); });
     }
-
-    SyncMetrics();
 }
 
-void Textures::OnTextureLoadFinished(const LoadedTexture& loadedTexture)
+bool Textures::OnTextureTransferFinished(bool transfersSuccessful, const LoadedTexture& loadedTexture, bool initialDataTransfer)
 {
     m_logger->Log(Common::LogLevel::Debug, "Textures: Texture load finished for texture: {}", loadedTexture.textureId.id);
 
-    const auto it = m_texturesLoading.find(loadedTexture.textureId);
-    if (it == m_texturesLoading.cend())
+    // Mark the texture as no longer loading
+    m_texturesLoading.erase(loadedTexture.textureId);
+
+    // Now that the transfer is finished, we want to destroy the texture in two cases:
+    // 1) While the transfer was happening, we received a call to destroy the texture
+    // 2) The transfer was an initial data transfer, which failed
+    //
+    // Note that for update transfers, we're (currently) allowing the texture to still
+    // exist, even though updating its data failed.
+    if (m_texturesToDestroy.contains(loadedTexture.textureId) || (initialDataTransfer && !transfersSuccessful))
     {
-        m_logger->Log(Common::LogLevel::Error,
-          "Textures: Texture load finished for texture while has no loading record: {}", loadedTexture.textureId.id);
-        return;
-    }
+        m_logger->Log(Common::LogLevel::Debug,
+          "Textures::OnTextureLoadFinished: Texture should be destroyed: {}", loadedTexture.textureId.id);
 
-    // Mark the texture as finished loading
-    it->second->resultPromise.set_value(true);
-
-    // The texture is no longer loading
-    m_texturesLoading.erase(it);
-
-    // If while the load was in progress we were told to destroy the texture, go ahead and do it now
-    if (m_texturesToDestroy.contains(loadedTexture.textureId))
-    {
-        m_logger->Log(Common::LogLevel::Debug, "Textures: Loaded texture should be destroyed: {}", loadedTexture.textureId.id);
-
+        // Erase our records of the texture
+        m_textures.erase(loadedTexture.textureId);
         m_texturesToDestroy.erase(loadedTexture.textureId);
 
-        // Enqueuing the objects destruction as this method's callback is frameless, and we want to wait for all
-        // in-progress frames to finish before destroying the texture's objects
-        m_postExecutionOps->Enqueue_Current([=,this]() { DestroyTextureObjects(loadedTexture); });
+        // Enqueue texture object destruction
+        m_postExecutionOps->Enqueue_Current([=, this]() { DestroyTextureObjects(loadedTexture); });
+
+        SyncMetrics();
+        return false;
     }
 
     SyncMetrics();
+    return true;
 }
 
 bool Textures::CreateMissingTexture()

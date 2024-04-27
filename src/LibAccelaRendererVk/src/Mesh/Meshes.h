@@ -51,19 +51,6 @@ namespace Accela::Render
 
         private:
 
-            struct LoadingMesh
-            {
-                using Ptr = std::shared_ptr<LoadingMesh>;
-
-                explicit LoadingMesh(std::promise<bool> _resultPromise)
-                    : resultPromise(std::move(_resultPromise))
-                {}
-
-                std::promise<bool> resultPromise;
-            };
-
-        private:
-
             // Note: No alignment due to vertex buffer usage
             struct StaticMeshVertexPayload
             {
@@ -98,7 +85,7 @@ namespace Accela::Render
 
         private:
 
-            [[nodiscard]] bool LoadCPUMesh(const Mesh::Ptr& mesh, std::promise<bool> resultPromise);
+            [[nodiscard]] bool LoadCPUMesh(const Mesh::Ptr& mesh);
             [[nodiscard]] bool LoadGPUMesh(const Mesh::Ptr& mesh, std::promise<bool> resultPromise);
             [[nodiscard]] bool LoadImmutableMesh(const Mesh::Ptr& mesh, std::promise<bool> resultPromise);
 
@@ -110,20 +97,20 @@ namespace Accela::Render
 
             [[nodiscard]] std::expected<ImmutableMeshBuffers, bool> EnsureImmutableBuffers(const MeshType& meshType);
 
-            [[nodiscard]] bool UpdateCPUMeshBuffers(const LoadedMesh& loadedMesh, const Mesh::Ptr& newMeshData, std::promise<bool> resultPromise);
-            [[nodiscard]] bool UpdateGPUMeshBuffers(const LoadedMesh& loadedMesh, const Mesh::Ptr& newMeshData, std::promise<bool> resultPromise);
-            bool UpdateMeshBuffers(const ExecutionContext& executionContext, const LoadedMesh& loadedMesh, const Mesh::Ptr& newMeshData);
+            [[nodiscard]] bool TransferCPUMeshData(const LoadedMesh& loadedMesh, const Mesh::Ptr& newMeshData);
+            [[nodiscard]] bool TransferGPUMeshData(const LoadedMesh& loadedMesh,
+                                                   const Mesh::Ptr& newMeshData,
+                                                   bool initialDataTransfer,
+                                                   std::promise<bool> resultPromise);
+            [[nodiscard]] bool TransferMeshData(const ExecutionContext& executionContext, const LoadedMesh& loadedMesh, const Mesh::Ptr& newMeshData);
 
-            [[nodiscard]] static AABB CalculateRenderBoundingBox(const Mesh::Ptr& mesh);
-
-            template <typename T>
-            [[nodiscard]] static AABB CalculateRenderBoundingBox(const std::vector<T>& vertices);
-
-            void OnMeshLoadFinished(const LoadedMesh& loadedMesh);
+            [[nodiscard]] bool OnMeshTransferFinished(bool transfersSuccessful, const LoadedMesh& loadedMesh, bool initialDataTransfer);
 
             void DestroyMeshObjects(const LoadedMesh& loadedMesh);
 
             void SyncMetrics();
+
+            [[nodiscard]] static AABB CalculateRenderBoundingBox(const Mesh::Ptr& mesh);
 
         private:
 
@@ -138,8 +125,7 @@ namespace Accela::Render
             VkQueue m_vkTransferQueue{VK_NULL_HANDLE};
 
             std::unordered_map<MeshId, LoadedMesh> m_meshes;
-
-            std::unordered_map<MeshId, LoadingMesh::Ptr> m_meshesLoading;
+            std::unordered_set<MeshId> m_meshesLoading;
             std::unordered_set<MeshId> m_meshesToDestroy;
 
             std::unordered_map<MeshType, DataBufferPtr> m_immutableMeshVertexBuffers;

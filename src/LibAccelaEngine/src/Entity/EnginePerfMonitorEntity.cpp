@@ -47,9 +47,9 @@ EnginePerfMonitorEntity::EnginePerfMonitorEntity(
     , m_position(position)
     , m_refreshInterval(refreshInterval)
 {
-    if (!m_engine->GetWorldResources()->IsFontLoaded(m_fontName, Font_Size))
+    if (!m_engine->GetWorldResources()->Fonts()->IsFontLoaded(m_fontName, Font_Size))
     {
-        (void)m_engine->GetWorldResources()->LoadFontBlocking(m_fontName, Font_Size);
+        (void)m_engine->GetWorldResources()->Fonts()->LoadFont(m_fontName, Font_Size).get();
     }
 
     CreateEntities();
@@ -161,6 +161,34 @@ void EnginePerfMonitorEntity::CreateEntities()
         Common::MetricType::Counter,
         "Renderer: Meshes ByteSize: ",
         "Renderer_Meshes_ByteSize",
+        textProperties,
+        currentYPos
+    );
+    currentYPos += CreateEntity(
+        Common::MetricType::Counter,
+        "Renderer: Materials Count: ",
+        "Renderer_Materials_Count",
+        textProperties,
+        currentYPos
+    );
+    currentYPos += CreateEntity(
+        Common::MetricType::Counter,
+        "Renderer: Materials Loading Count: ",
+        "Renderer_Materials_Loading_Count",
+        textProperties,
+        currentYPos
+    );
+    currentYPos += CreateEntity(
+        Common::MetricType::Counter,
+        "Renderer: Materials ToDestroy Count: ",
+        "Renderer_Materials_ToDestroy_Count",
+        textProperties,
+        currentYPos
+    );
+    currentYPos += CreateEntity(
+        Common::MetricType::Counter,
+        "Renderer: Materials ByteSize: ",
+        "Renderer_Materials_ByteSize",
         textProperties,
         currentYPos
     );

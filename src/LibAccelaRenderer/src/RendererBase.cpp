@@ -174,7 +174,7 @@ void RendererBase::OnTaskMessageReceived(const RenderTaskMessage::Ptr& msg)
             FulfillDirect<RenderTask_DestroyMesh>(msg, std::bind_front(&RendererBase::OnDestroyMesh, this));
         break;
         case RenderTaskType::CreateMaterial:
-            FulfillDirect<RenderTask_CreateMaterial>(msg, std::bind_front(&RendererBase::OnCreateMaterial, this));
+            FulfillManual<RenderTask_CreateMaterial>(msg, std::bind_front(&RendererBase::OnCreateMaterial, this));
         break;
         case RenderTaskType::DestroyMaterial:
             FulfillDirect<RenderTask_DestroyMaterial>(msg, std::bind_front(&RendererBase::OnDestroyMaterial, this));

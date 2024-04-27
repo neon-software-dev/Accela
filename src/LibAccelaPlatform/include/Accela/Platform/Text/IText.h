@@ -35,6 +35,7 @@ namespace Accela::Platform
             virtual bool IsFontLoaded(const std::string& fontFileName, uint8_t fontSize) = 0;
             virtual void UnloadFont(const std::string& fontFileName) = 0;
             virtual void UnloadFont(const std::string& fontFileName, uint8_t fontSize) = 0;
+            virtual void UnloadAllFonts() = 0;
 
             [[nodiscard]] virtual std::expected<RenderedText, bool> RenderText(const std::string& text, const TextProperties& properties) const = 0;
     };

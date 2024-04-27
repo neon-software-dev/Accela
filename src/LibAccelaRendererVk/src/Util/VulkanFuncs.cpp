@@ -59,7 +59,9 @@ bool VulkanFuncs::QueueSubmit(const std::string& tag,
                               const PostExecutionOpsPtr& postExecutionOps,
                               VkQueue vkQueue,
                               const VulkanCommandPoolPtr& commandPool,
-                              const std::function<void(const VulkanCommandBufferPtr&, VkFence)>& func)
+                              const std::function<bool(const VulkanCommandBufferPtr&, VkFence)>& func,
+                              const std::optional<std::function<void(bool)>>& postExecutionFunc,
+                              const EnqueueType& postExecutionEnqueueType)
 {
     const auto commandBufferOpt = commandPool->AllocateCommandBuffer(VulkanCommandPool::CommandBufferType::Primary, "QueueSubmit-" + tag);
     if (!commandBufferOpt.has_value())
@@ -78,14 +80,44 @@ bool VulkanFuncs::QueueSubmit(const std::string& tag,
     VkFence vkExecutionFence{VK_NULL_HANDLE};
     m_vulkanObjs->GetCalls()->vkCreateFence(m_vulkanObjs->GetDevice()->GetVkDevice(), &vkFenceCreateInfo, nullptr, &vkExecutionFence);
 
+    //
+    // Execute the provided func to record commands into the command buffer
+    //
     commandBuffer->Begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-    func(commandBuffer, vkExecutionFence);
+        const bool funcResult = func(commandBuffer, vkExecutionFence);
     commandBuffer->End();
 
-    QueueSubmit(tag, vkQueue, {vkCommandBuffer}, WaitOn::None(), SignalOn::None(), vkExecutionFence);
+    //
+    // If we were supplied a post execution func, enqueue that to run when the recorded
+    // work has finished
+    //
+    if (postExecutionFunc)
+    {
+        switch (postExecutionEnqueueType)
+        {
+            case EnqueueType::Frame:
+                postExecutionOps->Enqueue(vkExecutionFence, [=](){
+                    std::invoke(*postExecutionFunc, funcResult);
+                });
+            break;
+            case EnqueueType::Frameless:
+                postExecutionOps->EnqueueFrameless(vkExecutionFence, [=](){
+                    std::invoke(*postExecutionFunc, funcResult);
+                });
+            break;
+        }
+    }
 
+    //
+    // Enqueue additional tasks to delete the command buffer and fence that were allocated
+    //
     postExecutionOps->Enqueue(vkExecutionFence, FreeCommandBufferOp(commandPool, commandBuffer));
     postExecutionOps->Enqueue(vkExecutionFence, DeleteFenceOp(m_vulkanObjs->GetCalls(), m_vulkanObjs->GetDevice(), vkExecutionFence));
+
+    //
+    // Submit the work to the queue for execution
+    //
+    QueueSubmit(tag, vkQueue, {vkCommandBuffer}, WaitOn::None(), SignalOn::None(), vkExecutionFence);
 
     return true;
 }
@@ -251,7 +283,7 @@ bool VulkanFuncs::TransferImageData(const IBuffersPtr& buffers,
     //
     // Record a task to clean up the staging buffer once the transfer is complete
     //
-    postExecutionOps->Enqueue(vkExecutionFence, BufferDeleteOp(buffers, (*stagingBuffer)->GetBufferId()));
+    postExecutionOps->EnqueueFrameless(vkExecutionFence, BufferDeleteOp(buffers, (*stagingBuffer)->GetBufferId()));
 
     return true;
 }

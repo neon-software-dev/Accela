@@ -6,7 +6,7 @@
  
 #include "ModelAnimatorSystem.h"
 
-#include "../Scene/WorldResources.h"
+#include "../Scene/ModelResources.h"
 
 namespace Accela::Engine
 {
@@ -40,8 +40,8 @@ void ModelAnimatorSystem::ProcessRenderableModelEntity(const RunState::Ptr& runS
     //
     // Calculate new animation time/state
     //
-    const auto registeredModelOpt = std::dynamic_pointer_cast<WorldResources>(m_worldResources)
-        ->GetRegisteredModel(modelComponent.modelName);
+    const auto registeredModelOpt = std::dynamic_pointer_cast<ModelResources>(m_worldResources->Models())
+        ->GetLoadedModel(modelComponent.modelName);
     if (!registeredModelOpt)
     {
         m_logger->Log(Common::LogLevel::Error,

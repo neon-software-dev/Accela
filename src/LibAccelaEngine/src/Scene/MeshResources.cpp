@@ -173,7 +173,6 @@ Render::MeshId MeshResources::LoadMesh( const Render::Mesh::Ptr& mesh,
         std::lock_guard<std::mutex> meshesLock(m_meshesMutex);
         std::lock_guard<std::mutex> heightMapDataLock(m_heightMapDataMutex);
 
-        m_renderer->GetIds()->meshIds.ReturnId(mesh->id);
         m_meshes.erase(mesh->id);
         m_heightMapData.erase(mesh->id); // May or may not exist
 
@@ -194,7 +193,7 @@ void MeshResources::DestroyMesh(const Render::MeshId& meshId)
 {
     if (!meshId.IsValid()) { return; }
 
-    m_logger->Log(Common::LogLevel::Debug, "MeshResources::DestroyMesh: Destroying mesh, id: {}", meshId.id);
+    m_logger->Log(Common::LogLevel::Info, "MeshResources::DestroyMesh: Destroying mesh, id: {}", meshId.id);
 
     std::lock_guard<std::mutex> meshesLock(m_meshesMutex);
     std::lock_guard<std::mutex> heightMapDataLock(m_heightMapDataMutex);

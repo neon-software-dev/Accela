@@ -11,6 +11,7 @@
 
 #include "Synchronization.h"
 #include "ImageAllocation.h"
+#include "PostExecutionOps.h"
 
 #include <Accela/Render/Util/Rect.h>
 
@@ -24,6 +25,7 @@
 #include <optional>
 #include <functional>
 #include <utility>
+#include <future>
 
 namespace Accela::Render
 {
@@ -38,13 +40,20 @@ namespace Accela::Render
             [[nodiscard]] VkFormatProperties GetVkFormatProperties(const VkFormat& vkFormat) const;
 
             /**
-             * Creates a command buffer, records the provided func into it, and executes the command
-             * buffer on the provided queue.
+             * Provides the ability to schedule one-off work to be performed on a VkQueue. If a post
+             * execution func is supplied, it will also execute that function when the scheduled work
+             * has finished executing (as configured by postExecutionEnqueueType param).
+             *
+             * Allocates a command buffer, records the provided func's commands into it, and executes
+             * the command buffer on the provided queue.
              *
              * @param tag Debug tag to associate with the operation
+             * @param postExecutionOps PostExecutionOps instance
              * @param vkQueue The queue for commands to be executed on
              * @param commandPool The command pool to allocate a command buffer from
-             * @param func The func which records commands into a command buffer
+             * @param func A func which records commands into a command buffer to be executed
+             * @param postExecutionFunc An optional func which is called when the work scheduled by func has finished
+             * @param postExecutionEnqueueType Specifies how to enqueue postExecutionFunc for execution
              *
              * @return Whether the work was submitted successfully
              */
@@ -53,8 +62,39 @@ namespace Accela::Render
                 const PostExecutionOpsPtr& postExecutionOps,
                 VkQueue vkQueue,
                 const VulkanCommandPoolPtr& commandPool,
-                const std::function<void(const VulkanCommandBufferPtr&, VkFence)>& func
+                const std::function<bool(const VulkanCommandBufferPtr&, VkFence)>& func,
+                const std::optional<std::function<void(bool)>>& postExecutionFunc = std::nullopt,
+                const EnqueueType& postExecutionEnqueueType = EnqueueType::Frame
             );
+
+            /**
+             * The same as the above QueueSubmit, except this one additionally takes in a promise which gets
+             * its value set to the value that postExecutionFunc function returns when it's executed.
+             */
+            template <typename T>
+            bool QueueSubmit(
+                const std::string& tag,
+                const PostExecutionOpsPtr& postExecutionOps,
+                VkQueue vkQueue,
+                const VulkanCommandPoolPtr& commandPool,
+                const std::function<bool(const VulkanCommandBufferPtr&, VkFence)>& func,
+                const std::function<T(bool)>& postExecutionFunc,
+                std::promise<T> resultPromise,
+                const EnqueueType& postExecutionEnqueueType = EnqueueType::Frame
+            )
+            {
+                // Move the promise into a shared_ptr for the lambda to access
+                const auto resultPromisePtr = std::make_shared<std::promise<T>>(std::move(resultPromise));
+
+                // Submit the queue work but with a wrapper PostExecutionFunc which set the promise's
+                // value to the result returned by postExecutionFunc
+                return QueueSubmit(tag, postExecutionOps, vkQueue, commandPool, func,
+                    [=](bool funcResult) {
+                        resultPromisePtr->set_value(std::invoke(postExecutionFunc, funcResult));
+                    },
+                    postExecutionEnqueueType
+                );
+            }
 
             /**
              * Executes a command buffer on the provided queue

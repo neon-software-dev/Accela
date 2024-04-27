@@ -48,27 +48,34 @@ bool PostExecutionOps::OnRenderSettingsChanged(const RenderSettings& renderSetti
 
     return true;
 }
-
 void PostExecutionOps::Enqueue(VkFence vkFence, const PostExecutionOp& op)
 {
-    auto it = m_data.find(vkFence);
-    if (it == m_data.cend())
-    {
-        it = m_data.insert({vkFence, ExecutionData(m_framesInFlight)}).first;
-    }
-
-    it->second.frameOps.push(op);
+    Enqueue(EnqueueType::Frame, vkFence, op);
 }
 
 void PostExecutionOps::EnqueueFrameless(VkFence vkFence, const PostExecutionOp& op)
 {
+    Enqueue(EnqueueType::Frameless, vkFence, op);
+}
+
+void PostExecutionOps::Enqueue(EnqueueType enqueueType, VkFence vkFence, const PostExecutionOp& op)
+{
     auto it = m_data.find(vkFence);
     if (it == m_data.cend())
     {
         it = m_data.insert({vkFence, ExecutionData(m_framesInFlight)}).first;
     }
 
-    it->second.framelessOps.push(op);
+    switch (enqueueType)
+    {
+        case EnqueueType::Frame:
+            it->second.frameOps.push(op);
+        break;
+        case EnqueueType::Frameless:
+            it->second.framelessOps.push(op);
+        break;
+    }
+
 }
 
 void PostExecutionOps::Enqueue_Current(const PostExecutionOp& op)
@@ -78,7 +85,7 @@ void PostExecutionOps::Enqueue_Current(const PostExecutionOp& op)
         m_logger->Log(Common::LogLevel::Debug, "PostExecutionOps: Enqueue_Current: No current frame fence set");
     }
 
-    Enqueue(m_currentFrameFence, op);
+    Enqueue(EnqueueType::Frame, m_currentFrameFence, op);
 }
 
 void PostExecutionOps::SetFrameSynced(uint8_t frameIndex, VkFence vkFence)

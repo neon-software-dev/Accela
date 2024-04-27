@@ -64,7 +64,7 @@ bool TestScene::LoadAssets()
     //
     // Fonts
     //
-    if (!engine->GetWorldResources()->LoadFontBlocking(FONT_FILE_NAME, 10, 20)) { return false; }
+    if (!engine->GetWorldResources()->Fonts()->LoadFont(FONT_FILE_NAME, 10, 20).get()) { return false; }
 
     //
     // Textures
@@ -79,10 +79,10 @@ bool TestScene::LoadAssets()
     // Audio
     //
     auto audio = engine->GetAssets()->ReadAudioBlocking("sine.wav");
-    if (!audio || !engine->GetWorldResources()->RegisterAudio("sine", *audio)) { return false; }
+    if (!audio || !engine->GetWorldResources()->Audio()->RegisterAudio("sine", *audio)) { return false; }
 
     audio = engine->GetAssets()->ReadAudioBlocking("whoosh.wav");
-    if (!audio || !engine->GetWorldResources()->RegisterAudio("whoosh", *audio)) { return false; }
+    if (!audio || !engine->GetWorldResources()->Audio()->RegisterAudio("whoosh", *audio)) { return false; }
 
     //
     // Meshes
@@ -120,10 +120,14 @@ bool TestScene::LoadAssets()
     //
     // Materials
     //
-    m_solidRedMaterialId = engine->GetWorldResources()->RegisterObjectMaterial(MakeSolidColorMaterial({1,0,0}), "red");
+    m_solidRedMaterialId = engine->GetWorldResources()->Materials()->LoadObjectMaterial(
+        MakeSolidColorMaterial({1,0,0}), "red", Engine::ResultWhen::Ready
+    ).get();
     if (m_solidRedMaterialId == Render::INVALID_ID) { return false; }
 
-    m_solidWhiteMaterialId = engine->GetWorldResources()->RegisterObjectMaterial(MakeSolidColorMaterial({1,1,1}), "white");
+    m_solidWhiteMaterialId = engine->GetWorldResources()->Materials()->LoadObjectMaterial(
+        MakeSolidColorMaterial({1,1,1}), "white", Engine::ResultWhen::Ready
+    ).get();
     if (m_solidWhiteMaterialId == Render::INVALID_ID) { return false; }
 
     const auto terrainTextureId = *engine->GetWorldResources()->Textures()->GetAssetTextureId("rolling_hills_bitmap.png");
@@ -136,14 +140,16 @@ bool TestScene::LoadAssets()
     terrainMaterial.ambientTextureBind = terrainTextureId;
     terrainMaterial.diffuseTextureBind = terrainTextureId;
     terrainMaterial.specularTextureBind = Render::TextureId{Render::INVALID_ID};
-    m_terrainMaterialId = engine->GetWorldResources()->RegisterObjectMaterial(terrainMaterial, "terrain");
+    m_terrainMaterialId = engine->GetWorldResources()->Materials()->LoadObjectMaterial(
+        terrainMaterial, "terrain", Engine::ResultWhen::Ready
+    ).get();
     if (m_terrainMaterialId == Render::INVALID_ID) { return false; }
 
     //
     // Models
     //
     const auto model = engine->GetAssets()->ReadModelBlocking("CesiumMan", ".glb");
-    if (!model || !engine->GetWorldResources()->RegisterModel("CesiumMan", *model)) { return false; }
+    if (!model || !engine->GetWorldResources()->Models()->LoadModel("CesiumMan", *model, Engine::ResultWhen::Ready).get()) { return false; }
 
     return true;
 }

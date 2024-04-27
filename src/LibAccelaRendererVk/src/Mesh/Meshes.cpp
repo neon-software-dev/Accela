@@ -14,6 +14,7 @@
 #include "../Buffer/GPUDataBuffer.h"
 
 #include "../Util/VulkanFuncs.h"
+#include "../Util/Futures.h"
 
 #include <Accela/Render/Mesh/StaticMesh.h>
 #include <Accela/Render/Mesh/BoneMesh.h>
@@ -97,23 +98,23 @@ void Meshes::Destroy()
 
 bool Meshes::LoadMesh(const Mesh::Ptr& mesh, MeshUsage usage, std::promise<bool> resultPromise)
 {
-    if (m_meshes.find(mesh->id) != m_meshes.cend())
+    if (m_meshes.contains(mesh->id))
     {
-        m_logger->Log(Common::LogLevel::Warning, "Meshes: LoadMesh: Mesh with id {} already exists", mesh->id.id);
-        return true;
+        m_logger->Log(Common::LogLevel::Error, "Meshes: LoadMesh: Mesh with id {} already exists", mesh->id.id);
+        return ErrorResult(resultPromise);
     }
 
     switch (usage)
     {
-        case MeshUsage::Dynamic: return LoadCPUMesh(mesh, std::move(resultPromise));
-        case MeshUsage::Static: return LoadGPUMesh(mesh, std::move(resultPromise));
-        case MeshUsage::Immutable: return LoadImmutableMesh(mesh, std::move(resultPromise));
+        case MeshUsage::Dynamic:    return PromiseResult(LoadCPUMesh(mesh), resultPromise);
+        case MeshUsage::Static:     return LoadGPUMesh(mesh, std::move(resultPromise));
+        case MeshUsage::Immutable:  return LoadImmutableMesh(mesh, std::move(resultPromise));
     }
 
     return false;
 }
 
-bool Meshes::LoadCPUMesh(const Mesh::Ptr& mesh, std::promise<bool> resultPromise)
+bool Meshes::LoadCPUMesh(const Mesh::Ptr& mesh)
 {
     m_logger->Log(Common::LogLevel::Info, "Meshes: Loading CPU mesh {}", mesh->id.id);
 
@@ -196,7 +197,7 @@ bool Meshes::LoadCPUMesh(const Mesh::Ptr& mesh, std::promise<bool> resultPromise
     loadedMesh.dataByteSize = dataByteSize;
     loadedMesh.boundingBox_modelSpace = CalculateRenderBoundingBox(mesh);
 
-    if (!UpdateCPUMeshBuffers(loadedMesh, mesh, std::move(resultPromise)))
+    if (!TransferCPUMeshData(loadedMesh, mesh))
     {
         m_logger->Log(Common::LogLevel::Error, "Meshes: Failed to upload mesh data to CPU for mesh {}", mesh->id.id);
         m_buffers->DestroyBuffer((*verticesBuffer)->GetBuffer()->GetBufferId());
@@ -204,7 +205,11 @@ bool Meshes::LoadCPUMesh(const Mesh::Ptr& mesh, std::promise<bool> resultPromise
         return false;
     }
 
+    //
+    // Record results
+    //
     m_meshes.insert({mesh->id, loadedMesh});
+
     SyncMetrics();
 
     return true;
@@ -231,7 +236,7 @@ bool Meshes::LoadGPUMesh(const Mesh::Ptr& mesh, std::promise<bool> resultPromise
     if (!verticesBuffer)
     {
         m_logger->Log(Common::LogLevel::Error, "Meshes: Failed to create vertices buffer for mesh {}", mesh->id.id);
-        return false;
+        return ErrorResult(resultPromise);
     }
 
     const auto indicesPayload = GetIndicesPayload(mesh);
@@ -249,7 +254,7 @@ bool Meshes::LoadGPUMesh(const Mesh::Ptr& mesh, std::promise<bool> resultPromise
     {
         m_logger->Log(Common::LogLevel::Error, "Meshes: Failed to create indices buffer for mesh {}", mesh->id.id);
         m_buffers->DestroyBuffer((*verticesBuffer)->GetBuffer()->GetBufferId());
-        return false;
+        return ErrorResult(resultPromise);
     }
 
     const auto dataPayload = GetDataPayload(mesh);
@@ -273,7 +278,7 @@ bool Meshes::LoadGPUMesh(const Mesh::Ptr& mesh, std::promise<bool> resultPromise
             m_logger->Log(Common::LogLevel::Error, "Meshes: Failed to create data buffer for mesh {}", mesh->id.id);
             m_buffers->DestroyBuffer((*verticesBuffer)->GetBuffer()->GetBufferId());
             m_buffers->DestroyBuffer((*indicesBuffer)->GetBuffer()->GetBufferId());
-            return false;
+            return ErrorResult(resultPromise);
         }
 
         dataBuffer = *dataBufferExpect;
@@ -302,10 +307,13 @@ bool Meshes::LoadGPUMesh(const Mesh::Ptr& mesh, std::promise<bool> resultPromise
     loadedMesh.dataByteSize = dataByteSize;
     loadedMesh.boundingBox_modelSpace = CalculateRenderBoundingBox(mesh);
 
+    // Create a record of the mesh
     m_meshes.insert({mesh->id, loadedMesh});
+
     SyncMetrics();
 
-    return UpdateGPUMeshBuffers(loadedMesh, mesh, std::move(resultPromise));
+    // Start the mesh data transfer
+    return TransferGPUMeshData(loadedMesh, mesh, true, std::move(resultPromise));
 }
 
 bool Meshes::LoadImmutableMesh(const Mesh::Ptr& mesh, std::promise<bool> resultPromise)
@@ -324,7 +332,7 @@ bool Meshes::LoadImmutableMesh(const Mesh::Ptr& mesh, std::promise<bool> resultP
     {
         m_logger->Log(Common::LogLevel::Info,
           "Meshes: Failed to ensure immutable mesh buffers for mesh type {}", (unsigned int)mesh->type);
-        return false;
+        return ErrorResult(resultPromise);
     }
 
     //
@@ -373,34 +381,56 @@ bool Meshes::LoadImmutableMesh(const Mesh::Ptr& mesh, std::promise<bool> resultP
         loadedMesh.dataByteSize = dataPayload->size();
     }
 
+    // Create a record of the mesh
     m_meshes.insert({mesh->id, loadedMesh});
-
-    // Mark the mesh as loading
-    m_meshesLoading.insert({loadedMesh.id, std::make_shared<LoadingMesh>(std::move(resultPromise))});
 
     SyncMetrics();
 
     VulkanFuncs vulkanFuncs(m_logger, m_vulkanObjs);
 
-    return vulkanFuncs.QueueSubmit(
-        std::format("LoadImmutableGPUMesh-{}", mesh->id.id),
+    // Submit the work to transfer the mesh data
+    return vulkanFuncs.QueueSubmit<bool>(
+        std::format("LoadImmutableMesh-{}", mesh->id.id),
         m_postExecutionOps,
         m_vkTransferQueue,
         m_transferCommandPool,
         [=,this](const VulkanCommandBufferPtr& commandBuffer, VkFence vkFence) {
             const auto executionContext = ExecutionContext::GPU(commandBuffer, vkFence);
 
-            meshBuffers->vertexBuffer->PushBack(executionContext, BufferAppend{.pData = verticesPayload.data(), .dataByteSize = verticesPayload.size()});
-            meshBuffers->indexBuffer->PushBack(executionContext, BufferAppend{.pData = indicesPayload.data(), .dataByteSize = indicesPayload.size()});
+            // Mark the mesh as loading
+            m_meshesLoading.insert(loadedMesh.id);
+
+            bool allSuccessful = true;
+
+            if (!meshBuffers->vertexBuffer->PushBack(executionContext, BufferAppend{.pData = verticesPayload.data(), .dataByteSize = verticesPayload.size()}))
+            {
+                m_logger->Log(Common::LogLevel::Error, "LoadImmutableMesh: Failed to push into vertex buffer");
+                allSuccessful = false;
+            }
+
+            if (!meshBuffers->indexBuffer->PushBack(executionContext, BufferAppend{.pData = indicesPayload.data(), .dataByteSize = indicesPayload.size()}))
+            {
+                m_logger->Log(Common::LogLevel::Error, "LoadImmutableMesh: Failed to push into index buffer");
+                allSuccessful = false;
+            }
 
             if (dataPayload)
             {
-                (*meshBuffers->dataBuffer)->PushBack(executionContext, BufferAppend{.pData = dataPayload->data(), .dataByteSize = dataPayload->size()});
+                if (!(*meshBuffers->dataBuffer)->PushBack(executionContext, BufferAppend{.pData = dataPayload->data(), .dataByteSize = dataPayload->size()}))
+                {
+                    m_logger->Log(Common::LogLevel::Error, "LoadImmutableMesh: Failed to push into data buffer");
+                    allSuccessful = false;
+                }
             }
 
-            // When the transfer has finished, handle post load tasks
-            m_postExecutionOps->EnqueueFrameless(vkFence, [=,this](){ OnMeshLoadFinished(loadedMesh); });
-        }
+            return allSuccessful;
+        },
+        [=,this](bool commandsSuccessful)
+        {
+            return OnMeshTransferFinished(commandsSuccessful, loadedMesh, true);
+        },
+        std::move(resultPromise),
+        EnqueueType::Frameless
     );
 }
 
@@ -651,11 +681,11 @@ bool Meshes::UpdateMesh(const Mesh::Ptr& mesh, std::promise<bool> resultPromise)
     if (it == m_meshes.cend())
     {
         m_logger->Log(Common::LogLevel::Error, "Meshes: UpdateMesh: No such mesh: {}", mesh->id.id);
-        return false;
+        return ErrorResult(resultPromise);
     }
 
     //
-    // Update mesh loaded data
+    // Update CPU mesh state
     //
     it->second.boundingBox_modelSpace = CalculateRenderBoundingBox(mesh);
 
@@ -664,12 +694,12 @@ bool Meshes::UpdateMesh(const Mesh::Ptr& mesh, std::promise<bool> resultPromise)
     //
     switch (it->second.usage)
     {
-        case MeshUsage::Dynamic:    return UpdateCPUMeshBuffers(it->second, mesh, std::move(resultPromise));
-        case MeshUsage::Static:     return UpdateGPUMeshBuffers(it->second, mesh, std::move(resultPromise));
+        case MeshUsage::Dynamic:    return PromiseResult(TransferCPUMeshData(it->second, mesh), resultPromise);
+        case MeshUsage::Static:     return TransferGPUMeshData(it->second, mesh, false, std::move(resultPromise));
         case MeshUsage::Immutable:
         {
             m_logger->Log(Common::LogLevel::Error, "Meshes: UpdateMesh: Asked to update immutable mesh: {}", mesh->id.id);
-            return false;
+            return ErrorResult(resultPromise);
         }
     }
 
@@ -677,45 +707,63 @@ bool Meshes::UpdateMesh(const Mesh::Ptr& mesh, std::promise<bool> resultPromise)
     return false;
 }
 
-bool Meshes::UpdateCPUMeshBuffers(const LoadedMesh& loadedMesh, const Mesh::Ptr& newMeshData, std::promise<bool> resultPromise)
+bool Meshes::TransferCPUMeshData(const LoadedMesh& loadedMesh, const Mesh::Ptr& newMeshData)
 {
-    if (!UpdateMeshBuffers(ExecutionContext::CPU(), loadedMesh, newMeshData))
+    if (!TransferMeshData(ExecutionContext::CPU(), loadedMesh, newMeshData))
     {
         m_logger->Log(Common::LogLevel::Error, "Meshes: Failed to update CPU mesh {}", newMeshData->id.id);
-        resultPromise.set_value(false);
         return false;
     }
 
-    resultPromise.set_value(true);
     return true;
 }
 
-bool Meshes::UpdateGPUMeshBuffers(const LoadedMesh& loadedMesh, const Mesh::Ptr& newMeshData, std::promise<bool> resultPromise)
+bool Meshes::TransferGPUMeshData(const LoadedMesh& loadedMesh, const Mesh::Ptr& newMeshData, bool initialDataTransfer, std::promise<bool> resultPromise)
 {
+    m_logger->Log(Common::LogLevel::Debug,
+      "Meshes::TransferGPUMeshData: Starting data transfer for mesh: {}", newMeshData->id.id);
+
+    // If we're already actively transferring data to the mesh, error out
+    if (m_meshesLoading.contains(newMeshData->id))
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "Meshes::TransferGPUMeshData: A data transfer for the mesh is already in progress, id: {}", newMeshData->id.id);
+        return ErrorResult(resultPromise);
+    }
+
     VulkanFuncs vulkanFuncs(m_logger, m_vulkanObjs);
 
-    // Mark the mesh as loading
-    m_meshesLoading.insert({loadedMesh.id, std::make_shared<LoadingMesh>(std::move(resultPromise))});
-
-    return vulkanFuncs.QueueSubmit(
-        std::format("UpdateGPUMesh-{}", newMeshData->id.id),
+    // Submit the work to transfer the mesh data
+    return vulkanFuncs.QueueSubmit<bool>(
+        std::format("TransferGPUMeshData-{}", newMeshData->id.id),
         m_postExecutionOps,
         m_vkTransferQueue,
         m_transferCommandPool,
-        [=,this](const VulkanCommandBufferPtr& commandBuffer, VkFence vkFence) {
-            if (!UpdateMeshBuffers(ExecutionContext::GPU(commandBuffer, vkFence), loadedMesh, newMeshData))
+        [=,this](const VulkanCommandBufferPtr& commandBuffer, VkFence vkFence)
+        {
+            // Mark the mesh as loading
+            m_meshesLoading.insert(loadedMesh.id);
+            SyncMetrics();
+
+            if (!TransferMeshData(ExecutionContext::GPU(commandBuffer, vkFence), loadedMesh, newMeshData))
             {
-                m_logger->Log(Common::LogLevel::Error, "Meshes: Failed to upload mesh data to GPU for mesh {}", newMeshData->id.id);
-                return;
+                m_logger->Log(Common::LogLevel::Error,
+                  "Meshes::UpdateGPUMeshBuffers: UpdateMeshBuffers failed for mesh {}", newMeshData->id.id);
+                return false;
             }
 
-            // When the transfer has finished, handle post load tasks
-            m_postExecutionOps->Enqueue(vkFence, [=,this](){ OnMeshLoadFinished(loadedMesh); });
-        }
+            return true;
+        },
+        [=,this](bool commandsSuccessful)
+        {
+            return OnMeshTransferFinished(commandsSuccessful, loadedMesh, initialDataTransfer);
+        },
+        std::move(resultPromise),
+        EnqueueType::Frameless
     );
 }
 
-bool Meshes::UpdateMeshBuffers(const ExecutionContext& executionContext, const LoadedMesh& loadedMesh, const Mesh::Ptr& newMeshData)
+bool Meshes::TransferMeshData(const ExecutionContext& executionContext, const LoadedMesh& loadedMesh, const Mesh::Ptr& newMeshData)
 {
     //
     // Update the mesh's data
@@ -730,13 +778,14 @@ bool Meshes::UpdateMeshBuffers(const ExecutionContext& executionContext, const L
     if (verticesBufferUpdate.dataByteSize != loadedMesh.verticesByteSize)
     {
         m_logger->Log(Common::LogLevel::Error,
-          "Meshes: UpdateMesh: Mesh vertices byte size change currently not supported, for mesh: ", newMeshData->id.id);
+          "Meshes::UpdateMeshBuffers: Mesh vertices byte size change currently not supported, for mesh: ", newMeshData->id.id);
         return false;
     }
 
     if (!loadedMesh.verticesBuffer->Update(executionContext, {verticesBufferUpdate}))
     {
-        m_logger->Log(Common::LogLevel::Error, "Meshes: Failed to update vertex data for mesh {}", newMeshData->id.id);
+        m_logger->Log(Common::LogLevel::Error,
+          "Meshes::UpdateMeshBuffers: Failed to update vertex data for mesh {}", newMeshData->id.id);
         return false;
     }
 
@@ -750,13 +799,14 @@ bool Meshes::UpdateMeshBuffers(const ExecutionContext& executionContext, const L
     if (indicesBufferUpdate.dataByteSize != loadedMesh.indicesByteSize)
     {
         m_logger->Log(Common::LogLevel::Error,
-          "Meshes: UpdateMesh: Mesh indices byte size change currently not supported, for mesh: ", newMeshData->id.id);
+          "Meshes::UpdateMeshBuffers: Mesh indices byte size change currently not supported, for mesh: ", newMeshData->id.id);
         return false;
     }
 
     if (!loadedMesh.indicesBuffer->Update(executionContext, {indicesBufferUpdate}))
     {
-        m_logger->Log(Common::LogLevel::Error, "Meshes: Failed to update index data for mesh {}", newMeshData->id.id);
+        m_logger->Log(Common::LogLevel::Error,
+          "Meshes::UpdateMeshBuffers: Failed to update index data for mesh {}", newMeshData->id.id);
         return false;
     }
 
@@ -771,13 +821,14 @@ bool Meshes::UpdateMeshBuffers(const ExecutionContext& executionContext, const L
         if (dataBufferUpdate.dataByteSize != loadedMesh.dataByteSize)
         {
             m_logger->Log(Common::LogLevel::Error,
-              "Meshes: UpdateMesh: Mesh data byte size change currently not supported, for mesh: ", newMeshData->id.id);
+              "Meshes::UpdateMeshBuffers: Mesh data byte size change currently not supported, for mesh: ", newMeshData->id.id);
             return false;
         }
 
         if (!loadedMesh.dataBuffer.value()->Update(executionContext, {dataBufferUpdate}))
         {
-            m_logger->Log(Common::LogLevel::Error, "Meshes: Failed to update payload data for mesh {}", newMeshData->id.id);
+            m_logger->Log(Common::LogLevel::Error,
+              "Meshes::UpdateMeshBuffers: Failed to update payload data for mesh {}", newMeshData->id.id);
             return false;
         }
     }
@@ -785,61 +836,37 @@ bool Meshes::UpdateMeshBuffers(const ExecutionContext& executionContext, const L
     return true;
 }
 
-AABB Meshes::CalculateRenderBoundingBox(const Mesh::Ptr& mesh)
+bool Meshes::OnMeshTransferFinished(bool transfersSuccessful, const LoadedMesh& loadedMesh, bool initialDataTransfer)
 {
-    switch (mesh->type)
-    {
-        case MeshType::Static: return CalculateRenderBoundingBox(std::dynamic_pointer_cast<StaticMesh>(mesh)->vertices);
-        case MeshType::Bone: return CalculateRenderBoundingBox(std::dynamic_pointer_cast<BoneMesh>(mesh)->vertices);
-    }
+    m_logger->Log(Common::LogLevel::Debug, "Meshes: Mesh data transfer finished for mesh: {}", loadedMesh.id.id);
 
-    assert(false);
-    return {};
-}
-
-template<typename T>
-AABB Meshes::CalculateRenderBoundingBox(const std::vector<T>& vertices)
-{
-    AABB boundingBox{};
-
-    for (const T& vertex : vertices)
-    {
-        boundingBox.AddPoints({vertex.position});
-    }
-
-    return boundingBox;
-}
-
-void Meshes::OnMeshLoadFinished(const LoadedMesh& loadedMesh)
-{
-    m_logger->Log(Common::LogLevel::Debug, "Meshes: Mesh load finished for mesh: {}", loadedMesh.id.id);
-
-    const auto it = m_meshesLoading.find(loadedMesh.id);
-    if (it == m_meshesLoading.cend())
-    {
-        m_logger->Log(Common::LogLevel::Error,
-          "Meshes: Mesh load finished for mesh while has no loading record: {}", loadedMesh.id.id);
-        return;
-    }
-
-    // Mark the mesh as finished loading
-    it->second->resultPromise.set_value(true);
-
-    // The mesh is no longer loading
+    // Mark the mesh as no longer loading
     m_meshesLoading.erase(loadedMesh.id);
 
-    if (m_meshesToDestroy.contains(loadedMesh.id))
+    // Now that the transfer is finished, we want to destroy the mesh in two cases:
+    // 1) While the transfer was happening, we received a call to destroy the mesh
+    // 2) The transfer was an initial data transfer, which failed
+    //
+    // Note that for update transfers, we're (currently) allowing the mesh to still
+    // exist, even though updating its data failed.
+    if (m_meshesToDestroy.contains(loadedMesh.id) || (initialDataTransfer && !transfersSuccessful))
     {
-        m_logger->Log(Common::LogLevel::Debug, "Meshes: Loaded mesh should be destroyed: {}", loadedMesh.id.id);
+        m_logger->Log(Common::LogLevel::Debug,
+          "Meshes::OnMeshTransferFinished: Mesh should be destroyed: {}", loadedMesh.id.id);
 
+        // Erase our records of the mesh
+        m_meshes.erase(loadedMesh.id);
         m_meshesToDestroy.erase(loadedMesh.id);
 
-        // Enqueuing the objects destruction as this method's callback is frameless, and we want to wait for all
-        // in-progress frames to finish before destroying the texture's objects
-        m_postExecutionOps->Enqueue_Current([=,this]() { DestroyMeshObjects(loadedMesh); });
+        // Enqueue mesh object destruction
+        m_postExecutionOps->Enqueue_Current([=, this]() { DestroyMeshObjects(loadedMesh); });
+
+        SyncMetrics();
+        return false;
     }
 
     SyncMetrics();
+    return true;
 }
 
 std::optional<LoadedMesh> Meshes::GetLoadedMesh(MeshId meshId) const
@@ -859,7 +886,7 @@ void Meshes::DestroyMesh(MeshId meshId, bool destroyImmediately)
     if (it == m_meshes.cend())
     {
         m_logger->Log(Common::LogLevel::Warning,
-          "Meshes: Asked to destroy mesh which doesn't exist: {}", meshId.id);
+          "Meshes: DestroyMesh: Asked to destroy mesh which doesn't exist: {}", meshId.id);
         return;
     }
 
@@ -868,11 +895,11 @@ void Meshes::DestroyMesh(MeshId meshId, bool destroyImmediately)
     // Whether destroying the mesh's objects immediately or not below, erase our knowledge
     // of the mesh; no future render work is allowed to use it
     m_meshes.erase(it);
+    m_meshesToDestroy.erase(meshId);
+
     SyncMetrics();
 
-    ////
-
-    // If a mesh's data transfer is still happening, need to wait until the transfer has finished before
+    // If a mesh's data transfer is still happening, we need to wait until the transfer has finished before
     // destroying the mesh's Vulkan objects. Mark the mesh as to be deleted and bail out.
     if (m_meshesLoading.contains(meshId) && !destroyImmediately)
     {
@@ -880,8 +907,7 @@ void Meshes::DestroyMesh(MeshId meshId, bool destroyImmediately)
         m_meshesToDestroy.insert(meshId);
         return;
     }
-
-    if (destroyImmediately)
+    else if (destroyImmediately)
     {
         m_logger->Log(Common::LogLevel::Debug, "Meshes: Destroying mesh immediately: {}", meshId.id);
         DestroyMeshObjects(loadedMesh);
@@ -936,6 +962,31 @@ void Meshes::SyncMetrics()
     }
 
     m_metrics->SetCounterValue(Renderer_Meshes_ByteSize, totalByteSize);
+}
+
+template<typename T>
+AABB CalculateRenderBoundingBoxFromVertices(const std::vector<T>& vertices)
+{
+    AABB boundingBox{};
+
+    for (const T& vertex : vertices)
+    {
+        boundingBox.AddPoints({vertex.position});
+    }
+
+    return boundingBox;
+}
+
+AABB Meshes::CalculateRenderBoundingBox(const Mesh::Ptr& mesh)
+{
+    switch (mesh->type)
+    {
+        case MeshType::Static: return CalculateRenderBoundingBoxFromVertices(std::dynamic_pointer_cast<StaticMesh>(mesh)->vertices);
+        case MeshType::Bone: return CalculateRenderBoundingBoxFromVertices(std::dynamic_pointer_cast<BoneMesh>(mesh)->vertices);
+    }
+
+    assert(false);
+    return {};
 }
 
 }

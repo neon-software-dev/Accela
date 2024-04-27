@@ -23,9 +23,15 @@ namespace Accela::Render
 {
     using PostExecutionOp = std::function<void()>;
 
+    enum class EnqueueType
+    {
+        Frame,      // Waits on both a fence and a round of frame renders to finish
+        Frameless   // Waits on only a fence to finish
+    };
+
     /**
-     * Enqueues operations to be executed after both all in-progress frame
-     * work and the operation's own queue work has finished executing.
+     * Enqueues operations to be executed after fence-based work and/or a round of frame
+     * renders have finished.
      */
     class PostExecutionOps
     {
@@ -37,15 +43,15 @@ namespace Accela::Render
             bool OnRenderSettingsChanged(const RenderSettings& renderSettings);
             void Destroy();
 
-            // Enqueue the provided operation to run when the provided fence has finished and when
-            // all frames have finished their render work one time since this method was called
+            // Enqueue an operation to be executed when the provided fence has signaled completion,
+            // and when all frames have finished rendering at least one time since the operation
+            // was enqueued
             void Enqueue(VkFence vkFence, const PostExecutionOp& op);
 
-            // Enqueue the provided operation to run when the provided fence has finished, without
-            // waiting for any render work to finish in addition
+            // Enqueue an operation to be executed when the provided fence has signaled completion
             void EnqueueFrameless(VkFence vkFence, const PostExecutionOp& op);
 
-            // Same as Enqueue(..), except the fence being waited on is the current frame's work fence
+            // Same as Enqueue, except the fence being waited on is the current frame's work fence
             void Enqueue_Current(const PostExecutionOp& op);
 
             // Reports that provided frame/fence has finished its work, and starts the
@@ -57,6 +63,10 @@ namespace Accela::Render
 
             // Blocking. Waits for all GPU work to finish then forces all pending operations to run
             void FulfillAll();
+
+        private:
+
+            void Enqueue(EnqueueType enqueueType, VkFence vkFence, const PostExecutionOp& op);
 
         private:
 

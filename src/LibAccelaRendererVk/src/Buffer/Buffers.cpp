@@ -354,7 +354,7 @@ bool Buffers::StagingUpdateBuffer(const BufferPtr& buffer,
     //
     const auto stagingBufferId = (*stagingBuffer)->GetBufferId();
 
-    m_postExecutionOps->Enqueue(vkExecutionFence, [stagingBufferId, this](){
+    m_postExecutionOps->EnqueueFrameless(vkExecutionFence, [stagingBufferId, this](){
         DestroyBuffer(stagingBufferId);
     });
 

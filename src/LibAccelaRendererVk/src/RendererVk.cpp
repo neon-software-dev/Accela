@@ -61,7 +61,7 @@ RendererVk::RendererVk(std::string appName,
     , m_textures(std::make_shared<Textures>(m_logger, m_metrics, m_vulkanObjs, m_buffers, m_postExecutionOps, m_ids))
     , m_meshes(std::make_shared<Meshes>(m_logger, m_metrics, m_vulkanObjs, m_ids, m_postExecutionOps, m_buffers))
     , m_framebuffers(std::make_shared<Framebuffers>(m_logger, m_ids, m_vulkanObjs, m_textures, m_postExecutionOps))
-    , m_materials(std::make_shared<Materials>(m_logger, m_vulkanObjs, m_postExecutionOps, m_ids, m_textures, m_buffers))
+    , m_materials(std::make_shared<Materials>(m_logger, m_metrics, m_vulkanObjs, m_postExecutionOps, m_ids, m_textures, m_buffers))
     , m_lights(std::make_shared<Lights>(m_logger, m_metrics, m_vulkanObjs, m_framebuffers, m_ids))
     , m_renderables(std::make_shared<Renderables>(m_logger, m_ids, m_postExecutionOps, m_textures, m_buffers, m_meshes, m_lights))
     , m_frames(m_logger, m_ids, m_vulkanObjs, m_textures)
@@ -257,9 +257,9 @@ bool RendererVk::OnDestroyMesh(MeshId meshId)
     return true;
 }
 
-bool RendererVk::OnCreateMaterial(const Material::Ptr& material)
+bool RendererVk::OnCreateMaterial(std::promise<bool> resultPromise, const Material::Ptr& material)
 {
-    return m_materials->CreateMaterial(material);
+    return m_materials->CreateMaterial(material, std::move(resultPromise));
 }
 
 bool RendererVk::OnDestroyMaterial(MaterialId materialId)
@@ -886,6 +886,7 @@ bool RendererVk::OnWorldUpdate(const WorldUpdate& update)
         [&](const VulkanCommandBufferPtr& commandBuffer, VkFence vkFence){
             m_renderables->ProcessUpdate(update, commandBuffer, vkFence);
             m_lights->ProcessUpdate(update, commandBuffer, vkFence);
+            return true;
         }
     );
 

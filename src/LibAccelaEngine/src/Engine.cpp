@@ -142,6 +142,9 @@ void Engine::RunLoop(const EngineRuntime::Ptr& runtime, const RunState::Ptr& run
 
     m_logger->Log(Common::LogLevel::Info, "Engine: Stopping scene: {}", runState->scene->GetName());
     runState->scene->OnSceneStop();
+
+    m_logger->Log(Common::LogLevel::Info, "Engine: Cleaning up resources");
+    runtime->GetWorldResources()->DestroyAll();
 }
 
 void Engine::RunStep(const EngineRuntime::Ptr& runtime, const RunState::Ptr& runState)

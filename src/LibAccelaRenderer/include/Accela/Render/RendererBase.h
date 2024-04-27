@@ -74,7 +74,8 @@ namespace Accela::Render
                                       const Mesh::Ptr& mesh,
                                       MeshUsage meshUsage) = 0;
             virtual bool OnDestroyMesh(MeshId meshId) = 0;
-            virtual bool OnCreateMaterial(const Material::Ptr& material) = 0;
+            virtual bool OnCreateMaterial(std::promise<bool> resultPromise,
+                                          const Material::Ptr& material) = 0;
             virtual bool OnDestroyMaterial(MaterialId materialId) = 0;
             virtual bool OnCreateFrameBuffer(FrameBufferId frameBufferId, const std::vector<TextureId>& attachmentTextures) = 0;
             virtual bool OnDestroyFrameBuffer(FrameBufferId frameBufferId) = 0;

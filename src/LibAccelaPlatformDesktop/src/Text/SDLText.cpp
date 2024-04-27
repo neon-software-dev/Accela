@@ -129,6 +129,16 @@ void SDLText::UnloadFont(const std::string& fontFileName, uint8_t fontSize)
     }
 }
 
+void SDLText::UnloadAllFonts()
+{
+    std::lock_guard<std::recursive_mutex> lock(m_fontsMutex);
+
+    while (!m_fonts.empty())
+    {
+        UnloadFont(m_fonts.cbegin()->first);
+    }
+}
+
 std::expected<RenderedText, bool>
 SDLText::RenderText(const std::string& text, const TextProperties& properties) const
 {
