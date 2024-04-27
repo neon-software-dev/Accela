@@ -25,20 +25,23 @@ SDLFiles::SDLFiles(Common::ILogger::Ptr logger)
 
 std::expected<std::vector<std::string>, bool> SDLFiles::ListFilesInAssetsSubdir(const std::string& subdir) const
 {
-    const auto subdirPath = GetAssetsSubdirectory(subdir);
+    return ListFilesInDirectory(GetAssetsSubdirectory(subdir));
+}
 
+std::expected<std::vector<std::string>, bool> SDLFiles::ListFilesInDirectory(const std::string& directory) const
+{
     std::vector<std::string> filenames;
 
     try
     {
-        for (const auto& dirEntry: std::filesystem::directory_iterator(subdirPath))
+        for (const auto& dirEntry: std::filesystem::directory_iterator(directory))
         {
             filenames.push_back(dirEntry.path().filename().string());
         }
     }
     catch (const std::exception&)
     {
-        m_logger->Log(Common::LogLevel::Error, "ListFilesInAssetsSubdir: Failed to read directory: {}", subdirPath);
+        m_logger->Log(Common::LogLevel::Error, "ListFilesInDirectory: Failed to read directory: {}", directory);
         return std::unexpected(false);
     }
 
@@ -157,7 +160,7 @@ std::string SDLFiles::GetSubdirPath(const std::string& root, const std::string& 
     return EnsureEndsWithSeparator(EnsureEndsWithSeparator(root) + subdir);
 }
 
-std::string SDLFiles::EnsureEndsWithSeparator(const std::string& source)
+std::string SDLFiles::EnsureEndsWithSeparator(const std::string& source) const
 {
     std::string pathSeparator;
 

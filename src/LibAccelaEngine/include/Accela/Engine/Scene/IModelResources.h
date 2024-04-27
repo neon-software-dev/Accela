@@ -41,6 +41,15 @@ namespace Accela::Engine
                                                                     ResultWhen resultWhen) = 0;
 
             /**
+             * Load all models from the assets directory for rendering
+             * 
+             * @param resultWhen When the operation's future should be signaled
+             *
+             * @return A future for the result of the operation
+             */
+            [[nodiscard]] virtual std::future<bool> LoadAllAssetModels(ResultWhen resultWhen) = 0;
+
+            /**
              * Loads a model from supplied model data for rendering
              *
              * @param modelName A unique name to identify the model

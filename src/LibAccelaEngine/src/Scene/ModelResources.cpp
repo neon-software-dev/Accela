@@ -54,6 +54,20 @@ std::future<bool> ModelResources::LoadAssetsModel(const std::string& modelName, 
     return messageFuture;
 }
 
+std::future<bool> ModelResources::LoadAllAssetModels(ResultWhen resultWhen)
+{
+    auto message = std::make_shared<BoolResultMessage>();
+    auto messageFuture = message->CreateFuture();
+
+    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& message){
+        std::dynamic_pointer_cast<BoolResultMessage>(message)->SetResult(
+            OnLoadAllAssetModels(resultWhen)
+        );
+    });
+
+    return messageFuture;
+}
+
 std::future<bool> ModelResources::LoadModel(const std::string& modelName, const Model::Ptr& model, ResultWhen resultWhen)
 {
     auto message = std::make_shared<BoolResultMessage>();
@@ -70,6 +84,8 @@ std::future<bool> ModelResources::LoadModel(const std::string& modelName, const 
 
 bool ModelResources::OnLoadAssetsModel(const std::string& modelName, const std::string& fileExtension, ResultWhen resultWhen)
 {
+    m_logger->Log(Common::LogLevel::Info, "ModelResources: Reading asset model: {}", modelName);
+
     const auto modelExpect = m_assets->ReadModelBlocking(modelName, fileExtension);
     if (!modelExpect)
     {
@@ -79,6 +95,74 @@ bool ModelResources::OnLoadAssetsModel(const std::string& modelName, const std::
     }
 
     return OnLoadModel(modelName, *modelExpect, resultWhen);
+}
+
+bool ModelResources::OnLoadAllAssetModels(ResultWhen resultWhen)
+{
+    m_logger->Log(Common::LogLevel::Info, "ModelResources: Reading all asset models");
+
+    const auto allAssetModels = GetAllAssetModels();
+
+    m_logger->Log(Common::LogLevel::Info, "ModelResources: Discovered {} models to be loaded", allAssetModels.size());
+
+    bool allSuccessful = true;
+
+    for (const auto& assetModel : allAssetModels)
+    {
+        allSuccessful = allSuccessful && OnLoadAssetsModel(assetModel.first, assetModel.second, resultWhen);
+    }
+
+    return allSuccessful;
+}
+
+std::vector<std::pair<std::string, std::string>> ModelResources::GetAllAssetModels() const
+{
+    std::vector<std::pair<std::string, std::string>> results;
+
+    const auto allModelDirs = m_files->ListFilesInAssetsSubdir(Platform::MODELS_DIR);
+    if (!allModelDirs)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "ModelResources::OnLoadAllAssetModels: Failed to list files in models directory");
+        return {};
+    }
+
+    const auto assetsModelsSubdirectory = m_files->EnsureEndsWithSeparator(
+        m_files->GetAssetsSubdirectory(Platform::MODELS_DIR)
+    );
+
+    for (const auto& modelName : *allModelDirs)
+    {
+        const auto modelDirPath = assetsModelsSubdirectory + modelName;
+
+        const auto allModelFiles = m_files->ListFilesInDirectory(modelDirPath);
+        if (!allModelFiles)
+        {
+            m_logger->Log(Common::LogLevel::Error,
+              "ModelResources::OnLoadAllAssetModels: Failed to list files in model directory: {}", modelName);
+            continue;
+        }
+
+        for (const auto& modelFile : *allModelFiles)
+        {
+            const auto periodPos = modelFile.find_first_of('.');
+            if (periodPos == std::string::npos || periodPos == modelFile.length() - 1)
+            {
+                continue;
+            }
+
+            const auto name = modelFile.substr(0, periodPos);
+            const auto ext = modelFile.substr(periodPos + 1, modelFile.length() - periodPos - 1);
+
+            if (name == modelName)
+            {
+                results.emplace_back(name, ext);
+                break;
+            }
+        }
+    }
+
+    return results;
 }
 
 bool ModelResources::OnLoadModel(const std::string& modelName, const Model::Ptr& model, ResultWhen resultWhen)

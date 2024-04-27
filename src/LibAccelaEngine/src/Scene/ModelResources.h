@@ -16,6 +16,8 @@
 
 #include <unordered_map>
 #include <expected>
+#include <vector>
+#include <utility>
 
 namespace Accela::Platform
 {
@@ -48,6 +50,8 @@ namespace Accela::Engine
                                                             const std::string& fileExtension,
                                                             ResultWhen resultWhen) override;
 
+            [[nodiscard]] std::future<bool> LoadAllAssetModels(ResultWhen resultWhen) override;
+
             [[nodiscard]] std::future<bool> LoadModel(const std::string& modelName,
                                                       const Model::Ptr& model,
                                                       ResultWhen resultWhen) override;
@@ -66,6 +70,9 @@ namespace Accela::Engine
             [[nodiscard]] bool OnLoadAssetsModel(const std::string& modelName,
                                                  const std::string& fileExtension,
                                                  ResultWhen resultWhen);
+
+            [[nodiscard]] bool OnLoadAllAssetModels(ResultWhen resultWhen);
+            [[nodiscard]] std::vector<std::pair<std::string, std::string>> GetAllAssetModels() const;
 
             [[nodiscard]] bool OnLoadModel(const std::string& modelName,
                                            const Model::Ptr& model,

@@ -156,10 +156,7 @@ bool DevScene::LoadAssets()
     //
     // Models
     //
-    if (!engine->GetWorldResources()->Models()->LoadAssetsModel("dancing_vampire", "dae", Engine::ResultWhen::Ready).get()) { return false; }
-    if (!engine->GetWorldResources()->Models()->LoadAssetsModel("AlphaBlendModeTest", "glb", Engine::ResultWhen::Ready).get()) { return false; }
-    if (!engine->GetWorldResources()->Models()->LoadAssetsModel("TextureSettingsTest", "glb", Engine::ResultWhen::Ready).get()) { return false; }
-    if (!engine->GetWorldResources()->Models()->LoadAssetsModel("CesiumMan", "glb", Engine::ResultWhen::Ready).get()) { return false; }
+    engine->GetWorldResources()->Models()->LoadAllAssetModels(Engine::ResultWhen::Ready).get();
 
     return true;
 }
