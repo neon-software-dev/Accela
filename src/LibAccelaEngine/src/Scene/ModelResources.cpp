@@ -26,6 +26,18 @@ struct BoolResultMessage : public Common::ResultMessage<bool>
     { }
 };
 
+// Split a filename into name + extension
+std::optional<std::pair<std::string, std::string>> SplitFileName(const std::string& fileName)
+{
+    const auto periodPos = fileName.find_first_of('.');
+    if (periodPos == std::string::npos || periodPos == fileName.length() - 1) { return std::nullopt; }
+
+    return std::make_pair(
+        fileName.substr(0, periodPos),
+        fileName.substr(periodPos + 1, fileName.length() - periodPos - 1)
+    );
+}
+
 ModelResources::ModelResources(Common::ILogger::Ptr logger,
                                std::shared_ptr<Render::IRenderer> renderer,
                                std::shared_ptr<IEngineAssets> assets,
@@ -40,14 +52,14 @@ ModelResources::ModelResources(Common::ILogger::Ptr logger,
 
 }
 
-std::future<bool> ModelResources::LoadAssetsModel(const std::string& modelName, const std::string& fileExtension, ResultWhen resultWhen)
+std::future<bool> ModelResources::LoadAssetsModel(const std::string& modelFileName, ResultWhen resultWhen)
 {
     auto message = std::make_shared<BoolResultMessage>();
     auto messageFuture = message->CreateFuture();
 
     m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& message){
         std::dynamic_pointer_cast<BoolResultMessage>(message)->SetResult(
-            OnLoadAssetsModel(modelName, fileExtension, resultWhen)
+            OnLoadAssetsModel(modelFileName, resultWhen)
         );
     });
 
@@ -82,26 +94,33 @@ std::future<bool> ModelResources::LoadModel(const std::string& modelName, const 
     return messageFuture;
 }
 
-bool ModelResources::OnLoadAssetsModel(const std::string& modelName, const std::string& fileExtension, ResultWhen resultWhen)
+bool ModelResources::OnLoadAssetsModel(const std::string& modelFileName, ResultWhen resultWhen)
 {
-    m_logger->Log(Common::LogLevel::Info, "ModelResources: Reading asset model: {}", modelName);
+    m_logger->Log(Common::LogLevel::Info, "ModelResources: Reading asset model: {}", modelFileName);
 
-    const auto modelExpect = m_assets->ReadModelBlocking(modelName, fileExtension);
-    if (!modelExpect)
+    const auto splitFileName = SplitFileName(modelFileName);
+    if (!splitFileName)
     {
-        m_logger->Log(Common::LogLevel::Error,
-          "ModelResources::OnLoadAssetsModel: Failed to load model from assets, name: {}", modelName);
+        m_logger->Log(Common::LogLevel::Error, "ModelResources: Not a valid model filename: {}", modelFileName);
         return false;
     }
 
-    return OnLoadModel(modelName, *modelExpect, resultWhen);
+    const auto modelExpect = m_assets->ReadModelBlocking(splitFileName->first, splitFileName->second);
+    if (!modelExpect)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "ModelResources::OnLoadAssetsModel: Failed to load model from assets: {}", modelFileName);
+        return false;
+    }
+
+    return OnLoadModel(splitFileName->first, *modelExpect, resultWhen);
 }
 
 bool ModelResources::OnLoadAllAssetModels(ResultWhen resultWhen)
 {
     m_logger->Log(Common::LogLevel::Info, "ModelResources: Reading all asset models");
 
-    const auto allAssetModels = GetAllAssetModels();
+    const auto allAssetModels = GetAllAssetModelFileNames();
 
     m_logger->Log(Common::LogLevel::Info, "ModelResources: Discovered {} models to be loaded", allAssetModels.size());
 
@@ -109,16 +128,19 @@ bool ModelResources::OnLoadAllAssetModels(ResultWhen resultWhen)
 
     for (const auto& assetModel : allAssetModels)
     {
-        allSuccessful = allSuccessful && OnLoadAssetsModel(assetModel.first, assetModel.second, resultWhen);
+        allSuccessful = allSuccessful && OnLoadAssetsModel(assetModel, resultWhen);
     }
 
     return allSuccessful;
 }
 
-std::vector<std::pair<std::string, std::string>> ModelResources::GetAllAssetModels() const
+std::vector<std::string> ModelResources::GetAllAssetModelFileNames() const
 {
-    std::vector<std::pair<std::string, std::string>> results;
+    std::vector<std::string> results;
 
+    //
+    // Returns a list of all the model directories within the models assets folder
+    //
     const auto allModelDirs = m_files->ListFilesInAssetsSubdir(Platform::MODELS_DIR);
     if (!allModelDirs)
     {
@@ -131,10 +153,15 @@ std::vector<std::pair<std::string, std::string>> ModelResources::GetAllAssetMode
         m_files->GetAssetsSubdirectory(Platform::MODELS_DIR)
     );
 
+    //
+    // For each model directory, list the files inside and try to find its model file
+    //
     for (const auto& modelName : *allModelDirs)
     {
+        // The path to the model subdirectory with the models directory
         const auto modelDirPath = assetsModelsSubdirectory + modelName;
 
+        // All the files (and directories) within the model's directory
         const auto allModelFiles = m_files->ListFilesInDirectory(modelDirPath);
         if (!allModelFiles)
         {
@@ -143,20 +170,16 @@ std::vector<std::pair<std::string, std::string>> ModelResources::GetAllAssetMode
             continue;
         }
 
+        // For each item in the directory, look for a file with the filename matching the model name
         for (const auto& modelFile : *allModelFiles)
         {
-            const auto periodPos = modelFile.find_first_of('.');
-            if (periodPos == std::string::npos || periodPos == modelFile.length() - 1)
-            {
-                continue;
-            }
+            const auto splitFileName = SplitFileName(modelFile);
+            if (!splitFileName) { continue; }
 
-            const auto name = modelFile.substr(0, periodPos);
-            const auto ext = modelFile.substr(periodPos + 1, modelFile.length() - periodPos - 1);
-
-            if (name == modelName)
+            // If the filename matches the model name, consider this the model file
+            if (splitFileName->first == modelName)
             {
-                results.emplace_back(name, ext);
+                results.push_back(modelFile);
                 break;
             }
         }

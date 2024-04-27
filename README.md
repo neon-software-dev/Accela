@@ -146,7 +146,7 @@ class TestScene : public Engine::Scene
             engine->GetWorldResources()->Fonts()->LoadFont("font.ttf", 64).get();
 
 	    // Load a model from assets
-            engine->GetWorldResources()->Models()->LoadAssetsModel("model", "obj", Engine::ResultWhen::Ready).get();
+            engine->GetWorldResources()->Models()->LoadAssetsModel("model.obj", Engine::ResultWhen::Ready).get();
         }
 
         void CreateTextEntity()

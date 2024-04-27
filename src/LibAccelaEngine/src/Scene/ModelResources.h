@@ -46,9 +46,7 @@ namespace Accela::Engine
             //
             // IModelResources
             //
-            [[nodiscard]] std::future<bool> LoadAssetsModel(const std::string& modelName,
-                                                            const std::string& fileExtension,
-                                                            ResultWhen resultWhen) override;
+            [[nodiscard]] std::future<bool> LoadAssetsModel(const std::string& modelFileName, ResultWhen resultWhen) override;
 
             [[nodiscard]] std::future<bool> LoadAllAssetModels(ResultWhen resultWhen) override;
 
@@ -67,12 +65,10 @@ namespace Accela::Engine
 
         private:
 
-            [[nodiscard]] bool OnLoadAssetsModel(const std::string& modelName,
-                                                 const std::string& fileExtension,
-                                                 ResultWhen resultWhen);
+            [[nodiscard]] bool OnLoadAssetsModel(const std::string& modelFileName, ResultWhen resultWhen);
 
             [[nodiscard]] bool OnLoadAllAssetModels(ResultWhen resultWhen);
-            [[nodiscard]] std::vector<std::pair<std::string, std::string>> GetAllAssetModels() const;
+            [[nodiscard]] std::vector<std::string> GetAllAssetModelFileNames() const;
 
             [[nodiscard]] bool OnLoadModel(const std::string& modelName,
                                            const Model::Ptr& model,

@@ -30,19 +30,16 @@ namespace Accela::Engine
             /**
              * Loads a model from assets directory for rendering
              *
-             * @param modelName The name of the model within assets
-             * @param fileExtension The filename of the model (e.g. "glb")
+             * @param modelFileName The filename of the model within assets
              * @param resultWhen When the operation's future should be signaled
              *
              * @return A future for the result of the operation
              */
-            [[nodiscard]] virtual std::future<bool> LoadAssetsModel(const std::string& modelName,
-                                                                    const std::string& fileExtension,
-                                                                    ResultWhen resultWhen) = 0;
+            [[nodiscard]] virtual std::future<bool> LoadAssetsModel(const std::string& modelFileName, ResultWhen resultWhen) = 0;
 
             /**
              * Load all models from the assets directory for rendering
-             * 
+             *
              * @param resultWhen When the operation's future should be signaled
              *
              * @return A future for the result of the operation

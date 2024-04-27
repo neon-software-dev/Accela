@@ -148,7 +148,7 @@ bool TestScene::LoadAssets()
     //
     // Models
     //
-    if (!engine->GetWorldResources()->Models()->LoadAssetsModel("CesiumMan", "glb", Engine::ResultWhen::Ready).get()) { return false; }
+    if (!engine->GetWorldResources()->Models()->LoadAssetsModel("CesiumMan.glb", Engine::ResultWhen::Ready).get()) { return false; }
 
     return true;
 }
