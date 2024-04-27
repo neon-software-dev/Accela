@@ -7,9 +7,12 @@
 #ifndef LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_SCENE_IAUDIORESOURCES_H
 #define LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_SCENE_IAUDIORESOURCES_H
 
+#include <Accela/Engine/Common.h>
+
 #include <Accela/Common/AudioData.h>
 
 #include <string>
+#include <future>
 #include <memory>
 
 namespace Accela::Engine
@@ -28,6 +31,22 @@ namespace Accela::Engine
             virtual ~IAudioResources() = default;
 
             /**
+             * Load an audio file from assets
+             *
+             * @param audioFileName The filename of the audio file
+             *
+             * @return A future that's signaled when the operation is completed
+             */
+            [[nodiscard]] virtual std::future<bool> LoadAssetsAudio(const std::string& audioFileName) = 0;
+
+            /**
+             * Load all audio files from assets
+             *
+             * @return A future that's signaled when the operation is completed
+             */
+            [[nodiscard]] virtual std::future<bool> LoadAllAssetAudio() = 0;
+
+            /**
              * Loads audio data
              *
              * @param name Unique name to associate with the audio data
@@ -35,7 +54,7 @@ namespace Accela::Engine
              *
              * @return Whether the audio was loaded successfully
              */
-            [[nodiscard]] virtual bool RegisterAudio(const std::string& name, const Common::AudioData::Ptr& audioData) = 0;
+            [[nodiscard]] virtual bool LoadAudio(const std::string& name, const Common::AudioData::Ptr& audioData) = 0;
 
             /**
              * Destroys previously registered audio data

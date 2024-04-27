@@ -6,6 +6,8 @@
  
 #include "ModelResources.h"
 
+#include "../Util.h"
+
 #include <Accela/Engine/IEngineAssets.h>
 
 #include <Accela/Platform/File/IFiles.h>
@@ -25,18 +27,6 @@ struct BoolResultMessage : public Common::ResultMessage<bool>
         : Common::ResultMessage<bool>("BoolResultMessage")
     { }
 };
-
-// Split a filename into name + extension
-std::optional<std::pair<std::string, std::string>> SplitFileName(const std::string& fileName)
-{
-    const auto periodPos = fileName.find_first_of('.');
-    if (periodPos == std::string::npos || periodPos == fileName.length() - 1) { return std::nullopt; }
-
-    return std::make_pair(
-        fileName.substr(0, periodPos),
-        fileName.substr(periodPos + 1, fileName.length() - periodPos - 1)
-    );
-}
 
 ModelResources::ModelResources(Common::ILogger::Ptr logger,
                                std::shared_ptr<Render::IRenderer> renderer,

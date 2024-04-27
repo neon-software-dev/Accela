@@ -78,11 +78,7 @@ bool TestScene::LoadAssets()
     //
     // Audio
     //
-    auto audio = engine->GetAssets()->ReadAudioBlocking("sine.wav");
-    if (!audio || !engine->GetWorldResources()->Audio()->RegisterAudio("sine", *audio)) { return false; }
-
-    audio = engine->GetAssets()->ReadAudioBlocking("whoosh.wav");
-    if (!audio || !engine->GetWorldResources()->Audio()->RegisterAudio("whoosh", *audio)) { return false; }
+    if (!engine->GetWorldResources()->Audio()->LoadAssetsAudio("whoosh.wav").get()) { return false; }
 
     //
     // Meshes

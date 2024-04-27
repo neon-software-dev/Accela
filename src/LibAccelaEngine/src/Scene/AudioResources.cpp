@@ -6,21 +6,118 @@
  
 #include "AudioResources.h"
 
+#include "../Util.h"
+
 #include "../Audio/AudioManager.h"
+
+#include <Accela/Engine/IEngineAssets.h>
+
+#include <Accela/Platform/File/IFiles.h>
+
+#include <Accela/Common/Thread/ResultMessage.h>
 
 namespace Accela::Engine
 {
 
-AudioResources::AudioResources(Common::ILogger::Ptr logger, AudioManagerPtr audioManager)
+struct BoolResultMessage : public Common::ResultMessage<bool>
+{
+    BoolResultMessage()
+        : Common::ResultMessage<bool>("BoolResultMessage")
+    { }
+};
+
+AudioResources::AudioResources(Common::ILogger::Ptr logger,
+                               std::shared_ptr<IEngineAssets> assets,
+                               std::shared_ptr<Platform::IFiles> files,
+                               AudioManagerPtr audioManager,
+                               std::shared_ptr<Common::MessageDrivenThreadPool> threadPool)
     : m_logger(std::move(logger))
+    , m_assets(std::move(assets))
+    , m_files(std::move(files))
     , m_audioManager(std::move(audioManager))
+    , m_threadPool(std::move(threadPool))
 {
 
 }
 
-bool AudioResources::RegisterAudio(const std::string& name, const Common::AudioData::Ptr& audioData)
+std::future<bool> AudioResources::LoadAssetsAudio(const std::string& audioFileName)
+{
+    auto message = std::make_shared<BoolResultMessage>();
+    auto messageFuture = message->CreateFuture();
+
+    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& message){
+        std::dynamic_pointer_cast<BoolResultMessage>(message)->SetResult(
+            OnLoadAssetsAudio(audioFileName)
+        );
+    });
+
+    return messageFuture;
+}
+
+std::future<bool> AudioResources::LoadAllAssetAudio()
+{
+    auto message = std::make_shared<BoolResultMessage>();
+    auto messageFuture = message->CreateFuture();
+
+    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& message){
+        std::dynamic_pointer_cast<BoolResultMessage>(message)->SetResult(
+            OnLoadAllAssetAudio()
+        );
+    });
+
+    return messageFuture;
+}
+
+bool AudioResources::OnLoadAssetsAudio(const std::string& audioFileName)
+{
+    m_logger->Log(Common::LogLevel::Info, "AudioResources: Loading asset audio: {}", audioFileName);
+
+    const auto splitFileName = SplitFileName(audioFileName);
+    if (!splitFileName)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "AudioResources::OnLoadAssetsAudio: Invalid audio file name: {}", audioFileName);
+        return false;
+    }
+
+    const auto audioExpect = m_assets->ReadAudioBlocking(audioFileName);
+    if (!audioExpect)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "AudioResources::OnLoadAssetsAudio: Failed to read asset audio: {}", audioFileName);
+        return false;
+    }
+
+    return LoadAudio(splitFileName->first, *audioExpect);
+}
+
+bool AudioResources::OnLoadAllAssetAudio()
+{
+    m_logger->Log(Common::LogLevel::Info, "AudioResources: Loading all asset audio");
+
+    const auto allAudioFiles = m_files->ListFilesInAssetsSubdir(Platform::AUDIO_SUBDIR);
+    if (!allAudioFiles)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "AudioResources::OnLoadAllAssetAudio: Failed to list files in audio directory");
+        return false;
+    }
+
+    bool allSuccessful = true;
+
+    for (const auto& audioFileName : *allAudioFiles)
+    {
+        allSuccessful = allSuccessful && OnLoadAssetsAudio(audioFileName);
+    }
+
+    return allSuccessful;
+}
+
+bool AudioResources::LoadAudio(const std::string& name, const Common::AudioData::Ptr& audioData)
 {
     m_logger->Log(Common::LogLevel::Info, "AudioResources: Loading audio: {}", name);
+
+    std::lock_guard<std::mutex> audioLock(m_audioMutex);
 
     if (m_audio.contains(name))
     {

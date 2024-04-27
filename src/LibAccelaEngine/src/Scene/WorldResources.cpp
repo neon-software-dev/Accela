@@ -37,7 +37,7 @@ WorldResources::WorldResources(Common::ILogger::Ptr logger,
                                std::shared_ptr<Platform::IText> text,
                                AudioManagerPtr audioManager)
     : m_logger(std::move(logger))
-    , m_threadPool(std::make_shared<Common::MessageDrivenThreadPool>("Resources", 4))
+    , m_threadPool(std::make_shared<Common::MessageDrivenThreadPool>("Resources", 4)) // TODO Perf: Adjust pool size
     , m_renderer(std::move(renderer))
     , m_files(std::move(files))
     , m_assets(std::move(assets))
@@ -46,7 +46,7 @@ WorldResources::WorldResources(Common::ILogger::Ptr logger,
     , m_textures(std::make_shared<TextureResources>(m_logger, m_renderer, m_assets, m_files, m_text, m_threadPool))
     , m_meshes(std::make_shared<MeshResources>(m_logger, m_textures, m_renderer, m_assets, m_files, m_threadPool))
     , m_materials(std::make_shared<MaterialResources>(m_logger, m_renderer, m_threadPool))
-    , m_audio(std::make_shared<AudioResources>(m_logger, m_audioManager))
+    , m_audio(std::make_shared<AudioResources>(m_logger, m_assets, m_files, m_audioManager, m_threadPool))
     , m_fonts(std::make_shared<FontResources>(m_logger, m_text, m_threadPool))
     , m_models(std::make_shared<ModelResources>(m_logger, m_renderer, m_assets, m_files, m_threadPool))
 {
