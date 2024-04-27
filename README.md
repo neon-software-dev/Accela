@@ -136,17 +136,23 @@ class TestScene : public Engine::Scene
 
         void ConfigureScene()
         {
+	    // Configure dim white light ambient lighting
             engine->GetWorldState()->SetAmbientLighting(Engine::DEFAULT_SCENE, 1.0f, {1,1,1});
         }
 
         void LoadResources()
         {
-            engine->GetWorldResources()->LoadFontBlocking("font.ttf", 64);
-            engine->GetWorldResources()->RegisterModel("model", *engine->GetAssets()->ReadModelBlocking("model", ".obj"));
+	    // Load a font from assets for text rendering
+            engine->GetWorldResources()->Fonts()->LoadFont("font.ttf", 64).get();
+
+	    // Load a model from assets
+            engine->GetWorldResources()->Models()->LoadAssetsModel("model", "obj", Engine::ResultWhen::Ready).get();
         }
 
         void CreateTextEntity()
         {
+	    // Create a TextEntity to render text on the screen
+
             m_textEntity = Engine::ScreenTextEntity::Create(
                 engine,
                 Engine::ScreenTextEntity::Params()
@@ -165,6 +171,8 @@ class TestScene : public Engine::Scene
 
         void CreateModelEntity()
         {
+	    // Manually create a Model to render in 3D space (alternatively, use ModelEntity)
+
             const auto eid = engine->GetWorldState()->CreateEntity();
 
             auto modelRenderableComponent = Engine::ModelRenderableComponent{};
