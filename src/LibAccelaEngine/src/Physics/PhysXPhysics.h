@@ -52,9 +52,12 @@ namespace Accela::Engine
                                                       const float& radius,
                                                       const float& height) override;
             [[nodiscard]] std::optional<glm::vec3> GetPlayerControllerPosition(const std::string& name) override;
+            [[nodiscard]] std::optional<PlayerControllerState> GetPlayerControllerState(const std::string& name) override;
             [[nodiscard]] bool SetPlayerControllerMovement(const std::string& name,
                                                            const glm::vec3& movement,
                                                            const float& minDistance) override;
+            void DestroyPlayerController(const std::string& name) override;
+
             void ClearAll() override;
             void EnableDebugRenderOutput(bool enable) override;
             [[nodiscard]] std::vector<Render::Triangle> GetDebugTriangles() const override;

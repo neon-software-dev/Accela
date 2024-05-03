@@ -21,6 +21,12 @@
 
 namespace Accela::Engine
 {
+    struct PlayerControllerState
+    {
+        bool collisionAbove{false};
+        bool collisionBelow{false};
+    };
+
     /**
      * User-facing interface to the engine's physics system
      */
@@ -56,17 +62,58 @@ namespace Accela::Engine
                 const glm::vec3& rayStart_worldSpace,
                 const glm::vec3& rayEnd_worldSpace) const = 0;
 
+            /**
+             * Create a PlayerController within the physics system
+             *
+             * @param name Unique name to identify the player controller
+             * @param position The player's initial world-space position
+             * @param radius The radius of the player's capsule shape
+             * @param height The height of the player's capsule shape
+             *
+             * @return Whether the player was created successfully
+             */
             [[nodiscard]] virtual bool CreatePlayerController(const std::string& name,
                                                               const glm::vec3& position,
                                                               const float& radius,
                                                               const float& height) = 0;
 
+            /**
+             * Returns the current world-space position of a player controller
+             *
+             * @param name The name that identifies the player
+             *
+             * @return The player's world-space position, or std::nullopt if no such player
+             */
             [[nodiscard]] virtual std::optional<glm::vec3> GetPlayerControllerPosition(const std::string& name) = 0;
 
+            /**
+             * Returns physics state about a player controller
+             *
+             * @param name The name that identifies the player
+             *
+             * @return The player's physics state data, or std::nullopt if no such player
+             */
+            [[nodiscard]] virtual std::optional<PlayerControllerState> GetPlayerControllerState(const std::string& name) = 0;
+
+            /**
+             * Sets the current movement velocity for a player controller.
+             *
+             * @param name The name that identifies the player
+             * @param movement Velocity vector to be used for the player's motion
+             * @param minDistance Minimum distance along the velocity vector that the player can move
+             *
+             * @return True if the movement was applied, false if no such player
+             */
             [[nodiscard]] virtual bool SetPlayerControllerMovement(const std::string& name,
                                                                    const glm::vec3& movement,
                                                                    const float& minDistance) = 0;
 
+            /**
+             * Destroys a previously created player controller (if it exists)
+             *
+             * @param name The name that identifies the player
+             */
+            virtual void DestroyPlayerController(const std::string& name) = 0;
     };
 }
 

@@ -57,15 +57,13 @@ namespace Accela::Engine
                 enum class State
                 {
                     Jumping,
-                    Coasting
+                    Coasting,
+                    FreeFall
                 };
 
                 State state{State::Jumping};
-
-                glm::vec3 jumpVelocity{0.0f, 0.2f, 0.0f};
-
                 std::chrono::high_resolution_clock::time_point jumpStartTime{std::chrono::high_resolution_clock::now()};
-                std::optional<std::chrono::high_resolution_clock::time_point> coastStartTime;
+                float jumpSpeed{0.0f};
             };
 
         private:

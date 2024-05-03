@@ -507,6 +507,24 @@ void PhysXPhysics::DestroyRigidBody(const EntityId& eid)
     SyncMetrics();
 }
 
+struct Test : physx::PxUserControllerHitReport
+{
+    explicit Test(Common::ILogger::Ptr _logger)
+        : logger(std::move(_logger))
+    { }
+
+    void onShapeHit(const physx::PxControllerShapeHit& hit) override
+    {
+        (void)hit;
+        //logger->Log(Common::LogLevel::Error, "Player hit shape: {}", (std::size_t)hit.shape);
+    }
+
+    void onControllerHit(const physx::PxControllersHit&) override { }
+    void onObstacleHit(const physx::PxControllerObstacleHit&) override { }
+
+    Common::ILogger::Ptr logger;
+};
+
 bool PhysXPhysics::CreatePlayerController(const std::string& name,
                                           const glm::vec3& position,
                                           const float& radius,
@@ -527,6 +545,7 @@ bool PhysXPhysics::CreatePlayerController(const std::string& name,
     desc.height = height;
     desc.material = m_pxDefaultMaterial; // TODO!
     desc.position = ToPhysXExt(position);
+    desc.reportCallback = new Test(m_logger);
 
     auto* pxPlayerController = m_pxControllerManager->createController(desc);
     if (pxPlayerController == nullptr)
@@ -552,6 +571,24 @@ std::optional<glm::vec3> PhysXPhysics::GetPlayerControllerPosition(const std::st
     return FromPhysX(it->second.pPxController->getPosition());
 }
 
+std::optional<PlayerControllerState> PhysXPhysics::GetPlayerControllerState(const std::string& name)
+{
+    const auto it = m_playerControllers.find(name);
+    if (it == m_playerControllers.cend())
+    {
+        return std::nullopt;
+    }
+
+    physx::PxControllerState pxControllerState{};
+    it->second.pPxController->getState(pxControllerState);
+
+    PlayerControllerState playerControllerState{};
+    playerControllerState.collisionAbove = pxControllerState.collisionFlags & physx::PxControllerCollisionFlag::eCOLLISION_UP;
+    playerControllerState.collisionBelow = pxControllerState.collisionFlags & physx::PxControllerCollisionFlag::eCOLLISION_DOWN;
+
+    return playerControllerState;
+}
+
 bool PhysXPhysics::SetPlayerControllerMovement(const std::string& name,
                                                const glm::vec3& movement,
                                                const float& minDistance)
@@ -565,6 +602,21 @@ bool PhysXPhysics::SetPlayerControllerMovement(const std::string& name,
     it->second.movementCommand = PhysxMovement(movement, minDistance);
 
     return true;
+}
+
+void PhysXPhysics::DestroyPlayerController(const std::string& name)
+{
+    m_logger->Log(Common::LogLevel::Info, "PhysXPhysics: Destroying player controller: {}", name);
+
+    const auto it = m_playerControllers.find(name);
+    if (it == m_playerControllers.cend())
+    {
+        return;
+    }
+
+    PX_RELEASE(it->second.pPxController)
+
+    m_playerControllers.erase(it);
 }
 
 void PhysXPhysics::ClearAll()

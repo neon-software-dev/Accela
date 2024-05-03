@@ -9,6 +9,11 @@
 namespace Accela::Engine
 {
 
+static constexpr auto MIN_JUMP_DURATION = std::chrono::milliseconds(200);
+static constexpr auto MAX_JUMP_DURATION = std::chrono::milliseconds(500);
+static constexpr float JUMP_SPEED = 0.2f;
+static constexpr float COAST_SPEED_CHANGE = 0.01f;
+
 std::expected<KinematicPlayerController::UPtr, bool> KinematicPlayerController::Create(
     const std::shared_ptr<IEngineRuntime>& engine,
     const std::string& name,
@@ -44,7 +49,7 @@ KinematicPlayerController::~KinematicPlayerController()
 
 void KinematicPlayerController::DestroyInternal()
 {
-
+    m_engine->GetWorldState()->GetPhysics()->DestroyPlayerController(m_name);
 }
 
 glm::vec3 KinematicPlayerController::GetPosition() const
@@ -86,7 +91,7 @@ void KinematicPlayerController::OnSimulationStep(const PlayerMovement& commanded
     // Apply any active jump velocity to the player
     if (m_jumpState)
     {
-        commandedTranslation += m_jumpState->jumpVelocity;
+        commandedTranslation.y += m_jumpState->jumpSpeed;
     }
 
     // Apply gravity to the player
@@ -109,39 +114,66 @@ void KinematicPlayerController::OnSimulationStep(const PlayerMovement& commanded
 
 void KinematicPlayerController::ProcessJumpState(bool jumpCommanded)
 {
-    static const auto maxJumpDuration = std::chrono::milliseconds(1000);
-
-    if (!m_jumpState)
+    // If the user isn't commanding a jump, and we're not in a jump, nothing to do
+    if (!jumpCommanded && !m_jumpState)
     {
-        if (!jumpCommanded) { return; }
+        return;
+    }
 
+    // If the user commanded a jump, and we're not in a jump, start a jump
+    if (jumpCommanded && !m_jumpState)
+    {
         m_jumpState = JumpState{};
     }
 
-    const auto now = std::chrono::high_resolution_clock::now();
+    // At this point we're in a jump, but jumpCommanded may be true or false
+
+    const auto playerState = m_engine->GetWorldState()->GetPhysics()->GetPlayerControllerState(m_name);
 
     switch (m_jumpState->state)
     {
         case JumpState::State::Jumping:
         {
-            const auto jumpDuration = now - m_jumpState->jumpStartTime;
-            const auto jumpDurationMaxed = jumpDuration >= maxJumpDuration;
+            const auto jumpDuration = std::chrono::high_resolution_clock::now() - m_jumpState->jumpStartTime;
+            const bool atMinJumpDuration = jumpDuration >= MIN_JUMP_DURATION;
+            const bool atMaxJumpDuration = jumpDuration >= MAX_JUMP_DURATION;
 
-            // If the player is no longer commanding a jump, or if they hit the max duration
-            // that they can command a jump, switch to Coasting state
-            if (!jumpCommanded || jumpDurationMaxed)
+            // If we're at the min jump duration and the user doesn't want to keep jumping, or if we've hit
+            // the max jump duration, no matter what the user wants, transition to coasting state
+            if ((!jumpCommanded && atMinJumpDuration) || atMaxJumpDuration)
             {
                 m_jumpState->state = JumpState::State::Coasting;
-                m_jumpState->coastStartTime = now;
-                return;
             }
+
+            // If we've hit something above us, transition to coasting state
+            if (playerState->collisionAbove)
+            {
+                m_jumpState->state = JumpState::State::Coasting;
+            }
+
+            m_jumpState->jumpSpeed = JUMP_SPEED;
         }
         break;
         case JumpState::State::Coasting:
         {
-            m_jumpState->jumpVelocity.y -= 0.01f;
+            // While coasting, incrementally decrease our velocity until there's no more upwards jump velocity left
+            if (m_jumpState->jumpSpeed >= COAST_SPEED_CHANGE)
+            {
+                m_jumpState->jumpSpeed = std::max(0.0f, m_jumpState->jumpSpeed - COAST_SPEED_CHANGE);
+            }
 
-            if (m_jumpState->jumpVelocity.y <= 0.0f)
+            if (m_jumpState->jumpSpeed <= COAST_SPEED_CHANGE)
+            {
+                m_jumpState->state = JumpState::State::FreeFall;
+            }
+        }
+        break;
+        case JumpState::State::FreeFall:
+        {
+            const auto onObject = playerState->collisionBelow;
+
+            // Reset our jump state to default when we land on an object
+            if (onObject)
             {
                 m_jumpState = std::nullopt;
             }
