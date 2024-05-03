@@ -61,14 +61,34 @@ The following commands are specific to Linux but should be easy to adopt to Wind
 Pull the project code from Github:
 
 - `git clone https://github.com/neon-software-dev/Accela`
-
-
-Navigate to the project's source and execute CMake:
-
 - `cd Accela`
+
+### Building Nvidia PhysX
+
+Accela depends on the Nvidia PhysX library, but this library currently has a broken vcpkg package for linux consumers, so PhysX is currently included as part of the Accela source and must be manually built.
+
+- `cd src/External/PhysX-5.3.1/physx/`
+- `./generate_projects.sh`
+
+You can choose which variants (checked, debug, profile, release) of PhysX you want to build. Only building release is fine if you don't want to debug into it. Go into the compiler directory for each variant you want, and build and install it.
+
+- `cd compiler/linux-{variant}`
+- `make`
+- `make install`
+
+When configuring CMake below to build Accela, you need to supply some paths to the PhysX variant's files as a CMake input parameter.
+
+### Building Accela
+
+Navigate back to Accela's root directory and execute CMake:
+
+- `cd ../../../../../../`
 - `mkdir build`
 - `cd build`
-- `cmake -DACCELA_TARGET_PLATFORM=Desktop -DCMAKE_TOOLCHAIN_FILE="/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake" -DCMAKE_INSTALL_PREFIX="/desired/install/directory" ../src/`
+- `cmake -DACCELA_TARGET_PLATFORM=Desktop -DCMAKE_TOOLCHAIN_FILE="{/path/to}/vcpkg/scripts/buildsystems/vcpkg.cmake" -DPHYSX_INSTALL_DIR="{/path/to}/Accela/src/External/PhysX-5.3.1/physx/install/linux/PhysX"
+-DPHYSX_BIN_DIR="{/path/to}/Accela/src/External/PhysX-5.3.1/physx/install/linux/PhysX/bin/linux.clang/{variant}" -DCMAKE_INSTALL_PREFIX="{/desired/install/directory}" ../src/`
+
+Note that all strings enclosed in curly braces need to be replaced with values that make sense for your build environment/choices.
 
 Build and Install Accela
 
@@ -79,6 +99,8 @@ If desired, run the TestDesktopApp that was built:
 
 - `cd TestDesktopApp`
 - `./TestDesktopApp`
+
+(On Windows, you currently also need to copy the OpenAl and PhysX dlls from their build directories to the TestDesktopApp's build directory)
 
 ## Integration
 
