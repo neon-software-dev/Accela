@@ -120,15 +120,24 @@ void KinematicPlayerController::ProcessJumpState(bool jumpCommanded)
         return;
     }
 
-    // If the user commanded a jump, and we're not in a jump, start a jump
+    const auto playerState = m_engine->GetWorldState()->GetPhysics()->GetPlayerControllerState(m_name);
+
+    // If the user commanded a jump, and we're not in a jump, try to start a new jump
     if (jumpCommanded && !m_jumpState)
     {
+        const bool newJumpAllowed = playerState->collisionBelow;
+
+        // If we're not in a state where a new jump is possible, nothing to do
+        if (!newJumpAllowed)
+        {
+            return;
+        }
+
+        // Start a new jump
         m_jumpState = JumpState{};
     }
 
     // At this point we're in a jump, but jumpCommanded may be true or false
-
-    const auto playerState = m_engine->GetWorldState()->GetPhysics()->GetPlayerControllerState(m_name);
 
     switch (m_jumpState->state)
     {
