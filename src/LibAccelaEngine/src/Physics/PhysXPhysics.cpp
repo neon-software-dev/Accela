@@ -507,24 +507,6 @@ void PhysXPhysics::DestroyRigidBody(const EntityId& eid)
     SyncMetrics();
 }
 
-struct Test : physx::PxUserControllerHitReport
-{
-    explicit Test(Common::ILogger::Ptr _logger)
-        : logger(std::move(_logger))
-    { }
-
-    void onShapeHit(const physx::PxControllerShapeHit& hit) override
-    {
-        (void)hit;
-        //logger->Log(Common::LogLevel::Error, "Player hit shape: {}", (std::size_t)hit.shape);
-    }
-
-    void onControllerHit(const physx::PxControllersHit&) override { }
-    void onObstacleHit(const physx::PxControllerObstacleHit&) override { }
-
-    Common::ILogger::Ptr logger;
-};
-
 bool PhysXPhysics::CreatePlayerController(const std::string& name,
                                           const glm::vec3& position,
                                           const float& radius,
@@ -545,7 +527,6 @@ bool PhysXPhysics::CreatePlayerController(const std::string& name,
     desc.height = height;
     desc.material = m_pxDefaultMaterial; // TODO!
     desc.position = ToPhysXExt(position);
-    desc.reportCallback = new Test(m_logger);
 
     auto* pxPlayerController = m_pxControllerManager->createController(desc);
     if (pxPlayerController == nullptr)
