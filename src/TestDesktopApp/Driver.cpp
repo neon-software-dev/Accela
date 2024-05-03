@@ -28,9 +28,9 @@ int main()
     desktopEngine.Run(
         "TestDesktopApp",
         1,
-        Engine::WindowParams("TestDesktopApp", Render::USize(2560, 1440)),
+        Engine::WindowParams("TestDesktopApp", Render::USize(1920, 1080)),
         Engine::VROutput::None,
-        std::make_unique<TestScene>()
+        std::make_unique<DevScene>()
     );
 
     desktopEngine.Shutdown();

@@ -9,6 +9,7 @@
 #include "SphereMesh.h"
 
 #include <Accela/Engine/Component/Components.h>
+#include <Accela/Engine/Physics/KinematicPlayerController.h>
 
 namespace Accela
 {
@@ -44,7 +45,7 @@ void TestScene::ConfigureScene()
     engine->GetWorldState()->SetSkyBox(Engine::DEFAULT_SCENE, m_skyBoxTextureId);
 
     // Create player entity
-    m_player = Player::Create(engine, Engine::DEFAULT_SCENE, GetEvents(), {0,0.5f,1});
+    m_player = *Engine::KinematicPlayerController::Create(engine, "player", {0,7,0}, .4f, 1.8f);
 }
 
 void TestScene::CreateSceneEntities()
@@ -54,7 +55,7 @@ void TestScene::CreateSceneEntities()
     //
 
     CreateLight({0,1,1});
-    CreateTerrainEntity(1.0f, {0, -2.2, 0});
+    CreateTerrainEntity(5.0f, {0, -2.2, 0});
     CreateFloorEntity({0,0,0}, 10);
     CreateCesiumManEntity({0,0.05f,-2});
 }
@@ -104,8 +105,8 @@ bool TestScene::LoadAssets()
     //
     m_terrainHeightMapMeshId = engine->GetWorldResources()->Meshes()->LoadHeightMapMesh(
         *engine->GetWorldResources()->Textures()->GetAssetTextureId("rolling_hills_heightmap.png"),
-        Render::USize(300,300), // How many data points to create from the height map image
-        Render::USize(100,100), // World-space x/z size of the resulting terrain mesh
+        Render::USize(40,40), // How many data points to create from the height map image
+        Render::USize(10,10), // World-space x/z size of the resulting terrain mesh
         20.0f, // Constant that's multiplied against height map height values
         Render::MeshUsage::Immutable,
         "TerrainHeightMap",
@@ -131,7 +132,7 @@ bool TestScene::LoadAssets()
     terrainMaterial.isAffectedByLighting = true;
     terrainMaterial.ambientColor = {1,1,1};
     terrainMaterial.diffuseColor = {1,1,1};
-    terrainMaterial.specularColor = {0.1f, 0.1f, 0.1f};
+    terrainMaterial.specularColor = {0.0f, 0.0f, 0.0f};
     terrainMaterial.shininess = 32.0f;
     terrainMaterial.ambientTextureBind = terrainTextureId;
     terrainMaterial.diffuseTextureBind = terrainTextureId;
@@ -376,10 +377,13 @@ void TestScene::OnSimulationStep(unsigned int timeStep)
     else
     {
         // Move the player
-        ApplyMovementToPlayer(movementCommands);
+        m_player->OnSimulationStep(
+            movementCommands,
+            engine->GetWorldState()->GetWorldCamera(Engine::DEFAULT_SCENE)->GetLookUnit()
+        );
 
         // Sync the camera to the player's position
-        engine->GetWorldState()->GetWorldCamera(Engine::DEFAULT_SCENE)->SetPosition(m_player->GetEyesPosition());
+        engine->GetWorldState()->GetWorldCamera(Engine::DEFAULT_SCENE)->SetPosition(m_player->GetPosition());
     }
 }
 
@@ -394,15 +398,6 @@ void TestScene::OnKeyEvent(const Platform::KeyEvent& event)
         {
             engine->StopEngine();
             return;
-        }
-
-        // Command the player to jump when space is pressed
-        if (event.key == Platform::Key::Space)
-        {
-            if (!m_freeFlyCamera)
-            {
-                m_player->OnJumpCommanded();
-            }
         }
 
         // Fullscreen and cursor lock is enabled when 1 is pressed
@@ -464,50 +459,35 @@ void TestScene::OnMouseButtonEvent(const Platform::MouseButtonEvent& event)
     }
 }
 
-MovementCommands TestScene::GetActiveMovementCommands()
+Engine::PlayerMovement TestScene::GetActiveMovementCommands() const
 {
-    MovementCommands movementCommands{};
+    Engine::PlayerMovement movementCommands{};
 
     if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::A)) {
-        movementCommands.SetLeft();
+        movementCommands.left = true;
     }
     if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::D)) {
-        movementCommands.SetRight();
+        movementCommands.right = true;
     }
     if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::W)) {
-        movementCommands.SetForward();
+        movementCommands.forward = true;
     }
     if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::S)) {
-        movementCommands.SetBackward();
+        movementCommands.backward = true;
     }
     if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::LeftControl)) {
-        movementCommands.SetDown();
+        movementCommands.down = true;
     }
     if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::Space)) {
-        movementCommands.SetUp();
+        movementCommands.up = true;
     }
 
     return movementCommands;
 }
 
-void TestScene::ApplyMovementToPlayer(const MovementCommands& movementCommands) const
+void TestScene::ApplyMovementToCamera(const Engine::PlayerMovement& playerMovement) const
 {
-    const auto xzInput = movementCommands.GetXZNormalizedVector();
-
-    const bool hasNonZeroMovementCommanded = xzInput.has_value();
-
-    if (hasNonZeroMovementCommanded)
-    {
-        m_player->OnMovementCommanded(
-            *xzInput,
-            engine->GetWorldState()->GetWorldCamera(Engine::DEFAULT_SCENE)->GetLookUnit()
-        );
-    }
-}
-
-void TestScene::ApplyMovementToCamera(const MovementCommands& movementCommands) const
-{
-    const auto xyzInput = movementCommands.GetXYZNormalizedVector();
+    const auto xyzInput = Engine::PlayerController::GetNormalizedXYZVector(playerMovement);
 
     const bool hasNonZeroMovementCommanded = xyzInput.has_value();
 

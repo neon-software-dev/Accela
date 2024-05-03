@@ -10,6 +10,7 @@
 #include <Accela/Render/Mesh/MeshVertex.h>
 
 #include <vector>
+#include <numbers>
 
 namespace Accela
 {
@@ -25,13 +26,13 @@ namespace Accela
         float nx, ny, nz, lengthInv = 1.0f / radius;    // vertex normal
         float s, t;                                     // vertex texCoord
 
-        float sectorStep = 2.0f * M_PI / sectorCount;
-        float stackStep = M_PI / stackCount;
+        float sectorStep = 2.0f * (float)std::numbers::pi / (float)sectorCount;
+        float stackStep = (float)std::numbers::pi / (float)stackCount;
         float sectorAngle, stackAngle;
 
         for (unsigned int i = 0; i <= stackCount; ++i)
         {
-            stackAngle = M_PI / 2 - (float)i * stackStep;        // starting from pi/2 to -pi/2
+            stackAngle = (float)std::numbers::pi / 2.0f - (float)i * stackStep;        // starting from pi/2 to -pi/2
             xy = radius * cosf(stackAngle);             // r * cos(u)
             z = radius * sinf(stackAngle);              // r * sin(u)
 

@@ -17,8 +17,8 @@ namespace Accela::Render
      */
     struct StaticMesh : public Mesh
     {
-        StaticMesh(MeshId meshId, std::vector<MeshVertex> _vertices, std::vector<uint32_t> _indices, std::string tag)
-            : Mesh(MeshType::Static, meshId, std::move(tag))
+        StaticMesh(MeshId meshId, std::vector<MeshVertex> _vertices, std::vector<uint32_t> _indices, std::string _tag)
+            : Mesh(MeshType::Static, meshId, std::move(_tag))
             , vertices(std::move(_vertices))
             , indices(std::move(_indices))
         { }

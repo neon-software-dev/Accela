@@ -11,9 +11,9 @@ namespace Accela::Engine
 {
     enum class PhysicsBodyType
     {
-        Static,     // infinite mass, zero velocity, position manual
-        Kinematic,  // infinite mass, velocity manual, position determined by physics
-        Dynamic     // non-zero mass, velocity and position determined by physics
+        Static,
+        Kinematic,
+        Dynamic
     };
 }
 

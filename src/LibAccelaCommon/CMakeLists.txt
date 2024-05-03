@@ -40,7 +40,7 @@ target_compile_features(AccelaCommon
 )
 
 if (NOT MSVC)
-	target_compile_options(AccelaCommon PRIVATE -Wall -Wextra -Werror -Wpedantic)
+	target_compile_options(AccelaCommon PRIVATE ${ACCELA_WARNINGS_FLAGS})
 endif()
 
 if (ACCELA_TARGET_PLATFORM MATCHES ${ACCELA_TARGET_PLATFORM_DESKTOP})

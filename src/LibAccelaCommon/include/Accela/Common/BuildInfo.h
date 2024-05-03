@@ -33,7 +33,7 @@ namespace Accela::Common
          */
         static bool IsDebugBuild()
         {
-            #if NDEBUG
+            #if defined(NDEBUG)
                     return false;
             #else
                     return true;
@@ -45,9 +45,9 @@ namespace Accela::Common
          */
         static OS GetOS()
         {
-            #if _WIN32 || _WIN64
+            #if defined(_WIN32) || defined(_WIN64)
                     return OS::Windows;
-            #elif __linux__ || __unix__
+            #elif defined(__linux__) || defined(__unix__)
                     return OS::Linux;
             #else
                     return OS::Unknown;

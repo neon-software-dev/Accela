@@ -10,20 +10,24 @@ set(CMAKE_DEBUG_POSTFIX d)
 set(ACCELA_TARGET_PLATFORM_DESKTOP "Desktop")
 set(ACCELA_TARGET_PLATFORM_ANDROID "Android")
 
+if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    # TODO: Also add -Wfloat-equal and address issues
+    set(ACCELA_WARNINGS_FLAGS -Wall -Wextra -Werror -Wpedantic -Wcast-align -Wformat=2 -Wlogical-op -Wmissing-include-dirs -Wpointer-arith -Wredundant-decls -Wsequence-point -Wshadow -Wswitch -Wunreachable-code -Wunused-but-set-parameter)
+endif ()
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules/")
 
 ####
 # Add subprojects
 ####
 
+set(ACCELA_EXTERNAL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/External)
+
 # Internal libs
 add_subdirectory(LibAccelaCommon)
 add_subdirectory(LibAccelaEngine)
 add_subdirectory(LibAccelaPlatform)
 add_subdirectory(LibAccelaRenderer)
-
-# External RP3D lib
-add_subdirectory(External/reactphysics3d)
 
 # External OpenAL lib
 set(ALSOFT_UTILS OFF)

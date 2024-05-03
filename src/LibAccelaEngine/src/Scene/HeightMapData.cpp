@@ -101,7 +101,7 @@ Render::Mesh::Ptr GenerateHeightMapMesh(const Render::MeshId& id,
     const float vertexXDelta = (float)meshSize_worldSpace.w / (float)(heightMapData.dataSize.w - 1);
     const float vertexZDelta = (float)meshSize_worldSpace.h / (float)(heightMapData.dataSize.h - 1);
 
-    // Current world position of the vertex we're processing. Start at the front left corner of the mesh.
+    // Current world position of the vertex we're processing. Start at the back left corner of the mesh.
     float xPos = -1.0f * (float)meshSize_worldSpace.w / 2.0f;
     float zPos = 1.0f * (float)meshSize_worldSpace.h / 2.0f;
 
@@ -125,7 +125,7 @@ Render::Mesh::Ptr GenerateHeightMapMesh(const Render::MeshId& id,
             const auto normal = glm::vec3(0,1,0);
 
             const float uvX = (float)x / ((float)heightMapData.dataSize.w - 1);
-            const float uvY = 1.0f - (float)flippedY / ((float)heightMapData.dataSize.h - 1); // Flipped for Vulkan flipped y-axis
+            const float uvY = (float)flippedY / ((float)heightMapData.dataSize.h - 1);
             const auto uv = glm::vec2(uvX, uvY);
 
             const auto tangent = glm::vec3(0,1,0); // TODO: Can/should we calculate this manually

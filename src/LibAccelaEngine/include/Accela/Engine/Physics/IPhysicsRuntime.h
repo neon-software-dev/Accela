@@ -8,6 +8,7 @@
 #define LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_PHYSICS_IPHYSICSRUNTIME_H
 
 #include "RaycastResult.h"
+#include "PlayerController.h"
 
 #include <Accela/Engine/Common.h>
 
@@ -15,6 +16,8 @@
 
 #include <memory>
 #include <vector>
+#include <expected>
+#include <string>
 
 namespace Accela::Engine
 {
@@ -52,6 +55,17 @@ namespace Accela::Engine
             [[nodiscard]] virtual std::vector<RaycastResult> RaycastForCollisions(
                 const glm::vec3& rayStart_worldSpace,
                 const glm::vec3& rayEnd_worldSpace) const = 0;
+
+            [[nodiscard]] virtual bool CreatePlayerController(const std::string& name,
+                                                              const glm::vec3& position,
+                                                              const float& radius,
+                                                              const float& height) = 0;
+
+            [[nodiscard]] virtual std::optional<glm::vec3> GetPlayerControllerPosition(const std::string& name) = 0;
+
+            [[nodiscard]] virtual bool SetPlayerControllerMovement(const std::string& name,
+                                                                   const glm::vec3& movement,
+                                                                   const float& minDistance) = 0;
 
     };
 }

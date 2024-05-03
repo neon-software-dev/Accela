@@ -83,7 +83,7 @@ target_compile_features(AccelaRendererVk
 )
 
 if (NOT MSVC)
-	target_compile_options(AccelaRendererVk PRIVATE -Wall -Wextra -Werror -Wpedantic)
+	target_compile_options(AccelaRendererVk PRIVATE ${ACCELA_WARNINGS_FLAGS})
 endif()
 
 target_link_libraries(AccelaRendererVk

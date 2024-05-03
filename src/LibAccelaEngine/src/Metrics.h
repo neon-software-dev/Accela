@@ -18,8 +18,9 @@ namespace Accela::Engine
 
     // PhysicsSyncSystem
     static constexpr char Engine_PhysicsSyncSystem_Time[] = "Engine_PhysicsSyncSystem_Time";
-    static constexpr char Engine_Physics_Rigid_Bodies_Count[] = "Engine_Physics_Rigid_Bodies_Count";
-
+    static constexpr char Engine_Physics_Internal_Bodies_Count[] = "Engine_Physics_Internal_Bodies_Count";
+    static constexpr char Engine_Physics_Static_Bodies_Count[] = "Engine_Physics_Static_Bodies_Count";
+    static constexpr char Engine_Dynamic_Rigid_Bodies_Count[] = "Engine_Dynamic_Rigid_Bodies_Count";
 }
 
 #endif //LIBACCELAENGINE_SRC_METRICS_H

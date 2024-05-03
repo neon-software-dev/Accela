@@ -6,6 +6,27 @@ project(LibAccelaEngine VERSION 0.0.1 LANGUAGES CXX)
 	find_package(AudioFile CONFIG REQUIRED)
 	find_package(assimp CONFIG REQUIRED)
 
+	find_library(PhysXCharacterKinematic PhysXCharacterKinematic_static_64 HINTS "${PHYSX_BIN_DIR}" REQUIRED)
+	find_library(PhysXCooking PhysXCooking_64 HINTS "${PHYSX_BIN_DIR}" REQUIRED)
+	find_library(PhysXExtensions PhysXExtensions_static_64 HINTS "${PHYSX_BIN_DIR}" REQUIRED)
+	find_library(PhysX PhysX_64 HINTS "${PHYSX_BIN_DIR}" REQUIRED)
+	find_library(PhysXPvdSDK PhysXPvdSDK_static_64 HINTS "${PHYSX_BIN_DIR}" REQUIRED)
+	find_library(PhysXGpu PhysXGpu_64 HINTS "${PHYSX_BIN_DIR}") # TODO! Windows: PhysX doesn't build PhysXGpu? Why?
+	find_library(PhysXCommon PhysXCommon_64 HINTS "${PHYSX_BIN_DIR}" REQUIRED)
+	find_library(PhysXFoundation PhysXFoundation_64 HINTS "${PHYSX_BIN_DIR}" REQUIRED)
+	#find_library(PVDRuntime PVDRuntime_64 HINTS "${PHYSX_BIN_DIR}" REQUIRED)
+
+	set (PHYSX_LIBRARIES
+		${PhysXCharacterKinematic}
+		${PhysXCooking}
+		${PhysXExtensions}
+		${PhysX}
+		${PhysXPvdSDK}
+		${PhysXCommon}
+		${PhysXFoundation}
+		#${PVDRuntime}
+	)
+
 	file(GLOB AccelaEngine_Include_Headers "include/Accela/Engine/*.h")
 	file(GLOB AccelaEngine_Include_Headers_Scene "include/Accela/Engine/Scene/*.h")
 	file(GLOB AccelaEngine_Include_Headers_Component "include/Accela/Engine/Component/*.h")
@@ -70,8 +91,22 @@ target_compile_features(AccelaEngine
 )
 
 if (NOT MSVC)
-	target_compile_options(AccelaEngine PRIVATE -Wall -Wextra -Werror -Wpedantic)
+	target_compile_options(AccelaEngine PRIVATE ${ACCELA_WARNINGS_FLAGS})
 endif()
+
+#########################
+# TODO! Remove when this block when PhysX package in vcpkg isn't broken for linux
+target_include_directories(AccelaEngine
+	PRIVATE
+		"${PHYSX_INSTALL_DIR}/include"
+)
+#if(CMAKE_BUILD_TYPE AND CMAKE_BUILD_TYPE STREQUAL "Debug")
+#	add_compile_definitions(_DEBUG)
+#else()
+#	add_compile_definitions(NDEBUG)
+#endif()
+#
+#########################
 
 target_link_libraries(AccelaEngine
 	PUBLIC
@@ -83,7 +118,7 @@ target_link_libraries(AccelaEngine
 		OpenAL::OpenAL
 		AudioFile
 		assimp::assimp
-		reactphysics3d
+		${PHYSX_LIBRARIES}
 )
 
 target_include_directories(AccelaEngine

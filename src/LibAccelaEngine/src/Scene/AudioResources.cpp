@@ -45,8 +45,8 @@ std::future<bool> AudioResources::LoadAssetsAudio(const std::string& audioFileNa
     auto message = std::make_shared<BoolResultMessage>();
     auto messageFuture = message->CreateFuture();
 
-    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& message){
-        std::dynamic_pointer_cast<BoolResultMessage>(message)->SetResult(
+    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& _message){
+        std::dynamic_pointer_cast<BoolResultMessage>(_message)->SetResult(
             OnLoadAssetsAudio(audioFileName)
         );
     });
@@ -59,8 +59,8 @@ std::future<bool> AudioResources::LoadAllAssetAudio()
     auto message = std::make_shared<BoolResultMessage>();
     auto messageFuture = message->CreateFuture();
 
-    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& message){
-        std::dynamic_pointer_cast<BoolResultMessage>(message)->SetResult(
+    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& _message){
+        std::dynamic_pointer_cast<BoolResultMessage>(_message)->SetResult(
             OnLoadAllAssetAudio()
         );
     });

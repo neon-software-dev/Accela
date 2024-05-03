@@ -51,8 +51,8 @@ std::future<Render::MeshId> MeshResources::LoadStaticMesh(const std::vector<Rend
     auto message = std::make_shared<MeshResultMessage>();
     auto messageFuture = message->CreateFuture();
 
-    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& message){
-        std::dynamic_pointer_cast<MeshResultMessage>(message)->SetResult(
+    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& _message){
+        std::dynamic_pointer_cast<MeshResultMessage>(_message)->SetResult(
             OnLoadStaticMesh(vertices, indices, usage, tag, resultWhen)
         );
     });
@@ -71,8 +71,8 @@ std::future<Render::MeshId> MeshResources::LoadHeightMapMesh(const Render::Textu
     auto message = std::make_shared<MeshResultMessage>();
     auto messageFuture = message->CreateFuture();
 
-    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& message){
-        std::dynamic_pointer_cast<MeshResultMessage>(message)->SetResult(
+    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& _message){
+        std::dynamic_pointer_cast<MeshResultMessage>(_message)->SetResult(
             OnLoadHeightMapMesh(heightMapTextureId, heightMapDataSize, meshSize_worldSpace, displacementFactor, usage, tag, resultWhen)
         );
     });

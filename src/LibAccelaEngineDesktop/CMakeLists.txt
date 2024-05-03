@@ -20,7 +20,7 @@ target_compile_features(AccelaEngineDesktop
 )
 
 if (NOT MSVC)
-	target_compile_options(AccelaEngineDesktop PRIVATE -Wall -Wextra -Werror -Wpedantic)
+	target_compile_options(AccelaEngineDesktop PRIVATE ${ACCELA_WARNINGS_FLAGS})
 endif()
 
 target_link_libraries(AccelaEngineDesktop

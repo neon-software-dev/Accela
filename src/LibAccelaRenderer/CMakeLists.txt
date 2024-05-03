@@ -46,7 +46,7 @@ target_compile_features(AccelaRenderer
 )
 
 if (NOT MSVC)
-	target_compile_options(AccelaRenderer PRIVATE -Wall -Wextra -Werror -Wpedantic)
+	target_compile_options(AccelaRenderer PRIVATE ${ACCELA_WARNINGS_FLAGS})
 endif()
 
 target_compile_definitions(AccelaRenderer PUBLIC GLM_FORCE_DEPTH_ZERO_TO_ONE)

@@ -39,8 +39,8 @@ namespace Accela::Render
         bool operator==(const Size<S>& rhs)
         {
             return
-                    w == rhs.w &&
-                    h == rhs.h;
+                w == rhs.w &&
+                h == rhs.h;
         }
 
         S w{}; S h{};

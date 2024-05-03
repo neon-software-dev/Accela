@@ -47,8 +47,8 @@ std::future<bool> ModelResources::LoadAssetsModel(const std::string& modelFileNa
     auto message = std::make_shared<BoolResultMessage>();
     auto messageFuture = message->CreateFuture();
 
-    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& message){
-        std::dynamic_pointer_cast<BoolResultMessage>(message)->SetResult(
+    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& _message){
+        std::dynamic_pointer_cast<BoolResultMessage>(_message)->SetResult(
             OnLoadAssetsModel(modelFileName, resultWhen)
         );
     });
@@ -61,8 +61,8 @@ std::future<bool> ModelResources::LoadAllAssetModels(ResultWhen resultWhen)
     auto message = std::make_shared<BoolResultMessage>();
     auto messageFuture = message->CreateFuture();
 
-    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& message){
-        std::dynamic_pointer_cast<BoolResultMessage>(message)->SetResult(
+    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& _message){
+        std::dynamic_pointer_cast<BoolResultMessage>(_message)->SetResult(
             OnLoadAllAssetModels(resultWhen)
         );
     });
@@ -75,8 +75,8 @@ std::future<bool> ModelResources::LoadModel(const std::string& modelName, const 
     auto message = std::make_shared<BoolResultMessage>();
     auto messageFuture = message->CreateFuture();
 
-    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& message){
-        std::dynamic_pointer_cast<BoolResultMessage>(message)->SetResult(
+    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& _message){
+        std::dynamic_pointer_cast<BoolResultMessage>(_message)->SetResult(
             OnLoadModel(modelName, model, resultWhen)
         );
     });
@@ -277,7 +277,9 @@ std::expected<Render::MaterialId, bool> ModelResources::LoadModelMeshMaterial(Re
         // Otherwise, use the material's opacity field to determine alpha mode
     else
     {
-        objectMaterialProperties.alphaMode = material.opacity == 1.0f ? Render::AlphaMode::Opaque : Render::AlphaMode::Blend;
+        const auto opacityInt = static_cast<unsigned int>(material.opacity);
+
+        objectMaterialProperties.alphaMode = opacityInt == 1 ? Render::AlphaMode::Opaque : Render::AlphaMode::Blend;
         objectMaterialProperties.alphaCutoff = 0.01f;
     }
 

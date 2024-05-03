@@ -72,13 +72,12 @@ https://github.com/KhronosGroup/SPIRV-Headers/tree/main
 Apache License Version 2.0
 https://github.com/KhronosGroup/SPIRV-Reflect
 
-[reactphysics3d]
-Zlib license
-Copyright (c) 2010-2024 Daniel Chappuis http://www.reactphysics3d.com
-https://www.reactphysics3d.com/
-https://github.com/DanielChappuis/reactphysics3d
-
 [openal-soft]
 GNU LGPL Version 2
 https://openal-soft.org/
 https://github.com/kcat/openal-soft
+
+[Nvidia PhysX]
+BSD 3-Clause "New" or "Revised" License
+https://github.com/NVIDIA-Omniverse/PhysX
+

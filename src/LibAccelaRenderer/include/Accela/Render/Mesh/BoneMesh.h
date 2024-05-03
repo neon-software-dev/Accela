@@ -21,8 +21,8 @@ namespace Accela::Render
                  std::vector<BoneMeshVertex> _vertices,
                  std::vector<uint32_t> _indices,
                  uint32_t _numBones,
-                 std::string tag)
-            : Mesh(MeshType::Bone, meshId, std::move(tag))
+                 std::string _tag)
+            : Mesh(MeshType::Bone, meshId, std::move(_tag))
             , vertices(std::move(_vertices))
             , indices(std::move(_indices))
             , numBones(_numBones)

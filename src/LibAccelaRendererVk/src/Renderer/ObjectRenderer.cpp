@@ -124,9 +124,18 @@ void ObjectRenderer::Render(const std::string& sceneName,
     //
     // Clean Up / metrics
     //
-    m_metrics->SetCounterValue(Renderer_Object_Objects_Rendered_Count, renderMetrics.numObjectRendered);
-    m_metrics->SetCounterValue(Renderer_Object_RenderBatch_Count, renderBatches.size());
-    m_metrics->SetCounterValue(Renderer_Object_DrawCalls_Count, renderMetrics.numDrawCalls);
+    if (renderType == RenderType::GpassOpaque)
+    {
+        m_metrics->SetCounterValue(Renderer_Object_Opaque_Objects_Rendered_Count, renderMetrics.numObjectRendered);
+        m_metrics->SetCounterValue(Renderer_Object_Opaque_RenderBatch_Count, renderBatches.size());
+        m_metrics->SetCounterValue(Renderer_Object_Opaque_DrawCalls_Count, renderMetrics.numDrawCalls);
+    }
+    else if (renderType == RenderType::GpassTranslucent)
+    {
+        m_metrics->SetCounterValue(Renderer_Object_Transparent_Objects_Rendered_Count, renderMetrics.numObjectRendered);
+        m_metrics->SetCounterValue(Renderer_Object_Transparent_RenderBatch_Count, renderBatches.size());
+        m_metrics->SetCounterValue(Renderer_Object_Transparent_DrawCalls_Count, renderMetrics.numDrawCalls);
+    }
 }
 
 std::vector<ObjectRenderer::ObjectRenderBatch> ObjectRenderer::CompileRenderBatches(

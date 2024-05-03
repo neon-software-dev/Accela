@@ -36,8 +36,8 @@ std::future<Render::MaterialId> MaterialResources::LoadObjectMaterial(
     auto message = std::make_shared<MaterialResultMessage>();
     auto messageFuture = message->CreateFuture();
 
-    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& message){
-        std::dynamic_pointer_cast<MaterialResultMessage>(message)->SetResult(
+    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& _message){
+        std::dynamic_pointer_cast<MaterialResultMessage>(_message)->SetResult(
             OnLoadObjectMaterial(properties, tag, resultWhen)
         );
     });

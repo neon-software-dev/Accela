@@ -9,6 +9,7 @@
 #include "SphereMesh.h"
 
 #include <Accela/Engine/Component/Components.h>
+#include <Accela/Engine/Physics/KinematicPlayerController.h>
 
 #include <sstream>
 
@@ -46,7 +47,7 @@ void DevScene::ConfigureScene()
     engine->GetWorldState()->SetSkyBox(Engine::DEFAULT_SCENE, m_skyBoxTextureId);
 
     // Create player entity
-    m_player = Player::Create(engine, Engine::DEFAULT_SCENE, GetEvents(), {0,0.5f,1});
+    m_player = *Engine::KinematicPlayerController::Create(engine, "player", {0,7,0}, .4f, 1.8f);
 }
 
 void DevScene::CreateSceneEntities()
@@ -56,15 +57,15 @@ void DevScene::CreateSceneEntities()
     //
 
     //CreateSpotLight({0,1,0}, true);
-    CreatePointLight({2,1,2}, true);
-    CreateTerrainEntity(1.0f, {0, -2.2, 0});
-    CreateFloorEntity({0,0,0}, 20);
+    CreatePointLight({0, 5, 2}, true);
+    CreateTerrainEntity(5.0f, {0, 0, 0});
+    CreateFloorEntity({0,3,0}, 20);
     //CreateModelEntity("dancing_vampire", {0,0,-2}, glm::vec3(1.0f),
     //                  Engine::ModelAnimationState(Engine::ModelAnimationType::Looping, "Hips"));
     //CreateModelEntity("AlphaBlendModeTest", {0,0,0});
     //CreateModelEntity("TextureSettingsTest", {0,3,0}, glm::vec3(0.5f));
-    CreateModelEntity("CesiumMan", {0,0.1f,-2}, glm::vec3(1.0f),
-                      Engine::ModelAnimationState(Engine::ModelAnimationType::Looping, ""));
+    //CreateModelEntity("CesiumMan", {0,0.1f,-2}, glm::vec3(1.0f),
+    //                  Engine::ModelAnimationState(Engine::ModelAnimationType::Looping, ""));
 }
 
 bool DevScene::LoadAssets()
@@ -112,8 +113,8 @@ bool DevScene::LoadAssets()
     //
     m_terrainHeightMapMeshId = engine->GetWorldResources()->Meshes()->LoadHeightMapMesh(
         *engine->GetWorldResources()->Textures()->GetAssetTextureId("rolling_hills_heightmap.png"),
-        Render::USize(300,300), // How many data points to create from the height map image
-        Render::USize(100,100), // World-space x/z size of the resulting terrain mesh
+        Render::USize(40,40), // How many data points to create from the height map image
+        Render::USize(10,10), // World-space x/z size of the resulting terrain mesh
         20.0f, // Constant that's multiplied against height map height values
         Render::MeshUsage::Immutable,
         "TerrainHeightMap",
@@ -139,7 +140,7 @@ bool DevScene::LoadAssets()
     terrainMaterial.isAffectedByLighting = true;
     terrainMaterial.ambientColor = {1,1,1};
     terrainMaterial.diffuseColor = {1,1,1};
-    terrainMaterial.specularColor = {0.1f, 0.1f, 0.1f};
+    terrainMaterial.specularColor = {0.0f, 0.0f, 0.0f};
     terrainMaterial.shininess = 32.0f;
     terrainMaterial.ambientTextureBind = terrainTextureId;
     terrainMaterial.diffuseTextureBind = terrainTextureId;
@@ -397,23 +398,24 @@ void DevScene::OnSimulationStep(unsigned int timeStep)
     // commands to either the player or camera, depending on free fly mode setting
     if (!m_commandEntryEntity)
     {
+        const auto movementCommands = GetActiveMovementCommands();
+
         if (m_freeFlyCamera)
         {
             // Move the camera
-            ApplyMovementToCamera(GetActiveMovementCommands());
+            ApplyMovementToCamera(movementCommands);
         }
         else
         {
-            // Move the player
-            ApplyMovementToPlayer(GetActiveMovementCommands());
-        }
-    }
+            // Update the player controller
+            m_player->OnSimulationStep(
+                movementCommands,
+                engine->GetWorldState()->GetWorldCamera(Engine::DEFAULT_SCENE)->GetLookUnit()
+            );
 
-    // If we're not free flying, sync the camera position to the player position
-    if (!m_freeFlyCamera)
-    {
-        // Sync the camera to the player's position
-        engine->GetWorldState()->GetWorldCamera(Engine::DEFAULT_SCENE)->SetPosition(m_player->GetEyesPosition());
+            // Sync the camera to the player's position
+            engine->GetWorldState()->GetWorldCamera(Engine::DEFAULT_SCENE)->SetPosition(m_player->GetPosition());
+        }
     }
 }
 
@@ -465,50 +467,35 @@ void DevScene::OnMouseButtonEvent(const Platform::MouseButtonEvent& event)
     }
 }
 
-MovementCommands DevScene::GetActiveMovementCommands()
+Engine::PlayerMovement DevScene::GetActiveMovementCommands()
 {
-    MovementCommands movementCommands{};
+    Engine::PlayerMovement movementCommands{};
 
     if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::A)) {
-        movementCommands.SetLeft();
+        movementCommands.left = true;
     }
     if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::D)) {
-        movementCommands.SetRight();
+        movementCommands.right = true;
     }
     if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::W)) {
-        movementCommands.SetForward();
+        movementCommands.forward = true;
     }
     if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::S)) {
-        movementCommands.SetBackward();
+        movementCommands.backward = true;
     }
     if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::LeftControl)) {
-        movementCommands.SetDown();
+        movementCommands.down = true;
     }
     if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::Space)) {
-        movementCommands.SetUp();
+        movementCommands.up = true;
     }
 
     return movementCommands;
 }
 
-void DevScene::ApplyMovementToPlayer(const MovementCommands& movementCommands) const
+void DevScene::ApplyMovementToCamera(const Engine::PlayerMovement& playerMovement) const
 {
-    const auto xzInput = movementCommands.GetXZNormalizedVector();
-
-    const bool hasNonZeroMovementCommanded = xzInput.has_value();
-
-    if (hasNonZeroMovementCommanded)
-    {
-        m_player->OnMovementCommanded(
-            *xzInput,
-            engine->GetWorldState()->GetWorldCamera(Engine::DEFAULT_SCENE)->GetLookUnit()
-        );
-    }
-}
-
-void DevScene::ApplyMovementToCamera(const MovementCommands& movementCommands) const
-{
-    const auto xyzInput = movementCommands.GetXYZNormalizedVector();
+    const auto xyzInput = Engine::PlayerController::GetNormalizedXYZVector(playerMovement);
 
     const bool hasNonZeroMovementCommanded = xyzInput.has_value();
 
@@ -597,15 +584,6 @@ void DevScene::OnNormalKeyEvent(const Platform::KeyEvent& event)
             return;
         }
 
-        // Command the player to jump when space is pressed
-        if (event.key == Platform::Key::Space)
-        {
-            if (!m_freeFlyCamera)
-            {
-                m_player->OnJumpCommanded();
-            }
-        }
-
         // Fullscreen and cursor lock is enabled when 1 is pressed
         if (event.key == Platform::Key::One)
         {
@@ -624,6 +602,28 @@ void DevScene::OnNormalKeyEvent(const Platform::KeyEvent& event)
         if (event.key == Platform::Key::C)
         {
             SyncLightToCamera();
+        }
+
+        if (event.key == Platform::Key::E)
+        {
+            int sideLength = 5;
+
+            for (int x = -sideLength; x < sideLength; x = x + 2)
+            {
+                for (int y = 0; y < sideLength; y = y + 2)
+                {
+                    for (int z = -sideLength; z < sideLength; z = z + 2)
+                    {
+                        const glm::vec3 velocity(
+                            std::uniform_real_distribution<float>(-40.0f, 40.0f)(m_rd),
+                            std::uniform_real_distribution<float>(1.0f, 40.0f)(m_rd),
+                            std::uniform_real_distribution<float>(-40.0f, 40.0f)(m_rd)
+                        );
+
+                        CreateCubeEntity({x,y,z}, {1,1,1}, false, velocity);
+                    }
+                }
+            }
         }
 
         if (event.key == Platform::Key::P)

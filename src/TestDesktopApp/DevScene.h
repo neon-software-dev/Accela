@@ -7,12 +7,13 @@
 #ifndef TESTDESKTOPAPP_DEVSCENE_H
 #define TESTDESKTOPAPP_DEVSCENE_H
 
-#include "MovementCommands.h"
-#include "Player.h"
-
 #include <Accela/Engine/Scene/Scene.h>
+#include <Accela/Engine/Physics/PlayerController.h>
 #include <Accela/Engine/Entity/EnginePerfMonitorEntity.h>
 #include <Accela/Engine/Entity/CommandEntryEntity.h>
+#include <Accela/Engine/Component/ModelRenderableComponent.h>
+
+#include <Accela/Render/Light.h>
 
 #include <random>
 #include <optional>
@@ -76,9 +77,8 @@ namespace Accela
             //
 
             /** Functions to turn key presses into camera or player movements */
-            [[nodiscard]] MovementCommands GetActiveMovementCommands();
-            void ApplyMovementToPlayer(const MovementCommands& movementCommands) const;
-            void ApplyMovementToCamera(const MovementCommands& movementCommands) const;
+            [[nodiscard]] Engine::PlayerMovement GetActiveMovementCommands();
+            void ApplyMovementToCamera(const Engine::PlayerMovement& playerMovement) const;
 
             /** Moves the main light to be position where the world camera is currently positioned */
             void SyncLightToCamera() const;
@@ -94,8 +94,6 @@ namespace Accela
             void HandleSpawnCommand(const std::vector<std::string>& tokens);
 
         private:
-
-            Player::UPtr m_player{nullptr};
 
             bool m_freeFlyCamera{false};
             float m_cameraTranslationSpeed{0.1f};
@@ -114,6 +112,8 @@ namespace Accela
 
             std::random_device m_rd;
             std::mt19937 m_mt{m_rd()};
+
+            Engine::PlayerController::UPtr m_player;
     };
 }
 

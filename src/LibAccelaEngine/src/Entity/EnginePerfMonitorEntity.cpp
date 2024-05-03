@@ -222,29 +222,50 @@ void EnginePerfMonitorEntity::CreateEntities()
     );
     currentYPos += CreateEntity(
         Common::MetricType::Counter,
-        "Renderer: Objects Rendered: ",
-        "Renderer_Object_Objects_Rendered_Count",
+        "Renderer: Opaque Objects Rendered: ",
+        "Renderer_Object_Opaque_Objects_Rendered_Count",
         textProperties,
         currentYPos
     );
     currentYPos += CreateEntity(
         Common::MetricType::Counter,
-        "Renderer: Render Batch Count: ",
-        "Renderer_Object_RenderBatch_Count",
+        "Renderer: Opaque Render Batch Count: ",
+        "Renderer_Object_Opaque_RenderBatch_Count",
         textProperties,
         currentYPos
     );
     currentYPos += CreateEntity(
         Common::MetricType::Counter,
-        "Renderer: Draw Calls Count: ",
-        "Renderer_Object_DrawCalls_Count",
+        "Renderer: Opaque Draw Calls Count: ",
+        "Renderer_Object_Opaque_DrawCalls_Count",
         textProperties,
         currentYPos
     );
     currentYPos += CreateEntity(
         Common::MetricType::Counter,
-        "Physics: Physics Rigid Body Count: ",
-        "Engine_Physics_Rigid_Bodies_Count",
+        "Renderer: Transparent Objects Rendered: ",
+        "Renderer_Object_Transparent_Objects_Rendered_Count",
+        textProperties,
+        currentYPos
+    );
+    currentYPos += CreateEntity(
+        Common::MetricType::Counter,
+        "Physics: Physics Internal Body Count: ",
+        "Engine_Physics_Internal_Bodies_Count",
+        textProperties,
+        currentYPos
+    );
+    currentYPos += CreateEntity(
+        Common::MetricType::Counter,
+        "Physics: PhysX Static Bodies Count: ",
+        "Engine_Physics_Static_Bodies_Count",
+        textProperties,
+        currentYPos
+    );
+    currentYPos += CreateEntity(
+        Common::MetricType::Counter,
+        "Physics: PhysX Dynamic Bodies Count: ",
+        "Engine_Dynamic_Rigid_Bodies_Count",
         textProperties,
         currentYPos
     );

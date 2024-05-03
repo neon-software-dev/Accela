@@ -17,9 +17,12 @@ namespace Accela::Render
         static constexpr char Renderer_Scene_Update_Time[] = "Renderer_Scene_Update_Time";
 
     // Object renderer
-        static constexpr char Renderer_Object_Objects_Rendered_Count[] = "Renderer_Object_Objects_Rendered_Count";
-        static constexpr char Renderer_Object_RenderBatch_Count[] = "Renderer_Object_RenderBatch_Count";
-        static constexpr char Renderer_Object_DrawCalls_Count[] = "Renderer_Object_DrawCalls_Count";
+        static constexpr char Renderer_Object_Opaque_Objects_Rendered_Count[] = "Renderer_Object_Opaque_Objects_Rendered_Count";
+        static constexpr char Renderer_Object_Opaque_RenderBatch_Count[] = "Renderer_Object_Opaque_RenderBatch_Count";
+        static constexpr char Renderer_Object_Opaque_DrawCalls_Count[] = "Renderer_Object_Opaque_DrawCalls_Count";
+        static constexpr char Renderer_Object_Transparent_Objects_Rendered_Count[] = "Renderer_Object_Transparent_Objects_Rendered_Count";
+        static constexpr char Renderer_Object_Transparent_RenderBatch_Count[] = "Renderer_Object_Transparent_RenderBatch_Count";
+        static constexpr char Renderer_Object_Transparent_DrawCalls_Count[] = "Renderer_Object_Transparent_DrawCalls_Count";
 
     // Meshes system
         static constexpr char Renderer_Meshes_Count[] = "Renderer_Meshes_Count";

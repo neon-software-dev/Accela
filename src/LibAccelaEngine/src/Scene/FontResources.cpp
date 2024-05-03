@@ -35,8 +35,8 @@ std::future<bool> FontResources::LoadFont(const std::string& fontFileName, uint8
     auto message = std::make_shared<BoolResultMessage>();
     auto messageFuture = message->CreateFuture();
 
-    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& message){
-        std::dynamic_pointer_cast<BoolResultMessage>(message)->SetResult(
+    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& _message){
+        std::dynamic_pointer_cast<BoolResultMessage>(_message)->SetResult(
             OnLoadFont(fontFileName, fontSize, fontSize)
         );
     });
@@ -49,8 +49,8 @@ std::future<bool> FontResources::LoadFont(const std::string& fontFileName, uint8
     auto message = std::make_shared<BoolResultMessage>();
     auto messageFuture = message->CreateFuture();
 
-    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& message){
-        std::dynamic_pointer_cast<BoolResultMessage>(message)->SetResult(
+    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& _message){
+        std::dynamic_pointer_cast<BoolResultMessage>(_message)->SetResult(
             OnLoadFont(fontFileName, startFontSize, endFontSize)
         );
     });

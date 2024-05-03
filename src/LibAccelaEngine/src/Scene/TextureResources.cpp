@@ -63,8 +63,8 @@ std::future<bool> TextureResources::LoadAllAssetTextures(ResultWhen resultWhen)
     auto message = std::make_shared<BoolResultMessage>();
     auto messageFuture = message->CreateFuture();
 
-    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& message){
-        std::dynamic_pointer_cast<BoolResultMessage>(message)->SetResult(
+    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& _message){
+        std::dynamic_pointer_cast<BoolResultMessage>(_message)->SetResult(
             OnLoadAllAssetTextures(resultWhen)
         );
     });
@@ -77,8 +77,8 @@ std::future<Render::TextureId> TextureResources::LoadAssetTexture(const std::str
     auto message = std::make_shared<TextureResultMessage>();
     auto messageFuture = message->CreateFuture();
 
-    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& message){
-        std::dynamic_pointer_cast<TextureResultMessage>(message)->SetResult(
+    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& _message){
+        std::dynamic_pointer_cast<TextureResultMessage>(_message)->SetResult(
             OnLoadAssetTexture(assetTextureName, resultWhen)
         );
     });
@@ -92,8 +92,8 @@ TextureResources::LoadAssetCubeTexture(const std::array<std::string, 6>& assetTe
     auto message = std::make_shared<TextureResultMessage>();
     auto messageFuture = message->CreateFuture();
 
-    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& message){
-        std::dynamic_pointer_cast<TextureResultMessage>(message)->SetResult(
+    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& _message){
+        std::dynamic_pointer_cast<TextureResultMessage>(_message)->SetResult(
             OnLoadAssetCubeTexture(assetTextureNames, tag, resultWhen)
         );
     });
@@ -107,8 +107,8 @@ TextureResources::RenderText(const std::string& text, const Platform::TextProper
     auto message = std::make_shared<TextRenderResultMessage>();
     auto messageFuture = message->CreateFuture();
 
-    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& message){
-        std::dynamic_pointer_cast<TextRenderResultMessage>(message)->SetResult(
+    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& _message){
+        std::dynamic_pointer_cast<TextRenderResultMessage>(_message)->SetResult(
             OnRenderText(text, properties, resultWhen)
         );
     });
