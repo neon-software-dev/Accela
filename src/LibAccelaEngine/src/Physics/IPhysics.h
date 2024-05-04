@@ -54,7 +54,7 @@ namespace Accela::Engine
              * @param transformComponent The TransformComponent defining the body's positioning
              * @param boundsComponent The BoundsComponent defining the body's physical bounds
              */
-            virtual void CreateRigidBodyFromEntity(const EntityId& eid,
+            virtual bool CreateRigidBodyFromEntity(const EntityId& eid,
                                                    const PhysicsComponent& physicsComponent,
                                                    const TransformComponent& transformComponent,
                                                    const BoundsComponent& boundsComponent) = 0;
@@ -65,10 +65,12 @@ namespace Accela::Engine
              * @param eid The EntityId associated with the body to be updated
              * @param physicsComponent The PhysicsComponent defining the body's physics properties
              * @param transformComponent The TransformComponent defining the body's positioning
+             * @param boundsComponent The BoundsComponent defining the body's physical bounds
              */
-            virtual void UpdateRigidBodyFromEntity(const EntityId& eid,
+            virtual bool UpdateRigidBodyFromEntity(const EntityId& eid,
                                                    const PhysicsComponent& physicsComponent,
-                                                   const TransformComponent& transformComponent) = 0;
+                                                   const TransformComponent& transformComponent,
+                                                   const BoundsComponent& boundsComponent) = 0;
 
             /**
              * Removes a rigid body previously created via CreateRigidBodyFromEntity() from the physics

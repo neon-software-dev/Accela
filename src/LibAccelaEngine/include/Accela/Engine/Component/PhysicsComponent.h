@@ -15,7 +15,18 @@
 
 namespace Accela::Engine
 {
-    static constexpr float DEFAULT_FRICTION_COEFFICIENT = 0.2f;
+    static constexpr float DEFAULT_FRICTION_STATIC_COEFFICIENT = 1.0f;
+    static constexpr float DEFAULT_FRICTION_DYNAMIC_COEFFICIENT = 1.0f;
+    static constexpr float DEFAULT_FRICTION_RESTITUTION_COEFFICIENT = 0.1f;
+
+    struct PhysicsMaterial
+    {
+        float staticFriction{DEFAULT_FRICTION_STATIC_COEFFICIENT};
+        float dynamicFriction{DEFAULT_FRICTION_DYNAMIC_COEFFICIENT};
+        float restitution{DEFAULT_FRICTION_RESTITUTION_COEFFICIENT};
+
+        auto operator<=>(const PhysicsMaterial&) const = default;
+    };
 
     /**
      * Attaches to an entity to give it physics properties. Note that physics system requires
@@ -68,6 +79,7 @@ namespace Accela::Engine
         public:
 
             PhysicsBodyType bodyType{PhysicsBodyType::Dynamic};
+            PhysicsMaterial material{};
 
             float mass{0.0f};
             glm::vec3 linearVelocity{0.0f};
@@ -75,7 +87,6 @@ namespace Accela::Engine
             /** Whether the object is allowed to rotate in x/y/z axes */
             std::array<bool, 3> axisMotionAllowed{true, true, true};
 
-            float frictionCoefficient{DEFAULT_FRICTION_COEFFICIENT};
             float linearDamping{0.0f};
             float angularDamping{0.0f};
     };

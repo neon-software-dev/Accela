@@ -64,7 +64,7 @@ void PhysicsSyncSystem::PreSimulationStep(const RunState::Ptr&, entt::registry& 
                     m_physics->CreateRigidBodyFromEntity((EntityId)eid, physicsComponent, transformComponent, boundsComponent);
                 break;
                 case ComponentState::Dirty:
-                    m_physics->UpdateRigidBodyFromEntity((EntityId)eid, physicsComponent, transformComponent);
+                    m_physics->UpdateRigidBodyFromEntity((EntityId)eid, physicsComponent, transformComponent, boundsComponent);
                 break;
                 case ComponentState::Synced:
                     // no-op

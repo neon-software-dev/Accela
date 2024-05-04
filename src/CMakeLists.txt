@@ -15,6 +15,12 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     set(ACCELA_WARNINGS_FLAGS -Wall -Wextra -Werror -Wpedantic -Wcast-align -Wformat=2 -Wlogical-op -Wmissing-include-dirs -Wpointer-arith -Wredundant-decls -Wsequence-point -Wshadow -Wswitch -Wunreachable-code -Wunused-but-set-parameter)
 endif ()
 
+if(CMAKE_BUILD_TYPE AND CMAKE_BUILD_TYPE STREQUAL "Debug")
+	add_compile_definitions(_DEBUG)
+else()
+	add_compile_definitions(NDEBUG)
+endif()
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules/")
 
 ####

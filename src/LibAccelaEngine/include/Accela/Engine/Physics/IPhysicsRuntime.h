@@ -11,6 +11,7 @@
 #include "PlayerController.h"
 
 #include <Accela/Engine/Common.h>
+#include <Accela/Engine/Component/PhysicsComponent.h>
 
 #include <glm/glm.hpp>
 
@@ -75,7 +76,8 @@ namespace Accela::Engine
             [[nodiscard]] virtual bool CreatePlayerController(const std::string& name,
                                                               const glm::vec3& position,
                                                               const float& radius,
-                                                              const float& height) = 0;
+                                                              const float& height,
+                                                              const PhysicsMaterial& material) = 0;
 
             /**
              * Returns the current world-space position of a player controller

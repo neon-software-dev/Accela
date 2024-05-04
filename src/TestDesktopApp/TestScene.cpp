@@ -342,7 +342,6 @@ void TestScene::CreateCubeEntity(glm::vec3 position,
     }
 
     physicsComponent.linearVelocity = linearVelocity;
-    physicsComponent.frictionCoefficient = 0.4f;
     physicsComponent.linearDamping = 0.4f;
     physicsComponent.angularDamping = 0.4f;
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, physicsComponent);

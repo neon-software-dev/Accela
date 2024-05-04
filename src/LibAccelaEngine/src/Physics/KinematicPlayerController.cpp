@@ -22,11 +22,14 @@ std::expected<KinematicPlayerController::UPtr, bool> KinematicPlayerController::
     const float& height
 )
 {
+    PhysicsMaterial playerMaterial{};
+
     if (!engine->GetWorldState()->GetPhysics()->CreatePlayerController(
         name,
         position,
         radius,
-        height
+        height,
+        playerMaterial
     ))
     {
         return std::unexpected(false);
