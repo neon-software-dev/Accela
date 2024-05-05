@@ -26,6 +26,8 @@ namespace Accela::Engine
         bool up{false};
         bool down{false};
 
+        bool sprint{false};
+
         [[nodiscard]] bool AnyCommand() const {
             return left || right || forward || backward || up || down;
         }

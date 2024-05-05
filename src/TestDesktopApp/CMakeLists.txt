@@ -37,7 +37,7 @@ foreach(resource ${resources})
 	endwhile()
 
 	set(asset_local_path "${asset_local_dir}${filename}") # textures/file.png
-	set(install_file "${CMAKE_CURRENT_BINARY_DIR}/assets/${asset_local_path}") # /path/to/bin/assets/textures/file.png
+	set(install_file "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets/${asset_local_path}") # /path/to/bin/assets/textures/file.png
 
 	add_custom_command(
 			COMMENT "Asset file install '${asset_local_path}'"

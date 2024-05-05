@@ -9,8 +9,10 @@
 namespace Accela::Engine
 {
 
-static constexpr auto MIN_JUMP_DURATION = std::chrono::milliseconds(200);
-static constexpr auto MAX_JUMP_DURATION = std::chrono::milliseconds(500);
+static constexpr auto MIN_JUMP_DURATION = std::chrono::milliseconds(100);
+static constexpr auto MAX_JUMP_DURATION = std::chrono::milliseconds(300);
+static constexpr auto WALK_SPEED_MULTIPLIER = 0.1f;
+static constexpr auto SPRINT_SPEED_MULTIPLIER = 0.15f;
 static constexpr float JUMP_SPEED = 0.2f;
 static constexpr float COAST_SPEED_CHANGE = 0.01f;
 
@@ -71,6 +73,139 @@ glm::vec3 KinematicPlayerController::GetPosition() const
 
 void KinematicPlayerController::OnSimulationStep(const PlayerMovement& commandedMovement, const glm::vec3& lookUnit)
 {
+    const auto playerControllerState = m_engine->GetWorldState()->GetPhysics()->GetPlayerControllerState(m_name);
+    if (!playerControllerState)
+    {
+        m_engine->GetLogger()->Log(Common::LogLevel::Error,
+           "KinematicPlayerController::OnSimulationStep: PlayerControllerState doesn't exist");
+        return;
+    }
+
+    //
+    // Update State
+    //
+    m_locationState = CalculateLocationState(*playerControllerState);
+    m_jumpState = CalculateJumpState(*playerControllerState, m_jumpState, commandedMovement.up);
+
+    //
+    // Calculate player manipulations
+    //
+    const auto commandedTranslation = CalculatePlayerVelocity(commandedMovement, lookUnit);
+
+    //
+    // Apply player manipulations
+    //
+    const float minDimension = std::min({commandedTranslation.x, commandedTranslation.y, commandedTranslation.z});
+    const float minMoveDistance = minDimension / 10.0f;
+
+    if (!m_engine->GetWorldState()->GetPhysics()->SetPlayerControllerMovement(
+        m_name,
+        commandedTranslation,
+        minMoveDistance))
+    {
+        m_engine->GetLogger()->Log(Common::LogLevel::Error,
+        "KinematicPlayerController::OnSimulationStep: Failed to update player movement");
+    }
+}
+
+KinematicPlayerController::LocationState KinematicPlayerController::CalculateLocationState(const PlayerControllerState& playerControllerState)
+{
+    if (playerControllerState.collisionBelow)
+    {
+        return LocationState::Ground;
+    }
+    else
+    {
+        return LocationState::Air;
+    }
+}
+
+std::optional<KinematicPlayerController::JumpState> KinematicPlayerController::CalculateJumpState(
+    const PlayerControllerState& playerControllerState,
+    const std::optional<JumpState>& previousJumpState,
+    bool jumpCommanded)
+{
+    // If the user isn't commanding a jump, and we're not in a jump, nothing to do
+    if (!jumpCommanded && !previousJumpState)
+    {
+        return std::nullopt;
+    }
+
+    // If the user commanded a jump, and we're not in a jump, try to start a new jump
+    if (jumpCommanded && !previousJumpState)
+    {
+        const bool newJumpAllowed = playerControllerState.collisionBelow;
+
+        // If we're not in a state where a new jump is possible, nothing to do
+        if (!newJumpAllowed)
+        {
+            return std::nullopt;
+        }
+
+        // Start a new jump
+        return JumpState{};
+    }
+
+    // At this point we're in a jump, but jumpCommanded may be true or false
+    JumpState jumpState = *previousJumpState;
+
+    switch (previousJumpState->state)
+    {
+        case JumpState::State::Jumping:
+        {
+            const auto jumpDuration = std::chrono::high_resolution_clock::now() - jumpState.jumpStartTime;
+            const bool atMinJumpDuration = jumpDuration >= MIN_JUMP_DURATION;
+            const bool atMaxJumpDuration = jumpDuration >= MAX_JUMP_DURATION;
+
+            // If we're at the min jump duration and the user doesn't want to keep jumping, or if we've hit
+            // the max jump duration, no matter what the user wants, transition to coasting state
+            if ((!jumpCommanded && atMinJumpDuration) || atMaxJumpDuration)
+            {
+                jumpState.state = JumpState::State::Coasting;
+            }
+
+            // If we've hit something above us, transition to coasting state
+            if (playerControllerState.collisionAbove)
+            {
+                jumpState.state = JumpState::State::Coasting;
+            }
+
+            jumpState.jumpSpeed = JUMP_SPEED;
+        }
+        break;
+        case JumpState::State::Coasting:
+        {
+            // While coasting, incrementally decrease our velocity until there's no more upwards jump velocity left
+            if (jumpState.jumpSpeed >= COAST_SPEED_CHANGE)
+            {
+                jumpState.jumpSpeed = std::max(0.0f, jumpState.jumpSpeed - COAST_SPEED_CHANGE);
+            }
+
+            if (jumpState.jumpSpeed <= COAST_SPEED_CHANGE)
+            {
+                jumpState.state = JumpState::State::FreeFall;
+            }
+        }
+        break;
+        case JumpState::State::FreeFall:
+        {
+            const auto onObject = playerControllerState.collisionBelow;
+
+            // Reset our jump state to default when we land on an object
+            if (onObject)
+            {
+                return std::nullopt;
+            }
+        }
+        break;
+    }
+
+    return jumpState;
+}
+
+glm::vec3 KinematicPlayerController::CalculatePlayerVelocity(const PlayerMovement& commandedMovement,
+                                                             const glm::vec3& lookUnit) const
+{
     glm::vec3 commandedTranslation{0, 0, 0};
 
     // Apply movement commands from the user to the player
@@ -83,13 +218,18 @@ void KinematicPlayerController::OnSimulationStep(const PlayerMovement& commanded
         // Determine movement in x,z directions relative to the forward unit
         const glm::vec3 xTranslation = upAndRightUnits.second * normalizedXZMovement->x;
         const glm::vec3 zTranslation = xzPlaneForwardUnit * normalizedXZMovement->z * -1.0f;
-        const auto xzTranslation = xTranslation + zTranslation;
+        const auto xzTranslationUnit = glm::normalize(xTranslation + zTranslation);
 
-        commandedTranslation.x = xzTranslation.x * 0.1f;
-        commandedTranslation.z = xzTranslation.z * 0.1f;
+        float translationMultiplier = WALK_SPEED_MULTIPLIER;
+
+        if (commandedMovement.sprint)
+        {
+            translationMultiplier = SPRINT_SPEED_MULTIPLIER;
+        }
+
+        commandedTranslation.x = xzTranslationUnit.x * translationMultiplier;
+        commandedTranslation.z = xzTranslationUnit.z * translationMultiplier;
     }
-
-    ProcessJumpState(commandedMovement.up);
 
     // Apply any active jump velocity to the player
     if (m_jumpState)
@@ -100,98 +240,7 @@ void KinematicPlayerController::OnSimulationStep(const PlayerMovement& commanded
     // Apply gravity to the player
     commandedTranslation.y += -0.1f;
 
-    ////
-
-    const float minDimension = std::min({commandedTranslation.x, commandedTranslation.y, commandedTranslation.z});
-    const float minMoveDistance = minDimension / 10.0f;
-
-    if (!m_engine->GetWorldState()->GetPhysics()->SetPlayerControllerMovement(
-        m_name,
-        commandedTranslation,
-        minMoveDistance))
-    {
-        assert(false);
-        return;
-    }
-}
-
-void KinematicPlayerController::ProcessJumpState(bool jumpCommanded)
-{
-    // If the user isn't commanding a jump, and we're not in a jump, nothing to do
-    if (!jumpCommanded && !m_jumpState)
-    {
-        return;
-    }
-
-    const auto playerState = m_engine->GetWorldState()->GetPhysics()->GetPlayerControllerState(m_name);
-
-    // If the user commanded a jump, and we're not in a jump, try to start a new jump
-    if (jumpCommanded && !m_jumpState)
-    {
-        const bool newJumpAllowed = playerState->collisionBelow;
-
-        // If we're not in a state where a new jump is possible, nothing to do
-        if (!newJumpAllowed)
-        {
-            return;
-        }
-
-        // Start a new jump
-        m_jumpState = JumpState{};
-    }
-
-    // At this point we're in a jump, but jumpCommanded may be true or false
-
-    switch (m_jumpState->state)
-    {
-        case JumpState::State::Jumping:
-        {
-            const auto jumpDuration = std::chrono::high_resolution_clock::now() - m_jumpState->jumpStartTime;
-            const bool atMinJumpDuration = jumpDuration >= MIN_JUMP_DURATION;
-            const bool atMaxJumpDuration = jumpDuration >= MAX_JUMP_DURATION;
-
-            // If we're at the min jump duration and the user doesn't want to keep jumping, or if we've hit
-            // the max jump duration, no matter what the user wants, transition to coasting state
-            if ((!jumpCommanded && atMinJumpDuration) || atMaxJumpDuration)
-            {
-                m_jumpState->state = JumpState::State::Coasting;
-            }
-
-            // If we've hit something above us, transition to coasting state
-            if (playerState->collisionAbove)
-            {
-                m_jumpState->state = JumpState::State::Coasting;
-            }
-
-            m_jumpState->jumpSpeed = JUMP_SPEED;
-        }
-        break;
-        case JumpState::State::Coasting:
-        {
-            // While coasting, incrementally decrease our velocity until there's no more upwards jump velocity left
-            if (m_jumpState->jumpSpeed >= COAST_SPEED_CHANGE)
-            {
-                m_jumpState->jumpSpeed = std::max(0.0f, m_jumpState->jumpSpeed - COAST_SPEED_CHANGE);
-            }
-
-            if (m_jumpState->jumpSpeed <= COAST_SPEED_CHANGE)
-            {
-                m_jumpState->state = JumpState::State::FreeFall;
-            }
-        }
-        break;
-        case JumpState::State::FreeFall:
-        {
-            const auto onObject = playerState->collisionBelow;
-
-            // Reset our jump state to default when we land on an object
-            if (onObject)
-            {
-                m_jumpState = std::nullopt;
-            }
-        }
-        break;
-    }
+    return commandedTranslation;
 }
 
 }

@@ -20,6 +20,7 @@ namespace Accela::Platform
     {
         Escape,
         LeftControl,
+        LeftShift,
         Backspace,
         Keypad_Enter,
         Return,

@@ -488,6 +488,9 @@ Engine::PlayerMovement DevScene::GetActiveMovementCommands()
     if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::Space)) {
         movementCommands.up = true;
     }
+    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::LeftShift)) {
+        movementCommands.sprint = true;
+    }
 
     return movementCommands;
 }

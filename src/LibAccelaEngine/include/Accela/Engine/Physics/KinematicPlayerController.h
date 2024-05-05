@@ -52,6 +52,12 @@ namespace Accela::Engine
 
         private:
 
+            enum class LocationState
+            {
+                Ground,
+                Air
+            };
+
             struct JumpState
             {
                 enum class State
@@ -70,13 +76,20 @@ namespace Accela::Engine
 
             void DestroyInternal();
 
-            void ProcessJumpState(bool jumpCommanded);
+            [[nodiscard]] static LocationState CalculateLocationState(const PlayerControllerState& playerControllerState);
+            [[nodiscard]] static std::optional<JumpState> CalculateJumpState(const PlayerControllerState& playerControllerState,
+                                                                             const std::optional<JumpState>& previousJumpState,
+                                                                             bool jumpCommanded);
+
+            [[nodiscard]] glm::vec3 CalculatePlayerVelocity(const PlayerMovement& commandedMovement,
+                                                            const glm::vec3& lookUnit) const;
 
         private:
 
             std::shared_ptr<IEngineRuntime> m_engine;
             std::string m_name;
 
+            LocationState m_locationState{LocationState::Ground};
             std::optional<JumpState> m_jumpState;
     };
 }

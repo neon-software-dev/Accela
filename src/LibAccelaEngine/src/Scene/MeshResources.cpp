@@ -96,6 +96,12 @@ Render::MeshId MeshResources::OnLoadStaticMesh(const std::vector<Render::MeshVer
         tag
     );
 
+    // Record the mesh's data before moving on with the mesh loading process
+    {
+        std::lock_guard<std::mutex> dataLock(m_staticMeshDataMutex);
+        m_staticMeshData.insert({mesh->id, std::make_shared<RegisteredStaticMesh>(vertices, indices)});
+    }
+
     return LoadMesh(mesh, usage, resultWhen);
 }
 
@@ -151,7 +157,7 @@ Render::MeshId MeshResources::OnLoadHeightMapMesh(const Render::TextureId& heigh
     return LoadMesh(heightMapMesh, usage, resultWhen);
 }
 
-Render::MeshId MeshResources::LoadMesh( const Render::Mesh::Ptr& mesh,
+Render::MeshId MeshResources::LoadMesh(const Render::Mesh::Ptr& mesh,
                                        Render::MeshUsage usage,
                                        ResultWhen resultWhen)
 {
@@ -196,6 +202,7 @@ void MeshResources::DestroyMesh(const Render::MeshId& meshId)
     m_logger->Log(Common::LogLevel::Info, "MeshResources::DestroyMesh: Destroying mesh, id: {}", meshId.id);
 
     std::lock_guard<std::mutex> meshesLock(m_meshesMutex);
+    std::lock_guard<std::mutex> staticMeshDataLock(m_staticMeshDataMutex);
     std::lock_guard<std::mutex> heightMapDataLock(m_heightMapDataMutex);
 
     if (!m_meshes.contains(meshId))
@@ -206,6 +213,7 @@ void MeshResources::DestroyMesh(const Render::MeshId& meshId)
     m_renderer->DestroyMesh(meshId);
 
     m_meshes.erase(meshId);
+    m_staticMeshData.erase(meshId);
     m_heightMapData.erase(meshId); // May or may not exist
 }
 
@@ -217,6 +225,19 @@ void MeshResources::DestroyAll()
     {
         DestroyMesh(*m_meshes.cbegin());
     }
+}
+
+std::optional<RegisteredStaticMesh::Ptr> MeshResources::GetStaticMeshData(const Render::MeshId& meshId) const
+{
+    std::lock_guard<std::mutex> dataLock(m_staticMeshDataMutex);
+
+    const auto it = m_staticMeshData.find(meshId);
+    if (it == m_staticMeshData.cend())
+    {
+        return std::nullopt;
+    }
+
+    return it->second;
 }
 
 std::optional<HeightMapData::Ptr> MeshResources::GetHeightMapData(const Render::MeshId& meshId) const

@@ -151,6 +151,11 @@ namespace Accela::Engine
                                                                        const TransformComponent& transformComponent,
                                                                        glm::vec3& localPositionAdjustment);
 
+            [[nodiscard]] physx::PxShape* CreateRigidActorShape_StaticMesh(const PhysXRigidActor& physxActor,
+                                                                          const BoundsComponent& boundsComponent,
+                                                                          const TransformComponent& transformComponent,
+                                                                          glm::vec3& localPositionAdjustment);
+
             [[nodiscard]] physx::PxShape* CreateRigidActorShape_HeightMap(const PhysXRigidActor& physxActor,
                                                                           const BoundsComponent& boundsComponent,
                                                                           const TransformComponent& transformComponent,

@@ -8,6 +8,7 @@
 #define LIBACCELAENGINE_SRC_SCENE_MESHRESOURCES_H
 
 #include "HeightMapData.h"
+#include "RegisteredStaticMesh.h"
 
 #include <Accela/Engine/Scene/IMeshResources.h>
 
@@ -71,9 +72,9 @@ namespace Accela::Engine
             void DestroyAll() override;
 
             //
-            // Other
+            // Internal
             //
-
+            [[nodiscard]] std::optional<RegisteredStaticMesh::Ptr> GetStaticMeshData(const Render::MeshId& meshId) const;
             [[nodiscard]] std::optional<HeightMapData::Ptr> GetHeightMapData(const Render::MeshId& meshId) const;
 
         private:
@@ -96,8 +97,6 @@ namespace Accela::Engine
                 ResultWhen resultWhen
             );
 
-        private:
-
             [[nodiscard]] Render::MeshId LoadMesh(
                 const Render::Mesh::Ptr& mesh,
                 Render::MeshUsage usage,
@@ -114,10 +113,13 @@ namespace Accela::Engine
             std::shared_ptr<Common::MessageDrivenThreadPool> m_threadPool;
 
             mutable std::mutex m_meshesMutex;
-            std::unordered_set<Render::MeshId> m_meshes; // Ids of loaded meshes
+            std::unordered_set<Render::MeshId> m_meshes; // Ids of all loaded meshes
+
+            mutable std::mutex m_staticMeshDataMutex;
+            std::unordered_map<Render::MeshId, RegisteredStaticMesh::Ptr> m_staticMeshData; // Data stored for static meshes
 
             mutable std::mutex m_heightMapDataMutex;
-            std::unordered_map<Render::MeshId, HeightMapData::Ptr> m_heightMapData; // Extra data stored for height map meshes
+            std::unordered_map<Render::MeshId, HeightMapData::Ptr> m_heightMapData; // Data stored for height map meshes
     };
 }
 

@@ -356,6 +356,10 @@ physx::PxShape* PhysXPhysics::CreateRigidActorShape(const PhysXRigidActor& physx
     {
         pShape = CreateRigidActorShape_Sphere(physxActor, boundsComponent, transformComponent, localPositionAdjustment);
     }
+    else if (std::holds_alternative<Bounds_StaticMesh>(boundsComponent.bounds))
+    {
+        pShape = CreateRigidActorShape_StaticMesh(physxActor, boundsComponent, transformComponent, localPositionAdjustment);
+    }
     else if (std::holds_alternative<Bounds_HeightMap>(boundsComponent.bounds))
     {
         pShape = CreateRigidActorShape_HeightMap(physxActor, boundsComponent, transformComponent, localPositionAdjustment, localOrientationAdjustment);
@@ -443,6 +447,79 @@ physx::PxShape* PhysXPhysics::CreateRigidActorShape_Sphere(const PhysXRigidActor
 
     return m_pxPhysics->createShape(
         physx::PxSphereGeometry(radiusScaled),
+        *physxActor.pMaterial,
+        true,
+        PHYSX_NON_TRIGGER_SHAPE_FLAGS
+    );
+}
+
+physx::PxShape* PhysXPhysics::CreateRigidActorShape_StaticMesh(const PhysXRigidActor& physxActor,
+                                                               const BoundsComponent& boundsComponent,
+                                                               const TransformComponent& transformComponent,
+                                                               glm::vec3&)
+{
+    const auto boundsStaticMesh = std::get<Bounds_StaticMesh>(boundsComponent.bounds);
+
+    const auto staticMeshDataOpt = std::dynamic_pointer_cast<MeshResources>(m_worldResources->Meshes())
+        ->GetStaticMeshData(boundsStaticMesh.staticMeshId);
+    if (!staticMeshDataOpt)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "CreateRigidActorShape_StaticMesh: No such static mesh found, id: {}", boundsStaticMesh.staticMeshId.id);
+        return nullptr;
+    }
+
+    std::vector<physx::PxVec3> pxVertices;
+    pxVertices.reserve((*staticMeshDataOpt)->vertices.size());
+    for (const auto& vertex : (*staticMeshDataOpt)->vertices)
+    {
+        pxVertices.push_back(ToPhysX(vertex.position));
+    }
+
+    std::vector<physx::PxU32> pxIndices;
+    pxIndices.reserve((*staticMeshDataOpt)->indices.size());
+    for (const auto& index : (*staticMeshDataOpt)->indices)
+    {
+        pxIndices.push_back(index);
+    }
+
+    physx::PxTolerancesScale scale{};
+    physx::PxCookingParams params(scale);
+    params.meshPreprocessParams |= physx::PxMeshPreprocessingFlag::eDISABLE_CLEAN_MESH;
+    params.meshPreprocessParams |= physx::PxMeshPreprocessingFlag::eDISABLE_ACTIVE_EDGES_PRECOMPUTE;
+
+    physx::PxTriangleMeshDesc meshDesc;
+    meshDesc.points.count           = pxVertices.size();
+    meshDesc.points.stride          = sizeof(physx::PxVec3);
+    meshDesc.points.data            = pxVertices.data();
+
+    meshDesc.triangles.count        = pxIndices.size() / 3;
+    meshDesc.triangles.stride       = 3 * sizeof(physx::PxU32);
+    meshDesc.triangles.data         = pxIndices.data();
+
+    if (Common::BuildInfo::IsDebugBuild())
+    {
+        const bool meshValidationResult = PxValidateTriangleMesh(params, meshDesc);
+        if (!meshValidationResult)
+        {
+            m_logger->Log(Common::LogLevel::Error, "CreateRigidActorShape_StaticMesh: Mesh failed validation");
+            return nullptr;
+        }
+    }
+
+    auto* pTriangleMesh = PxCreateTriangleMesh(
+        params,
+        meshDesc,
+        m_pxPhysics->getPhysicsInsertionCallback()
+    );
+    if (pTriangleMesh == nullptr)
+    {
+        m_logger->Log(Common::LogLevel::Error, "CreateRigidActorShape_StaticMesh: Failed to create triangle mesh");
+        return nullptr;
+    }
+
+    return m_pxPhysics->createShape(
+        physx::PxTriangleMeshGeometry(pTriangleMesh, ToPhysX(transformComponent.GetScale())),
         *physxActor.pMaterial,
         true,
         PHYSX_NON_TRIGGER_SHAPE_FLAGS

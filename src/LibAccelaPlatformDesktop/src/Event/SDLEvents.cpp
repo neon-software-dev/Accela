@@ -62,6 +62,7 @@ Key SDLEvents::SDLKeysymToKey(const SDL_Keysym& keysym) noexcept
     {
         case SDLK_ESCAPE: return Key::Escape;
         case SDLK_LCTRL: return Key::LeftControl;
+        case SDLK_LSHIFT: return Key::LeftShift;
         case SDLK_BACKSPACE: return Key::Backspace;
         case SDLK_KP_ENTER: return Key::Keypad_Enter;
         case SDLK_RETURN: return Key::Return;
