@@ -17,7 +17,7 @@ Accela is a cross-platform C++23 game and render engine utilizing Vulkan 1.3.
 - Asset loading system for textures, audio, fonts and models
 - Loads most 3D model formats (40+)
 - Node-based and skeleton/bone-based model animations
-- Realistic world physics system
+- Integration with PhysX for physics simulation
 - Positional and global audio sources
 - Height-mapped terrain generation
 - Cubemap-based skybox rendering
@@ -57,6 +57,8 @@ Accela utilizes CMake for a build system and vcpkg for dependency management.
 It's highly recommended to use vcpkg as it will handle fetching all of Accela's required dependencies. Visit https://vcpkg.io/ for instructions on how to install it.
 
 The following commands are specific to Linux but should be easy to adopt to Windows.
+
+### Fetch the Project Source
 
 Pull the project code from Github:
 
@@ -99,8 +101,6 @@ If desired, run the TestDesktopApp that was built:
 
 - `cd TestDesktopApp`
 - `./TestDesktopApp`
-
-(On Windows, you currently also need to copy the OpenAl and PhysX dlls from their build directories to the TestDesktopApp's build directory)
 
 ## Integration
 
