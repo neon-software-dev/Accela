@@ -16,7 +16,6 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     set(ACCELA_WARNINGS_FLAGS -Wall -Wextra -Werror -Wpedantic -Wcast-align -Wformat=2 -Wlogical-op -Wmissing-include-dirs -Wpointer-arith -Wredundant-decls -Wsequence-point -Wshadow -Wswitch -Wunreachable-code -Wunused-but-set-parameter)
 endif()
 
-#set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/built)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/built)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/built)
 
@@ -147,4 +146,10 @@ install(
 install(
     EXPORT "${ACCELA_TARGETS_EXPORT_NAME}" NAMESPACE "${ACCELA_NAMESPACE}"
     DESTINATION "${ACCELA_CONFIG_INSTALL_DIR}"
+)
+
+# Install license files
+install(
+    DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../licenses"
+    DESTINATION "."
 )
