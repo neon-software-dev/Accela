@@ -10,14 +10,14 @@ Accela is a cross-platform C++23 game and render engine utilizing Vulkan 1.3.
 ## Features
 
 - Builds and runs on both Windows and Linux (Mac support planned)
-- Create 2D, 3D and VR applications
+- Create 2D, 3D and VR (via OpenVR) applications
 - Dynamic lighting and shadows with deferred lighting passes
 - Multiple, configurable, frames in flight rendered in parallel
 - ECS system for entity management
 - Asset loading system for textures, audio, fonts and models
 - Loads most 3D model formats (40+)
 - Node-based and skeleton/bone-based model animations
-- Integration with PhysX for physics simulation
+- Realistic 3D physics simulation (via PhysX)
 - Positional and global audio sources
 - Height-mapped terrain generation
 - Cubemap-based skybox rendering
@@ -90,6 +90,8 @@ Navigate back to Accela's root directory and execute CMake:
 - `cmake -DACCELA_TARGET_PLATFORM=Desktop -DCMAKE_TOOLCHAIN_FILE="{/path/to}/vcpkg/scripts/buildsystems/vcpkg.cmake" -DPHYSX_INSTALL_DIR="{/path/to}/Accela/src/External/PhysX-5.3.1/physx/install/linux/PhysX"
 -DPHYSX_BIN_DIR="{/path/to}/Accela/src/External/PhysX-5.3.1/physx/install/linux/PhysX/bin/linux.clang/{variant}" -DCMAKE_INSTALL_PREFIX="{/desired/install/directory}" ../src/`
 
+Optional: Also append -DCMAKE_BUILD_TYPE=Release if you want to create a release build.
+
 Note that all strings enclosed in curly braces need to be replaced with values that make sense for your build environment/choices.
 
 Build and Install Accela
@@ -99,8 +101,7 @@ Build and Install Accela
 
 If desired, run the TestDesktopApp that was built:
 
-- `cd TestDesktopApp`
-- `./TestDesktopApp`
+- `./built/TestDesktopApp`
 
 ## Integration
 
