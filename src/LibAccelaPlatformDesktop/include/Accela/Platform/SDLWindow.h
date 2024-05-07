@@ -30,8 +30,10 @@ namespace Accela::Platform
             explicit SDLWindow(Common::ILogger::Ptr logger);
 
             [[nodiscard]] std::expected<std::pair<unsigned int, unsigned int>, bool> GetWindowSize() const override;
-            void LockCursorToWindow(bool lock) const override;
-            void SetFullscreen(bool fullscreen) const override;
+            [[nodiscard]] std::expected<std::pair<unsigned int, unsigned int>, bool> GetWindowDisplaySize() const override;
+            [[nodiscard]] bool LockCursorToWindow(bool lock) const override;
+            [[nodiscard]] bool SetFullscreen(bool fullscreen) const override;
+            [[nodiscard]] bool SetWindowSize(const std::pair<unsigned int, unsigned int>& size) const override;
 
             void Destroy();
 

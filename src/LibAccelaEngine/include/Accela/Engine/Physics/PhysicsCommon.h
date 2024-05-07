@@ -9,11 +9,20 @@
 
 namespace Accela::Engine
 {
-    enum class PhysicsBodyType
+    enum class RigidBodyType
     {
         Static,
         Kinematic,
         Dynamic
+    };
+
+    struct PhysicsMaterial
+    {
+        float staticFriction{1.0f};
+        float dynamicFriction{1.0f};
+        float restitution{0.1f};
+
+        auto operator<=>(const PhysicsMaterial&) const = default;
     };
 }
 

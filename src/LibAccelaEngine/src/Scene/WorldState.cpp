@@ -34,6 +34,7 @@ namespace Accela::Engine
 WorldState::WorldState(Common::ILogger::Ptr logger,
                        Common::IMetrics::Ptr metrics,
                        IWorldResources::Ptr worldResources,
+                       Platform::IWindow::Ptr window,
                        Render::IRenderer::Ptr renderer,
                        AudioManagerPtr audioManager,
                        IPhysicsPtr physics,
@@ -42,6 +43,7 @@ WorldState::WorldState(Common::ILogger::Ptr logger,
     : m_logger(std::move(logger))
     , m_metrics(std::move(metrics))
     , m_worldResources(std::move(worldResources))
+    , m_window(std::move(window))
     , m_renderer(std::move(renderer))
     , m_audioManager(std::move(audioManager))
     , m_physics(std::move(physics))
@@ -128,6 +130,16 @@ void WorldState::SyncAudioListenerToCamera(const Camera::Ptr& camera)
     audioListener.upUnit = camera->GetUpUnit();
 
     SetAudioListener(audioListener);
+}
+
+std::pair<unsigned int, unsigned int> WorldState::GetWindowDisplaySize() const
+{
+    return *m_window->GetWindowDisplaySize();
+}
+
+bool WorldState::SetWindowSize(const std::pair<unsigned int, unsigned int>& size) const
+{
+    return m_window->SetWindowSize(size);
 }
 
 glm::vec2 WorldState::GetVirtualResolution() const noexcept

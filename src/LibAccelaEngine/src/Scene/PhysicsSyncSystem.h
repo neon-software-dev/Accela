@@ -10,8 +10,12 @@
 #include "IWorldSystem.h"
 
 #include "../ForwardDeclares.h"
+#include "../Physics/RigidBody.h"
 
 #include <Accela/Engine/Common.h>
+#include <Accela/Engine/Component/PhysicsComponent.h>
+#include <Accela/Engine/Component/TransformComponent.h>
+#include <Accela/Engine/Component/BoundsComponent.h>
 
 #include <Accela/Common/Log/ILogger.h>
 #include <Accela/Common/Metrics/IMetrics.h>
@@ -34,6 +38,18 @@ namespace Accela::Engine
 
             void PreSimulationStep(const RunState::Ptr& runState, entt::registry& registry) const;
             void PostSimulationStep(const RunState::Ptr& runState, entt::registry& registry) const;
+
+            [[nodiscard]] static RigidBody GetRigidBodyFrom(const PhysicsComponent& physicsComponent,
+                                                            const BoundsComponent& boundsComponent,
+                                                            const TransformComponent& transformComponent);
+            [[nodiscard]] static MaterialData GetMaterial(const PhysicsComponent& physicsComponent);
+            [[nodiscard]] static ShapeData GetShape(const MaterialData& material,
+                                                    const BoundsComponent& boundsComponent,
+                                                    const TransformComponent& transformComponent);
+
+             static void SetComponentsFromData(const RigidBody& data,
+                                               PhysicsComponent& physicsComponent,
+                                               TransformComponent& transformComponent);
 
         private:
 

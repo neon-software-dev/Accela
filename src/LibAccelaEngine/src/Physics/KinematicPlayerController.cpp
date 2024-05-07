@@ -57,6 +57,21 @@ void KinematicPlayerController::DestroyInternal()
     m_engine->GetWorldState()->GetPhysics()->DestroyPlayerController(m_name);
 }
 
+KinematicLocationState KinematicPlayerController::GetLocationState() const
+{
+    return m_locationState;
+}
+
+std::optional<KinematicJumpState> KinematicPlayerController::GetJumpState() const
+{
+    if (!m_currentJumpState)
+    {
+        return std::nullopt;
+    }
+
+    return m_currentJumpState->state;
+}
+
 glm::vec3 KinematicPlayerController::GetPosition() const
 {
     const auto positionOpt = m_engine->GetWorldState()->GetPhysics()->GetPlayerControllerPosition(m_name);
@@ -85,7 +100,7 @@ void KinematicPlayerController::OnSimulationStep(const PlayerMovement& commanded
     // Update State
     //
     m_locationState = CalculateLocationState(*playerControllerState);
-    m_jumpState = CalculateJumpState(*playerControllerState, m_jumpState, commandedMovement.up);
+    m_currentJumpState = CalculateJumpState(*playerControllerState, m_currentJumpState, commandedMovement.up);
 
     //
     // Calculate player manipulations
@@ -108,15 +123,15 @@ void KinematicPlayerController::OnSimulationStep(const PlayerMovement& commanded
     }
 }
 
-KinematicPlayerController::LocationState KinematicPlayerController::CalculateLocationState(const PlayerControllerState& playerControllerState)
+KinematicLocationState KinematicPlayerController::CalculateLocationState(const PlayerControllerState& playerControllerState)
 {
     if (playerControllerState.collisionBelow)
     {
-        return LocationState::Ground;
+        return KinematicLocationState::Surface;
     }
     else
     {
-        return LocationState::Air;
+        return KinematicLocationState::Air;
     }
 }
 
@@ -151,7 +166,7 @@ std::optional<KinematicPlayerController::JumpState> KinematicPlayerController::C
 
     switch (previousJumpState->state)
     {
-        case JumpState::State::Jumping:
+        case KinematicJumpState::Jumping:
         {
             const auto jumpDuration = std::chrono::high_resolution_clock::now() - jumpState.jumpStartTime;
             const bool atMinJumpDuration = jumpDuration >= MIN_JUMP_DURATION;
@@ -161,19 +176,19 @@ std::optional<KinematicPlayerController::JumpState> KinematicPlayerController::C
             // the max jump duration, no matter what the user wants, transition to coasting state
             if ((!jumpCommanded && atMinJumpDuration) || atMaxJumpDuration)
             {
-                jumpState.state = JumpState::State::Coasting;
+                jumpState.state = KinematicJumpState::Coasting;
             }
 
             // If we've hit something above us, transition to coasting state
             if (playerControllerState.collisionAbove)
             {
-                jumpState.state = JumpState::State::Coasting;
+                jumpState.state = KinematicJumpState::Coasting;
             }
 
             jumpState.jumpSpeed = JUMP_SPEED;
         }
         break;
-        case JumpState::State::Coasting:
+        case KinematicJumpState::Coasting:
         {
             // While coasting, incrementally decrease our velocity until there's no more upwards jump velocity left
             if (jumpState.jumpSpeed >= COAST_SPEED_CHANGE)
@@ -183,11 +198,11 @@ std::optional<KinematicPlayerController::JumpState> KinematicPlayerController::C
 
             if (jumpState.jumpSpeed <= COAST_SPEED_CHANGE)
             {
-                jumpState.state = JumpState::State::FreeFall;
+                jumpState.state = KinematicJumpState::FreeFall;
             }
         }
         break;
-        case JumpState::State::FreeFall:
+        case KinematicJumpState::FreeFall:
         {
             const auto onObject = playerControllerState.collisionBelow;
 
@@ -232,9 +247,9 @@ glm::vec3 KinematicPlayerController::CalculatePlayerVelocity(const PlayerMovemen
     }
 
     // Apply any active jump velocity to the player
-    if (m_jumpState)
+    if (m_currentJumpState)
     {
-        commandedTranslation.y += m_jumpState->jumpSpeed;
+        commandedTranslation.y += m_currentJumpState->jumpSpeed;
     }
 
     // Apply gravity to the player

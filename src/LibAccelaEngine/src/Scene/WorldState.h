@@ -21,6 +21,8 @@
 #include <Accela/Render/IRenderer.h>
 #include <Accela/Render/Light.h>
 
+#include <Accela/Platform/Window/IWindow.h>
+
 #include <Accela/Common/Log/ILogger.h>
 #include <Accela/Common/Metrics/IMetrics.h>
 
@@ -40,6 +42,7 @@ namespace Accela::Engine
             WorldState(Common::ILogger::Ptr logger,
                        Common::IMetrics::Ptr metrics,
                        IWorldResources::Ptr worldResources,
+                       Platform::IWindow::Ptr window,
                        Render::IRenderer::Ptr renderer,
                        AudioManagerPtr audioManager,
                        IPhysicsPtr physics,
@@ -101,7 +104,13 @@ namespace Accela::Engine
             }
 
             //
-            // Misc
+            // Windowing
+            //
+            [[nodiscard]] std::pair<unsigned int, unsigned int> GetWindowDisplaySize() const override;
+            [[nodiscard]] bool SetWindowSize(const std::pair<unsigned int, unsigned int>& size) const override;
+
+            //
+            // Virtual Resolution
             //
             [[nodiscard]] glm::vec2 GetVirtualResolution() const noexcept override;
             void SetVirtualResolution(const glm::vec2& virtualResolution) noexcept override;
@@ -194,6 +203,7 @@ namespace Accela::Engine
             Common::ILogger::Ptr m_logger;
             Common::IMetrics::Ptr m_metrics;
             IWorldResources::Ptr m_worldResources;
+            Platform::IWindow::Ptr m_window;
             Render::IRenderer::Ptr m_renderer;
             AudioManagerPtr m_audioManager;
             entt::registry m_registry;

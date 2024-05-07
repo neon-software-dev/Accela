@@ -15,19 +15,6 @@
 
 namespace Accela::Engine
 {
-    static constexpr float DEFAULT_FRICTION_STATIC_COEFFICIENT = 1.0f;
-    static constexpr float DEFAULT_FRICTION_DYNAMIC_COEFFICIENT = 1.0f;
-    static constexpr float DEFAULT_FRICTION_RESTITUTION_COEFFICIENT = 0.1f;
-
-    struct PhysicsMaterial
-    {
-        float staticFriction{DEFAULT_FRICTION_STATIC_COEFFICIENT};
-        float dynamicFriction{DEFAULT_FRICTION_DYNAMIC_COEFFICIENT};
-        float restitution{DEFAULT_FRICTION_RESTITUTION_COEFFICIENT};
-
-        auto operator<=>(const PhysicsMaterial&) const = default;
-    };
-
     /**
      * Attaches to an entity to give it physics properties. Note that physics system requires
      * a BoundsComponent to also be present, for the entity to partake in physics.
@@ -45,7 +32,7 @@ namespace Accela::Engine
              */
             [[nodiscard]] static PhysicsComponent StaticBody()
             {
-                return {PhysicsBodyType::Static, 0.0f, glm::vec3(0.0f)};
+                return {RigidBodyType::Static, 0.0f, glm::vec3(0.0f)};
             }
 
             /**
@@ -53,7 +40,7 @@ namespace Accela::Engine
              */
             [[nodiscard]] static PhysicsComponent KinematicBody()
             {
-                return {PhysicsBodyType::Kinematic, 0.0f, glm::vec3(0.0f)};
+                return {RigidBodyType::Kinematic, 0.0f, glm::vec3(0.0f)};
             }
 
             /**
@@ -61,14 +48,14 @@ namespace Accela::Engine
              */
             [[nodiscard]] static PhysicsComponent DynamicBody(float mass)
             {
-                return {PhysicsBodyType::Dynamic, mass, glm::vec3(0.0f)};
+                return {RigidBodyType::Dynamic, mass, glm::vec3(0.0f)};
             }
 
             bool operator==(const PhysicsComponent&) const = default;
 
         private:
 
-            PhysicsComponent(PhysicsBodyType _bodyType,
+            PhysicsComponent(RigidBodyType _bodyType,
                              const float& _mass,
                              const glm::vec3& _linearVelocity)
                 : bodyType(_bodyType)
@@ -78,15 +65,17 @@ namespace Accela::Engine
 
         public:
 
-            PhysicsBodyType bodyType{PhysicsBodyType::Dynamic};
-            PhysicsMaterial material{};
+            RigidBodyType bodyType{RigidBodyType::Dynamic};
 
             float mass{0.0f};
+
+            PhysicsMaterial material{};
+
+            //
+            // Dynamic body properties
+            //
             glm::vec3 linearVelocity{0.0f};
-
-            /** Whether the object is allowed to rotate in x/y/z axes */
             std::array<bool, 3> axisMotionAllowed{true, true, true};
-
             float linearDamping{0.0f};
             float angularDamping{0.0f};
     };

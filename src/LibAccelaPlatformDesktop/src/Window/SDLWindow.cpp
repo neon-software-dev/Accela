@@ -102,15 +102,50 @@ std::expected<std::pair<unsigned int, unsigned int>, bool> SDLWindow::GetWindowS
     return std::make_pair(width, height);
 }
 
-void SDLWindow::LockCursorToWindow(bool lock) const
+std::expected<std::pair<unsigned int, unsigned int>, bool> SDLWindow::GetWindowDisplaySize() const
+{
+    if (m_pWindow == nullptr)
+    {
+        m_logger->Log(Common::LogLevel::Fatal, "GetWindowDisplaySize: No active window");
+        return std::unexpected(false);
+    }
+
+    const auto windowDisplayIndex = SDL_GetWindowDisplayIndex(m_pWindow);
+    if (windowDisplayIndex < 0)
+    {
+        m_logger->Log(Common::LogLevel::Fatal,
+          "GetWindowSize: SDL_GetWindowDisplayIndex failed: {}", SDL_GetError());
+        return std::unexpected(false);
+    }
+
+    SDL_DisplayMode displayMode{};
+    const auto result = SDL_GetDesktopDisplayMode(windowDisplayIndex, &displayMode);
+    if (result < 0)
+    {
+        m_logger->Log(Common::LogLevel::Fatal,
+          "GetWindowSize: SDL_GetDesktopDisplayMode failed: {}", SDL_GetError());
+        return std::unexpected(false);
+    }
+
+    return std::make_pair(displayMode.w, displayMode.h);
+}
+
+bool SDLWindow::LockCursorToWindow(bool lock) const
 {
     if (m_pWindow == nullptr)
     {
         m_logger->Log(Common::LogLevel::Fatal, "LockCursorToWindow: No active window");
-        return;
+        return false;
     }
 
-    SDL_SetRelativeMouseMode((SDL_bool)lock);
+    if (SDL_SetRelativeMouseMode((SDL_bool)lock) < 0)
+    {
+        m_logger->Log(Common::LogLevel::Fatal,
+          "LockCursorToWindow: SDL_SetRelativeMouseMode failed: {}", SDL_GetError());
+        return false;
+    }
+
+    return true;
 }
 
 void SDLWindow::Destroy()
@@ -122,12 +157,12 @@ void SDLWindow::Destroy()
     }
 }
 
-void SDLWindow::SetFullscreen(bool fullscreen) const
+bool SDLWindow::SetFullscreen(bool fullscreen) const
 {
     if (m_pWindow == nullptr)
     {
         m_logger->Log(Common::LogLevel::Fatal, "SetFullscreen: No active window");
-        return;
+        return false;
     }
 
     uint32_t flags = SDL_GetWindowFlags(m_pWindow);
@@ -141,7 +176,27 @@ void SDLWindow::SetFullscreen(bool fullscreen) const
         flags &= ~SDL_WINDOW_FULLSCREEN_DESKTOP;
     }
 
-    SDL_SetWindowFullscreen(m_pWindow, flags);
+    if (SDL_SetWindowFullscreen(m_pWindow, flags) < 0)
+    {
+        m_logger->Log(Common::LogLevel::Fatal,
+          "SetFullscreen: SDL_SetWindowFullscreen failed: {}", SDL_GetError());
+        return false;
+    }
+
+    return true;
+}
+
+bool SDLWindow::SetWindowSize(const std::pair<unsigned int, unsigned int>& size) const
+{
+    if (m_pWindow == nullptr)
+    {
+        m_logger->Log(Common::LogLevel::Fatal, "SetWindowSize: No active window");
+        return false;
+    }
+
+    SDL_SetWindowSize(m_pWindow, (int)size.first, (int)size.second);
+
+    return true;
 }
 
 }

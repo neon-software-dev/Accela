@@ -27,8 +27,10 @@ namespace Accela::Platform
             virtual ~IWindow() = default;
 
             [[nodiscard]] virtual std::expected<std::pair<unsigned int, unsigned int>, bool> GetWindowSize() const = 0;
-            virtual void LockCursorToWindow(bool lock) const = 0;
-            virtual void SetFullscreen(bool fullscreen) const = 0;
+            [[nodiscard]] virtual std::expected<std::pair<unsigned int, unsigned int>, bool> GetWindowDisplaySize() const = 0;
+            [[nodiscard]] virtual bool LockCursorToWindow(bool lock) const = 0;
+            [[nodiscard]] virtual bool SetFullscreen(bool fullscreen) const = 0;
+            [[nodiscard]] virtual bool SetWindowSize(const std::pair<unsigned int, unsigned int>& size) const = 0;
     };
 }
 

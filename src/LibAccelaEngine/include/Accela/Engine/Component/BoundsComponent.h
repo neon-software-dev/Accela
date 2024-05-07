@@ -7,13 +7,10 @@
 #ifndef LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_COMPONENT_BOUNDSCOMPONENT_H
 #define LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_COMPONENT_BOUNDSCOMPONENT_H
 
-#include <Accela/Engine/Bounds/Bounds_AABB.h>
-#include <Accela/Engine/Bounds/Bounds_Sphere.h>
-#include <Accela/Engine/Bounds/Bounds_Capsule.h>
-#include <Accela/Engine/Bounds/Bounds_StaticMesh.h>
-#include <Accela/Engine/Bounds/Bounds_HeightMap.h>
+#include <Accela/Engine/Bounds/Bounds.h>
 
-#include <variant>
+#include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 namespace Accela::Engine
 {
@@ -22,14 +19,6 @@ namespace Accela::Engine
      */
     struct BoundsComponent
     {
-        using BoundsVariant = std::variant<
-            Bounds_AABB,
-            Bounds_Sphere,
-            Bounds_Capsule,
-            Bounds_StaticMesh,
-            Bounds_HeightMap
-        >;
-
         explicit BoundsComponent(const BoundsVariant& _bounds,
                                  const glm::vec3& _localTransform = glm::vec3(0),
                                  const glm::quat& _localOrientation = glm::identity<glm::quat>())

@@ -88,7 +88,26 @@ namespace Accela::Engine
             [[nodiscard]] virtual std::optional<EntityId> GetTopSpriteEntityAt(const glm::vec2& virtualPoint) const = 0;
 
             //
-            // Misc
+            // Windowing
+            //
+
+            /**
+             * The resolution for the display the engine's window is running on
+             */
+            [[nodiscard]] virtual std::pair<unsigned int, unsigned int> GetWindowDisplaySize() const = 0;
+
+
+            /**
+             * Sets the engine's window size to a new size
+             *
+             * @param size The new size for the window
+             *
+             * @return Whether or not the operation was successful
+             */
+            [[nodiscard]] virtual bool SetWindowSize(const std::pair<unsigned int, unsigned int>& size) const = 0;
+
+            //
+            // Virtual Resolution
             //
 
             /**

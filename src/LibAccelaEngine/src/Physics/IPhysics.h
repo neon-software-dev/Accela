@@ -7,6 +7,8 @@
 #ifndef LIBACCELAENGINE_SRC_PHYSICS_IPHYSICS_H
 #define LIBACCELAENGINE_SRC_PHYSICS_IPHYSICS_H
 
+#include "RigidBody.h"
+
 #include <Accela/Engine/Common.h>
 #include <Accela/Engine/Component/PhysicsComponent.h>
 #include <Accela/Engine/Component/TransformComponent.h>
@@ -18,6 +20,8 @@
 #include <glm/glm.hpp>
 
 #include <vector>
+#include <unordered_set>
+#include <utility>
 
 namespace Accela::Engine
 {
@@ -35,42 +39,32 @@ namespace Accela::Engine
             virtual void SimulationStep(unsigned int timeStep) = 0;
 
             /**
-             * Called to sync the latest state from the physics system back into an Entity's components,
-             * after one or more calls to SimulationStep() have been performed.
-             *
-             * @param eid The EntityId of the Entity to be synced from the physics system
-             * @param physicsComponent The entity's PhysicsComponent
-             * @param transformComponent The entity's TransformComponent
+             * @return The latest RigidBody for the corresponding eid, with a boolean specifying whether
+             * the body is dirty, or std::nullopt if no such entity body exists
              */
-            virtual void PostSimulationSyncRigidBodyEntity(const EntityId& eid,
-                                                           PhysicsComponent& physicsComponent,
-                                                           TransformComponent& transformComponent) = 0;
+            [[nodiscard]] virtual std::optional<std::pair<RigidBody, bool>> GetRigidBody(const EntityId& eid) = 0;
+
+            /**
+           * Instructs the physics system to mark bodies as no longer dirty. Call this
+           * after syncing to its data after a simulation step
+           */
+            virtual void MarkBodiesClean() = 0;
 
             /**
              * Add a rigid body to the physics simulation
              *
              * @param eid The EntityId associated with the body
-             * @param physicsComponent The PhysicsComponent defining the body's physics properties
-             * @param transformComponent The TransformComponent defining the body's positioning
-             * @param boundsComponent The BoundsComponent defining the body's physical bounds
+             * @param rigidBody The body's definition
              */
-            virtual bool CreateRigidBodyFromEntity(const EntityId& eid,
-                                                   const PhysicsComponent& physicsComponent,
-                                                   const TransformComponent& transformComponent,
-                                                   const BoundsComponent& boundsComponent) = 0;
+            virtual bool CreateRigidBody(const EntityId& eid, const RigidBody& rigidBody) = 0;
 
             /**
              * Update an existing rigid body from components
              *
              * @param eid The EntityId associated with the body to be updated
-             * @param physicsComponent The PhysicsComponent defining the body's physics properties
-             * @param transformComponent The TransformComponent defining the body's positioning
-             * @param boundsComponent The BoundsComponent defining the body's physical bounds
+             * @param rigidBody The body's definition
              */
-            virtual bool UpdateRigidBodyFromEntity(const EntityId& eid,
-                                                   const PhysicsComponent& physicsComponent,
-                                                   const TransformComponent& transformComponent,
-                                                   const BoundsComponent& boundsComponent) = 0;
+            virtual bool UpdateRigidBody(const EntityId& eid, const RigidBody& rigidBody) = 0;
 
             /**
              * Removes a rigid body previously created via CreateRigidBodyFromEntity() from the physics

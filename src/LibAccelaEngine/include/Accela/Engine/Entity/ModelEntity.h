@@ -35,13 +35,13 @@ namespace Accela::Engine
             {
                 Params& WithModelName(const std::string& _modelName);
                 Params& WithPosition(const glm::vec3& _position);
-                Params& WithScale(const glm::vec2& _scale);
+                Params& WithScale(const glm::vec3& _scale);
                 Params& WithOrientation(const glm::quat& _orientation);
                 Params& IncludedInShadowPass(bool _inShadowPass);
 
                 std::optional<std::string> modelName;
                 std::optional<glm::vec3> position;
-                std::optional<glm::vec2> scale;
+                std::optional<glm::vec3> scale;
                 std::optional<glm::quat> orientation;
                 std::optional<bool> inShadowPass;
             };

@@ -13,7 +13,7 @@ namespace Accela::Engine
 
 ModelEntity::Params& ModelEntity::Params::WithModelName(const std::string& _modelName) { modelName = _modelName; return *this; }
 ModelEntity::Params& ModelEntity::Params::WithPosition(const glm::vec3& _position) { position = _position; return *this; }
-ModelEntity::Params& ModelEntity::Params::WithScale(const glm::vec2& _scale) { scale = _scale; return *this; }
+ModelEntity::Params& ModelEntity::Params::WithScale(const glm::vec3& _scale) { scale = _scale; return *this; }
 ModelEntity::Params& ModelEntity::Params::WithOrientation(const glm::quat& _orientation) { orientation = _orientation; return *this; }
 ModelEntity::Params& ModelEntity::Params::IncludedInShadowPass(bool _inShadowPass) { inShadowPass = _inShadowPass; return *this; }
 
@@ -119,7 +119,7 @@ void ModelEntity::SyncTransformComponent()
 {
     auto transformComponent = Engine::TransformComponent{};
     transformComponent.SetPosition(*m_params->position);
-    if (m_params->scale) { transformComponent.SetScale(glm::vec3(*m_params->scale, 1.0f)); }
+    if (m_params->scale) { transformComponent.SetScale(*m_params->scale); }
     if (m_params->orientation) { transformComponent.SetOrientation(*m_params->orientation); }
     Engine::AddOrUpdateComponent(m_engine->GetWorldState(), *m_eid, transformComponent);
 }

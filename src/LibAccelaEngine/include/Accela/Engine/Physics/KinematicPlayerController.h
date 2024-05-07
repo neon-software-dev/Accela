@@ -19,6 +19,27 @@
 
 namespace Accela::Engine
 {
+    enum class KinematicLocationState
+    {
+        /** The player is standing on a surface */
+        Surface,
+
+        /** The player is in the air */
+        Air
+    };
+
+    enum class KinematicJumpState
+    {
+        /** The player is actively jumping upwards */
+        Jumping,
+
+        /** The player is no longer actively jumping but is still coasting to the top of their jump arc */
+        Coasting,
+
+        /** The player is no longer actively jumping and is now free falling downwards */
+        FreeFall
+    };
+
     class KinematicPlayerController : public PlayerController
     {
         public:
@@ -42,6 +63,17 @@ namespace Accela::Engine
             explicit KinematicPlayerController(Tag, std::shared_ptr<IEngineRuntime> engine, std::string name);
             ~KinematicPlayerController() override;
 
+            /**
+             * @return Whether the player is standing on a surface or in the air
+             */
+            [[nodiscard]] KinematicLocationState GetLocationState() const;
+
+            /**
+             * @return The current state of the player's jump, or std::nullopt if
+             * they're not jumping
+             */
+            [[nodiscard]] std::optional<KinematicJumpState> GetJumpState() const;
+
             //
             // PlayerController
             //
@@ -52,22 +84,9 @@ namespace Accela::Engine
 
         private:
 
-            enum class LocationState
-            {
-                Ground,
-                Air
-            };
-
             struct JumpState
             {
-                enum class State
-                {
-                    Jumping,
-                    Coasting,
-                    FreeFall
-                };
-
-                State state{State::Jumping};
+                KinematicJumpState state{KinematicJumpState::Jumping};
                 std::chrono::high_resolution_clock::time_point jumpStartTime{std::chrono::high_resolution_clock::now()};
                 float jumpSpeed{0.0f};
             };
@@ -76,10 +95,12 @@ namespace Accela::Engine
 
             void DestroyInternal();
 
-            [[nodiscard]] static LocationState CalculateLocationState(const PlayerControllerState& playerControllerState);
-            [[nodiscard]] static std::optional<JumpState> CalculateJumpState(const PlayerControllerState& playerControllerState,
-                                                                             const std::optional<JumpState>& previousJumpState,
-                                                                             bool jumpCommanded);
+            [[nodiscard]] static KinematicLocationState CalculateLocationState(const PlayerControllerState& playerControllerState);
+            [[nodiscard]] static std::optional<JumpState> CalculateJumpState(
+                const PlayerControllerState& playerControllerState,
+                const std::optional<JumpState>& previousJumpState,
+                bool jumpCommanded
+            );
 
             [[nodiscard]] glm::vec3 CalculatePlayerVelocity(const PlayerMovement& commandedMovement,
                                                             const glm::vec3& lookUnit) const;
@@ -89,8 +110,8 @@ namespace Accela::Engine
             std::shared_ptr<IEngineRuntime> m_engine;
             std::string m_name;
 
-            LocationState m_locationState{LocationState::Ground};
-            std::optional<JumpState> m_jumpState;
+            KinematicLocationState m_locationState{KinematicLocationState::Surface};
+            std::optional<JumpState> m_currentJumpState;
     };
 }
 

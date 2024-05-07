@@ -20,20 +20,29 @@
 namespace Accela::Engine
 {
 
-static const physx::PxShapeFlags PHYSX_NON_TRIGGER_SHAPE_FLAGS =
-    physx::PxShapeFlag::eSIMULATION_SHAPE |
-    physx::PxShapeFlag::eSCENE_QUERY_SHAPE |
-    physx::PxShapeFlag::eVISUALIZATION; // TODO Perf: Don't always have this flag if debug rendering isn't on
+static inline physx::PxQuat ToPhysX(const glm::quat& q) { return {q.x, q.y, q.z, q.w}; }
+static inline physx::PxVec3 ToPhysX(const glm::vec3& vec) { return {vec.x, vec.y, vec.z}; }
+static inline physx::PxExtendedVec3 ToPhysXExt(const glm::vec3& vec) { return {vec.x, vec.y, vec.z}; }
+static inline physx::PxVec4 ToPhysX(const glm::vec4& vec) { return {vec.x, vec.y, vec.z, vec.w}; }
 
-inline physx::PxQuat ToPhysX(const glm::quat& q) { return {q.x, q.y, q.z, q.w}; }
-inline physx::PxVec3 ToPhysX(const glm::vec3& vec) { return {vec.x, vec.y, vec.z}; }
-inline physx::PxExtendedVec3 ToPhysXExt(const glm::vec3& vec) { return {vec.x, vec.y, vec.z}; }
-inline physx::PxVec4 ToPhysX(const glm::vec4& vec) { return {vec.x, vec.y, vec.z, vec.w}; }
+static inline glm::quat FromPhysX(const physx::PxQuat& q) { return {q.w, q.x, q.y, q.z}; }
+static inline glm::vec3 FromPhysX(const physx::PxVec3& vec) { return {vec.x, vec.y, vec.z}; }
+static inline glm::vec3 FromPhysX(const physx::PxExtendedVec3& vec) { return {vec.x, vec.y, vec.z}; }
+static inline glm::vec4 FromPhysX(const physx::PxVec4& vec) { return {vec.x, vec.y, vec.z, vec.w}; }
 
-inline glm::quat FromPhysX(const physx::PxQuat& q) { return {q.w, q.x, q.y, q.z}; }
-inline glm::vec3 FromPhysX(const physx::PxVec3& vec) { return {vec.x, vec.y, vec.z}; }
-inline glm::vec3 FromPhysX(const physx::PxExtendedVec3& vec) { return {vec.x, vec.y, vec.z}; }
-inline glm::vec4 FromPhysX(const physx::PxVec4& vec) { return {vec.x, vec.y, vec.z, vec.w}; }
+static inline physx::PxShapeFlags GetNonTriggerShapeFlags()
+{
+    physx::PxShapeFlags flags =
+        physx::PxShapeFlag::eSIMULATION_SHAPE |
+        physx::PxShapeFlag::eSCENE_QUERY_SHAPE;
+
+    if (Common::BuildInfo::IsDebugBuild())
+    {
+        flags |= physx::PxShapeFlag::eVISUALIZATION;
+    }
+
+    return flags;
+}
 
 PhysXPhysics::PhysXPhysics(Common::ILogger::Ptr logger,
                            Common::IMetrics::Ptr metrics,
@@ -108,6 +117,7 @@ void PhysXPhysics::CreateScene()
         sceneDesc.broadPhaseType = physx::PxBroadPhaseType::eGPU;
     #endif
     m_pxScene = m_pxPhysics->createScene(sceneDesc);
+    m_pxScene->setFlag(physx::PxSceneFlag::eENABLE_ACTIVE_ACTORS, true);
 
     m_pxControllerManager = PxCreateControllerManager(*m_pxScene);
 }
@@ -122,9 +132,9 @@ void PhysXPhysics::DestroyScene()
     }
     m_playerControllers.clear();
 
-    while (!m_entityToRigidActor.empty())
+    while (!m_entityToRigidBody.empty())
     {
-        DestroyRigidBody(m_entityToRigidActor.cbegin()->first);
+        DestroyRigidBody(m_entityToRigidBody.cbegin()->first);
     }
 
     PX_RELEASE(m_pxControllerManager)
@@ -143,7 +153,36 @@ void PhysXPhysics::SimulationStep(unsigned int timeStep)
     // TODO Perf: Can we make use of the simulate threading?
     m_pxScene->fetchResults(true);
 
+    SyncBodyDataFromPhysX();
+
     if (Common::BuildInfo::IsDebugBuild()) { DebugCheckResources(); }
+}
+
+void PhysXPhysics::SyncBodyDataFromPhysX()
+{
+    physx::PxU32 numActiveActors{0};
+    const auto activeActors = m_pxScene->getActiveActors(numActiveActors);
+
+    for (uint32_t x = 0; x < numActiveActors; ++x)
+    {
+        const auto it = m_physXActorToEntity.find(activeActors[x]);
+        if (it == m_physXActorToEntity.cend()) { continue; }
+
+        const auto it2 = m_entityToRigidBody.find(it->second);
+        if (it2 == m_entityToRigidBody.cend()) { continue; }
+
+        //
+        // Sync actor data
+        //
+        const auto globalPose = it2->second.pRigidActor->getGlobalPose();
+        it2->second.data.actor.position = FromPhysX(globalPose.p);
+        it2->second.data.actor.orientation = FromPhysX(globalPose.q);
+
+        //
+        // Update dirty state
+        //
+        it2->second.isDirty = true;
+    }
 }
 
 void PhysXPhysics::ApplyPlayerControllerMovements(unsigned int timeStep)
@@ -170,96 +209,112 @@ void PhysXPhysics::ApplyPlayerControllerMovements(unsigned int timeStep)
     }
 }
 
-void PhysXPhysics::PostSimulationSyncRigidBodyEntity(const EntityId& eid,
-                                                     PhysicsComponent& physicsComponent,
-                                                     TransformComponent& transformComponent)
+std::optional<std::pair<RigidBody, bool>> PhysXPhysics::GetRigidBody(const EntityId& eid)
 {
-    const auto it = m_entityToRigidActor.find(eid);
-    if (it == m_entityToRigidActor.cend())
+    const auto it = m_entityToRigidBody.find(eid);
+    if (it == m_entityToRigidBody.cend())
     {
-        return;
+        return std::nullopt;
     }
 
-    auto const* pRigidActor = it->second.pRigidActor;
-
-    //
-    // For rigid dynamic entities, sync latest physics state to the entity
-    //
-    auto const* pRigidDynamic = GetRigidDynamic(it->second);
-    if (pRigidDynamic)
-    {
-        physicsComponent.mass = pRigidDynamic->getMass();
-        physicsComponent.linearVelocity = FromPhysX(pRigidDynamic->getLinearVelocity());
-    }
-
-    //
-    // Sync latest transform state to the entity
-    //
-    const auto globalPose = pRigidActor->getGlobalPose();
-    transformComponent.SetPosition(FromPhysX(globalPose.p));
-    transformComponent.SetOrientation(FromPhysX(globalPose.q));
+    return std::make_pair(it->second.data, it->second.isDirty);
 }
 
-bool PhysXPhysics::CreateRigidBodyFromEntity(const EntityId& eid,
-                                             const PhysicsComponent& physicsComponent,
-                                             const TransformComponent& transformComponent,
-                                             const BoundsComponent& boundsComponent)
+void PhysXPhysics::MarkBodiesClean()
 {
-    // Create a PhysX rigid actor from the physics definition
-    auto physXActor = CreatePhysXRigidActor(physicsComponent);
-
-    m_entityToRigidActor.insert({eid, physXActor});
-    SyncMetrics();
-
-    // Update the rigid actor's properties from the provided component's data
-    if (!UpdateRigidBodyFromEntity(eid, physicsComponent, transformComponent, boundsComponent))
+    for (auto& rigidActor : m_entityToRigidBody)
     {
-        PX_RELEASE(physXActor.pMaterial);
-        PX_RELEASE(physXActor.pRigidActor)
-        m_entityToRigidActor.erase(eid);
-        SyncMetrics();
+        rigidActor.second.isDirty = false;
+    }
+}
 
+bool PhysXPhysics::CreateRigidBody(const EntityId& eid, const RigidBody& data)
+{
+    if (m_entityToRigidBody.contains(eid))
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "PhysXPhysics::CreateRigidBody: Entity with id already exists: {}", eid);
         return false;
     }
 
-    // Add the actor to the scene
-    m_pxScene->addActor(*physXActor.pRigidActor);
+    //
+    // Create PhysX Actor
+    //
+    auto pRigidActor = CreateRigidActor(data.body);
+    if (pRigidActor == nullptr) { return false; }
 
+    SetPhysXRigidBodyDataFrom(pRigidActor, data.actor, data.body);
+
+    //
+    // Create PhysX Material
+    //
+    auto pMaterial = CreateMaterial(data.actor.shape.material);
+    if (pMaterial == nullptr) { return false; }
+
+    //
+    // Create PhysX Shape
+    //
+    auto pShape = CreateShape(data.actor.shape, pMaterial);
+    if (pShape == nullptr) { return false; }
+
+    //
+    // Configure
+    //
+    pRigidActor->attachShape(*pShape);
+    m_pxScene->addActor(*pRigidActor);
+
+    //
+    // Record
+    //
+    PhysXRigidBody rigidBody(data, pRigidActor, pMaterial, pShape);
+
+    m_entityToRigidBody.insert({eid, rigidBody});
+    m_physXActorToEntity.insert({pRigidActor, eid});
+
+    SyncMetrics();
     return true;
 }
 
-bool PhysXPhysics::UpdateRigidBodyFromEntity(const EntityId& eid,
-                                             const PhysicsComponent& physicsComponent,
-                                             const TransformComponent& transformComponent,
-                                             const BoundsComponent& boundsComponent)
+bool PhysXPhysics::UpdateRigidBody(const EntityId& eid, const RigidBody& data)
 {
-    const auto it = m_entityToRigidActor.find(eid);
-    if (it == m_entityToRigidActor.cend())
+    const auto it = m_entityToRigidBody.find(eid);
+    if (it == m_entityToRigidBody.cend())
     {
         m_logger->Log(Common::LogLevel::Error,
-          "PhysXPhysics::UpdateRigidBodyFromEntity: No such entity: {}", eid);
+          "PhysXPhysics::UpdateRigidBody: No such entity: {}", eid);
         return false;
     }
 
+    //
+    // Rigid Body Data
+    //
+
     // Sync the PhysX rigid actor's physics data from the component data
-    SyncRigidActorData(it->second, physicsComponent, transformComponent);
+    SetPhysXRigidBodyDataFrom(it->second.pRigidActor, data.actor, data.body);
 
-    // Free any previous shape(s) the actor might have had
-    const auto numPreviousShapes = it->second.pRigidActor->getNbShapes();
-    if (numPreviousShapes > 0)
+    it->second.data = data;
+
+    //
+    // TODO! Support updating material too
+    //
+
+    //
+    // RigidBodyShape
+    //
+
+    // TODO Perf: Only destroy and recreate the shape if it changed..
+
+    // Free any previous shape the actor might have had
+    if (it->second.pShape != nullptr)
     {
-        std::vector<physx::PxShape*> oldShapes(numPreviousShapes);
-        it->second.pRigidActor->getShapes(oldShapes.data(), numPreviousShapes);
-
-        for (const auto& pOldShape : oldShapes)
-        {
-            it->second.pRigidActor->detachShape(*pOldShape);
-        }
+        it->second.pRigidActor->detachShape(*it->second.pShape);
+        PX_RELEASE(it->second.pShape)
+        it->second.pShape = nullptr;
     }
 
     // Create a new PhysX shape representing the entity's bounds
-    auto pShape = CreateRigidActorShape(it->second, transformComponent, boundsComponent);
-    if (pShape == nullptr)
+    it->second.pShape = CreateShape(data.actor.shape, it->second.pMaterial);
+    if (it->second.pShape == nullptr)
     {
         m_logger->Log(Common::LogLevel::Error,
           "PhysXPhysics::UpdateRigidBodyFromEntity: Failed to create shape for entity: {}", eid);
@@ -267,76 +322,96 @@ bool PhysXPhysics::UpdateRigidBodyFromEntity(const EntityId& eid,
     }
 
     // Add the shape to the actor
-    it->second.pRigidActor->attachShape(*pShape);
+    it->second.pRigidActor->attachShape(*it->second.pShape);
+
+    it->second.data.actor.shape = data.actor.shape;
 
     return true;
 }
 
-PhysXPhysics::PhysXRigidActor PhysXPhysics::CreatePhysXRigidActor(const PhysicsComponent& physicsComponent)
+physx::PxRigidActor* PhysXPhysics::CreateRigidActor(const RigidBodyData& body)
 {
     assert(m_pxPhysics != nullptr);
 
-    auto pMaterial = m_pxPhysics->createMaterial(
-        physicsComponent.material.staticFriction,
-        physicsComponent.material.dynamicFriction,
-        physicsComponent.material.restitution
-    );
-
-    switch (physicsComponent.bodyType)
+    switch (body.type)
     {
-        case PhysicsBodyType::Static:
-            return {PhysicsBodyType::Static, m_pxPhysics->createRigidStatic(physx::PxTransform(physx::PxIDENTITY{})), pMaterial};
-        case PhysicsBodyType::Dynamic:
-            return {PhysicsBodyType::Dynamic, m_pxPhysics->createRigidDynamic(physx::PxTransform(physx::PxIDENTITY{})), pMaterial};
-        case PhysicsBodyType::Kinematic:
+        case RigidBodyType::Static:
+            return m_pxPhysics->createRigidStatic(physx::PxTransform(physx::PxIDENTITY{}));
+        case RigidBodyType::Dynamic:
+            return m_pxPhysics->createRigidDynamic(physx::PxTransform(physx::PxIDENTITY{}));
+        case RigidBodyType::Kinematic:
         {
             auto pRigidDynamic = m_pxPhysics->createRigidDynamic(physx::PxTransform(physx::PxIDENTITY{}));
             pRigidDynamic->setRigidBodyFlag(physx::PxRigidBodyFlag::eKINEMATIC, true);
-            return {PhysicsBodyType::Kinematic, pRigidDynamic, pMaterial};
+            return pRigidDynamic;
         }
     }
 
     assert(false);
-    return {};
+    return nullptr;
 }
 
-void PhysXPhysics::SyncRigidActorData(PhysXRigidActor& physXActor,
-                                      const PhysicsComponent& physicsComponent,
-                                      const TransformComponent& transformComponent)
+void PhysXPhysics::SetPhysXRigidBodyDataFrom(physx::PxRigidActor* pRigidActor, const RigidActorData& actor, const RigidBodyData& body)
 {
     //
-    // Transform Data
+    // RigidActor
     //
-    auto pxBodyTransform = physx::PxTransform(
-        ToPhysX(transformComponent.GetPosition()),
-        ToPhysX(transformComponent.GetOrientation())
-    );
-
-    physXActor.pRigidActor->setGlobalPose(pxBodyTransform);
+    pRigidActor->setGlobalPose(physx::PxTransform(ToPhysX(actor.position), ToPhysX(actor.orientation)));
 
     //
-    // Physics Data
+    // RigidBody
     //
-    if (physXActor.bodyType == PhysicsBodyType::Dynamic || physXActor.bodyType == PhysicsBodyType::Kinematic)
+    auto* pRigidBody = GetAsRigidBody(pRigidActor);
+    if (pRigidBody != nullptr)
     {
-        auto* pRigidDynamic = GetRigidDynamic(physXActor);
-        pRigidDynamic->setMass(physicsComponent.mass);
-        pRigidDynamic->setLinearVelocity(ToPhysX(physicsComponent.linearVelocity));
-        pRigidDynamic->setLinearDamping(physicsComponent.linearDamping);
-        pRigidDynamic->setAngularDamping(physicsComponent.angularDamping);
+        pRigidBody->setMass(body.mass);
+    }
 
-        physx::PxRigidDynamicLockFlags lockFlags{0};
-        if (!physicsComponent.axisMotionAllowed[0]) { lockFlags |= physx::PxRigidDynamicLockFlag::eLOCK_ANGULAR_X; }
-        if (!physicsComponent.axisMotionAllowed[1]) { lockFlags |= physx::PxRigidDynamicLockFlag::eLOCK_ANGULAR_Y; }
-        if (!physicsComponent.axisMotionAllowed[2]) { lockFlags |= physx::PxRigidDynamicLockFlag::eLOCK_ANGULAR_Z; }
-        pRigidDynamic->setRigidDynamicLockFlags(lockFlags);
+    //
+    // RigidBody SubData
+    //
+    if (body.type == RigidBodyType::Dynamic || body.type == RigidBodyType::Kinematic)
+    {
+        auto* pRigidDynamic = GetAsRigidDynamic(pRigidActor);
+        const auto& dynamicData = std::get<RigidBodyDynamicData>(body.subData);
+
+        if (pRigidDynamic != nullptr)
+        {
+            pRigidDynamic->setLinearVelocity(ToPhysX(dynamicData.linearVelocity));
+            pRigidDynamic->setLinearDamping(dynamicData.linearDamping);
+            pRigidDynamic->setAngularDamping(dynamicData.angularDamping);
+
+            physx::PxRigidDynamicLockFlags lockFlags{0};
+            if (!dynamicData.axisMotionAllowed[0]) { lockFlags |= physx::PxRigidDynamicLockFlag::eLOCK_ANGULAR_X; }
+            if (!dynamicData.axisMotionAllowed[1]) { lockFlags |= physx::PxRigidDynamicLockFlag::eLOCK_ANGULAR_Y; }
+            if (!dynamicData.axisMotionAllowed[2]) { lockFlags |= physx::PxRigidDynamicLockFlag::eLOCK_ANGULAR_Z; }
+            pRigidDynamic->setRigidDynamicLockFlags(lockFlags);
+        }
     }
 }
 
-physx::PxShape* PhysXPhysics::CreateRigidActorShape(const PhysXRigidActor& physxActor,
-                                                    const TransformComponent& transformComponent,
-                                                    const BoundsComponent& boundsComponent)
+physx::PxMaterial* PhysXPhysics::CreateMaterial(const MaterialData& material)
 {
+    assert(m_pxPhysics != nullptr);
+
+    auto pMaterial = m_pxPhysics->createMaterial(
+        material.staticFriction,
+        material.dynamicFriction,
+        material.restitution
+    );
+    if (pMaterial == nullptr)
+    {
+        m_logger->Log(Common::LogLevel::Error, "CreateMaterial: Failed to create material");
+        return nullptr;
+    }
+
+    return pMaterial;
+}
+
+physx::PxShape* PhysXPhysics::CreateShape(const ShapeData& shape, physx::PxMaterial* pMaterial)
+{
+    assert(m_pxPhysics != nullptr);
+
     // Internal translation adjustments of the shape's model-space position and orientation.
     // Is in addition to any adjustment that was provided in boundsComponent & transformComponent
     auto localPositionAdjustment = glm::vec3(0,0,0);
@@ -344,25 +419,25 @@ physx::PxShape* PhysXPhysics::CreateRigidActorShape(const PhysXRigidActor& physx
 
     physx::PxShape* pShape{nullptr};
 
-    if (std::holds_alternative<Bounds_AABB>(boundsComponent.bounds))
+    if (std::holds_alternative<Bounds_AABB>(shape.bounds))
     {
-        pShape = CreateRigidActorShape_AABB(physxActor, boundsComponent, transformComponent, localPositionAdjustment);
+        pShape = CreateShape_AABB(shape, pMaterial, localPositionAdjustment);
     }
-    else if (std::holds_alternative<Bounds_Capsule>(boundsComponent.bounds))
+    else if (std::holds_alternative<Bounds_Capsule>(shape.bounds))
     {
-        pShape = CreateRigidActorShape_Capsule(physxActor, boundsComponent, transformComponent, localPositionAdjustment);
+        pShape = CreateShape_Capsule(shape, pMaterial, localPositionAdjustment);
     }
-    else if (std::holds_alternative<Bounds_Sphere>(boundsComponent.bounds))
+    else if (std::holds_alternative<Bounds_Sphere>(shape.bounds))
     {
-        pShape = CreateRigidActorShape_Sphere(physxActor, boundsComponent, transformComponent, localPositionAdjustment);
+        pShape = CreateShape_Sphere(shape, pMaterial, localPositionAdjustment);
     }
-    else if (std::holds_alternative<Bounds_StaticMesh>(boundsComponent.bounds))
+    else if (std::holds_alternative<Bounds_StaticMesh>(shape.bounds))
     {
-        pShape = CreateRigidActorShape_StaticMesh(physxActor, boundsComponent, transformComponent, localPositionAdjustment);
+        pShape = CreateShape_StaticMesh(shape, pMaterial, localPositionAdjustment);
     }
-    else if (std::holds_alternative<Bounds_HeightMap>(boundsComponent.bounds))
+    else if (std::holds_alternative<Bounds_HeightMap>(shape.bounds))
     {
-        pShape = CreateRigidActorShape_HeightMap(physxActor, boundsComponent, transformComponent, localPositionAdjustment, localOrientationAdjustment);
+        pShape = CreateShape_HeightMap(shape, pMaterial, localPositionAdjustment, localOrientationAdjustment);
     }
 
     if (pShape == nullptr)
@@ -373,41 +448,39 @@ physx::PxShape* PhysXPhysics::CreateRigidActorShape(const PhysXRigidActor& physx
 
     // Local transform
     auto localTransform = physx::PxTransform(physx::PxIDENTITY{});
-    localTransform.p = ToPhysX(boundsComponent.localTransform + localPositionAdjustment);
-    localTransform.q = ToPhysX(boundsComponent.localOrientation * localOrientationAdjustment);
+    localTransform.p = ToPhysX(shape.localTransform + localPositionAdjustment);
+    localTransform.q = ToPhysX(shape.localOrientation * localOrientationAdjustment);
     pShape->setLocalPose(localTransform);
 
     return pShape;
 }
 
-physx::PxShape* PhysXPhysics::CreateRigidActorShape_AABB(const PhysXRigidActor& physxActor,
-                                                         const BoundsComponent& boundsComponent,
-                                                         const TransformComponent& transformComponent,
-                                                         glm::vec3&)
+physx::PxShape* PhysXPhysics::CreateShape_AABB(const ShapeData& shape,
+                                               physx::PxMaterial* pMaterial,
+                                               glm::vec3&)
 {
-    const auto boundsAABB = std::get<Bounds_AABB>(boundsComponent.bounds);
+    const auto boundsAABB = std::get<Bounds_AABB>(shape.bounds);
 
     auto boxSize = boundsAABB.max - boundsAABB.min;
-    boxSize *= transformComponent.GetScale();
+    boxSize *= shape.scale;
 
     const auto boxSizeHalfExtents = boxSize / 2.0f;  // PxBoxGeometry requires "half extents"
 
     return m_pxPhysics->createShape(
         physx::PxBoxGeometry(ToPhysX(boxSizeHalfExtents)),
-        *physxActor.pMaterial,
+        *pMaterial,
         true,
-        PHYSX_NON_TRIGGER_SHAPE_FLAGS
+        GetNonTriggerShapeFlags()
     );
 }
 
-physx::PxShape* PhysXPhysics::CreateRigidActorShape_Capsule(const PhysXRigidActor& physxActor,
-                                                            const BoundsComponent& boundsComponent,
-                                                            const TransformComponent& transformComponent,
-                                                            glm::vec3&)
+physx::PxShape* PhysXPhysics::CreateShape_Capsule(const ShapeData& shape,
+                                                  physx::PxMaterial* pMaterial,
+                                                  glm::vec3&)
 {
-    const auto boundsCapsule = std::get<Bounds_Capsule>(boundsComponent.bounds);
+    const auto boundsCapsule = std::get<Bounds_Capsule>(shape.bounds);
 
-    const auto transformScale = transformComponent.GetScale();
+    const auto transformScale = shape.scale;
     const bool horizScaleIsUniform = transformScale.x == transformScale.z;
 
     if (!Common::Assert(horizScaleIsUniform, m_logger,
@@ -421,20 +494,19 @@ physx::PxShape* PhysXPhysics::CreateRigidActorShape_Capsule(const PhysXRigidActo
 
     return m_pxPhysics->createShape(
         physx::PxCapsuleGeometry(radiusScaled, heightScaled / 2.0f),
-        *physxActor.pMaterial,
+        *pMaterial,
         true,
-        PHYSX_NON_TRIGGER_SHAPE_FLAGS
+        GetNonTriggerShapeFlags()
     );
 }
 
-physx::PxShape* PhysXPhysics::CreateRigidActorShape_Sphere(const PhysXRigidActor& physxActor,
-                                                           const BoundsComponent& boundsComponent,
-                                                           const TransformComponent& transformComponent,
-                                                           glm::vec3&)
+physx::PxShape* PhysXPhysics::CreateShape_Sphere(const ShapeData& shape,
+                                                 physx::PxMaterial* pMaterial,
+                                                 glm::vec3&)
 {
-    const auto boundsSphere = std::get<Bounds_Sphere>(boundsComponent.bounds);
+    const auto boundsSphere = std::get<Bounds_Sphere>(shape.bounds);
 
-    const auto transformScale = transformComponent.GetScale();
+    const auto transformScale = shape.scale;
     const bool scaleIsUniform = transformScale.x == transformScale.y && transformScale.x == transformScale.z;
 
     if (!Common::Assert(scaleIsUniform, m_logger,
@@ -447,18 +519,17 @@ physx::PxShape* PhysXPhysics::CreateRigidActorShape_Sphere(const PhysXRigidActor
 
     return m_pxPhysics->createShape(
         physx::PxSphereGeometry(radiusScaled),
-        *physxActor.pMaterial,
+        *pMaterial,
         true,
-        PHYSX_NON_TRIGGER_SHAPE_FLAGS
+        GetNonTriggerShapeFlags()
     );
 }
 
-physx::PxShape* PhysXPhysics::CreateRigidActorShape_StaticMesh(const PhysXRigidActor& physxActor,
-                                                               const BoundsComponent& boundsComponent,
-                                                               const TransformComponent& transformComponent,
-                                                               glm::vec3&)
+physx::PxShape* PhysXPhysics::CreateShape_StaticMesh(const ShapeData& shape,
+                                                     physx::PxMaterial* pMaterial,
+                                                     glm::vec3&)
 {
-    const auto boundsStaticMesh = std::get<Bounds_StaticMesh>(boundsComponent.bounds);
+    const auto boundsStaticMesh = std::get<Bounds_StaticMesh>(shape.bounds);
 
     const auto staticMeshDataOpt = std::dynamic_pointer_cast<MeshResources>(m_worldResources->Meshes())
         ->GetStaticMeshData(boundsStaticMesh.staticMeshId);
@@ -519,20 +590,19 @@ physx::PxShape* PhysXPhysics::CreateRigidActorShape_StaticMesh(const PhysXRigidA
     }
 
     return m_pxPhysics->createShape(
-        physx::PxTriangleMeshGeometry(pTriangleMesh, ToPhysX(transformComponent.GetScale())),
-        *physxActor.pMaterial,
+        physx::PxTriangleMeshGeometry(pTriangleMesh, ToPhysX(shape.scale)),
+        *pMaterial,
         true,
-        PHYSX_NON_TRIGGER_SHAPE_FLAGS
+        GetNonTriggerShapeFlags()
     );
 }
 
-physx::PxShape* PhysXPhysics::CreateRigidActorShape_HeightMap(const PhysXRigidActor& physxActor,
-                                                              const BoundsComponent& boundsComponent,
-                                                              const TransformComponent& transformComponent,
-                                                              glm::vec3& localPositionAdjustment,
-                                                              glm::quat& localOrientationAdjustment)
+physx::PxShape* PhysXPhysics::CreateShape_HeightMap(const ShapeData& shape,
+                                                    physx::PxMaterial* pMaterial,
+                                                    glm::vec3& localPositionAdjustment,
+                                                    glm::quat& localOrientationAdjustment)
 {
-    const auto boundsHeightMap = std::get<Bounds_HeightMap>(boundsComponent.bounds);
+    const auto boundsHeightMap = std::get<Bounds_HeightMap>(shape.bounds);
 
     const auto heightMapDataOpt = std::dynamic_pointer_cast<MeshResources>(m_worldResources->Meshes())
         ->GetHeightMapData(boundsHeightMap.heightMapMeshId);
@@ -553,7 +623,7 @@ physx::PxShape* PhysXPhysics::CreateRigidActorShape_HeightMap(const PhysXRigidAc
     );
 
     // Scale the data points to model points, then scale by the model's object scale
-    const glm::vec3 colliderScale = transformComponent.GetScale() * scaleToMeshSize;
+    const glm::vec3 colliderScale = shape.scale * scaleToMeshSize;
 
     ////////////////////////
 
@@ -613,7 +683,7 @@ physx::PxShape* PhysXPhysics::CreateRigidActorShape_HeightMap(const PhysXRigidAc
     // to be the origin, so offset it by half its height/width to adjust it. Note that after the orientation change
     // from above, we need to translate it differently, as the rotation is around that back-left corner, shifting the
     // height map from in front of and to the right of 0,0 to being in front of and to the left of 0,0.
-    localPositionAdjustment = transformComponent.GetScale() * glm::vec3{
+    localPositionAdjustment = shape.scale * glm::vec3{
         ((float)heightMapData->meshSize_worldSpace.w / 2.0f),
         heightMapData->minValue, // Adjust upwards by minValue so that minValue points are at minValue height above 0
         -((float)heightMapData->meshSize_worldSpace.h / 2.0f),
@@ -621,9 +691,9 @@ physx::PxShape* PhysXPhysics::CreateRigidActorShape_HeightMap(const PhysXRigidAc
 
     return m_pxPhysics->createShape(
         heightFieldGeometry,
-        *physxActor.pMaterial,
+        *pMaterial,
         true,
-        PHYSX_NON_TRIGGER_SHAPE_FLAGS
+        GetNonTriggerShapeFlags()
     );
 }
 
@@ -631,17 +701,28 @@ void PhysXPhysics::DestroyRigidBody(const EntityId& eid)
 {
     m_logger->Log(Common::LogLevel::Debug, "PhysXPhysics::DestroyRigidBody: Destroying rigid body for entity: {}", eid);
 
-    const auto it = m_entityToRigidActor.find(eid);
-    if (it == m_entityToRigidActor.cend())
+    const auto it = m_entityToRigidBody.find(eid);
+    if (it == m_entityToRigidBody.cend())
     {
         return;
     }
 
-    m_pxScene->removeActor(*it->second.pRigidActor);
-    PX_RELEASE(it->second.pMaterial)
-    PX_RELEASE(it->second.pRigidActor)
+    if (it->second.pShape != nullptr)
+    {
+        it->second.pRigidActor->detachShape(*it->second.pShape);
+        PX_RELEASE(it->second.pShape)
+        it->second.pShape = nullptr;
+    }
 
-    m_entityToRigidActor.erase(it);
+    PX_RELEASE(it->second.pMaterial)
+    it->second.pMaterial = nullptr;
+
+    m_pxScene->removeActor(*it->second.pRigidActor);
+    PX_RELEASE(it->second.pRigidActor)
+    it->second.pRigidActor = nullptr;
+
+    m_entityToRigidBody.erase(it);
+    m_physXActorToEntity.clear();
 
     SyncMetrics();
 }
@@ -787,19 +868,13 @@ std::vector<Render::Triangle> PhysXPhysics::GetDebugTriangles() const
 
 bool PhysXPhysics::ApplyRigidBodyLocalForce(const EntityId& eid, const glm::vec3& force)
 {
-    const auto it = m_entityToRigidActor.find(eid);
-    if (it == m_entityToRigidActor.cend())
+    const auto it = m_entityToRigidBody.find(eid);
+    if (it == m_entityToRigidBody.cend())
     {
         return false;
     }
 
-    // Can't apply forces to static objects
-    if (it->second.bodyType == PhysicsBodyType::Static)
-    {
-        return false;
-    }
-
-    auto* pRigidDynamic = GetRigidDynamic(it->second);
+    auto* pRigidDynamic = GetAsRigidBody(it->second.pRigidActor);
     pRigidDynamic->addForce(ToPhysX(force), physx::PxForceMode::eIMPULSE);
 
     return true;
@@ -815,19 +890,28 @@ std::vector<RaycastResult> PhysXPhysics::RaycastForCollisions(const glm::vec3& r
     return std::vector<RaycastResult>{};
 }
 
-// TODO!
-//gpu index
-
-physx::PxRigidDynamic* PhysXPhysics::GetRigidDynamic(const PhysXPhysics::PhysXRigidActor& rigidActor)
+physx::PxRigidBody* PhysXPhysics::GetAsRigidBody(const physx::PxRigidActor* pRigidActor)
 {
-    const bool isRigidDynamic = rigidActor.bodyType == PhysicsBodyType::Dynamic ||
-                                rigidActor.bodyType == PhysicsBodyType::Kinematic;
-    return isRigidDynamic ? (physx::PxRigidDynamic*)(rigidActor.pRigidActor) : nullptr;
+    const auto pxActorType = pRigidActor->getType();
+
+    if (pxActorType != physx::PxActorType::eRIGID_STATIC && pxActorType != physx::PxActorType::eRIGID_DYNAMIC)
+    {
+        return nullptr;
+    }
+
+    return (physx::PxRigidBody*)(pRigidActor);
+}
+
+physx::PxRigidDynamic* PhysXPhysics::GetAsRigidDynamic(const physx::PxRigidActor* pRigidActor)
+{
+    if (pRigidActor->getType() != physx::PxActorType::eRIGID_DYNAMIC) { return nullptr; }
+
+    return (physx::PxRigidDynamic*)(pRigidActor);
 }
 
 void PhysXPhysics::SyncMetrics()
 {
-    m_metrics->SetCounterValue(Engine_Physics_Internal_Bodies_Count, m_entityToRigidActor.size());
+    m_metrics->SetCounterValue(Engine_Physics_Internal_Bodies_Count, m_entityToRigidBody.size());
 
     std::size_t staticBodiesCount = 0;
     std::size_t rigidBodiesCount = 0;
@@ -844,14 +928,34 @@ void PhysXPhysics::SyncMetrics()
 
 void PhysXPhysics::DebugCheckResources()
 {
+    //
+    // One actor should exist for each rigid body and player controller
+    //
+    const auto numActors = m_pxScene->getNbActors(physx::PxActorTypeFlag::eRIGID_STATIC | physx::PxActorTypeFlag::eRIGID_DYNAMIC);
+    const bool actorCountMatches = numActors == (m_entityToRigidBody.size() + m_playerControllers.size());
+    Common::Assert(actorCountMatches, m_logger, "PhysXPhysics::DebugCheckResources: Actor count didn't match");
+
+    //
     // One material should exist for each rigid body and player controller
-    const bool materialCountMatches = m_pxPhysics->getNbMaterials() == (m_entityToRigidActor.size() + m_playerControllers.size());
+    //
+    const bool materialCountMatches = m_pxPhysics->getNbMaterials() == (m_entityToRigidBody.size() + m_playerControllers.size());
+    if (!materialCountMatches)
+    {
+        std::vector<physx::PxMaterial*> materials(m_pxPhysics->getNbMaterials(), nullptr);
+        m_pxPhysics->getMaterials(materials.data(), m_pxPhysics->getNbMaterials());
+
+        for (const auto& pMaterial : materials)
+        {
+            m_logger->Log(Common::LogLevel::Error, "Material still exists: {}", (std::size_t)pMaterial);
+        }
+    }
     Common::Assert(materialCountMatches, m_logger, "PhysXPhysics::DebugCheckResources: Material count didn't match");
 
-    // One actor should exist for each rigid body and player controller
-    const auto numActors = m_pxScene->getNbActors(physx::PxActorTypeFlag::eRIGID_STATIC | physx::PxActorTypeFlag::eRIGID_DYNAMIC);
-    const bool actorCountMatches = numActors == (m_entityToRigidActor.size() + m_playerControllers.size());
-    Common::Assert(actorCountMatches, m_logger, "PhysXPhysics::DebugCheckResources: Actor count didn't match");
+    //
+    // Our two entity maps sizes should match
+    //
+    Common::Assert(m_entityToRigidBody.size() == m_physXActorToEntity.size(), m_logger,
+       "PhysXPhysics::DebugCheckResources: Entity map counts don't match");
 }
 
 }

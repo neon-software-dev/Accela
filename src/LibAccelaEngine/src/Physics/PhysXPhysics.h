@@ -19,6 +19,7 @@
 #include <Accela/Common/Metrics/IMetrics.h>
 
 #include <unordered_map>
+#include <unordered_set>
 
 namespace Accela::Engine
 {
@@ -35,17 +36,15 @@ namespace Accela::Engine
             // IPhysics
             //
             void SimulationStep(unsigned int timeStep) override;
-            void PostSimulationSyncRigidBodyEntity(const EntityId& eid,
-                                                   PhysicsComponent& physicsComponent,
-                                                   TransformComponent& transformComponent) override;
-            [[nodiscard]] bool CreateRigidBodyFromEntity(const EntityId& eid,
-                                                         const PhysicsComponent& physicsComponent,
-                                                         const TransformComponent& transformComponent,
-                                                         const BoundsComponent& boundsComponent) override;
-            [[nodiscard]] bool UpdateRigidBodyFromEntity(const EntityId& eid,
-                                                         const PhysicsComponent& physicsComponent,
-                                                         const TransformComponent& transformComponent,
-                                                         const BoundsComponent& boundsComponent) override;
+
+            [[nodiscard]] std::optional<std::pair<RigidBody, bool>> GetRigidBody(const EntityId& eid) override;
+
+            void MarkBodiesClean() override;
+
+            [[nodiscard]] bool CreateRigidBody(const EntityId& eid, const RigidBody& rigidBody) override;
+
+            [[nodiscard]] bool UpdateRigidBody(const EntityId& eid, const RigidBody& rigidBody) override;
+
             void DestroyRigidBody(const EntityId& eid) override;
 
             [[nodiscard]] bool CreatePlayerController(const std::string& name,
@@ -53,14 +52,19 @@ namespace Accela::Engine
                                                       const float& radius,
                                                       const float& height,
                                                       const PhysicsMaterial& material) override;
+
             [[nodiscard]] std::optional<glm::vec3> GetPlayerControllerPosition(const std::string& name) override;
+
             [[nodiscard]] std::optional<PlayerControllerState> GetPlayerControllerState(const std::string& name) override;
+
             [[nodiscard]] bool SetPlayerControllerMovement(const std::string& name,
                                                            const glm::vec3& movement,
                                                            const float& minDistance) override;
+
             void DestroyPlayerController(const std::string& name) override;
 
             void ClearAll() override;
+
             void EnableDebugRenderOutput(bool enable) override;
             [[nodiscard]] std::vector<Render::Triangle> GetDebugTriangles() const override;
 
@@ -75,21 +79,24 @@ namespace Accela::Engine
 
         private:
 
-            struct PhysXRigidActor
+            struct PhysXRigidBody
             {
-                PhysXRigidActor() = default;
-
-                PhysXRigidActor(PhysicsBodyType _bodyType,
-                                physx::PxRigidActor* _pRigidActor,
-                                physx::PxMaterial* _pMaterial)
-                    : bodyType(_bodyType)
+                PhysXRigidBody(const RigidBody& _data,
+                               physx::PxRigidActor* _pRigidActor,
+                               physx::PxMaterial* _pMaterial,
+                               physx::PxShape* _pShape)
+                    : data(_data)
                     , pRigidActor(_pRigidActor)
                     , pMaterial(_pMaterial)
+                    , pShape(_pShape)
                 { }
 
-                PhysicsBodyType bodyType{PhysicsBodyType::Static};
+                RigidBody data;
                 physx::PxRigidActor* pRigidActor{nullptr};
                 physx::PxMaterial* pMaterial{nullptr};
+                physx::PxShape* pShape{nullptr};
+
+                bool isDirty{false};
             };
 
             struct PhysxMovement
@@ -124,45 +131,43 @@ namespace Accela::Engine
             void CreateScene();
             void DestroyScene();
 
+            void SyncBodyDataFromPhysX();
+
             void ApplyPlayerControllerMovements(unsigned int timeStep);
 
-            [[nodiscard]] PhysXRigidActor CreatePhysXRigidActor(const PhysicsComponent& physicsComponent);
+            static void SetPhysXRigidBodyDataFrom(physx::PxRigidActor* pRigidActor,
+                                                  const RigidActorData& actor,
+                                                  const RigidBodyData& body);
 
-            static void SyncRigidActorData(PhysXRigidActor& physxActor,
-                                           const PhysicsComponent& physicsComponent,
-                                           const TransformComponent& transformComponent);
+            [[nodiscard]] physx::PxRigidActor* CreateRigidActor(const RigidBodyData& body);
 
-            [[nodiscard]] physx::PxShape* CreateRigidActorShape(const PhysXRigidActor& physxActor,
-                                                                const TransformComponent& transformComponent,
-                                                                const BoundsComponent& boundsComponent);
+            [[nodiscard]] physx::PxMaterial* CreateMaterial(const MaterialData& material);
 
-            [[nodiscard]] physx::PxShape* CreateRigidActorShape_AABB(const PhysXRigidActor& physxActor,
-                                                                     const BoundsComponent& boundsComponent,
-                                                                     const TransformComponent& transformComponent,
-                                                                     glm::vec3& localPositionAdjustment);
+            [[nodiscard]] physx::PxShape* CreateShape(const ShapeData& shape, physx::PxMaterial* pMaterial);
 
-            [[nodiscard]] physx::PxShape* CreateRigidActorShape_Capsule(const PhysXRigidActor& physxActor,
-                                                                        const BoundsComponent& boundsComponent,
-                                                                        const TransformComponent& transformComponent,
-                                                                        glm::vec3& localPositionAdjustment);
+            [[nodiscard]] physx::PxShape* CreateShape_AABB(const ShapeData& shape,
+                                                           physx::PxMaterial* pMaterial,
+                                                           glm::vec3& localPositionAdjustment);
 
-            [[nodiscard]] physx::PxShape* CreateRigidActorShape_Sphere(const PhysXRigidActor& physxActor,
-                                                                       const BoundsComponent& boundsComponent,
-                                                                       const TransformComponent& transformComponent,
-                                                                       glm::vec3& localPositionAdjustment);
+            [[nodiscard]] physx::PxShape* CreateShape_Capsule(const ShapeData& shape,
+                                                              physx::PxMaterial* pMaterial,
+                                                              glm::vec3& localPositionAdjustment);
 
-            [[nodiscard]] physx::PxShape* CreateRigidActorShape_StaticMesh(const PhysXRigidActor& physxActor,
-                                                                          const BoundsComponent& boundsComponent,
-                                                                          const TransformComponent& transformComponent,
-                                                                          glm::vec3& localPositionAdjustment);
+            [[nodiscard]] physx::PxShape* CreateShape_Sphere(const ShapeData& shape,
+                                                             physx::PxMaterial* pMaterial,
+                                                             glm::vec3& localPositionAdjustment);
 
-            [[nodiscard]] physx::PxShape* CreateRigidActorShape_HeightMap(const PhysXRigidActor& physxActor,
-                                                                          const BoundsComponent& boundsComponent,
-                                                                          const TransformComponent& transformComponent,
-                                                                          glm::vec3& localPositionAdjustment,
-                                                                          glm::quat& localOrientationAdjustment);
+            [[nodiscard]] physx::PxShape* CreateShape_StaticMesh(const ShapeData& shape,
+                                                                 physx::PxMaterial* pMaterial,
+                                                                 glm::vec3& localPositionAdjustment);
 
-            [[nodiscard]] static inline physx::PxRigidDynamic* GetRigidDynamic(const PhysXRigidActor& rigidActor);
+            [[nodiscard]] physx::PxShape* CreateShape_HeightMap(const ShapeData& shape,
+                                                                physx::PxMaterial* pMaterial,
+                                                                glm::vec3& localPositionAdjustment,
+                                                                glm::quat& localOrientationAdjustment);
+
+            [[nodiscard]] static inline physx::PxRigidBody* GetAsRigidBody(const physx::PxRigidActor* pRigidActor);
+            [[nodiscard]] static inline physx::PxRigidDynamic* GetAsRigidDynamic(const physx::PxRigidActor* pRigidActor);
 
             void SyncMetrics();
             void DebugCheckResources();
@@ -185,7 +190,8 @@ namespace Accela::Engine
             physx::PxScene* m_pxScene{nullptr};
             physx::PxControllerManager* m_pxControllerManager{nullptr};
 
-            std::unordered_map<EntityId, PhysXRigidActor> m_entityToRigidActor;
+            std::unordered_map<EntityId, PhysXRigidBody> m_entityToRigidBody;
+            std::unordered_map<physx::PxActor*, EntityId> m_physXActorToEntity;
             std::unordered_map<std::string, PhysXPlayerController> m_playerControllers;
     };
 }

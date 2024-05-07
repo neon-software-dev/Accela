@@ -60,7 +60,7 @@ void Engine::Run(Scene::UPtr initialScene, bool supportVRHeadset)
     const auto worldResources = std::make_shared<WorldResources>(m_logger, m_renderer, m_platform->GetFiles(), m_assets, m_platform->GetText(), m_audioManager);
 
     auto physics = std::make_shared<PhysXPhysics>(m_logger, m_metrics, worldResources);
-    const auto worldState = std::make_shared<WorldState>(m_logger, m_metrics, worldResources, m_renderer, m_audioManager, physics, renderSettings, virtualResolution);
+    const auto worldState = std::make_shared<WorldState>(m_logger, m_metrics, worldResources, m_platform->GetWindow(), m_renderer, m_audioManager, physics, renderSettings, virtualResolution);
 
     const auto runState = std::make_shared<RunState>(std::move(initialScene), worldResources, worldState);
     const auto runtime = std::make_shared<EngineRuntime>(m_logger, m_metrics, m_assets, m_renderer, runState);
