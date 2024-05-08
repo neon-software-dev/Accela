@@ -57,8 +57,4 @@ template void AddOrUpdateComponent(const IWorldState::Ptr&, EntityId entityId, c
 template void RemoveComponent<PhysicsComponent>(const IWorldState::Ptr& worldState, EntityId entityId);
 template std::optional<PhysicsComponent> GetComponent(const IWorldState::Ptr&, EntityId entityId);
 
-template void AddOrUpdateComponent(const IWorldState::Ptr&, EntityId entityId, const BoundsComponent& component);
-template void RemoveComponent<BoundsComponent>(const IWorldState::Ptr& worldState, EntityId entityId);
-template std::optional<BoundsComponent> GetComponent(const IWorldState::Ptr&, EntityId entityId);
-
 }

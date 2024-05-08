@@ -20,10 +20,11 @@
 
 #include <unordered_map>
 #include <unordered_set>
+#include <queue>
 
 namespace Accela::Engine
 {
-    class PhysXPhysics : public IPhysics, public IPhysicsRuntime
+    class PhysXPhysics : public IPhysics, public IPhysicsRuntime, private physx::PxSimulationEventCallback
     {
         public:
 
@@ -36,15 +37,12 @@ namespace Accela::Engine
             // IPhysics
             //
             void SimulationStep(unsigned int timeStep) override;
-
             [[nodiscard]] std::optional<std::pair<RigidBody, bool>> GetRigidBody(const EntityId& eid) override;
-
             void MarkBodiesClean() override;
+            [[nodiscard]] std::queue<PhysicsTriggerEvent> PopTriggerEvents() override;
 
             [[nodiscard]] bool CreateRigidBody(const EntityId& eid, const RigidBody& rigidBody) override;
-
             [[nodiscard]] bool UpdateRigidBody(const EntityId& eid, const RigidBody& rigidBody) override;
-
             void DestroyRigidBody(const EntityId& eid) override;
 
             [[nodiscard]] bool CreatePlayerController(const std::string& name,
@@ -52,15 +50,11 @@ namespace Accela::Engine
                                                       const float& radius,
                                                       const float& height,
                                                       const PhysicsMaterial& material) override;
-
             [[nodiscard]] std::optional<glm::vec3> GetPlayerControllerPosition(const std::string& name) override;
-
             [[nodiscard]] std::optional<PlayerControllerState> GetPlayerControllerState(const std::string& name) override;
-
             [[nodiscard]] bool SetPlayerControllerMovement(const std::string& name,
                                                            const glm::vec3& movement,
                                                            const float& minDistance) override;
-
             void DestroyPlayerController(const std::string& name) override;
 
             void ClearAll() override;
@@ -76,6 +70,16 @@ namespace Accela::Engine
             [[nodiscard]] std::vector<RaycastResult> RaycastForCollisions(
                 const glm::vec3& rayStart_worldSpace,
                 const glm::vec3& rayEnd_worldSpace) const override;
+
+            //
+            // PxSimulationEventCallback
+            //
+            void onConstraintBreak(physx::PxConstraintInfo* constraints, physx::PxU32 count) override;
+            void onWake(physx::PxActor** actors, physx::PxU32 count) override;
+            void onSleep(physx::PxActor** actors, physx::PxU32 count) override;
+            void onContact(const physx::PxContactPairHeader& pairHeader, const physx::PxContactPair* pairs, physx::PxU32 nbPairs) override;
+            void onTrigger(physx::PxTriggerPair* pairs, physx::PxU32 count) override;
+            void onAdvance(const physx::PxRigidBody*const* bodyBuffer, const physx::PxTransform* poseBuffer, const physx::PxU32 count) override;
 
         private:
 
@@ -190,9 +194,15 @@ namespace Accela::Engine
             physx::PxScene* m_pxScene{nullptr};
             physx::PxControllerManager* m_pxControllerManager{nullptr};
 
+            // Rigid bodies that were created from entities via CreateRigidBody
             std::unordered_map<EntityId, PhysXRigidBody> m_entityToRigidBody;
             std::unordered_map<physx::PxActor*, EntityId> m_physXActorToEntity;
+
+            // Player controllers created via CreatePlayerController
             std::unordered_map<std::string, PhysXPlayerController> m_playerControllers;
+            std::unordered_map<physx::PxActor*, std::string> m_physXActorToPlayerController;
+
+            std::queue<PhysicsTriggerEvent> m_triggerEvents;
     };
 }
 

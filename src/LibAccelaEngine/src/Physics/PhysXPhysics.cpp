@@ -30,11 +30,19 @@ static inline glm::vec3 FromPhysX(const physx::PxVec3& vec) { return {vec.x, vec
 static inline glm::vec3 FromPhysX(const physx::PxExtendedVec3& vec) { return {vec.x, vec.y, vec.z}; }
 static inline glm::vec4 FromPhysX(const physx::PxVec4& vec) { return {vec.x, vec.y, vec.z, vec.w}; }
 
-static inline physx::PxShapeFlags GetNonTriggerShapeFlags()
+static physx::PxShapeFlags GetShapeFlags(const ShapeUsage& usage)
 {
-    physx::PxShapeFlags flags =
-        physx::PxShapeFlag::eSIMULATION_SHAPE |
-        physx::PxShapeFlag::eSCENE_QUERY_SHAPE;
+    physx::PxShapeFlags flags = physx::PxShapeFlag::eSCENE_QUERY_SHAPE;
+
+    switch (usage)
+    {
+        case ShapeUsage::Simulation:
+            flags |= physx::PxShapeFlag::eSIMULATION_SHAPE;
+        break;
+        case ShapeUsage::Trigger:
+            flags |= physx::PxShapeFlag::eTRIGGER_SHAPE;
+        break;
+    }
 
     if (Common::BuildInfo::IsDebugBuild())
     {
@@ -118,6 +126,7 @@ void PhysXPhysics::CreateScene()
     #endif
     m_pxScene = m_pxPhysics->createScene(sceneDesc);
     m_pxScene->setFlag(physx::PxSceneFlag::eENABLE_ACTIVE_ACTORS, true);
+    m_pxScene->setSimulationEventCallback(this);
 
     m_pxControllerManager = PxCreateControllerManager(*m_pxScene);
 }
@@ -131,11 +140,13 @@ void PhysXPhysics::DestroyScene()
         PX_RELEASE(it.second.pPxController)
     }
     m_playerControllers.clear();
+    m_physXActorToPlayerController.clear();
 
     while (!m_entityToRigidBody.empty())
     {
         DestroyRigidBody(m_entityToRigidBody.cbegin()->first);
     }
+    m_physXActorToEntity.clear();
 
     PX_RELEASE(m_pxControllerManager)
     PX_RELEASE(m_pxScene)
@@ -226,6 +237,13 @@ void PhysXPhysics::MarkBodiesClean()
     {
         rigidActor.second.isDirty = false;
     }
+}
+
+std::queue<PhysicsTriggerEvent> PhysXPhysics::PopTriggerEvents()
+{
+    auto triggerEvents = m_triggerEvents;
+    m_triggerEvents = {};
+    return triggerEvents;
 }
 
 bool PhysXPhysics::CreateRigidBody(const EntityId& eid, const RigidBody& data)
@@ -470,7 +488,7 @@ physx::PxShape* PhysXPhysics::CreateShape_AABB(const ShapeData& shape,
         physx::PxBoxGeometry(ToPhysX(boxSizeHalfExtents)),
         *pMaterial,
         true,
-        GetNonTriggerShapeFlags()
+        GetShapeFlags(shape.usage)
     );
 }
 
@@ -496,7 +514,7 @@ physx::PxShape* PhysXPhysics::CreateShape_Capsule(const ShapeData& shape,
         physx::PxCapsuleGeometry(radiusScaled, heightScaled / 2.0f),
         *pMaterial,
         true,
-        GetNonTriggerShapeFlags()
+        GetShapeFlags(shape.usage)
     );
 }
 
@@ -521,7 +539,7 @@ physx::PxShape* PhysXPhysics::CreateShape_Sphere(const ShapeData& shape,
         physx::PxSphereGeometry(radiusScaled),
         *pMaterial,
         true,
-        GetNonTriggerShapeFlags()
+        GetShapeFlags(shape.usage)
     );
 }
 
@@ -593,7 +611,7 @@ physx::PxShape* PhysXPhysics::CreateShape_StaticMesh(const ShapeData& shape,
         physx::PxTriangleMeshGeometry(pTriangleMesh, ToPhysX(shape.scale)),
         *pMaterial,
         true,
-        GetNonTriggerShapeFlags()
+        GetShapeFlags(shape.usage)
     );
 }
 
@@ -693,7 +711,7 @@ physx::PxShape* PhysXPhysics::CreateShape_HeightMap(const ShapeData& shape,
         heightFieldGeometry,
         *pMaterial,
         true,
-        GetNonTriggerShapeFlags()
+        GetShapeFlags(shape.usage)
     );
 }
 
@@ -759,6 +777,7 @@ bool PhysXPhysics::CreatePlayerController(const std::string& name,
     }
 
     m_playerControllers.insert({name, PhysXPlayerController(pxPlayerController, desc.material)});
+    m_physXActorToPlayerController.insert({pxPlayerController->getActor(), name});
 
     return true;
 }
@@ -816,6 +835,8 @@ void PhysXPhysics::DestroyPlayerController(const std::string& name)
     {
         return;
     }
+
+    m_physXActorToPlayerController.erase((physx::PxActor*)it->second.pPxController->getActor());
 
     PX_RELEASE(it->second.pMaterial)
     PX_RELEASE(it->second.pPxController)
@@ -952,10 +973,86 @@ void PhysXPhysics::DebugCheckResources()
     Common::Assert(materialCountMatches, m_logger, "PhysXPhysics::DebugCheckResources: Material count didn't match");
 
     //
-    // Our two entity maps sizes should match
+    // Our entity map sizes should match
     //
     Common::Assert(m_entityToRigidBody.size() == m_physXActorToEntity.size(), m_logger,
        "PhysXPhysics::DebugCheckResources: Entity map counts don't match");
+
+    Common::Assert(m_playerControllers.size() == m_physXActorToPlayerController.size(), m_logger,
+       "PhysXPhysics::DebugCheckResources: Player map counts don't match");
+}
+
+void PhysXPhysics::onConstraintBreak(physx::PxConstraintInfo *constraints, physx::PxU32 count)
+{
+    (void)constraints;
+    (void)count;
+}
+
+void PhysXPhysics::onWake(physx::PxActor **actors, physx::PxU32 count)
+{
+    (void)actors;
+    (void)count;
+}
+
+void PhysXPhysics::onSleep(physx::PxActor **actors, physx::PxU32 count)
+{
+    (void)actors;
+    (void)count;
+}
+
+void PhysXPhysics::onContact(const physx::PxContactPairHeader& pairHeader,
+                             const physx::PxContactPair *pairs,
+                             physx::PxU32 nbPairs)
+{
+    (void)pairHeader;
+    (void)pairs;
+    (void)nbPairs;
+}
+
+void PhysXPhysics::onTrigger(physx::PxTriggerPair *pairs, physx::PxU32 count)
+{
+    for (unsigned int x = 0; x < count; ++x)
+    {
+        const auto& triggerPair = pairs[x];
+
+        const auto touchType = triggerPair.status & physx::PxPairFlag::eNOTIFY_TOUCH_FOUND ?
+                               PhysicsTriggerEvent::Type::TouchFound :
+                               PhysicsTriggerEvent::Type::TouchLost;
+
+        const auto itTrigger = m_physXActorToEntity.find(triggerPair.triggerActor);
+        if (itTrigger == m_physXActorToEntity.cend())
+        {
+            m_logger->Log(Common::LogLevel::Error, "PhysXPhysics::onTrigger: Trigger entity doesn't exist");
+            continue;
+        }
+
+        // If the touching object is a rigid body
+        const auto itOtherBody = m_physXActorToEntity.find(triggerPair.otherActor);
+        if (itOtherBody != m_physXActorToEntity.cend())
+        {
+            m_triggerEvents.emplace(touchType, itTrigger->second, itOtherBody->second);
+            continue;
+        }
+
+        // If the touching object is a player controller
+        const auto itOtherPlayer = m_physXActorToPlayerController.find(triggerPair.otherActor);
+        if (itOtherPlayer != m_physXActorToPlayerController.cend())
+        {
+            m_triggerEvents.emplace(touchType, itTrigger->second, itOtherPlayer->second);
+            continue;
+        }
+
+        m_logger->Log(Common::LogLevel::Error, "PhysXPhysics::onTrigger: Other actor doesn't exist");
+    }
+}
+
+void PhysXPhysics::onAdvance(const physx::PxRigidBody *const *bodyBuffer,
+                             const physx::PxTransform *poseBuffer,
+                             const physx::PxU32 count)
+{
+    (void)bodyBuffer;
+    (void)poseBuffer;
+    (void)count;
 }
 
 }

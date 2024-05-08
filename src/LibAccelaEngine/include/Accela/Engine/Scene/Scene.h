@@ -58,6 +58,9 @@ namespace Accela::Engine
             /** Called when a mouse button event occurs */
             void OnMouseButtonEvent(const Platform::MouseButtonEvent& event) override;
 
+            /** Called when a physics trigger has been triggered */
+            void OnPhysicsTriggerEvent(const PhysicsTriggerEvent& event) override;
+
         protected:
 
             IEngineRuntime::Ptr engine;

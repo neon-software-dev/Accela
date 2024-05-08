@@ -55,17 +55,21 @@ namespace Accela::Engine
 
     struct ShapeData
     {
-        explicit ShapeData(const BoundsVariant& _bounds,
+        explicit ShapeData(const ShapeUsage& _usage,
+                           const BoundsVariant& _bounds,
                            const MaterialData& _material,
                            const glm::vec3& _scale = glm::vec3{1.0f},
                            const glm::vec3& _localTransform = glm::vec3(0),
                            const glm::quat& _localOrientation = glm::identity<glm::quat>())
-            : bounds(_bounds)
+            : usage(_usage)
+            , bounds(_bounds)
             , material(_material)
             , scale(_scale)
             , localTransform(_localTransform)
             , localOrientation(_localOrientation)
         { }
+
+        ShapeUsage usage;
 
         // Model-space shape bounds
         BoundsVariant bounds;

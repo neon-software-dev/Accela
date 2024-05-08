@@ -254,19 +254,14 @@ void TestScene::CreateFloorEntity(glm::vec3 position,
     //
     // PhysicsComponent
     //
-    Engine::PhysicsComponent physicsComponent = Engine::PhysicsComponent::StaticBody();
-    Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, physicsComponent);
-
-    //
-    // BoundsComponent
-    //
-    auto boundsComponent = Engine::BoundsComponent(
-        Engine::Bounds_AABB(
+    Engine::PhysicsComponent physicsComponent = Engine::PhysicsComponent::StaticBody(
+        Engine::PhysicsShape(Engine::Bounds_AABB(
             glm::vec3{-0.5f, -0.5f, -0.5f},
             glm::vec3{0.5f, 0.5f, 0.5f}
-        )
+        )),
+        Engine::PhysicsMaterial()
     );
-    Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, boundsComponent);
+    Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, physicsComponent);
 }
 
 void TestScene::CreateTerrainEntity(const float& scale, const glm::vec3& position)
@@ -293,14 +288,11 @@ void TestScene::CreateTerrainEntity(const float& scale, const glm::vec3& positio
     //
     // PhysicsComponent
     //
-    Engine::PhysicsComponent physicsComponent = Engine::PhysicsComponent::StaticBody();
+    Engine::PhysicsComponent physicsComponent = Engine::PhysicsComponent::StaticBody(
+        Engine::PhysicsShape(Engine::Bounds_HeightMap(m_terrainHeightMapMeshId)),
+        Engine::PhysicsMaterial()
+    );
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, physicsComponent);
-
-    //
-    // BoundsComponent
-    //
-    auto boundsComponent = Engine::BoundsComponent(Engine::Bounds_HeightMap(m_terrainHeightMapMeshId));
-    Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, boundsComponent);
 }
 
 void TestScene::CreateCubeEntity(glm::vec3 position,
@@ -330,32 +322,28 @@ void TestScene::CreateCubeEntity(glm::vec3 position,
     //
     // PhysicsComponent
     //
-    Engine::PhysicsComponent physicsComponent;
+    std::optional<Engine::PhysicsComponent> physicsComponent;
+
+    const auto shape = Engine::PhysicsShape(Engine::Bounds_AABB(
+        glm::vec3{-0.5f, -0.5f, -0.5f},
+        glm::vec3{0.5f, 0.5f, 0.5f}
+    ));
+
+    const auto material = Engine::PhysicsMaterial{};
 
     if (isStatic)
     {
-        physicsComponent = Engine::PhysicsComponent::StaticBody();
+        physicsComponent = Engine::PhysicsComponent::StaticBody(shape, material);
     }
     else
     {
-        physicsComponent = Engine::PhysicsComponent::DynamicBody(3.0f);
+        physicsComponent = Engine::PhysicsComponent::DynamicBody(shape, material, 3.0f);
     }
 
-    physicsComponent.linearVelocity = linearVelocity;
-    physicsComponent.linearDamping = 0.4f;
-    physicsComponent.angularDamping = 0.4f;
-    Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, physicsComponent);
-
-    //
-    // BoundsComponent
-    //
-    auto boundsComponent = Engine::BoundsComponent(
-        Engine::Bounds_AABB(
-            glm::vec3{-0.5f, -0.5f, -0.5f},
-            glm::vec3{0.5f, 0.5f, 0.5f}
-        )
-    );
-    Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, boundsComponent);
+    physicsComponent->linearVelocity = linearVelocity;
+    physicsComponent->linearDamping = 0.4f;
+    physicsComponent->angularDamping = 0.4f;
+    Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, *physicsComponent);
 }
 
 void TestScene::OnSimulationStep(unsigned int timeStep)

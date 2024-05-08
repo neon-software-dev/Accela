@@ -12,6 +12,8 @@
 
 #include "../Metrics.h"
 
+#include <Accela/Engine/Scene/Scene.h>
+
 #include <Accela/Common/Timer.h>
 
 namespace Accela::Engine
@@ -41,17 +43,22 @@ void PhysicsSyncSystem::OnPhysicsStateComponentDestroyed(const EntityId& entityI
     m_physics->DestroyRigidBody(entityId);
 }
 
-void PhysicsSyncSystem::PreSimulationStep(const RunState::Ptr&, entt::registry& registry) const
+void PhysicsSyncSystem::PreSimulationStep(const RunState::Ptr& runState, entt::registry& registry) const
+{
+    // Give the physics system the latest data for all entities with dirty physics state
+    Pre_UpdatePhysics(runState, registry);
+}
+
+void PhysicsSyncSystem::Pre_UpdatePhysics(const RunState::Ptr&, entt::registry& registry) const
 {
     //
     // Loop through all physics entities, and if any are New or Dirty, update the physics system
     // with the new state
     //
-    registry.view<PhysicsStateComponent, PhysicsComponent, BoundsComponent, TransformComponent>().each(
+    registry.view<PhysicsStateComponent, PhysicsComponent, TransformComponent>().each(
         [&](const auto& eid,
             PhysicsStateComponent& physicsStateComponent,
             const PhysicsComponent& physicsComponent,
-            const BoundsComponent& boundsComponent,
             const TransformComponent& transformComponent)
         {
             switch (physicsStateComponent.state)
@@ -59,35 +66,43 @@ void PhysicsSyncSystem::PreSimulationStep(const RunState::Ptr&, entt::registry& 
                 case ComponentState::New:
                     m_physics->CreateRigidBody(
                         (EntityId)eid,
-                        GetRigidBodyFrom(physicsComponent, boundsComponent, transformComponent)
+                        GetRigidBodyFrom(physicsComponent, transformComponent)
                     );
-                break;
+                    break;
                 case ComponentState::Dirty:
                     m_physics->UpdateRigidBody(
                         (EntityId)eid,
-                        GetRigidBodyFrom(physicsComponent, boundsComponent, transformComponent)
+                        GetRigidBodyFrom(physicsComponent, transformComponent)
                     );
-                break;
+                    break;
                 case ComponentState::Synced:
                     // no-op
-                break;
+                    break;
             }
 
             physicsStateComponent.state = ComponentState::Synced;
         });
 }
 
-void PhysicsSyncSystem::PostSimulationStep(const RunState::Ptr&, entt::registry& registry) const
+void PhysicsSyncSystem::PostSimulationStep(const RunState::Ptr& runState, entt::registry& registry) const
+{
+    // Update component data for entities for which the physics system has marked their physics state as dirty
+    Post_SyncDirtyEntities(runState, registry);
+
+    // Notify the scene about any physics triggers that were hit
+    Post_NotifyTriggers(runState, registry);
+}
+
+void PhysicsSyncSystem::Post_SyncDirtyEntities(const RunState::Ptr&, entt::registry& registry) const
 {
     //
     // Loop through all the dirty physics entities, and update their state from the physics system, now that
     // the physics state has been changed.
     //
-    registry.view<PhysicsStateComponent, PhysicsComponent, BoundsComponent, TransformComponent>().each(
+    registry.view<PhysicsStateComponent, PhysicsComponent, TransformComponent>().each(
         [&](const auto& eid,
             const PhysicsStateComponent&,
             const PhysicsComponent& physicsComponent,
-            const BoundsComponent&,
             const TransformComponent& transformComponent)
         {
             PhysicsComponent updatedPhysics = physicsComponent;
@@ -97,7 +112,7 @@ void PhysicsSyncSystem::PostSimulationStep(const RunState::Ptr&, entt::registry&
             if (!body)
             {
                 m_logger->Log(Common::LogLevel::Error,
-                  "PhysicsSyncSystem::PostSimulationStep: No such entity body exists: {}", (EntityId)eid);
+                              "PhysicsSyncSystem::PostSimulationStep: No such entity body exists: {}", (EntityId)eid);
                 return;
             }
 
@@ -120,12 +135,23 @@ void PhysicsSyncSystem::PostSimulationStep(const RunState::Ptr&, entt::registry&
     m_physics->MarkBodiesClean();
 }
 
+void PhysicsSyncSystem::Post_NotifyTriggers(const RunState::Ptr& runState, entt::registry&) const
+{
+    auto triggerEvents = m_physics->PopTriggerEvents();
+
+    while (!triggerEvents.empty())
+    {
+        const auto& triggerEvent = triggerEvents.front();
+        runState->scene->OnPhysicsTriggerEvent(triggerEvent);
+        triggerEvents.pop();
+    }
+}
+
 RigidBody PhysicsSyncSystem::GetRigidBodyFrom(const PhysicsComponent& physicsComponent,
-                                              const BoundsComponent& boundsComponent,
                                               const TransformComponent& transformComponent)
 {
     const auto material = GetMaterial(physicsComponent);
-    const auto shape = GetShape(material, boundsComponent, transformComponent);
+    const auto shape = GetShape(material, physicsComponent, transformComponent);
 
     std::variant<RigidBodyStaticData, RigidBodyDynamicData> subData;
 
@@ -161,7 +187,7 @@ RigidBody PhysicsSyncSystem::GetRigidBodyFrom(const PhysicsComponent& physicsCom
         transformComponent.GetOrientation()
     );
 
-    return RigidBody(rigidActorData, rigidBodyData);
+    return {rigidActorData, rigidBodyData};
 }
 
 MaterialData PhysicsSyncSystem::GetMaterial(const PhysicsComponent& physicsComponent)
@@ -175,15 +201,16 @@ MaterialData PhysicsSyncSystem::GetMaterial(const PhysicsComponent& physicsCompo
 }
 
 ShapeData PhysicsSyncSystem::GetShape(const MaterialData& material,
-                                      const BoundsComponent& boundsComponent,
+                                      const PhysicsComponent& physicsComponent,
                                       const TransformComponent& transformComponent)
 {
     return ShapeData(
-        boundsComponent.bounds,
+        physicsComponent.shape.usage,
+        physicsComponent.shape.bounds,
         material,
         transformComponent.GetScale(),
-        boundsComponent.localTransform,
-        boundsComponent.localOrientation
+        physicsComponent.shape.localTransform,
+        physicsComponent.shape.localOrientation
     );
 }
 

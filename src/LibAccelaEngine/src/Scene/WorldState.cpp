@@ -70,7 +70,6 @@ void WorldState::CreateRegistryListeners()
     m_registry.on_construct<TerrainRenderableComponent>().connect<&WorldState::OnTerrainRenderableComponentCreated>(this);
     m_registry.on_construct<LightComponent>().connect<&WorldState::OnLightComponentCreated>(this);
     m_registry.on_construct<PhysicsComponent>().connect<&WorldState::OnPhysicsComponentCreated>(this);
-    m_registry.on_construct<BoundsComponent>().connect<&WorldState::OnBoundsComponentCreated>(this);
 
     m_registry.on_update<SpriteRenderableComponent>().connect<&WorldState::OnSpriteRenderableComponentUpdated>(this);
     m_registry.on_update<ObjectRenderableComponent>().connect<&WorldState::OnObjectRenderableComponentUpdated>(this);
@@ -79,7 +78,6 @@ void WorldState::CreateRegistryListeners()
     m_registry.on_update<LightComponent>().connect<&WorldState::OnLightComponentUpdated>(this);
     m_registry.on_update<TransformComponent>().connect<&WorldState::OnTransformComponentUpdated>(this);
     m_registry.on_update<PhysicsComponent>().connect<&WorldState::OnPhysicsComponentUpdated>(this);
-    m_registry.on_update<BoundsComponent>().connect<&WorldState::OnBoundsComponentUpdated>(this);
 
     m_registry.on_destroy<SpriteRenderableComponent>().connect<&WorldState::OnSpriteRenderableComponentDestroyed>(this);
     m_registry.on_destroy<ObjectRenderableComponent>().connect<&WorldState::OnObjectRenderableComponentDestroyed>(this);
@@ -88,7 +86,6 @@ void WorldState::CreateRegistryListeners()
     m_registry.on_destroy<LightComponent>().connect<&WorldState::OnLightComponentDestroyed>(this);
     m_registry.on_destroy<TransformComponent>().connect<&WorldState::OnTransformComponentDestroyed>(this);
     m_registry.on_destroy<PhysicsComponent>().connect<&WorldState::OnPhysicsComponentDestroyed>(this);
-    m_registry.on_destroy<BoundsComponent>().connect<&WorldState::OnBoundsComponentDestroyed>(this);
     m_registry.on_destroy<LightRenderableStateComponent>().connect<&WorldState::OnLightRenderableStateComponentDestroyed>(this);
     m_registry.on_destroy<RenderableStateComponent>().connect<&WorldState::OnRenderableStateComponentDestroyed>(this);
     m_registry.on_destroy<AudioComponent>().connect<&WorldState::OnAudioComponentDestroyed>(this);
@@ -387,11 +384,6 @@ void WorldState::OnPhysicsComponentCreated(entt::registry& registry, entt::entit
     registry.emplace<PhysicsStateComponent>(entity, physicsStateComponent);
 }
 
-void WorldState::OnBoundsComponentCreated(entt::registry&, entt::entity)
-{
-    // no-op
-}
-
 template <typename T>
 void MarkStateComponentDirty(entt::registry& registry, entt::entity entity)
 {
@@ -456,11 +448,6 @@ void WorldState::OnPhysicsComponentUpdated(entt::registry& registry, entt::entit
     }
 }
 
-void WorldState::OnBoundsComponentUpdated(entt::registry&, entt::entity)
-{
-    // no-op - Note: we currently don't support physics objects bounds changes
-}
-
 void WorldState::OnSpriteRenderableComponentDestroyed(entt::registry&, entt::entity entity)
 {
     RemoveComponent<RenderableStateComponent>((EntityId)entity);
@@ -494,11 +481,6 @@ void WorldState::OnTransformComponentDestroyed(entt::registry&, entt::entity ent
 }
 
 void WorldState::OnPhysicsComponentDestroyed(entt::registry&, entt::entity entity)
-{
-    RemoveComponent<PhysicsStateComponent>((EntityId)entity);
-}
-
-void WorldState::OnBoundsComponentDestroyed(entt::registry&, entt::entity entity)
 {
     RemoveComponent<PhysicsStateComponent>((EntityId)entity);
 }

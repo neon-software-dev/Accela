@@ -44,6 +44,7 @@ namespace Accela::Engine
             void OnKeyEvent(const Platform::KeyEvent& event) override;
             void OnMouseMoveEvent(const Platform::MouseMoveEvent& event) override;
             void OnMouseButtonEvent(const Platform::MouseButtonEvent& event) override;
+            void OnPhysicsTriggerEvent(const PhysicsTriggerEvent& event) override;
 
         private:
 

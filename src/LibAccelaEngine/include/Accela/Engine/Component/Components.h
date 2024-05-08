@@ -17,7 +17,6 @@
 #include <Accela/Engine/Component/TransformComponent.h>
 #include <Accela/Engine/Component/LightComponent.h>
 #include <Accela/Engine/Component/PhysicsComponent.h>
-#include <Accela/Engine/Component/BoundsComponent.h>
 
 #include <optional>
 

@@ -17,7 +17,6 @@ ObjectEntity::Params& ObjectEntity::Params::WithPosition(const glm::vec3& _posit
 ObjectEntity::Params& ObjectEntity::Params::WithScale(const glm::vec3& _scale) { scale = _scale; return *this; }
 ObjectEntity::Params& ObjectEntity::Params::WithOrientation(const glm::quat& _orientation) { orientation = _orientation; return *this; }
 ObjectEntity::Params& ObjectEntity::Params::WithPhysics(const PhysicsComponent& _physics) { physics = _physics; return *this; }
-ObjectEntity::Params& ObjectEntity::Params::WithBounds(const BoundsComponent& _bounds) { bounds = _bounds; return *this; }
 
 ObjectEntity::UPtr ObjectEntity::Create(const std::shared_ptr<IEngineRuntime>& engine,
                                       const Params& params,
@@ -70,7 +69,6 @@ void ObjectEntity::SyncAll()
     if (CanSyncObjectRenderableComponent()) { SyncObjectRenderableComponent(); }
     if (CanSyncTransformComponent()) { SyncTransformComponent(); }
     if (CanSyncPhysicsComponent()) { SyncPhysicsComponent(); }
-    if (CanSyncBoundsComponent()) { SyncBoundsComponent(); }
 }
 
 bool ObjectEntity::CanSyncObjectRenderableComponent() const
@@ -119,19 +117,6 @@ bool ObjectEntity::CanSyncPhysicsComponent() const
 void ObjectEntity::SyncPhysicsComponent()
 {
     Engine::AddOrUpdateComponent(m_engine->GetWorldState(), *m_eid, *m_params->physics);
-}
-
-bool ObjectEntity::CanSyncBoundsComponent() const
-{
-    if (!m_eid) { return false; }
-    if (!m_params->bounds) { return false; }
-
-    return true;
-}
-
-void ObjectEntity::SyncBoundsComponent()
-{
-    Engine::AddOrUpdateComponent(m_engine->GetWorldState(), *m_eid, *m_params->bounds);
 }
 
 }

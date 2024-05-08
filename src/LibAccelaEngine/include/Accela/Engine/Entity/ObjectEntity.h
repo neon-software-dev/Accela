@@ -12,7 +12,6 @@
 #include <Accela/Engine/Common.h>
 #include <Accela/Engine/Scene/SceneCommon.h>
 #include <Accela/Engine/Component/PhysicsComponent.h>
-#include <Accela/Engine/Component/BoundsComponent.h>
 
 #include <Accela/Render/Id.h>
 
@@ -42,7 +41,6 @@ namespace Accela::Engine
                 Params& WithScale(const glm::vec3& _scale);
                 Params& WithOrientation(const glm::quat& _orientation);
                 Params& WithPhysics(const PhysicsComponent& _physics);
-                Params& WithBounds(const BoundsComponent& _bounds);
 
                 std::optional<Render::MeshId> meshId;
                 std::optional<Render::MaterialId> materialId;
@@ -50,7 +48,6 @@ namespace Accela::Engine
                 std::optional<glm::vec3> scale;
                 std::optional<glm::quat> orientation;
                 std::optional<PhysicsComponent> physics;
-                std::optional<BoundsComponent> bounds;
             };
 
             [[nodiscard]] static Params Builder() { return {}; }
@@ -88,9 +85,6 @@ namespace Accela::Engine
 
             [[nodiscard]] bool CanSyncPhysicsComponent() const;
             void SyncPhysicsComponent();
-
-            [[nodiscard]] bool CanSyncBoundsComponent() const;
-            void SyncBoundsComponent();
 
         private:
 

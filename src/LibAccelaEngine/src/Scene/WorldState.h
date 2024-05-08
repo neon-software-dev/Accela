@@ -174,7 +174,6 @@ namespace Accela::Engine
             void OnTerrainRenderableComponentCreated(entt::registry& registry, entt::entity entity);
             void OnLightComponentCreated(entt::registry& registry, entt::entity entity);
             void OnPhysicsComponentCreated(entt::registry& registry, entt::entity entity);
-            void OnBoundsComponentCreated(entt::registry& registry, entt::entity entity);
 
             void OnSpriteRenderableComponentUpdated(entt::registry& registry, entt::entity entity);
             void OnObjectRenderableComponentUpdated(entt::registry& registry, entt::entity entity);
@@ -183,7 +182,6 @@ namespace Accela::Engine
             void OnLightComponentUpdated(entt::registry& registry, entt::entity entity);
             void OnTransformComponentUpdated(entt::registry& registry, entt::entity entity);
             void OnPhysicsComponentUpdated(entt::registry& registry, entt::entity entity);
-            void OnBoundsComponentUpdated(entt::registry& registry, entt::entity entity);
 
             void OnSpriteRenderableComponentDestroyed(entt::registry& registry, entt::entity entity);
             void OnObjectRenderableComponentDestroyed(entt::registry& registry, entt::entity entity);
@@ -192,7 +190,6 @@ namespace Accela::Engine
             void OnLightComponentDestroyed(entt::registry& registry, entt::entity entity);
             void OnTransformComponentDestroyed(entt::registry& registry, entt::entity entity);
             void OnPhysicsComponentDestroyed(entt::registry& registry, entt::entity entity);
-            void OnBoundsComponentDestroyed(entt::registry& registry, entt::entity entity);
             void OnLightRenderableStateComponentDestroyed(entt::registry& registry, entt::entity entity);
             void OnRenderableStateComponentDestroyed(entt::registry& registry, entt::entity entity);
             void OnAudioComponentDestroyed(entt::registry& registry, entt::entity entity);

@@ -58,7 +58,7 @@ void DevScene::CreateSceneEntities()
 
     //CreateSpotLight({0,1,0}, true);
     CreatePointLight({0, 5, 2}, true);
-    CreateTerrainEntity(5.0f, {0, 0, 0});
+    CreateTerrainEntity(25.0f, {0, 0, 0});
     CreateFloorEntity({0,3,0}, 20);
     //CreateModelEntity("dancing_vampire", {0,0,-2}, glm::vec3(1.0f),
     //                  Engine::ModelAnimationState(Engine::ModelAnimationType::Looping, "Hips"));
@@ -285,19 +285,14 @@ void DevScene::CreateFloorEntity(glm::vec3 position,
     //
     // PhysicsComponent
     //
-    Engine::PhysicsComponent physicsComponent = Engine::PhysicsComponent::StaticBody();
-    Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, physicsComponent);
-
-    //
-    // BoundsComponent
-    //
-    auto boundsComponent = Engine::BoundsComponent(
-        Engine::Bounds_AABB(
+    Engine::PhysicsComponent physicsComponent = Engine::PhysicsComponent::StaticBody(
+        Engine::PhysicsShape(Engine::Bounds_AABB(
             glm::vec3{-0.5f, -0.5f, -0.5f},
             glm::vec3{0.5f, 0.5f, 0.5f}
-        )
+        )),
+        Engine::PhysicsMaterial()
     );
-    Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, boundsComponent);
+    Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, physicsComponent);
 }
 
 void DevScene::CreateTerrainEntity(const float& scale, const glm::vec3& position)
@@ -324,14 +319,11 @@ void DevScene::CreateTerrainEntity(const float& scale, const glm::vec3& position
     //
     // PhysicsComponent
     //
-    Engine::PhysicsComponent physicsComponent = Engine::PhysicsComponent::StaticBody();
+    Engine::PhysicsComponent physicsComponent = Engine::PhysicsComponent::StaticBody(
+        Engine::PhysicsShape(Engine::Bounds_HeightMap(m_terrainHeightMapMeshId)),
+        Engine::PhysicsMaterial()
+    );
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, physicsComponent);
-
-    //
-    // BoundsComponent
-    //
-    auto boundsComponent = Engine::BoundsComponent(Engine::Bounds_HeightMap(m_terrainHeightMapMeshId));
-    Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, boundsComponent);
 }
 
 void DevScene::CreateCubeEntity(glm::vec3 position,
@@ -361,32 +353,28 @@ void DevScene::CreateCubeEntity(glm::vec3 position,
     //
     // PhysicsComponent
     //
-    Engine::PhysicsComponent physicsComponent;
+    std::optional<Engine::PhysicsComponent> physicsComponent;
+
+    auto shape = Engine::PhysicsShape(Engine::Bounds_AABB(
+        glm::vec3{-0.5f, -0.5f, -0.5f},
+        glm::vec3{0.5f, 0.5f, 0.5f}
+    ));
+
+    const auto material = Engine::PhysicsMaterial{};
 
     if (isStatic)
     {
-        physicsComponent = Engine::PhysicsComponent::StaticBody();
+        physicsComponent = Engine::PhysicsComponent::StaticBody(shape, material);
     }
     else
     {
-        physicsComponent = Engine::PhysicsComponent::DynamicBody(3.0f);
+        physicsComponent = Engine::PhysicsComponent::DynamicBody(shape, material, 3.0f);
     }
 
-    physicsComponent.linearVelocity = linearVelocity;
-    physicsComponent.linearDamping = 0.4f;
-    physicsComponent.angularDamping = 0.4f;
-    Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, physicsComponent);
-
-    //
-    // BoundsComponent
-    //
-    auto boundsComponent = Engine::BoundsComponent(
-        Engine::Bounds_AABB(
-            glm::vec3{-0.5f, -0.5f, -0.5f},
-            glm::vec3{0.5f, 0.5f, 0.5f}
-        )
-    );
-    Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, boundsComponent);
+    physicsComponent->linearVelocity = linearVelocity;
+    physicsComponent->linearDamping = 0.4f;
+    physicsComponent->angularDamping = 0.4f;
+    Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, *physicsComponent);
 }
 
 void DevScene::OnSimulationStep(unsigned int timeStep)
@@ -622,7 +610,7 @@ void DevScene::OnNormalKeyEvent(const Platform::KeyEvent& event)
                             std::uniform_real_distribution<float>(-40.0f, 40.0f)(m_rd)
                         );
 
-                        CreateCubeEntity({x,y,z}, {1,1,1}, false, velocity);
+                        CreateCubeEntity({x,y+3,z}, {1,1,1}, false, velocity);
                     }
                 }
             }

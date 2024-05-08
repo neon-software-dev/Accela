@@ -8,6 +8,7 @@
 #define LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_SCENE_SCENECALLBACKS_H
 
 #include <Accela/Engine/IEngineRuntime.h>
+#include <Accela/Engine/Physics/PhysicsCommon.h>
 
 #include <Accela/Platform/Event/KeyEvent.h>
 #include <Accela/Platform/Event/MouseMoveEvent.h>
@@ -36,6 +37,7 @@ namespace Accela::Engine
             virtual void OnKeyEvent(const Platform::KeyEvent& event) { (void)event; }
             virtual void OnMouseMoveEvent(const Platform::MouseMoveEvent& event) { (void)event; }
             virtual void OnMouseButtonEvent(const Platform::MouseButtonEvent& event) { (void)event; }
+            virtual void OnPhysicsTriggerEvent(const PhysicsTriggerEvent& event) { (void)event; }
     };
 }
 

@@ -12,7 +12,6 @@
 #include <Accela/Engine/Common.h>
 #include <Accela/Engine/Component/PhysicsComponent.h>
 #include <Accela/Engine/Component/TransformComponent.h>
-#include <Accela/Engine/Component/BoundsComponent.h>
 #include <Accela/Engine/Physics/PhysicsCommon.h>
 
 #include <Accela/Render/Util/Triangle.h>
@@ -22,6 +21,7 @@
 #include <vector>
 #include <unordered_set>
 #include <utility>
+#include <queue>
 
 namespace Accela::Engine
 {
@@ -49,6 +49,14 @@ namespace Accela::Engine
            * after syncing to its data after a simulation step
            */
             virtual void MarkBodiesClean() = 0;
+
+            /**
+             * Pop all trigger events that have occurred during SimulationSteps, since the last
+             * time this method was called.
+             *
+             * @return A time-sorted queue of trigger events
+             */
+            [[nodiscard]] virtual std::queue<PhysicsTriggerEvent> PopTriggerEvents() = 0;
 
             /**
              * Add a rigid body to the physics simulation

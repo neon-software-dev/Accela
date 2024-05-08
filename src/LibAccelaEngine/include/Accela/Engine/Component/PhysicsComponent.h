@@ -16,49 +16,46 @@
 namespace Accela::Engine
 {
     /**
-     * Attaches to an entity to give it physics properties. Note that physics system requires
-     * a BoundsComponent to also be present, for the entity to partake in physics.
-     *
-     * TODO: Combine PhysicsComponent and BoundsComponent together?
+     * Attaches to an entity to give it physics properties.
      */
     class PhysicsComponent
     {
         public:
 
-            PhysicsComponent() = default;
-
             /**
              * Create a static physics body - Has infinite mass, no velocity
              */
-            [[nodiscard]] static PhysicsComponent StaticBody()
+            [[nodiscard]] static PhysicsComponent StaticBody(const PhysicsShape& shape, const PhysicsMaterial& material)
             {
-                return {RigidBodyType::Static, 0.0f, glm::vec3(0.0f)};
+                return {RigidBodyType::Static, shape, material};
             }
 
             /**
              * Create a kinematic physics body - Has infinite mass, velocity can be changed
              */
-            [[nodiscard]] static PhysicsComponent KinematicBody()
+            [[nodiscard]] static PhysicsComponent KinematicBody(const PhysicsShape& shape, const PhysicsMaterial& material)
             {
-                return {RigidBodyType::Kinematic, 0.0f, glm::vec3(0.0f)};
+                return {RigidBodyType::Kinematic, shape, material};
             }
 
             /**
              * Create a dynamic physics body - Has mass, has velocity
              */
-            [[nodiscard]] static PhysicsComponent DynamicBody(float mass)
+            [[nodiscard]] static PhysicsComponent DynamicBody(const PhysicsShape& shape, const PhysicsMaterial& material, float mass)
             {
-                return {RigidBodyType::Dynamic, mass, glm::vec3(0.0f)};
+                return {RigidBodyType::Dynamic,shape, material, mass};
             }
-
-            bool operator==(const PhysicsComponent&) const = default;
 
         private:
 
             PhysicsComponent(RigidBodyType _bodyType,
-                             const float& _mass,
-                             const glm::vec3& _linearVelocity)
+                             const PhysicsShape& _shape,
+                             const PhysicsMaterial& _material,
+                             const float& _mass = 0.0f,
+                             const glm::vec3& _linearVelocity = glm::vec3(0))
                 : bodyType(_bodyType)
+                , shape(_shape)
+                , material(_material)
                 , mass(_mass)
                 , linearVelocity(_linearVelocity)
             { }
@@ -67,9 +64,10 @@ namespace Accela::Engine
 
             RigidBodyType bodyType{RigidBodyType::Dynamic};
 
-            float mass{0.0f};
+            PhysicsShape shape;
+            PhysicsMaterial material;
 
-            PhysicsMaterial material{};
+            float mass{0.0f};
 
             //
             // Dynamic body properties

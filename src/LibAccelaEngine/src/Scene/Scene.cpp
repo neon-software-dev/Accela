@@ -51,4 +51,9 @@ void Scene::OnMouseButtonEvent(const Platform::MouseButtonEvent& event)
     m_events->OnMouseButtonEvent(event);
 }
 
+void Scene::OnPhysicsTriggerEvent(const PhysicsTriggerEvent& event)
+{
+    m_events->OnPhysicsTriggerEvent(event);
+}
+
 }
