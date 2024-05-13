@@ -27,7 +27,7 @@ namespace Accela::Engine
 
         struct HashFunction
         {
-            size_t operator()(const NodeMeshId& o) const
+            std::size_t operator()(const NodeMeshId& o) const
             {
                 std::stringstream ss;
                 ss << o.nodeId << "-" << o.meshIndex;

@@ -45,15 +45,10 @@ namespace Accela::Engine
             [[nodiscard]] static RigidBody GetRigidBodyFrom(const PhysicsComponent& physicsComponent,
                                                             const TransformComponent& transformComponent);
 
-            [[nodiscard]] static MaterialData GetMaterial(const PhysicsComponent& physicsComponent);
-
-            [[nodiscard]] static ShapeData GetShape(const MaterialData& material,
-                                                    const PhysicsComponent& physicsComponent,
+            [[nodiscard]] static ShapeData GetShape(const PhysicsShape& physicsShape,
                                                     const TransformComponent& transformComponent);
 
-             static void SetComponentsFromData(const RigidBody& data,
-                                               PhysicsComponent& physicsComponent,
-                                               TransformComponent& transformComponent);
+             static void SetComponentsFromData(const RigidBody& data, TransformComponent& transformComponent);
 
         private:
 

@@ -122,7 +122,7 @@ void PhysicsSyncSystem::Post_SyncDirtyEntities(const RunState::Ptr&, entt::regis
                 return;
             }
 
-            SetComponentsFromData(body->first, updatedPhysics, updatedTransform);
+            SetComponentsFromData(body->first, updatedTransform);
 
             registry.emplace_or_replace<PhysicsComponent>(eid, updatedPhysics);
             registry.emplace_or_replace<TransformComponent>(eid, updatedTransform);
@@ -150,8 +150,12 @@ void PhysicsSyncSystem::Post_NotifyTriggers(const RunState::Ptr& runState, entt:
 RigidBody PhysicsSyncSystem::GetRigidBodyFrom(const PhysicsComponent& physicsComponent,
                                               const TransformComponent& transformComponent)
 {
-    const auto material = GetMaterial(physicsComponent);
-    const auto shape = GetShape(material, physicsComponent, transformComponent);
+    std::vector<ShapeData> shapes;
+
+    for (const auto& physicsShape : physicsComponent.shapes)
+    {
+        shapes.push_back(GetShape(physicsShape, transformComponent));
+    }
 
     std::variant<RigidBodyStaticData, RigidBodyDynamicData> subData;
 
@@ -182,7 +186,7 @@ RigidBody PhysicsSyncSystem::GetRigidBodyFrom(const PhysicsComponent& physicsCom
     rigidBodyData.mass = physicsComponent.mass;
 
     const RigidActorData rigidActorData(
-        shape,
+        shapes,
         transformComponent.GetPosition(),
         transformComponent.GetOrientation()
     );
@@ -190,64 +194,28 @@ RigidBody PhysicsSyncSystem::GetRigidBodyFrom(const PhysicsComponent& physicsCom
     return {rigidActorData, rigidBodyData};
 }
 
-MaterialData PhysicsSyncSystem::GetMaterial(const PhysicsComponent& physicsComponent)
-{
-    MaterialData material{};
-    material.staticFriction = physicsComponent.material.staticFriction;
-    material.dynamicFriction = physicsComponent.material.dynamicFriction;
-    material.restitution = physicsComponent.material.restitution;
-
-    return material;
-}
-
-ShapeData PhysicsSyncSystem::GetShape(const MaterialData& material,
-                                      const PhysicsComponent& physicsComponent,
+ShapeData PhysicsSyncSystem::GetShape(const PhysicsShape& physicsShape,
                                       const TransformComponent& transformComponent)
 {
+    MaterialData material{};
+    material.staticFriction = physicsShape.material.staticFriction;
+    material.dynamicFriction = physicsShape.material.dynamicFriction;
+    material.restitution = physicsShape.material.restitution;
+
     return ShapeData(
-        physicsComponent.shape.usage,
-        physicsComponent.shape.bounds,
+        physicsShape.usage,
+        physicsShape.bounds,
         material,
         transformComponent.GetScale(),
-        physicsComponent.shape.localTransform,
-        physicsComponent.shape.localOrientation
+        physicsShape.localTransform,
+        physicsShape.localOrientation
     );
 }
 
-void PhysicsSyncSystem::SetComponentsFromData(const RigidBody& data,
-                                              PhysicsComponent& physicsComponent,
-                                              TransformComponent& transformComponent)
+void PhysicsSyncSystem::SetComponentsFromData(const RigidBody& data, TransformComponent& transformComponent)
 {
-    physicsComponent.bodyType = data.body.type;
-    physicsComponent.mass = data.body.mass;
-
-    switch (data.body.type)
-    {
-        case RigidBodyType::Static:
-        {
-            const auto& subData = std::get<RigidBodyStaticData>(data.body.subData);
-            (void)subData;
-        }
-        break;
-        case RigidBodyType::Kinematic:
-        case RigidBodyType::Dynamic:
-        {
-            const auto& subData = std::get<RigidBodyDynamicData>(data.body.subData);
-            physicsComponent.linearVelocity = subData.linearVelocity;
-            physicsComponent.linearDamping = subData.linearDamping;
-            physicsComponent.angularDamping = subData.angularDamping;
-            physicsComponent.axisMotionAllowed = subData.axisMotionAllowed;
-        }
-        break;
-    }
-
-    physicsComponent.material.staticFriction = data.actor.shape.material.staticFriction;
-    physicsComponent.material.dynamicFriction = data.actor.shape.material.dynamicFriction;
-    physicsComponent.material.restitution = data.actor.shape.material.restitution;
-
     transformComponent.SetPosition(data.actor.position);
     transformComponent.SetOrientation(data.actor.orientation);
-    transformComponent.SetScale(data.actor.shape.scale);
 }
 
 }

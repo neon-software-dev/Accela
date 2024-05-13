@@ -26,7 +26,7 @@ namespace Accela::Common
             enum class PixelFormat
             {
                 RGB24,          // 3 bytes per pixel, for R, G, and B values
-                RGBA32,         // 4 bytes per pixel, for R, G, B, and A values
+                RGBA32          // 4 bytes per pixel, for R, G, B, and A values
             };
 
         public:

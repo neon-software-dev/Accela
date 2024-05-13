@@ -56,13 +56,18 @@ namespace Accela::Engine
      */
     struct PhysicsShape
     {
-        explicit PhysicsShape(const BoundsVariant& _bounds,
+        explicit PhysicsShape(const PhysicsMaterial& _material,
+                              const BoundsVariant& _bounds,
                               const glm::vec3& _localTransform = glm::vec3(0),
                               const glm::quat& _localOrientation = glm::identity<glm::quat>())
-            : bounds(_bounds)
+            : material(_material)
+            , bounds(_bounds)
             , localTransform(_localTransform)
             , localOrientation(_localOrientation)
         { }
+
+        /** The material applied to the shape */
+        PhysicsMaterial material;
 
         /** Model-space bounds defining the shape */
         BoundsVariant bounds;

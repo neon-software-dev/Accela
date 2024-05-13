@@ -83,26 +83,6 @@ namespace Accela::Engine
 
         private:
 
-            struct PhysXRigidBody
-            {
-                PhysXRigidBody(const RigidBody& _data,
-                               physx::PxRigidActor* _pRigidActor,
-                               physx::PxMaterial* _pMaterial,
-                               physx::PxShape* _pShape)
-                    : data(_data)
-                    , pRigidActor(_pRigidActor)
-                    , pMaterial(_pMaterial)
-                    , pShape(_pShape)
-                { }
-
-                RigidBody data;
-                physx::PxRigidActor* pRigidActor{nullptr};
-                physx::PxMaterial* pMaterial{nullptr};
-                physx::PxShape* pShape{nullptr};
-
-                bool isDirty{false};
-            };
-
             struct PhysxMovement
             {
                 PhysxMovement(glm::vec3 _movement, float _minDistance)
@@ -112,6 +92,23 @@ namespace Accela::Engine
 
                 glm::vec3 movement;
                 float minDistance;
+            };
+
+            struct PhysXRigidBody
+            {
+                PhysXRigidBody(RigidBody _data,
+                               physx::PxRigidActor* _pRigidActor,
+                               std::vector<std::pair<physx::PxShape*, physx::PxMaterial*>> _shapes)
+                    : data(std::move(_data))
+                    , pRigidActor(_pRigidActor)
+                    , shapes(std::move(_shapes))
+                { }
+
+                RigidBody data;
+                physx::PxRigidActor* pRigidActor{nullptr};
+                std::vector<std::pair<physx::PxShape*, physx::PxMaterial*>> shapes;
+
+                bool isDirty{false};
             };
 
             struct PhysXPlayerController

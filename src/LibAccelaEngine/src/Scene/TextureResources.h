@@ -55,6 +55,7 @@ namespace Accela::Engine
             [[nodiscard]] std::future<bool> LoadAllAssetTextures(ResultWhen resultWhen) override;
             [[nodiscard]] std::future<Render::TextureId> LoadAssetTexture(const std::string& assetTextureName, ResultWhen resultWhen) override;
             [[nodiscard]] std::future<Render::TextureId> LoadAssetCubeTexture(const std::array<std::string, 6>& assetTextureNames, const std::string& tag, ResultWhen resultWhen) override;
+            [[nodiscard]] std::future<Render::TextureId> LoadTexture(const Common::ImageData::Ptr& imageData, const std::string& tag, ResultWhen resultWhen) override;
             [[nodiscard]] std::future<std::expected<TextRender, bool>> RenderText(const std::string& text, const Platform::TextProperties& properties, ResultWhen resultWhen) override;
             [[nodiscard]] std::optional<Render::TextureId> GetAssetTextureId(const std::string& assetTextureName) const override;
             [[nodiscard]] std::optional<Render::Texture> GetLoadedTextureData(const Render::TextureId& textureId) const override;
@@ -66,6 +67,7 @@ namespace Accela::Engine
             [[nodiscard]] bool OnLoadAllAssetTextures(ResultWhen resultWhen);
             [[nodiscard]] Render::TextureId OnLoadAssetTexture(const std::string& assetTextureName, ResultWhen resultWhen);
             [[nodiscard]] Render::TextureId OnLoadAssetCubeTexture(const std::array<std::string, 6>& assetTextureNames, const std::string& tag, ResultWhen resultWhen);
+            [[nodiscard]] Render::TextureId OnLoadTexture(const Common::ImageData::Ptr& imageData, const std::string& tag, ResultWhen resultWhen);
             [[nodiscard]] Render::TextureId OnLoadAssetTextureInternal(const std::vector<std::string>& assetTextureNames, const std::string& tag, ResultWhen resultWhen);
             [[nodiscard]] std::expected<TextRender, bool> OnRenderText(const std::string& text, const Platform::TextProperties& properties, ResultWhen resultWhen);
 

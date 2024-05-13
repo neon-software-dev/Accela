@@ -91,6 +91,7 @@ project(LibAccelaEngine VERSION 0.0.1 LANGUAGES CXX)
 	file(GLOB AccelaEngine_Include_Headers_Model "include/Accela/Engine/Model/*.h")
 	file(GLOB AccelaEngine_Include_Headers_Bounds "include/Accela/Engine/Bounds/*.h")
 	file(GLOB AccelaEngine_Include_Headers_Physics "include/Accela/Engine/Physics/*.h")
+	file(GLOB AccelaEngine_Include_Headers_Util "include/Accela/Engine/Util/*.h")
 
 	file(GLOB AccelaEngine_Sources "src/*.cpp")
 	file(GLOB AccelaEngine_Headers "src/*.h")
@@ -120,6 +121,7 @@ add_library(AccelaEngine STATIC
 	${AccelaEngine_Include_Headers_Model}
 	${AccelaEngine_Include_Headers_Bounds}
 	${AccelaEngine_Include_Headers_Physics}
+	${AccelaEngine_Include_Headers_Util}
 
 	${AccelaEngine_Sources}
 	${AccelaEngine_Headers}
@@ -145,14 +147,9 @@ if (ACCELA_USE_GPU_CUDA)
 	target_compile_definitions(AccelaEngine PRIVATE "ACCELA_USE_GPU_CUDA")
 endif()
 
-target_compile_features(AccelaEngine
-	PUBLIC
-		cxx_std_23
-)
+target_compile_features(AccelaEngine PUBLIC cxx_std_23)
 
-if (NOT MSVC)
-	target_compile_options(AccelaEngine PRIVATE ${ACCELA_WARNINGS_FLAGS})
-endif()
+target_compile_options(AccelaEngine PRIVATE ${ACCELA_WARNINGS_FLAGS})
 
 #########################
 # TODO: Remove when this block when PhysX package in vcpkg isn't broken for linux

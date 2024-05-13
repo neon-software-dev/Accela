@@ -82,9 +82,7 @@ target_compile_features(AccelaRendererVk
 		cxx_std_23
 )
 
-if (NOT MSVC)
-	target_compile_options(AccelaRendererVk PRIVATE ${ACCELA_WARNINGS_FLAGS})
-endif()
+target_compile_options(AccelaRendererVk PRIVATE ${ACCELA_WARNINGS_FLAGS})
 
 target_link_libraries(AccelaRendererVk
 	PUBLIC

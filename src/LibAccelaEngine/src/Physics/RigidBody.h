@@ -15,6 +15,7 @@
 
 #include <array>
 #include <variant>
+#include <vector>
 
 namespace Accela::Engine
 {
@@ -89,24 +90,24 @@ namespace Accela::Engine
 
     struct RigidActorData
     {
-        explicit RigidActorData(const ShapeData& _shape,
+        explicit RigidActorData(std::vector<ShapeData> _shapes,
                                 const glm::vec3& _position = glm::vec3(0),
                                 const glm::quat& _orientation = {glm::identity<glm::quat>()})
-            : shape(_shape)
+            : shapes(std::move(_shapes))
             , position(_position)
             , orientation(_orientation)
         { }
 
-        ShapeData shape;
+        std::vector<ShapeData> shapes;
         glm::vec3 position;
         glm::quat orientation;
     };
 
     struct RigidBody
     {
-        RigidBody(const RigidActorData& _actor, const RigidBodyData _body)
-            : actor(_actor)
-            , body(_body)
+        RigidBody(RigidActorData _actor, RigidBodyData _body)
+            : actor(std::move(_actor))
+            , body(std::move(_body))
         { }
 
         RigidActorData actor;

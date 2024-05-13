@@ -37,6 +37,7 @@ std::optional<VkFormat> VulkanFuncs::ImageDataFormatToVkFormat(const Common::Ima
 {
     switch (format)
     {
+        case Common::ImageData::PixelFormat::RGB24: return VK_FORMAT_R8G8B8_SRGB;
         case Common::ImageData::PixelFormat::RGBA32: return VK_FORMAT_R8G8B8A8_SRGB;
         default: return std::nullopt;
     }

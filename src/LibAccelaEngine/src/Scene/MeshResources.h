@@ -67,6 +67,16 @@ namespace Accela::Engine
                 ResultWhen resultWhen
             ) override;
 
+            [[nodiscard]] std::future<Render::MeshId> LoadHeightMapMesh(
+                const Common::ImageData::Ptr& heightMapImage,
+                const Render::USize& heightMapDataSize,
+                const Render::USize& meshSize_worldSpace,
+                const float& displacementFactor,
+                Render::MeshUsage usage,
+                const std::string& tag,
+                ResultWhen resultWhen
+            ) override;
+
             void DestroyMesh(const Render::MeshId& meshId) override;
 
             void DestroyAll() override;
@@ -89,6 +99,16 @@ namespace Accela::Engine
 
             [[nodiscard]] Render::MeshId OnLoadHeightMapMesh(
                 const Render::TextureId& heightMapTextureId,
+                const Render::USize& heightMapDataSize,
+                const Render::USize& meshSize_worldSpace,
+                const float& displacementFactor,
+                Render::MeshUsage usage,
+                const std::string& tag,
+                ResultWhen resultWhen
+            );
+
+            [[nodiscard]] Render::MeshId OnLoadHeightMapMesh(
+                const Common::ImageData::Ptr& heightMapImage,
                 const Render::USize& heightMapDataSize,
                 const Render::USize& meshSize_worldSpace,
                 const float& displacementFactor,

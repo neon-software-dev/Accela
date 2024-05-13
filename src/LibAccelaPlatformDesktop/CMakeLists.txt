@@ -45,9 +45,7 @@ target_compile_features(AccelaPlatformDesktop
 		cxx_std_23
 )
 
-if (NOT MSVC)
-	target_compile_options(AccelaPlatformDesktop PRIVATE ${ACCELA_WARNINGS_FLAGS})
-endif()
+target_compile_options(AccelaPlatformDesktop PRIVATE ${ACCELA_WARNINGS_FLAGS})
 
 target_link_libraries(AccelaPlatformDesktop
 	PUBLIC

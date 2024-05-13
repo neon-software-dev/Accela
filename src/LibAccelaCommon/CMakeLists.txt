@@ -39,9 +39,7 @@ target_compile_features(AccelaCommon
 		cxx_std_23
 )
 
-if (NOT MSVC)
-	target_compile_options(AccelaCommon PRIVATE ${ACCELA_WARNINGS_FLAGS})
-endif()
+target_compile_options(AccelaCommon PRIVATE ${ACCELA_WARNINGS_FLAGS})
 
 if (ACCELA_TARGET_PLATFORM MATCHES ${ACCELA_TARGET_PLATFORM_DESKTOP})
 	target_compile_definitions(AccelaCommon PUBLIC _ACCELA_PLATFORM_DESKTOP)

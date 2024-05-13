@@ -79,6 +79,29 @@ namespace Accela::Engine
             ) = 0;
 
             /**
+            * Load a mesh generated from a height map image
+            *
+            * @param heightMapImage The image containing the height map data
+            * @param heightMapDataSize The number of data points, width x height, that should be pulled from the height map
+            * @param meshSize_worldSpace The world-space size of the mesh that will be created
+            * @param displacementFactor Constant multiplier against texture values to determine height displacement of vertices
+            * @param usage Usage pattern for the mesh
+            * @param tag Debug tag to associate with the mesh
+            * @param resultWhen At which point of the load the returned future should be signaled
+            *
+            * @return A future that's signaled with the MeshId when the operation has finished
+            */
+            [[nodiscard]] virtual std::future<Render::MeshId> LoadHeightMapMesh(
+                const Common::ImageData::Ptr& heightMapImage,
+                const Render::USize& heightMapDataSize,
+                const Render::USize& meshSize_worldSpace,
+                const float& displacementFactor,
+                Render::MeshUsage usage,
+                const std::string& tag,
+                ResultWhen resultWhen
+            ) = 0;
+
+            /**
              * Destroy a previously loaded mesh
              *
              * @param meshId The MeshId of the mesh to destroy

@@ -12,6 +12,7 @@
 #include <glm/glm.hpp>
 
 #include <array>
+#include <vector>
 
 namespace Accela::Engine
 {
@@ -25,37 +26,35 @@ namespace Accela::Engine
             /**
              * Create a static physics body - Has infinite mass, no velocity
              */
-            [[nodiscard]] static PhysicsComponent StaticBody(const PhysicsShape& shape, const PhysicsMaterial& material)
+            [[nodiscard]] static PhysicsComponent StaticBody(const std::vector<PhysicsShape>& _shapes)
             {
-                return {RigidBodyType::Static, shape, material};
+                return {RigidBodyType::Static, _shapes};
             }
 
             /**
              * Create a kinematic physics body - Has infinite mass, velocity can be changed
              */
-            [[nodiscard]] static PhysicsComponent KinematicBody(const PhysicsShape& shape, const PhysicsMaterial& material)
+            [[nodiscard]] static PhysicsComponent KinematicBody(const std::vector<PhysicsShape>& _shapes)
             {
-                return {RigidBodyType::Kinematic, shape, material};
+                return {RigidBodyType::Kinematic, _shapes};
             }
 
             /**
              * Create a dynamic physics body - Has mass, has velocity
              */
-            [[nodiscard]] static PhysicsComponent DynamicBody(const PhysicsShape& shape, const PhysicsMaterial& material, float mass)
+            [[nodiscard]] static PhysicsComponent DynamicBody(const std::vector<PhysicsShape>& _shapes, float _mass)
             {
-                return {RigidBodyType::Dynamic,shape, material, mass};
+                return {RigidBodyType::Dynamic, _shapes, _mass};
             }
 
         private:
 
             PhysicsComponent(RigidBodyType _bodyType,
-                             const PhysicsShape& _shape,
-                             const PhysicsMaterial& _material,
+                             std::vector<PhysicsShape> _shapes,
                              const float& _mass = 0.0f,
                              const glm::vec3& _linearVelocity = glm::vec3(0))
                 : bodyType(_bodyType)
-                , shape(_shape)
-                , material(_material)
+                , shapes(std::move(_shapes))
                 , mass(_mass)
                 , linearVelocity(_linearVelocity)
             { }
@@ -64,8 +63,7 @@ namespace Accela::Engine
 
             RigidBodyType bodyType{RigidBodyType::Dynamic};
 
-            PhysicsShape shape;
-            PhysicsMaterial material;
+            std::vector<PhysicsShape> shapes;
 
             float mass{0.0f};
 

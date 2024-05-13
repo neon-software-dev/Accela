@@ -101,6 +101,20 @@ TextureResources::LoadAssetCubeTexture(const std::array<std::string, 6>& assetTe
     return messageFuture;
 }
 
+std::future<Render::TextureId> TextureResources::LoadTexture(const Common::ImageData::Ptr& imageData, const std::string& tag, ResultWhen resultWhen)
+{
+    auto message = std::make_shared<TextureResultMessage>();
+    auto messageFuture = message->CreateFuture();
+
+    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& _message){
+        std::dynamic_pointer_cast<TextureResultMessage>(_message)->SetResult(
+            OnLoadTexture(imageData, tag, resultWhen)
+        );
+    });
+
+    return messageFuture;
+}
+
 std::future<std::expected<TextRender, bool>>
 TextureResources::RenderText(const std::string& text, const Platform::TextProperties& properties, ResultWhen resultWhen)
 {
@@ -148,6 +162,50 @@ Render::TextureId TextureResources::OnLoadAssetCubeTexture(const std::array<std:
     std::ranges::copy(assetTextureNames, std::back_inserter(assetTextureNamesVec));
 
     return OnLoadAssetTextureInternal(assetTextureNamesVec, tag, resultWhen);
+}
+
+Render::TextureId TextureResources::OnLoadTexture(const Common::ImageData::Ptr& imageData, const std::string& tag, ResultWhen resultWhen)
+{
+    //
+    // Create and record the texture
+    //
+    const auto textureId = m_renderer->GetIds()->textureIds.GetId();
+    const auto texture = ToRenderTexture(textureId, TextureData(imageData), tag);
+
+    Render::TextureView textureView;
+    if (texture.numLayers == 1)
+    {
+        textureView = Render::TextureView::ViewAs2D(Render::TextureView::DEFAULT, Render::TextureView::Aspect::ASPECT_COLOR_BIT);
+    }
+    else
+    {
+        textureView = Render::TextureView::ViewAsCube(Render::TextureView::DEFAULT, Render::TextureView::Aspect::ASPECT_COLOR_BIT);
+    }
+
+    {
+        std::lock_guard<std::mutex> texturesLock(m_texturesMutex);
+
+        m_textures.insert({textureId, RegisteredTexture{texture}});
+    }
+
+    const auto textureSampler = Render::TextureSampler(Render::CLAMP_ADDRESS_MODE);
+
+    //
+    // Send the texture to the renderer
+    //
+    const bool generateMipMaps = texture.numLayers == 1;
+
+    std::future<bool> transferFuture = m_renderer->CreateTexture(texture, textureView, textureSampler, generateMipMaps);
+
+    if (resultWhen == ResultWhen::FullyLoaded && !transferFuture.get())
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "TextureResources::OnLoadAssetTextureInternal: Renderer failed to create texture: {}", tag);
+        DestroyTexture(textureId);
+        return Render::INVALID_ID;
+    }
+
+    return textureId;
 }
 
 Render::TextureId TextureResources::OnLoadAssetTextureInternal(const std::vector<std::string>& assetTextureNames, const std::string& tag, ResultWhen resultWhen)

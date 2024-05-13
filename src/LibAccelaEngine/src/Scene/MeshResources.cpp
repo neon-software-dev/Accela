@@ -80,6 +80,25 @@ std::future<Render::MeshId> MeshResources::LoadHeightMapMesh(const Render::Textu
     return messageFuture;
 }
 
+std::future<Render::MeshId> MeshResources::LoadHeightMapMesh(const Common::ImageData::Ptr& heightMapImage,
+                                                             const Render::USize& heightMapDataSize,
+                                                             const Render::USize& meshSize_worldSpace,
+                                                             const float& displacementFactor,
+                                                             Render::MeshUsage usage,
+                                                             const std::string& tag,
+                                                             ResultWhen resultWhen)
+{
+    auto message = std::make_shared<MeshResultMessage>();
+    auto messageFuture = message->CreateFuture();
+
+    m_threadPool->PostMessage(message, [=, this](const Common::Message::Ptr& _message) {
+        std::dynamic_pointer_cast<MeshResultMessage>(_message)->SetResult(
+            OnLoadHeightMapMesh(heightMapImage, heightMapDataSize, meshSize_worldSpace, displacementFactor, usage, tag, resultWhen)
+        );
+    });
+
+    return messageFuture;
+}
 
 Render::MeshId MeshResources::OnLoadStaticMesh(const std::vector<Render::MeshVertex>& vertices,
                                                const std::vector<uint32_t>& indices,
@@ -116,7 +135,7 @@ Render::MeshId MeshResources::OnLoadHeightMapMesh(const Render::TextureId& heigh
     m_logger->Log(Common::LogLevel::Info, "MeshResources: Loading height map mesh: {}", tag);
 
     //
-    // Setup
+    // Fetch the texture's data
     //
     const auto heightMapTextureOpt = m_textures->GetLoadedTextureData(heightMapTextureId);
     if (!heightMapTextureOpt)
@@ -134,9 +153,31 @@ Render::MeshId MeshResources::OnLoadHeightMapMesh(const Render::TextureId& heigh
     }
 
     //
-    // Parse the texture's data to generate height map data
+    // Load the height map mesh from the texture's image data
     //
-    const auto heightMapData = GenerateHeightMapData(heightMapTextureOpt->data.value(), heightMapDataSize, meshSize_worldSpace, displacementFactor);
+    return OnLoadHeightMapMesh(
+        heightMapTextureOpt->data.value(),
+        heightMapDataSize,
+        meshSize_worldSpace,
+        displacementFactor,
+        usage,
+        tag,
+        resultWhen
+    );
+}
+
+Render::MeshId MeshResources::OnLoadHeightMapMesh(const Common::ImageData::Ptr& heightMapImage,
+                                                  const Render::USize& heightMapDataSize,
+                                                  const Render::USize& meshSize_worldSpace,
+                                                  const float& displacementFactor,
+                                                  Render::MeshUsage usage,
+                                                  const std::string& tag,
+                                                  ResultWhen resultWhen)
+{
+    //
+    // Parse the image data to generate height map data
+    //
+    const auto heightMapData = GenerateHeightMapData(heightMapImage, heightMapDataSize, meshSize_worldSpace, displacementFactor);
 
     //
     // Transform the height map data points into a mesh

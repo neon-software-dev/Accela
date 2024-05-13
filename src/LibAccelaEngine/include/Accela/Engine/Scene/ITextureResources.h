@@ -16,6 +16,8 @@
 
 #include <Accela/Platform/Text/TextProperties.h>
 
+#include <Accela/Common/ImageData.h>
+
 #include <Accela/Render/Id.h>
 
 #include <expected>
@@ -52,7 +54,8 @@ namespace Accela::Engine
             [[nodiscard]] virtual std::future<bool> LoadAllAssetTextures(ResultWhen resultWhen) = 0;
 
             /**
-             * Asynchronously loads a specific texture file from the assets textures directory.
+             * Asynchronously loads a specific texture file from the assets textures directory into the renderer.
+             *
              * @param assetTextureName The file name of the texture to be loaded
              * @param resultWhen At which point of the load the returned future should be signaled
              *
@@ -72,6 +75,19 @@ namespace Accela::Engine
             [[nodiscard]] virtual std::future<Render::TextureId> LoadAssetCubeTexture(const std::array<std::string, 6>& assetTextureNames,
                                                                                       const std::string& tag,
                                                                                       ResultWhen resultWhen) = 0;
+
+            /**
+            * Asynchronously loads specific texture data into the renderer.
+            *
+            * @param imageData The image data defining the texture to load
+            * @param tag A debug tag to associate with the texture
+            * @param resultWhen At which point of the load the returned future should be signaled
+            *
+            * @return A future that's signaled with the TextureId when the operation has finished
+            */
+            [[nodiscard]] virtual std::future<Render::TextureId> LoadTexture(const Common::ImageData::Ptr& imageData,
+                                                                             const std::string& tag,
+                                                                             ResultWhen resultWhen) = 0;
 
             /**
              * Asynchronously renders text and loads it into a texture.

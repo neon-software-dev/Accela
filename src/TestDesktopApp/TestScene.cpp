@@ -255,11 +255,12 @@ void TestScene::CreateFloorEntity(glm::vec3 position,
     // PhysicsComponent
     //
     Engine::PhysicsComponent physicsComponent = Engine::PhysicsComponent::StaticBody(
-        Engine::PhysicsShape(Engine::Bounds_AABB(
+        {Engine::PhysicsShape(
+        Engine::PhysicsMaterial(),
+        Engine::Bounds_AABB(
             glm::vec3{-0.5f, -0.5f, -0.5f},
             glm::vec3{0.5f, 0.5f, 0.5f}
-        )),
-        Engine::PhysicsMaterial()
+        ))}
     );
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, physicsComponent);
 }
@@ -289,8 +290,9 @@ void TestScene::CreateTerrainEntity(const float& scale, const glm::vec3& positio
     // PhysicsComponent
     //
     Engine::PhysicsComponent physicsComponent = Engine::PhysicsComponent::StaticBody(
-        Engine::PhysicsShape(Engine::Bounds_HeightMap(m_terrainHeightMapMeshId)),
-        Engine::PhysicsMaterial()
+        {Engine::PhysicsShape(
+        Engine::PhysicsMaterial(),
+        Engine::Bounds_HeightMap(m_terrainHeightMapMeshId))}
     );
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, physicsComponent);
 }
@@ -324,20 +326,20 @@ void TestScene::CreateCubeEntity(glm::vec3 position,
     //
     std::optional<Engine::PhysicsComponent> physicsComponent;
 
-    const auto shape = Engine::PhysicsShape(Engine::Bounds_AABB(
+    const auto shape = Engine::PhysicsShape(
+        Engine::PhysicsMaterial(),
+        Engine::Bounds_AABB(
         glm::vec3{-0.5f, -0.5f, -0.5f},
         glm::vec3{0.5f, 0.5f, 0.5f}
     ));
 
-    const auto material = Engine::PhysicsMaterial{};
-
     if (isStatic)
     {
-        physicsComponent = Engine::PhysicsComponent::StaticBody(shape, material);
+        physicsComponent = Engine::PhysicsComponent::StaticBody({shape});
     }
     else
     {
-        physicsComponent = Engine::PhysicsComponent::DynamicBody(shape, material, 3.0f);
+        physicsComponent = Engine::PhysicsComponent::DynamicBody({shape}, 3.0f);
     }
 
     physicsComponent->linearVelocity = linearVelocity;

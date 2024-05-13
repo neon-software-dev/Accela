@@ -264,27 +264,41 @@ bool PhysXPhysics::CreateRigidBody(const EntityId& eid, const RigidBody& data)
     SetPhysXRigidBodyDataFrom(pRigidActor, data.actor, data.body);
 
     //
-    // Create PhysX Material
+    // Create Physx Shapes+Materials
     //
-    auto pMaterial = CreateMaterial(data.actor.shape.material);
-    if (pMaterial == nullptr) { return false; }
+    std::vector<std::pair<physx::PxShape*, physx::PxMaterial*>> shapes;
 
-    //
-    // Create PhysX Shape
-    //
-    auto pShape = CreateShape(data.actor.shape, pMaterial);
-    if (pShape == nullptr) { return false; }
+    for (const auto& shape : data.actor.shapes)
+    {
+        //
+        // Create PhysX Material
+        //
+        auto pMaterial = CreateMaterial(shape.material);
+        if (pMaterial == nullptr) { return false; }
+
+        //
+        // Create PhysX Shape
+        //
+        auto pShape = CreateShape(shape, pMaterial);
+        if (pShape == nullptr) { return false; }
+
+        //
+        // Attach shape to the actor
+        //
+        pRigidActor->attachShape(*pShape);
+
+        shapes.emplace_back(pShape, pMaterial);
+    }
 
     //
     // Configure
     //
-    pRigidActor->attachShape(*pShape);
     m_pxScene->addActor(*pRigidActor);
 
     //
     // Record
     //
-    PhysXRigidBody rigidBody(data, pRigidActor, pMaterial, pShape);
+    PhysXRigidBody rigidBody(data, pRigidActor, shapes);
 
     m_entityToRigidBody.insert({eid, rigidBody});
     m_physXActorToEntity.insert({pRigidActor, eid});
@@ -313,36 +327,46 @@ bool PhysXPhysics::UpdateRigidBody(const EntityId& eid, const RigidBody& data)
     it->second.data = data;
 
     //
-    // TODO! Support updating material too
-    //
-
-    //
     // RigidBodyShape
     //
 
-    // TODO Perf: Only destroy and recreate the shape if it changed..
+    // TODO Perf: Only destroy and recreate shapes if something changed
 
-    // Free any previous shape the actor might have had
-    if (it->second.pShape != nullptr)
+    // Remove and free any previous shapes+materials the actor might have had
+    for (auto& shapeIt : it->second.shapes)
     {
-        it->second.pRigidActor->detachShape(*it->second.pShape);
-        PX_RELEASE(it->second.pShape)
-        it->second.pShape = nullptr;
+        // Detach the shape from the actor
+        it->second.pRigidActor->detachShape(*shapeIt.first);
+
+        // Release the shape and its material
+        PX_RELEASE(shapeIt.second)
+        PX_RELEASE(shapeIt.first)
     }
 
-    // Create a new PhysX shape representing the entity's bounds
-    it->second.pShape = CreateShape(data.actor.shape, it->second.pMaterial);
-    if (it->second.pShape == nullptr)
+    it->second.shapes.clear();
+
+    // Create new PhysX shapes
+    for (const auto& shape : data.actor.shapes)
     {
-        m_logger->Log(Common::LogLevel::Error,
-          "PhysXPhysics::UpdateRigidBodyFromEntity: Failed to create shape for entity: {}", eid);
-        return false;
+        auto* pMaterial = CreateMaterial(shape.material);
+        if (pMaterial == nullptr)
+        {
+            m_logger->Log(Common::LogLevel::Error, "PhysXPhysics::UpdateRigidBody: Failed to create shape material");
+            return false;
+        }
+
+        auto* pShape = CreateShape(shape, pMaterial);
+        if (pShape == nullptr)
+        {
+            m_logger->Log(Common::LogLevel::Error, "PhysXPhysics::UpdateRigidBody: Failed to create shape");
+            return false;
+        }
+
+        // Add the shape to the actor
+        it->second.pRigidActor->attachShape(*pShape);
+
+        it->second.shapes.emplace_back(pShape, pMaterial);
     }
-
-    // Add the shape to the actor
-    it->second.pRigidActor->attachShape(*it->second.pShape);
-
-    it->second.data.actor.shape = data.actor.shape;
 
     return true;
 }
@@ -725,20 +749,20 @@ void PhysXPhysics::DestroyRigidBody(const EntityId& eid)
         return;
     }
 
-    if (it->second.pShape != nullptr)
+    // Detach and destroy actor shapes+materials
+    for (auto& shapeIt : it->second.shapes)
     {
-        it->second.pRigidActor->detachShape(*it->second.pShape);
-        PX_RELEASE(it->second.pShape)
-        it->second.pShape = nullptr;
+        it->second.pRigidActor->detachShape(*shapeIt.first);
+        PX_RELEASE(shapeIt.second)
+        PX_RELEASE(shapeIt.first)
     }
 
-    PX_RELEASE(it->second.pMaterial)
-    it->second.pMaterial = nullptr;
-
+    // Remove the actor itself from the scene and destroy it
     m_pxScene->removeActor(*it->second.pRigidActor);
     PX_RELEASE(it->second.pRigidActor)
     it->second.pRigidActor = nullptr;
 
+    // Remove our records of the body/entity
     m_entityToRigidBody.erase(it);
     m_physXActorToEntity.clear();
 
@@ -957,19 +981,16 @@ void PhysXPhysics::DebugCheckResources()
     Common::Assert(actorCountMatches, m_logger, "PhysXPhysics::DebugCheckResources: Actor count didn't match");
 
     //
-    // One material should exist for each rigid body and player controller
+    // One material should exist for each rigid body shape and player controller
     //
-    const bool materialCountMatches = m_pxPhysics->getNbMaterials() == (m_entityToRigidBody.size() + m_playerControllers.size());
-    if (!materialCountMatches)
-    {
-        std::vector<physx::PxMaterial*> materials(m_pxPhysics->getNbMaterials(), nullptr);
-        m_pxPhysics->getMaterials(materials.data(), m_pxPhysics->getNbMaterials());
+    std::size_t rigidBodyShapes = 0;
 
-        for (const auto& pMaterial : materials)
-        {
-            m_logger->Log(Common::LogLevel::Error, "Material still exists: {}", (std::size_t)pMaterial);
-        }
+    for (const auto& it : m_entityToRigidBody)
+    {
+        rigidBodyShapes += it.second.shapes.size();
     }
+
+    const bool materialCountMatches = m_pxPhysics->getNbMaterials() == (rigidBodyShapes + m_playerControllers.size());
     Common::Assert(materialCountMatches, m_logger, "PhysXPhysics::DebugCheckResources: Material count didn't match");
 
     //
