@@ -179,10 +179,19 @@ bool VulkanPipeline::Create(const PipelineConfig& config)
     rasterizer.lineWidth = 1.0f;
     rasterizer.cullMode = vkCullModeFlags;
     rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-    rasterizer.depthBiasEnable = VK_TRUE;
-    rasterizer.depthBiasConstantFactor = 4.0f; // Optional (from https://blogs.igalia.com/itoral/2017/10/02/working-with-lights-and-shadows-part-iii-rendering-the-shadows/)
-    rasterizer.depthBiasClamp = 0.0f; // Optional
-    rasterizer.depthBiasSlopeFactor = 1.5f; // Optional
+
+    if (config.depthBias == DepthBias::Enabled)
+    {
+        // From: https://blogs.igalia.com/itoral/2017/10/02/working-with-lights-and-shadows-part-iii-rendering-the-shadows/
+        rasterizer.depthBiasEnable = VK_TRUE;
+        rasterizer.depthBiasConstantFactor = 2.0f;
+        rasterizer.depthBiasClamp = 0.0f;
+        rasterizer.depthBiasSlopeFactor = 1.1f;
+    }
+    else
+    {
+        rasterizer.depthBiasEnable = VK_FALSE;
+    }
 
     switch (config.polygonFillMode)
     {

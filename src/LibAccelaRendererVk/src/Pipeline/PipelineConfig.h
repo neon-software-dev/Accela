@@ -34,6 +34,12 @@ namespace Accela::Render
         Line
     };
 
+    enum class DepthBias
+    {
+        Enabled,
+        Disabled
+    };
+
     struct ColorAttachment
     {
         explicit ColorAttachment(bool _enableColorBlending)
@@ -76,6 +82,7 @@ namespace Accela::Render
         //
         CullFace cullFace{CullFace::Back};
         PolygonFillMode polygonFillMode{PolygonFillMode::Fill};
+        DepthBias depthBias{DepthBias::Disabled};
 
         //
         // Tesselation configuration

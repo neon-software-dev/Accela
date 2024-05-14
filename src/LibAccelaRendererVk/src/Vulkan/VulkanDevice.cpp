@@ -56,12 +56,19 @@ bool VulkanDevice::Create(const VulkanPhysicalDevicePtr& physicalDevice, const V
     VkPhysicalDeviceFeatures2 deviceFeatures{};
     deviceFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
     deviceFeatures.pNext = &vkPhysicalDeviceMultiviewFeatures;
-    deviceFeatures.features.tessellationShader = true;
-    deviceFeatures.features.independentBlend = true;
+    deviceFeatures.features.tessellationShader = VK_TRUE;
+    deviceFeatures.features.independentBlend = VK_TRUE;
+
+    if (physicalDevice->GetPhysicalDeviceFeatures().samplerAnisotropy)
+    {
+        m_logger->Log(Common::LogLevel::Info, "VulkanDevice::Create: Enabling samplerAnisotropy feature");
+        deviceFeatures.features.samplerAnisotropy = VK_TRUE;
+    }
 
     if (physicalDevice->GetPhysicalDeviceFeatures().fillModeNonSolid)
     {
-        deviceFeatures.features.fillModeNonSolid = true;
+        m_logger->Log(Common::LogLevel::Info, "VulkanDevice::Create: Enabling fillModeNonSolid feature");
+        deviceFeatures.features.fillModeNonSolid = VK_TRUE;
     }
 
     // Required device extensions

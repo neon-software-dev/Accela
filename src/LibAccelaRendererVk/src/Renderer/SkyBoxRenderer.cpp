@@ -203,6 +203,7 @@ void SkyBoxRenderer::Render(const RenderParams& renderParams,
         viewport,
         CullFace::Back,
         PolygonFillMode::Fill,
+        DepthBias::Disabled,
         PushConstantRange::None(),
         m_frameIndex,
         m_pipelineHash

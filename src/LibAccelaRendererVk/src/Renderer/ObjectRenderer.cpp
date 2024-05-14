@@ -1136,6 +1136,8 @@ std::expected<VulkanPipelinePtr, bool> ObjectRenderer::GetBatchPipeline(
         fillMode = PolygonFillMode::Line;
     }
 
+    const auto depthBias = renderType == RenderType::Shadow ? DepthBias::Enabled : DepthBias::Disabled;
+
     auto pipeline = GetPipeline(
         m_logger,
         m_vulkanObjs,
@@ -1147,6 +1149,7 @@ std::expected<VulkanPipelinePtr, bool> ObjectRenderer::GetBatchPipeline(
         viewport,
         cullFace,
         fillMode,
+        depthBias,
         pushConstantRanges,
         m_frameIndex,
         oldPipelineHash

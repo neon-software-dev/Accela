@@ -32,6 +32,13 @@ namespace Accela::Render
         High
     };
 
+    enum class TextureAnisotropy
+    {
+        None,
+        Low,
+        Maximum
+    };
+
     /**
      * Parameters which control rendering
      */
@@ -50,13 +57,20 @@ namespace Accela::Render
         //
         uint8_t framesInFlight{3};
 
-        // Note that this is render resolution, which is different from window resolution and virtual resolution
+        // Note: This is render resolution, which is different from window resolution and virtual resolution
         USize resolution{1920, 1080};
 
         //
         // Shadows
         //
         QualityLevel shadowQuality{QualityLevel::Medium};
+
+        //
+        // Textures
+        //
+
+        // Warning: Changing this at runtime does NOT retroactively recreate pre-existing texture samplers
+        TextureAnisotropy textureAnisotropy{TextureAnisotropy::Low};
 
         //
         // Objects

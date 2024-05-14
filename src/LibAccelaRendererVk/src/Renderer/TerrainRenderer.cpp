@@ -360,6 +360,7 @@ std::expected<VulkanPipelinePtr, bool> TerrainRenderer::GetBatchPipeline(const V
         viewport,
         CullFace::Back,
         PolygonFillMode::Fill,
+        DepthBias::Disabled,
         PushConstantRange::None(),
         m_frameIndex,
         m_pipelineHash

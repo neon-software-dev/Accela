@@ -447,6 +447,20 @@ bool Textures::CreateTextureImageSampler(LoadedTexture& loadedTexture, const Tex
     samplerInfo.minLod = 0.0f;
     samplerInfo.maxLod = 0.0f;
 
+    // Configure anisotropy if the device supports it
+    if (m_vulkanObjs->GetPhysicalDevice()->GetPhysicalDeviceFeatures().samplerAnisotropy == VK_TRUE)
+    {
+        const auto anisotropyLevel = m_vulkanObjs->GetRenderSettings().textureAnisotropy;
+
+        samplerInfo.anisotropyEnable = anisotropyLevel == TextureAnisotropy::None ? VK_FALSE : VK_TRUE;
+
+        const float maxAnisotropy = anisotropyLevel == TextureAnisotropy::Maximum ?
+            m_vulkanObjs->GetPhysicalDevice()->GetPhysicalDeviceProperties().limits.maxSamplerAnisotropy :
+            2.0f;
+
+        samplerInfo.maxAnisotropy = maxAnisotropy;
+    }
+
     // Configure mipmap sampling if we have mip levels
     if (loadedTexture.mipLevels > 1)
     {

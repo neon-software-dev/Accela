@@ -67,6 +67,10 @@ namespace Accela::Render
              */
             [[nodiscard]] std::string GetDeviceName() const;
 
+            [[nodiscard]] const VkPhysicalDeviceProperties& GetPhysicalDeviceProperties() const noexcept {
+                return m_vkPhysicalDeviceProperties;
+            }
+
             [[nodiscard]] const VkPhysicalDeviceFeatures& GetPhysicalDeviceFeatures() const noexcept {
                 return m_vkPhysicalDeviceFeatures;
             }

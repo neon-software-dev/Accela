@@ -31,6 +31,7 @@ std::expected<VulkanPipelinePtr, bool> GetPipeline(
     const Viewport& viewport,
     const CullFace& cullFace,
     const PolygonFillMode& polygonFillMode,
+    const DepthBias& depthBias,
     const std::optional<std::vector<PushConstantRange>>& pushConstantRanges,
     const std::optional<std::size_t>& tag,
     const std::optional<std::size_t>& oldPipelineHash)
@@ -86,6 +87,7 @@ std::expected<VulkanPipelinePtr, bool> GetPipeline(
     //
     pipelineConfig.cullFace = cullFace;
     pipelineConfig.polygonFillMode = polygonFillMode;
+    pipelineConfig.depthBias = depthBias;
 
     // If the device doesn't support non-solid fill mode, override the setting to fill
     if (!vulkanObjs->GetPhysicalDevice()->GetPhysicalDeviceFeatures().fillModeNonSolid)

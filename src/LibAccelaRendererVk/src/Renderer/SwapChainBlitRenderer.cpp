@@ -180,6 +180,7 @@ void SwapChainBlitRenderer::Render(const VulkanCommandBufferPtr& commandBuffer,
         viewport,
         CullFace::Back,
         PolygonFillMode::Fill,
+        DepthBias::Disabled,
         PushConstantRange::None(),
         m_frameIndex,
         m_pipelineHash

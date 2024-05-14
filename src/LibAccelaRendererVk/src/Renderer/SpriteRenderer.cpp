@@ -163,6 +163,7 @@ void SpriteRenderer::Render(const std::string& sceneName,
         viewport,
         CullFace::Back,
         PolygonFillMode::Fill,
+        DepthBias::Disabled,
         PushConstantRange::None(),
         m_frameIndex,
         m_pipelineHash

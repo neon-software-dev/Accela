@@ -36,6 +36,7 @@ namespace Accela::Render
         const Viewport& viewport,
         const CullFace& cullFace = CullFace::Back,
         const PolygonFillMode& polygonFillMode = PolygonFillMode::Fill,
+        const DepthBias& depthBias = DepthBias::Disabled,
         const std::optional<std::vector<PushConstantRange>>& pushConstantRanges = std::nullopt,
         const std::optional<std::size_t>& tag = std::nullopt,
         const std::optional<std::size_t>& oldPipelineHash = std::nullopt

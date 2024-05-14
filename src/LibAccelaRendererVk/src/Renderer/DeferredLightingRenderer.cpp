@@ -195,6 +195,7 @@ std::expected<VulkanPipelinePtr, bool> DeferredLightingRenderer::BindPipeline(Re
         viewport,
         CullFace::Back,
         PolygonFillMode::Fill,
+        DepthBias::Disabled,
         PushConstantRange::None(),
         m_frameIndex,
         m_pipelineHash

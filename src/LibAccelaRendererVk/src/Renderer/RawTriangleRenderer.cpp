@@ -118,6 +118,7 @@ void RawTriangleRenderer::Render(const RenderParams& renderParams,
         viewport,
         CullFace::Back,
         PolygonFillMode::Line,
+        DepthBias::Disabled,
         PushConstantRange::None(),
         m_frameIndex,
         m_pipelineHash
