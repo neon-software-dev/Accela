@@ -126,7 +126,7 @@ bool InfinitePerlinNoise::SubExists(const glm::vec2& pos) const
     return true;
 }
 
-std::optional<InfinitePerlinNoise::SubChunkImage> InfinitePerlinNoise::GetSubImage(const glm::vec2& pos)
+std::optional<InfinitePerlinNoise::SubChunk> InfinitePerlinNoise::GetSubChunk(const glm::vec2& pos)
 {
     const auto keys = PosToKeys(pos);
     const auto& chunkKey = keys.first;
@@ -140,35 +140,36 @@ std::optional<InfinitePerlinNoise::SubChunkImage> InfinitePerlinNoise::GetSubIma
     const auto it = chunk.subs.find(subKey);
     if (it != chunk.subs.cend())
     {
-        return SubChunkImage(keys, it->second);
+        return it->second;
     }
 
     // Otherwise, generate the sub image
     const float subXOffset = (float)subKey.x * (float)m_subSize;
     const float subYOffset = (float)subKey.y * (float)m_subSize;
 
-    auto subImage = chunk.perlinNoise.GetQueryAsImage(
+    auto subData = chunk.perlinNoise.Get(
         {subXOffset, subYOffset},
         m_subSize,
         m_imageSize
     );
-
-    if (subImage == nullptr)
+    if (subData == std::nullopt)
     {
         return std::nullopt;
     }
 
     // Record the sub and return
-    chunk.subs.insert({subKey, subImage});
+    auto subChunk = SubChunk(keys, *subData);
 
-    return SubChunkImage(keys, subImage);
+    chunk.subs.insert({subKey, subChunk});
+
+    return subChunk;
 }
 
-std::optional<InfinitePerlinNoise::SubChunkImage> InfinitePerlinNoise::GetSubImageIfNotExists(const glm::vec2& pos)
+std::optional<InfinitePerlinNoise::SubChunk> InfinitePerlinNoise::GetSubChunkIfNotExists(const glm::vec2& pos)
 {
     if (SubExists(pos)) { return std::nullopt; }
 
-    return GetSubImage(pos);
+    return GetSubChunk(pos);
 }
 
 std::vector<InfinitePerlinNoise::ChunkKey> InfinitePerlinNoise::GetAllChunksOutsideDistance(const glm::vec2& pos, float distance) const

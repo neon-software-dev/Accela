@@ -95,8 +95,8 @@ const uint SHADOW_MAP_TYPE_CUBE = 1;
 CalculatedLight CalculateFragmentLighting(MaterialPayload fragmentMaterial);
 float GetFragShadowLevel(LightPayload lightData, vec3 fragPosition_worldSpace);
 float GetLightFragDepth(LightPayload lightData, vec3 fragPosition_worldSpace);
-float GetLightClosestFragDepth_Single(LightPayload lightData, vec3 fragPosition_worldSpace);
-float GetLightClosestFragDepth_Cube(LightPayload lightData, vec3 fragPosition_worldSpace);
+float GetFragShadowLevel_Single(LightPayload lightData, vec3 fragPosition_worldSpace, float lightToFragDepth);
+float GetFragShadowLevel_Cube(LightPayload lightData, vec3 fragPosition_worldSpace, float lightToFragDepth);
 bool IsPointWithinLightCone(LightPayload light, vec3 point_worldSpace);
 
 float MapRange(float val, float min1, float max1, float min2, float max2)
@@ -318,7 +318,6 @@ CalculatedLight CalculateFragmentLighting(MaterialPayload fragmentMaterial)
     return light;
 }
 
-// TODO: Restore PCF filtering
 float GetFragShadowLevel(LightPayload lightData, vec3 fragPosition_worldSpace)
 {
     // If the light has no shadow map, then the fragment isn't in shadow from it
@@ -327,29 +326,17 @@ float GetFragShadowLevel(LightPayload lightData, vec3 fragPosition_worldSpace)
     // Depth distance [0,1] from the light to the provided fragment's position
     const float lightToFragDepth = GetLightFragDepth(lightData, fragPosition_worldSpace);
 
-    // Depth distance [0,1] from the light to the closet fragment to the light along the provided position vector
-    float lightToClosestFragDepth = 1.0f;
-
     switch (lightData.shadowMapType)
     {
         case SHADOW_MAP_TYPE_SINGLE:
-        {
-            lightToClosestFragDepth = GetLightClosestFragDepth_Single(lightData, fragPosition_worldSpace);
-        }
-        break;
+            return GetFragShadowLevel_Single(lightData, fragPosition_worldSpace, lightToFragDepth);
 
         case SHADOW_MAP_TYPE_CUBE:
-        {
-            lightToClosestFragDepth = GetLightClosestFragDepth_Cube(lightData, fragPosition_worldSpace);
-        }
-        break;
+            return GetFragShadowLevel_Cube(lightData, fragPosition_worldSpace, lightToFragDepth);
 
         // Unsupported light type, return no shadow since we don't know how to access its shadow map
         default: {  return 0.0f; }
     }
-
-    // If the fragment's distance is further than the light's closest fragment, then it's in shadow
-    return lightToFragDepth > lightToClosestFragDepth ? 1.0f : 0.0f;
 }
 
 float GetLightFragDepth(LightPayload lightData, vec3 fragPosition_worldSpace)
@@ -359,23 +346,36 @@ float GetLightFragDepth(LightPayload lightData, vec3 fragPosition_worldSpace)
     return length(lightToFrag) / lightData.maxAffectRange;
 }
 
-float GetLightClosestFragDepth_Single(LightPayload lightData, vec3 fragPosition_worldSpace)
+float GetFragShadowLevel_Single(LightPayload lightData, vec3 fragPosition_worldSpace, float lightToFragDepth)
 {
     const vec4 fragPosition_lightClipSpace = lightData.lightTransform * vec4(fragPosition_worldSpace, 1);
-
     const vec3 fragPosition_lightNDCSpace = fragPosition_lightClipSpace.xyz / fragPosition_lightClipSpace.w;
-
-    // The coordinates to sample the light's shadow map at
     const vec2 shadowSampleCoords = fragPosition_lightNDCSpace.xy * 0.5f + 0.5f;
 
-    const float closestDepth = texture(i_shadowSampler[lightData.shadowMapIndex], shadowSampleCoords).r;
+    const vec2 texelSize = 1.0 / textureSize(i_shadowSampler[lightData.shadowMapIndex], 0);
 
-    return closestDepth;
+    float shadow = 0.0;
+
+    // PCF filter
+    for (int x = -1; x <= 1; ++x)
+    {
+        for (int y = -1; y <= 1; ++y)
+        {
+            const float pcfFragDepth = texture(
+                i_shadowSampler[lightData.shadowMapIndex],
+                shadowSampleCoords + (vec2(x, y) * texelSize)
+            ).r;
+
+            shadow += lightToFragDepth > pcfFragDepth ? 1.0 : 0.0;
+        }
+    }
+
+    return shadow / 9.0f;
 }
 
-float GetLightClosestFragDepth_Cube(LightPayload lightData, vec3 fragPosition_worldSpace)
+float GetFragShadowLevel_Cube(LightPayload lightData, vec3 fragPosition_worldSpace, float lightToFragDepth)
 {
-    // Vector from the light to the fragment to use when sampling the light's shadow cube map
+    // Vector from the light to the fragment, used when sampling the light's shadow cube map
     vec3 lightToFrag_worldSpace = fragPosition_worldSpace - lightData.worldPos;
 
     // Correct for cube map coordinate system and sampling rules differing from our internal coordinate system
@@ -392,9 +392,32 @@ float GetLightClosestFragDepth_Cube(LightPayload lightData, vec3 fragPosition_wo
         lightToFrag_worldSpace.z = -lightToFrag_worldSpace.z;
     }
 
-    const float closestDepth = texture(i_shadowSampler_cubeMap[lightData.shadowMapIndex], lightToFrag_worldSpace).r;
+    // PCF filter
+    const vec3 sampleOffsetDirections[20] = vec3[]
+    (
+        vec3(1, 1, 1), vec3(1, -1, 1), vec3(-1, -1, 1), vec3(-1, 1, 1),
+        vec3(1, 1,-1), vec3(1,-1, -1), vec3(-1, -1, -1), vec3(-1, 1, -1),
+        vec3(1, 1, 0), vec3(1,-1, 0), vec3(-1, -1, 0), vec3(-1, 1, 0),
+        vec3(1, 0, 1), vec3(-1, 0, 1), vec3(1, 0, -1), vec3(-1, 0, -1),
+        vec3(0, 1, 1), vec3(0, -1, 1), vec3(0, -1, -1), vec3(0, 1, -1)
+    );
 
-    return closestDepth;
+    const int numSamples = 20;
+    const float diskRadius = (1.0 + (length(lightToFrag_worldSpace) / lightData.maxAffectRange)) / 50.0;
+
+    float shadow = 0.0;
+
+    for (int i = 0; i < numSamples; ++i)
+    {
+        const float pcfFragDepth = texture(
+            i_shadowSampler_cubeMap[lightData.shadowMapIndex],
+            lightToFrag_worldSpace + sampleOffsetDirections[i] * diskRadius
+        ).r;
+
+        shadow += lightToFragDepth > pcfFragDepth ? 1.0 : 0.0;
+    }
+
+    return shadow / float(numSamples);
 }
 
 bool IsPointWithinLightCone(LightPayload light, vec3 point_worldSpace)

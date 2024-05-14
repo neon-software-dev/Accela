@@ -363,16 +363,13 @@ void DevScene::CreateCubeEntity(glm::vec3 position,
         glm::vec3{0.5f, 0.5f, 0.5f}
     ));
 
-    auto shape2 = shape;
-    shape2.localTransform = {0, 3, 0};
-
     if (isStatic)
     {
         physicsComponent = Engine::PhysicsComponent::StaticBody({shape});
     }
     else
     {
-        physicsComponent = Engine::PhysicsComponent::DynamicBody({shape,shape2}, 3.0f);
+        physicsComponent = Engine::PhysicsComponent::DynamicBody({shape}, 3.0f);
     }
 
     physicsComponent->linearVelocity = linearVelocity;

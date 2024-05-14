@@ -49,10 +49,10 @@ namespace Accela::Engine
 
             using Keys = std::pair<ChunkKey, SubKey>;
 
-            struct SubChunkImage
+            struct SubChunk
             {
                 Keys keys;
-                Common::ImageData::Ptr imageData;
+                std::vector<float> chunkData;
             };
 
         public:
@@ -82,21 +82,20 @@ namespace Accela::Engine
             [[nodiscard]] bool SubExists(const glm::vec2& pos) const;
 
             /**
-             * Returns an image for a particular sub-chunk. Will locally cache the image and will
-             * return the cached image in subsequent calls for the sub-chunk.
+             * Returns the sub-chunk associated with a particular position. Will internally cache
+             * the sub-chunk's data and will return from cache for subsequent calls.
              *
              * @param pos The point which identifies the sub-chunk which contains that point
              *
-             * @return The image for the sub-chunk containing a particular point, or std::nullopt
-             * on error.
+             * @return The sub-chunk containing the point, or std::nullopt on error.
              */
-            [[nodiscard]] std::optional<SubChunkImage> GetSubImage(const glm::vec2& pos);
+            [[nodiscard]] std::optional<SubChunk> GetSubChunk(const glm::vec2& pos);
 
             /**
-             * Same as GetSubImage except will also return std::nullopt if the image for the sub-chunk
-             * is already cached from a previous call.
+             * Same as GetSubChunk except will also return std::nullopt if the sub-chunk data
+             * is already cached internally.
              */
-            [[nodiscard]] std::optional<SubChunkImage> GetSubImageIfNotExists(const glm::vec2& pos);
+            [[nodiscard]] std::optional<SubChunk> GetSubChunkIfNotExists(const glm::vec2& pos);
 
             /**
              * Gets a list of all chunks (not sub-chunks) which are more than a specific distance from a
@@ -125,7 +124,7 @@ namespace Accela::Engine
                 { }
 
                 PerlinNoise perlinNoise;
-                std::unordered_map<SubKey, Common::ImageData::Ptr, SubKey::HashFunction> subs;
+                std::unordered_map<SubKey, SubChunk, SubKey::HashFunction> subs;
             };
 
         private:

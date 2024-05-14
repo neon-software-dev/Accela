@@ -67,6 +67,8 @@ namespace Accela::Engine
 
             void Destroy() override;
 
+            [[nodiscard]] std::optional<EntityId> GetEid() const { return m_eid; }
+
             void RunAnimation(const Engine::ModelAnimationState& animationState);
             void StopAnimation();
 

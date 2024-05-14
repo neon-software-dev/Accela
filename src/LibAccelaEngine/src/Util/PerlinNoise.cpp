@@ -202,48 +202,114 @@ bool PerlinNoise::SetSideGradients(Side destSide, const PerlinNoise& sourceNoise
     return true;
 }
 
-Common::ImageData::Ptr PerlinNoise::GetQueryAsImage(const std::pair<unsigned int, unsigned int>& queryOffset,
-                                                    const unsigned int& querySize,
-                                                    const unsigned int& imageSize) const
+std::optional<std::vector<float>> PerlinNoise::Get(const std::pair<unsigned int, unsigned int>& queryOffset,
+                                                   const unsigned int& querySize,
+                                                   const unsigned int& dataSize) const
 {
     // Check for querying outside the bounds of the perlin grid
-    if (queryOffset.first + querySize > m_size) { return nullptr; }
-    if (queryOffset.second + querySize > m_size) { return nullptr; }
+    if (queryOffset.first + querySize > m_size) { return std::nullopt; }
+    if (queryOffset.second + querySize > m_size) { return std::nullopt; }
 
-    // The interval of query points within the query size to fill the image's points
-    const float interval = (float)querySize / (float)(imageSize - 1);
+    // The interval of query points within the query section needed to match the data size
+    const float interval = (float)querySize / (float)(dataSize - 1);
 
-    std::vector<std::byte> imageBytes;
-    imageBytes.reserve(imageSize * imageSize * 4);
+    std::vector<float> data;
+    data.reserve(dataSize * dataSize);
 
-    for (unsigned int y = 0; y < imageSize; ++y)
+    for (unsigned int y = 0; y < dataSize; ++y)
     {
-        for (unsigned int x = 0; x < imageSize; ++x)
+        for (unsigned int x = 0; x < dataSize; ++x)
         {
             // Query for the perlin value
-            const float perlinVal = Get({
-              (float)queryOffset.first + (float)x * interval,
-              (float)queryOffset.second + (float)y * interval}
-            );
-
-            // Convert from [-1,1] -> [0,1]
-            const float rangedVal = (perlinVal + 1.0f) / 2.0f;
-
-            // Convert from [0,1] -> [0,255]
-            const auto imageByte = std::byte(rangedVal * 255.0f);
-
-            imageBytes.push_back(imageByte);        // R
-            imageBytes.push_back(imageByte);        // G
-            imageBytes.push_back(imageByte);        // B
-            imageBytes.push_back(std::byte(255));   // A
+            data.push_back(Get({
+                (float)queryOffset.first + (float)x * interval,
+                (float)queryOffset.second + (float)y * interval}
+            ));
         }
     }
 
+    return data;
+}
+
+std::optional<std::vector<float>> PerlinNoise::Get(const std::pair<unsigned int, unsigned int>& queryOffset,
+                                                   const std::vector<std::pair<unsigned int, float>>& octaves,
+                                                   const unsigned int& dataSize) const
+{
+    //
+    // Query for the perlin data for each octave
+    //
+    std::vector<std::vector<float>> octaveData;
+
+    for (const auto& octave: octaves)
+    {
+        const auto dataOpt = Get(queryOffset, octave.first, dataSize);
+        if (!dataOpt)
+        {
+            return std::nullopt;
+        }
+
+        octaveData.push_back(*dataOpt);
+    }
+
+    //
+    // Combine the octave data into a result data set
+    //
+    std::vector<float> result(dataSize * dataSize, 0.0f);
+
+    for (unsigned int o = 0; o < octaves.size(); ++o)
+    {
+        const float octaveAmplitude = octaves[o].second;
+
+        for (std::size_t x = 0; x < dataSize * dataSize; ++x)
+        {
+            result[x] += octaveAmplitude * octaveData[o][x];
+        }
+    }
+
+    //
+    // Normalize the output back to [-1,1] range
+    //
+    float amplitudeTotal = 0.0f;
+
+    for (const auto& octave : octaves)
+    {
+        amplitudeTotal += octave.second;
+    }
+
+    for (unsigned int x = 0; x < dataSize; ++x)
+    {
+        result[x] = result[x] / amplitudeTotal;
+    }
+
+    return result;
+}
+
+Common::ImageData::Ptr PerlinNoise::ToRGBA32(const std::vector<float>& data)
+{
+    const auto dataSize = (unsigned int)std::sqrt(data.size());
+
+    std::vector<std::byte> dataBytes;
+    dataBytes.reserve(data.size());
+
+    for (const auto& val : data)
+    {
+        // Convert from [-1,1] -> [0,1]
+        const float rangedVal = (val + 1.0f) / 2.0f;
+
+        // Convert from [0,1] -> [0,255]
+        const auto imageByte = std::byte(rangedVal * 255.0f);
+
+        dataBytes.push_back(imageByte);        // R
+        dataBytes.push_back(imageByte);        // G
+        dataBytes.push_back(imageByte);        // B
+        dataBytes.push_back(std::byte(255));   // A
+    }
+
     return std::make_shared<Common::ImageData>(
-        imageBytes,
+        dataBytes,
         1,
-        imageSize,
-        imageSize,
+        dataSize,
+        dataSize,
         Common::ImageData::PixelFormat::RGBA32
     );
 }

@@ -58,10 +58,14 @@ namespace Accela::Engine
     {
         explicit PhysicsShape(const PhysicsMaterial& _material,
                               const BoundsVariant& _bounds,
+                              const ShapeUsage& _usage = ShapeUsage::Simulation,
+                              const glm::vec3& _localScale = glm::vec3(1),
                               const glm::vec3& _localTransform = glm::vec3(0),
                               const glm::quat& _localOrientation = glm::identity<glm::quat>())
             : material(_material)
             , bounds(_bounds)
+            , usage(_usage)
+            , localScale(_localScale)
             , localTransform(_localTransform)
             , localOrientation(_localOrientation)
         { }
@@ -72,20 +76,24 @@ namespace Accela::Engine
         /** Model-space bounds defining the shape */
         BoundsVariant bounds;
 
-        /** Additional local transform of the bounds relative to entity's model space (defaults to model-space origin)*/
+        /**
+        * Whether the shape is part of the physics simulation or a trigger shape.
+        *
+        * Note: If set to Trigger, the shape will not take part in the physics simulation and will only be used
+        * as a trigger shape.
+        */
+        ShapeUsage usage;
+
+        /** Additional local scale applied to the shape's bounds */
+        glm::vec3 localScale;
+
+        /** Additional local transform applied to the shape's bounds, relative to the entity's model
+         * space (defaults to none) */
         glm::vec3 localTransform;
 
-        /** Additional local orientation of the bounds relative to the entity's model space (defaults to none) */
+        /** Additional local orientation applied to the shape's bounds, relative to the entity's model
+         * space (defaults to none) */
         glm::quat localOrientation;
-
-        /**
-         * Whether the shape is part of the physics simulation or a trigger shape.
-         *
-         * Note: If set to Trigger, the shape will not take part in the physics simulation and will only be used
-         * as a trigger shape. This means it should probably be only attached to a static or kinematic body which
-         * is manually controlled.
-         */
-        ShapeUsage usage{ShapeUsage::Simulation};
     };
 
     /**

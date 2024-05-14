@@ -206,7 +206,7 @@ ShapeData PhysicsSyncSystem::GetShape(const PhysicsShape& physicsShape,
         physicsShape.usage,
         physicsShape.bounds,
         material,
-        transformComponent.GetScale(),
+        transformComponent.GetScale() * physicsShape.localScale,
         physicsShape.localTransform,
         physicsShape.localOrientation
     );
