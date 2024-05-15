@@ -16,6 +16,9 @@
 #include <Accela/Common/BuildInfo.h>
 
 #include <thread>
+#include <array>
+#include <algorithm>
+#include <ranges>
 
 namespace Accela::Engine
 {
@@ -925,14 +928,91 @@ bool PhysXPhysics::ApplyRigidBodyLocalForce(const EntityId& eid, const glm::vec3
     return true;
 }
 
+class RaycastCallback : public physx::PxRaycastCallback
+{
+    private:
+
+        static constexpr unsigned int HIT_BUFFER_SIZE = 16;
+
+    public:
+
+        RaycastCallback()
+            : PxHitCallback(nullptr, HIT_BUFFER_SIZE)
+        {
+            touches = hitBuffer.data();
+        }
+
+        physx::PxAgain processTouches(const physx::PxRaycastHit* hit, physx::PxU32 nbHits) override
+        {
+            for (unsigned int x = 0; x < nbHits; ++x)
+            {
+                results.push_back(hit[x]);
+            }
+
+            return true;
+        }
+
+    public:
+
+        std::vector<physx::PxRaycastHit> results;
+
+    private:
+
+        // Internal buffer which PhysX fills with hit data
+        std::array<physx::PxRaycastHit, HIT_BUFFER_SIZE> hitBuffer;
+};
+
 std::vector<RaycastResult> PhysXPhysics::RaycastForCollisions(const glm::vec3& rayStart_worldSpace,
                                                               const glm::vec3& rayEnd_worldSpace) const
 {
-    // TODO!
-    (void)rayStart_worldSpace;
-    (void)rayEnd_worldSpace;
+    std::vector<RaycastResult> results;
 
-    return std::vector<RaycastResult>{};
+    //
+    // Query PhysX with a Raycast for intersecting actors
+    //
+    RaycastCallback raycastCallback{};
+
+    physx::PxQueryFilterData pxQueryFilterData{};
+    pxQueryFilterData.flags = pxQueryFilterData.flags | physx::PxQueryFlag::eNO_BLOCK;
+
+    m_pxScene->raycast(
+        ToPhysX(rayStart_worldSpace),
+        ToPhysX(glm::normalize(rayEnd_worldSpace - rayStart_worldSpace)),
+        glm::distance(rayStart_worldSpace, rayEnd_worldSpace),
+        raycastCallback,
+        physx::PxHitFlag::eDEFAULT,
+        pxQueryFilterData
+    );
+
+    //
+    // Convert PhysX PxRaycastHits to internal RaycastResults
+    //
+    for (const auto& pxRaycastHit : raycastCallback.results)
+    {
+        const auto entity = PxRigidActorToEntity(pxRaycastHit.actor);
+        if (entity)
+        {
+            std::visit([&](auto&& arg){
+                results.emplace_back(
+                    arg,
+                    FromPhysX(pxRaycastHit.position),
+                    FromPhysX(pxRaycastHit.normal)
+                );
+            }, *entity);
+        }
+    }
+
+    //
+    // Sort results by distance, closest to ray start first
+    //
+    std::ranges::sort(results, [&](const auto& l, const auto& r){
+        const auto distanceToLeft = glm::distance(rayStart_worldSpace, l.hitPoint_worldSpace);
+        const auto distanceToRight = glm::distance(rayStart_worldSpace, r.hitPoint_worldSpace);
+
+        return distanceToLeft < distanceToRight;
+    });
+
+    return results;
 }
 
 physx::PxRigidBody* PhysXPhysics::GetAsRigidBody(const physx::PxRigidActor* pRigidActor)
@@ -1074,6 +1154,25 @@ void PhysXPhysics::onAdvance(const physx::PxRigidBody *const *bodyBuffer,
     (void)bodyBuffer;
     (void)poseBuffer;
     (void)count;
+}
+
+std::optional<std::variant<EntityId, std::string>> PhysXPhysics::PxRigidActorToEntity(physx::PxRigidActor* pRigidActor) const
+{
+    // Try to resolve the actor to an entity
+    const auto it = m_physXActorToEntity.find(pRigidActor);
+    if (it != m_physXActorToEntity.cend())
+    {
+        return it->second;
+    }
+
+    // Try to resolve the actor to a player controller
+    const auto it2 = m_physXActorToPlayerController.find(pRigidActor);
+    if (it2 != m_physXActorToPlayerController.cend())
+    {
+        return it2->second;
+    }
+
+    return std::nullopt;
 }
 
 }

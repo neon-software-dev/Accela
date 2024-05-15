@@ -170,6 +170,8 @@ namespace Accela::Engine
             [[nodiscard]] static inline physx::PxRigidBody* GetAsRigidBody(const physx::PxRigidActor* pRigidActor);
             [[nodiscard]] static inline physx::PxRigidDynamic* GetAsRigidDynamic(const physx::PxRigidActor* pRigidActor);
 
+            [[nodiscard]] std::optional<std::variant<EntityId, std::string>> PxRigidActorToEntity(physx::PxRigidActor* pRigidActor) const;
+
             void SyncMetrics();
             void DebugCheckResources();
 

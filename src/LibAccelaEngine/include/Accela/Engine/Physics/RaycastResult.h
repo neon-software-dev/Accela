@@ -11,6 +11,8 @@
 
 #include <glm/glm.hpp>
 
+#include <variant>
+
 namespace Accela::Engine
 {
     /**
@@ -18,13 +20,16 @@ namespace Accela::Engine
      */
     struct RaycastResult
     {
-        RaycastResult(EntityId _eid, const glm::vec3& _hitPoint_worldSpace, const glm::vec3& _hitNormal_worldSpace)
-            : eid(_eid)
+        RaycastResult(std::variant<EntityId, std::string> _entity,
+                      const glm::vec3& _hitPoint_worldSpace,
+                      const glm::vec3& _hitNormal_worldSpace)
+            : entity(std::move(_entity))
             , hitPoint_worldSpace(_hitPoint_worldSpace)
             , hitNormal_worldSpace(_hitNormal_worldSpace)
         { }
 
-        EntityId eid;                   // EntityId associated with the body that was hit
+        std::variant<EntityId, std::string> entity;  // Entity that was hit, either an EntityId or a player name
+
         glm::vec3 hitPoint_worldSpace;  // The world-space coordinate of the geometry that was hit
         glm::vec3 hitNormal_worldSpace; // The world-space normal of the geometry that was hit
     };
