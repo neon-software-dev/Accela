@@ -270,7 +270,7 @@ bool SkyBoxRenderer::BindGlobalDescriptorSet(const RenderParams& renderParams,
     // Update the Descriptor Set with global data. (Note that the SkyBox pipeline doesn't need global light data).
     //
     if (!UpdateGlobalDescriptorSet_Global(renderParams, *globalDataDescriptorSet)) { return false; }
-    if (!UpdateGlobalDescriptorSet_ViewProjection(*globalDataDescriptorSet, viewProjections)) { return false; }
+    if (!UpdateGlobalDescriptorSet_ViewProjection(renderParams, *globalDataDescriptorSet, viewProjections)) { return false; }
 
     //
     // Bind the Descriptor Set
@@ -325,7 +325,8 @@ bool SkyBoxRenderer::UpdateGlobalDescriptorSet_Global(const RenderParams& render
     return true;
 }
 
-bool SkyBoxRenderer::UpdateGlobalDescriptorSet_ViewProjection(const VulkanDescriptorSetPtr& globalDataDescriptorSet,
+bool SkyBoxRenderer::UpdateGlobalDescriptorSet_ViewProjection(const RenderParams& renderParams,
+                                                              const VulkanDescriptorSetPtr& globalDataDescriptorSet,
                                                               const std::vector<ViewProjection>& viewProjections) const
 {
     //
@@ -349,11 +350,17 @@ bool SkyBoxRenderer::UpdateGlobalDescriptorSet_ViewProjection(const VulkanDescri
     //
     std::vector<ViewProjectionPayload> viewProjectionPayloads;
 
-    std::ranges::transform(viewProjections, std::back_inserter(viewProjectionPayloads), [](const auto& viewProjection){
+    std::ranges::transform(viewProjections, std::back_inserter(viewProjectionPayloads), [&](const auto& viewProjection){
         ViewProjectionPayload viewProjectionPayload = GetViewProjectionPayload(viewProjection);
 
         // Convert view transform to and from a mat3 to keep camera rotation but drop camera translation
         viewProjectionPayload.viewTransform = glm::mat4(glm::mat3(viewProjectionPayload.viewTransform));
+
+        // Apply any additional user-supplied skybox view transform
+        if (renderParams.skyBoxViewTransform)
+        {
+            viewProjectionPayload.viewTransform = viewProjectionPayload.viewTransform * *renderParams.skyBoxViewTransform;
+        }
 
         return viewProjectionPayload;
     });

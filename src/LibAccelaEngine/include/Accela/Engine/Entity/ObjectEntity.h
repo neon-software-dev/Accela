@@ -69,6 +69,8 @@ namespace Accela::Engine
                          Params params);
             ~ObjectEntity() override;
 
+            [[nodiscard]] std::optional<EntityId> GetEid() const noexcept { return m_eid; }
+
             void Destroy() override;
 
         private:

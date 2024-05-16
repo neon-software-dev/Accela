@@ -10,6 +10,7 @@
 #include "Util/OrthoProjection.h"
 
 #include <Accela/Render/IVulkanContext.h>
+#include <Accela/Render/Util/Vector.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -20,20 +21,14 @@ namespace Accela::Render
 {
 
 constexpr float PERSPECTIVE_CLIP_NEAR = 0.1f;
-constexpr float PERSPECTIVE_CLIP_FAR = 1000.0f;
 
-inline bool AreUnitVectorsParallel(const glm::vec3& a, const glm::vec3& b)
-{
-    return glm::abs(glm::dot(a, b)) > .9999f;
-}
-
-float GetLightMaxAffectRange(const Light& light)
+float GetLightMaxAffectRange(const RenderSettings& renderSettings, const Light& light)
 {
     switch (light.lightProperties.attenuationMode)
     {
         case AttenuationMode::None:
             // Range is however much range we normally render objects at
-            return PERSPECTIVE_CLIP_FAR;
+            return renderSettings.maxRenderDistance;
         case AttenuationMode::Linear:
             // c1 / d with c1 = 10.0
             // attenuation is 1% at d = 1000
@@ -45,7 +40,7 @@ float GetLightMaxAffectRange(const Light& light)
     }
 
     assert(false);
-    return PERSPECTIVE_CLIP_FAR;
+    return renderSettings.maxRenderDistance;
 }
 
 GlobalPayload GetGlobalPayload(const RenderParams& renderParams, const unsigned int& numLights)
@@ -68,12 +63,13 @@ ViewProjectionPayload GetViewProjectionPayload(const ViewProjection& viewProject
     return viewProjectionPayload;
 }
 
-std::expected<ViewProjection, bool> GetCameraViewProjection(const IVulkanContextPtr& context,
+std::expected<ViewProjection, bool> GetCameraViewProjection(const RenderSettings& renderSettings,
+                                                            const IVulkanContextPtr& context,
                                                             const RenderCamera& camera,
                                                             const std::optional<Eye>& eye)
 {
     const auto viewTransform = GetCameraViewTransform(context, camera, eye);
-    const auto projectionTransform = GetCameraProjectionTransform(context, camera, eye);
+    const auto projectionTransform = GetCameraProjectionTransform(renderSettings, context, camera, eye);
 
     if (!projectionTransform)
     {
@@ -88,17 +84,11 @@ glm::mat4 GetCameraViewTransform(const IVulkanContextPtr& context,
                                  const std::optional<Eye>& eye)
 {
     const auto lookUnit = camera.lookUnit;
-    auto upUnit = camera.upUnit;
 
-    // glm::lookAt is undefined if the look and up vectors are parallel, so choose
-    // an alternate up vector in those cases
-    if (AreUnitVectorsParallel(camera.lookUnit, upUnit))
-    {
-        // If looking up, then our "up" is re-adjusted to be pointing out of the screen
-        if (lookUnit.y >= 0.0f)  { upUnit = glm::vec3(0,0,1); }
-        // If looking down, then our "up" is re-adjusted to be pointing into the screen
-        else                     { upUnit = glm::vec3(0,0,-1); }
-    }
+    const auto upUnit =
+        This(camera.upUnit)
+        .ButIfParallelWith(camera.lookUnit)
+        .Then({0,0,1});
 
     glm::mat4 viewTransform = glm::lookAt(
         camera.position,
@@ -121,7 +111,8 @@ glm::mat4 GetCameraViewTransform(const IVulkanContextPtr& context,
     return viewTransform;
 }
 
-std::expected<Projection::Ptr, bool> GetCameraProjectionTransform(const IVulkanContextPtr& context,
+std::expected<Projection::Ptr, bool> GetCameraProjectionTransform(const RenderSettings& renderSettings,
+                                                                  const IVulkanContextPtr& context,
                                                                   const RenderCamera& camera,
                                                                   const std::optional<Eye>& eye)
 {
@@ -143,7 +134,7 @@ std::expected<Projection::Ptr, bool> GetCameraProjectionTransform(const IVulkanC
             topTanHalfAngle,
             bottomTanHalfAngle,
             PERSPECTIVE_CLIP_NEAR,
-            PERSPECTIVE_CLIP_FAR
+            renderSettings.maxRenderDistance
         );
     }
     else
@@ -151,14 +142,18 @@ std::expected<Projection::Ptr, bool> GetCameraProjectionTransform(const IVulkanC
         //
         // FrustumProjection for the projectionFrustum for the current render camera
         //
-        return FrustumProjection::From(camera, PERSPECTIVE_CLIP_NEAR, PERSPECTIVE_CLIP_FAR);
+        return FrustumProjection::From(
+            camera,
+            PERSPECTIVE_CLIP_NEAR,
+            renderSettings.maxRenderDistance
+        );
     }
 }
 
-std::expected<ViewProjection, bool> GetShadowMapViewProjection(const LoadedLight& loadedLight)
+std::expected<ViewProjection, bool> GetShadowMapViewProjection(const RenderSettings& renderSettings, const LoadedLight& loadedLight)
 {
     const auto viewTransform = GetShadowMapViewTransform(loadedLight);
-    const auto projectionTransform = GetShadowMapProjectionTransform(loadedLight);
+    const auto projectionTransform = GetShadowMapProjectionTransform(renderSettings, loadedLight);
 
     if (!viewTransform) { return std::unexpected(false); }
     if (!projectionTransform) { return std::unexpected(false); }
@@ -168,18 +163,10 @@ std::expected<ViewProjection, bool> GetShadowMapViewProjection(const LoadedLight
 
 std::expected<glm::mat4, bool> GetShadowMapViewTransform(const LoadedLight& loadedLight)
 {
-    auto upUnit = glm::vec3(0, 1, 0);
-
-    // glm::lookAt is undefined if the look and up vectors are parallel, so choose
-    // an alternate up vector in those cases
-    if (AreUnitVectorsParallel(loadedLight.light.lightProperties.directionUnit, upUnit))
-    {
-        // If looking up, then our "up" is re-adjusted to be pointing out of the screen
-        if (loadedLight.light.lightProperties.directionUnit.y >= 0.0f)  { upUnit = glm::vec3(0,0,1); }
-
-        // If looking down, then our "up" is re-adjusted to be pointing into the screen
-        else { upUnit = glm::vec3(0,0,-1); }
-    }
+    const auto upUnit =
+        This({0,1,0})
+        .ButIfParallelWith(loadedLight.light.lightProperties.directionUnit)
+        .Then({0,0,1});
 
     return glm::lookAt(
         loadedLight.light.worldPos,
@@ -188,10 +175,12 @@ std::expected<glm::mat4, bool> GetShadowMapViewTransform(const LoadedLight& load
     );
 }
 
-std::expected<ViewProjection, bool> GetShadowMapCubeViewProjection(const LoadedLight& loadedLight, const CubeFace& cubeFace)
+std::expected<ViewProjection, bool> GetShadowMapCubeViewProjection(const RenderSettings& renderSettings,
+                                                                   const LoadedLight& loadedLight,
+                                                                   const CubeFace& cubeFace)
 {
     const auto viewTransform = GetShadowMapCubeViewTransform(loadedLight, cubeFace);
-    const auto projectionTransform = GetShadowMapProjectionTransform(loadedLight);
+    const auto projectionTransform = GetShadowMapProjectionTransform(renderSettings, loadedLight);
 
     if (!projectionTransform) { return std::unexpected(false); }
 
@@ -212,17 +201,10 @@ glm::mat4 GetShadowMapCubeViewTransform(const LoadedLight& loadedLight, const Cu
         case CubeFace::Forward:     lookUnit = {0,0,-1}; break;
     }
 
-    auto upUnit = glm::vec3(0, 1, 0);
-
-    // glm::lookAt is undefined if the look and up vectors are parallel, so choose
-    // an alternate up vector in those cases
-    if (AreUnitVectorsParallel(lookUnit, upUnit))
-    {
-        // If looking up, then our "up" is re-adjusted to be pointing out of the screen
-        if (lookUnit.y >= 0.0f)  { upUnit = glm::vec3(0,0,1); }
-        // If looking down, then our "up" is re-adjusted to be pointing into the screen
-        else                     { upUnit = glm::vec3(0,0,-1); }
-    }
+    const auto upUnit =
+        This({0,1,0})
+        .ButIfParallelWith(lookUnit)
+        .Then({0,0,1});
 
     return glm::lookAt(
         loadedLight.light.worldPos,
@@ -231,9 +213,9 @@ glm::mat4 GetShadowMapCubeViewTransform(const LoadedLight& loadedLight, const Cu
     );
 }
 
-std::expected<Projection::Ptr, bool> GetShadowMapProjectionTransform(const LoadedLight& loadedLight)
+std::expected<Projection::Ptr, bool> GetShadowMapProjectionTransform(const RenderSettings& renderSettings, const LoadedLight& loadedLight)
 {
-    const float lightMaxAffectRange = GetLightMaxAffectRange(loadedLight.light);
+    const float lightMaxAffectRange = GetLightMaxAffectRange(renderSettings, loadedLight.light);
 
     switch (loadedLight.light.lightProperties.projection)
     {

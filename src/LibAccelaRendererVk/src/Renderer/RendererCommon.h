@@ -109,7 +109,7 @@ namespace Accela::Render
 
     /////
 
-    [[nodiscard]] float GetLightMaxAffectRange(const Light& light);
+    [[nodiscard]] float GetLightMaxAffectRange(const RenderSettings& renderSettings, const Light& light);
 
     /**
      * Generates a GlobalPayload given the current render settings and params
@@ -119,7 +119,8 @@ namespace Accela::Render
 
     ////
 
-    [[nodiscard]] std::expected<ViewProjection, bool> GetCameraViewProjection(const IVulkanContextPtr& context,
+    [[nodiscard]] std::expected<ViewProjection, bool> GetCameraViewProjection(const RenderSettings& renderSettings,
+                                                                              const IVulkanContextPtr& context,
                                                                               const RenderCamera& camera,
                                                                               const std::optional<Eye>& eye = std::nullopt);
 
@@ -127,17 +128,20 @@ namespace Accela::Render
                                                    const RenderCamera& camera,
                                                    const std::optional<Eye>& eye);
 
-    [[nodiscard]] std::expected<Projection::Ptr, bool> GetCameraProjectionTransform(const IVulkanContextPtr& context,
+    [[nodiscard]] std::expected<Projection::Ptr, bool> GetCameraProjectionTransform(const RenderSettings& renderSettings,
+                                                                                    const IVulkanContextPtr& context,
                                                                                     const RenderCamera& camera,
                                                                                     const std::optional<Eye>& eye);
 
-    [[nodiscard]] std::expected<ViewProjection, bool> GetShadowMapViewProjection(const LoadedLight& light);
+    [[nodiscard]] std::expected<ViewProjection, bool> GetShadowMapViewProjection(const RenderSettings& renderSettings, const LoadedLight& light);
     [[nodiscard]] std::expected<glm::mat4, bool> GetShadowMapViewTransform(const LoadedLight& light);
 
-    [[nodiscard]] std::expected<ViewProjection, bool> GetShadowMapCubeViewProjection(const LoadedLight& light, const CubeFace& cubeFace);
+    [[nodiscard]] std::expected<ViewProjection, bool> GetShadowMapCubeViewProjection(const RenderSettings& renderSettings,
+                                                                                     const LoadedLight& light,
+                                                                                     const CubeFace& cubeFace);
     [[nodiscard]] glm::mat4 GetShadowMapCubeViewTransform(const LoadedLight& light, const CubeFace& cubeFace);
 
-    [[nodiscard]] std::expected<Projection::Ptr, bool> GetShadowMapProjectionTransform(const LoadedLight& light);
+    [[nodiscard]] std::expected<Projection::Ptr, bool> GetShadowMapProjectionTransform(const RenderSettings& renderSettings, const LoadedLight& light);
 }
 
 #endif //LIBACCELARENDERERVK_SRC_RENDERER_RENDERERCOMMON_H

@@ -6,6 +6,8 @@
  
 #include <Accela/Engine/Physics/PlayerController.h>
 
+#include <Accela/Render/Util/Vector.h>
+
 namespace Accela::Engine
 {
 
@@ -16,19 +18,11 @@ inline bool AreUnitVectorsParallel(const glm::vec3& a, const glm::vec3& b)
 
 std::pair<glm::vec3, glm::vec3> PlayerController::GetUpAndRightUnitsFrom(const glm::vec3& lookUnit)
 {
-    auto upUnit = glm::vec3(0, 1, 0);
-
-    // crossing vectors is undefined if they're parallel, so choose an alternate up
-    // vector in those cases
-    if (AreUnitVectorsParallel(lookUnit, upUnit))
-    {
-        // If looking up, then our "up" is re-adjusted to be pointing out of the screen
-        if (lookUnit.y >= 0.0f)  { upUnit = glm::vec3(0,0,1); }
-        // If looking down, then our "up" is re-adjusted to be pointing into the screen
-        else                     { upUnit = glm::vec3(0,0,-1); }
-    }
+    // TODO!: Use up as reported from physics system
+    auto upUnit = Render::This({0,1,0}).ButIfParallelWith(lookUnit).Then({0,0,1});
 
     const auto rightUnit = glm::normalize(glm::cross(lookUnit, upUnit));
+
     upUnit = glm::normalize(glm::cross(rightUnit, lookUnit));
 
     return std::make_pair(upUnit, rightUnit);

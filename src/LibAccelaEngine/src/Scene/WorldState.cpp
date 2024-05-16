@@ -574,10 +574,13 @@ void WorldState::SetAmbientLighting(const std::string& sceneName,
     sceneState.ambientLightColor = ambientLightColor;
 }
 
-void WorldState::SetSkyBox(const std::string& sceneName, const std::optional<Render::TextureId>& skyBoxTextureId)
+void WorldState::SetSkyBox(const std::string& sceneName,
+                           const std::optional<Render::TextureId>& skyBoxTextureId,
+                           const std::optional<glm::mat4>& skyBoxViewTransform)
 {
     auto& sceneState = GetOrCreateSceneState(sceneName);
     sceneState.skyBoxTextureId = skyBoxTextureId;
+    sceneState.skyBoxViewTransform = skyBoxViewTransform;
 }
 
 std::expected<AudioSourceId, bool> WorldState::PlayEntitySound(const EntityId& entity,

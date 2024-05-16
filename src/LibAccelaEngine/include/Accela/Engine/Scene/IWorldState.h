@@ -210,8 +210,11 @@ namespace Accela::Engine
              * @param sceneName The scene to be affected
              * @param skyBoxTextureId The TextureId of the cubic sky-map texture to be displayed, or std::nullopt if
              * the active skybox should be removed
+             * @param skyBoxViewTransform An optional additional view transform to apply to the skybox
              */
-            virtual void SetSkyBox(const std::string& sceneName, const std::optional<Render::TextureId>& skyBoxTextureId) = 0;
+            virtual void SetSkyBox(const std::string& sceneName,
+                                   const std::optional<Render::TextureId>& skyBoxTextureId,
+                                   const std::optional<glm::mat4>& skyBoxViewTransform = std::nullopt) = 0;
 
             //
             // Audio

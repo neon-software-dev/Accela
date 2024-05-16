@@ -33,6 +33,7 @@ namespace Accela::Render
         glm::vec3 ambientLightColor{1.0f}; // Color of ambient world light
 
         std::optional<TextureId> skyBoxTextureId; // SkyBox to be rendered
+        std::optional<glm::mat4> skyBoxViewTransform; // Transformation to apply to skybox
 
         std::vector<Render::Triangle> debugTriangles; // Additional raw debug triangle list to render
     };

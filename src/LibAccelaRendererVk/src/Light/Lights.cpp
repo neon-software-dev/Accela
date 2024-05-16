@@ -192,7 +192,8 @@ void Lights::ProcessDeletedLights(const WorldUpdate& update, const VulkanCommand
     }
 }
 
-// TODO: Only invalidate/recreate if a setting affecting shadows changed
+// TODO: Only invalidate/recreate if a setting affecting shadows changed. (Note: Still
+//  recreate if max render distance render setting changes)
 bool Lights::OnRenderSettingsChanged(const RenderSettings& renderSettings)
 {
     bool allSuccessful = true;
@@ -256,7 +257,7 @@ void Lights::InvalidateShadowMapsByBounds(const std::vector<AABB>& boundingBoxes
 
 bool Lights::IsVolumeTriviallyOutsideLight_Single(const LoadedLight& loadedLight, const Volume& volume_worldSpace)
 {
-    const auto shadowMapViewProjection = GetShadowMapViewProjection(loadedLight);
+    const auto shadowMapViewProjection = GetShadowMapViewProjection(m_vulkanObjs->GetRenderSettings(), loadedLight);
     if (!shadowMapViewProjection)
     {
         m_logger->Log(Common::LogLevel::Error,
@@ -281,7 +282,11 @@ bool Lights::IsVolumeTriviallyOutsideLight_Cube(const LoadedLight& loadedLight, 
     // For each shadow map cube face, invalidate the light's shadow map if the bounding box isn't trivially outside the
     // light's view projection for that face
     return std::ranges::all_of(litCubeFaces, [&](const auto& cubeFace){
-        const auto shadowMapViewProjection = GetShadowMapCubeViewProjection(loadedLight, static_cast<CubeFace>(cubeFace));
+        const auto shadowMapViewProjection = GetShadowMapCubeViewProjection(
+            m_vulkanObjs->GetRenderSettings(),
+            loadedLight,
+            static_cast<CubeFace>(cubeFace)
+        );
         if (!shadowMapViewProjection)
         {
             m_logger->Log(Common::LogLevel::Error,
@@ -400,9 +405,9 @@ Render::USize Lights::GetShadowFramebufferSize(const RenderSettings& renderSetti
     return Shadow_Low_Quality_Size;
 }
 
-bool Lights::LightAffectsViewProjections(const LoadedLight& loadedLight, const std::vector<ViewProjection>& viewProjections)
+bool Lights::LightAffectsViewProjections(const LoadedLight& loadedLight, const std::vector<ViewProjection>& viewProjections) const
 {
-    const Sphere lightSphere(loadedLight.light.worldPos, GetLightMaxAffectRange(loadedLight.light));
+    const Sphere lightSphere(loadedLight.light.worldPos, GetLightMaxAffectRange(m_vulkanObjs->GetRenderSettings(), loadedLight.light));
 
     return std::ranges::any_of(viewProjections, [&](const auto& viewProjection){
         const auto boundingVolume = viewProjection.GetWorldSpaceAABB().GetVolume();

@@ -141,7 +141,9 @@ namespace Accela::Engine
             //
             // SkyMap
             //
-            void SetSkyBox(const std::string& sceneName, const std::optional<Render::TextureId>& skyBoxTextureId) override;
+            void SetSkyBox(const std::string& sceneName,
+                           const std::optional<Render::TextureId>& skyBoxTextureId,
+                           const std::optional<glm::mat4>& skyBoxViewTransform) override;
 
             //
             // Audio

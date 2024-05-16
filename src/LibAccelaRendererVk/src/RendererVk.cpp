@@ -454,8 +454,8 @@ bool RendererVk::RenderGraphFunc_RenderScene(const RenderGraphNode::Ptr& node)
 
     if (m_vulkanObjs->GetRenderSettings().presentToHeadset)
     {
-        const auto leftViewProjection = GetCameraViewProjection(m_vulkanObjs->GetContext(), renderParams.worldRenderCamera, Eye::Left);
-        const auto rightViewProjection = GetCameraViewProjection(m_vulkanObjs->GetContext(), renderParams.worldRenderCamera, Eye::Right);
+        const auto leftViewProjection = GetCameraViewProjection(m_vulkanObjs->GetRenderSettings(), m_vulkanObjs->GetContext(), renderParams.worldRenderCamera, Eye::Left);
+        const auto rightViewProjection = GetCameraViewProjection(m_vulkanObjs->GetRenderSettings(), m_vulkanObjs->GetContext(), renderParams.worldRenderCamera, Eye::Right);
 
         if (!leftViewProjection || !rightViewProjection)
         {
@@ -468,7 +468,7 @@ bool RendererVk::RenderGraphFunc_RenderScene(const RenderGraphNode::Ptr& node)
     }
     else
     {
-        const auto viewProjection = GetCameraViewProjection(m_vulkanObjs->GetContext(), renderParams.worldRenderCamera);
+        const auto viewProjection = GetCameraViewProjection(m_vulkanObjs->GetRenderSettings(), m_vulkanObjs->GetContext(), renderParams.worldRenderCamera);
         if (!viewProjection)
         {
             m_logger->Log(Common::LogLevel::Error, "RenderGraphFunc_RenderScene: Failed to generate camera ViewProjection");
@@ -1012,7 +1012,7 @@ bool RendererVk::RefreshShadowMap(const RenderParams& renderParams,
 
     const auto shadowMapTexture = shadowFramebuffer->GetAttachmentTextureViews()->at(0).first;
 
-    const float lightMaxAffectRange = GetLightMaxAffectRange(loadedLight.light);
+    const float lightMaxAffectRange = GetLightMaxAffectRange(m_vulkanObjs->GetRenderSettings(), loadedLight.light);
 
     //
     // Set up and run a shadow render for the light for each shadow map cube face that's invalidated
@@ -1065,7 +1065,7 @@ bool RendererVk::RefreshShadowMap(const RenderParams& renderParams,
             {
                 case ShadowMapType::Single:
                 {
-                    const auto viewProjection = GetShadowMapViewProjection(loadedLight);
+                    const auto viewProjection = GetShadowMapViewProjection(m_vulkanObjs->GetRenderSettings(), loadedLight);
                     if (!viewProjection)
                     {
                         m_logger->Log(Common::LogLevel::Error, "RendererVk::RefreshShadowMap: Failed to generate shadow map ViewProjection");
@@ -1079,7 +1079,7 @@ bool RendererVk::RefreshShadowMap(const RenderParams& renderParams,
                 {
                     for (unsigned int cubeFaceIndex = 0; cubeFaceIndex < 6; ++cubeFaceIndex)
                     {
-                        const auto viewProjection = GetShadowMapCubeViewProjection(loadedLight, static_cast<CubeFace>(cubeFaceIndex));
+                        const auto viewProjection = GetShadowMapCubeViewProjection(m_vulkanObjs->GetRenderSettings(), loadedLight, static_cast<CubeFace>(cubeFaceIndex));
                         if (!viewProjection)
                         {
                             m_logger->Log(Common::LogLevel::Error, "RendererVk::RefreshShadowMap: Failed to generate shadow map ViewProjection");

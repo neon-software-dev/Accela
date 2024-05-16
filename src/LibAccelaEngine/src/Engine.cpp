@@ -467,6 +467,7 @@ void Engine::RenderFrame(const RunState::Ptr& runState)
     renderParams.ambientLightIntensity = sceneState.ambientLightIntensity;
     renderParams.ambientLightColor = sceneState.ambientLightColor;
     renderParams.skyBoxTextureId = sceneState.skyBoxTextureId;
+    renderParams.skyBoxViewTransform = sceneState.skyBoxViewTransform;
     renderParams.debugTriangles = physics->GetDebugTriangles();
 
     PresentConfig presentConfig{};

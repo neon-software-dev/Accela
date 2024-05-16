@@ -394,7 +394,7 @@ bool DeferredLightingRenderer::BindDescriptorSet0_Lights(const RenderState& rend
         LightPayload lightPayload{};
         lightPayload.shadowMapType = static_cast<uint32_t>(loadedLight.shadowMapType);
         lightPayload.worldPos = light.worldPos;
-        lightPayload.maxAffectRange = GetLightMaxAffectRange(light);
+        lightPayload.maxAffectRange = GetLightMaxAffectRange(m_renderSettings, light);
         lightPayload.attenuationMode = static_cast<uint32_t>(light.lightProperties.attenuationMode);
         lightPayload.diffuseColor = light.lightProperties.diffuseColor;
         lightPayload.diffuseIntensity = light.lightProperties.diffuseIntensity;
@@ -407,7 +407,7 @@ bool DeferredLightingRenderer::BindDescriptorSet0_Lights(const RenderState& rend
         // shadow maps don't as we can do the transformation manually.
         if (loadedLight.shadowMapType == ShadowMapType::Single)
         {
-            const auto lightViewProjection = GetShadowMapViewProjection(loadedLight);
+            const auto lightViewProjection = GetShadowMapViewProjection(m_renderSettings, loadedLight);
             assert(lightViewProjection);
 
             lightPayload.lightTransform = lightViewProjection->GetTransformation();

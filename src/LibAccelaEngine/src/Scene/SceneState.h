@@ -27,6 +27,7 @@ namespace Accela::Engine
         glm::vec3 ambientLightColor{1.0f};
 
         std::optional<Render::TextureId> skyBoxTextureId;
+        std::optional<glm::mat4> skyBoxViewTransform;
     };
 }
 

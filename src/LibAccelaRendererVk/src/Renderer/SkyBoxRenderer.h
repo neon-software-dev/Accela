@@ -60,7 +60,8 @@ namespace Accela::Render
                                                        const std::vector<ViewProjection>& viewProjections) const;
             [[nodiscard]] bool UpdateGlobalDescriptorSet_Global(const RenderParams& renderParams,
                                                                 const VulkanDescriptorSetPtr& globalDataDescriptorSet) const;
-            [[nodiscard]] bool UpdateGlobalDescriptorSet_ViewProjection(const VulkanDescriptorSetPtr& globalDataDescriptorSet,
+            [[nodiscard]] bool UpdateGlobalDescriptorSet_ViewProjection(const RenderParams& renderParams,
+                                                                        const VulkanDescriptorSetPtr& globalDataDescriptorSet,
                                                                         const std::vector<ViewProjection>& viewProjections) const;
 
             [[nodiscard]] bool BindMaterialDescriptorSet(const RenderParams& renderParams,

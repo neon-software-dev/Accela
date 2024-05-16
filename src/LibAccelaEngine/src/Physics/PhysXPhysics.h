@@ -55,6 +55,8 @@ namespace Accela::Engine
             [[nodiscard]] bool SetPlayerControllerMovement(const std::string& name,
                                                            const glm::vec3& movement,
                                                            const float& minDistance) override;
+            [[nodiscard]] bool SetPlayerControllerUpDirection(const std::string& name,
+                                                              const glm::vec3& upDirUnit) override;
             void DestroyPlayerController(const std::string& name) override;
 
             void ClearAll() override;

@@ -6,6 +6,8 @@
  
 #include <Accela/Engine/Camera3D.h>
 
+#include <Accela/Render/Util/Vector.h>
+
 #include <glm/gtc/matrix_transform.hpp>
 
 namespace Accela::Engine
@@ -30,19 +32,7 @@ glm::vec3 Camera3D::GetLookUnit() const
 
 glm::vec3 Camera3D::GetUpUnit() const
 {
-    auto upUnit = glm::vec3(0,1,0);
-
-    const bool upParallelToLook = glm::abs(glm::dot(upUnit, m_lookUnit)) > .9999f;
-
-    if (upParallelToLook)
-    {
-        // If looking up, then our "up" is re-adjusted to be pointing out of the screen
-        if (m_lookUnit.y >= 0.0f)  { upUnit = glm::vec3(0,0,1); }
-        // If looking down, then our "up" is re-adjusted to be pointing into the screen
-        else                        { upUnit = glm::vec3(0,0,-1); }
-    }
-
-    return upUnit;
+    return m_upUnit;
 }
 
 glm::vec3 Camera3D::GetRightUnit() const
@@ -81,6 +71,11 @@ float Camera3D::GetFovYDegrees() const noexcept
 void Camera3D::SetFovYDegrees(float fovy) noexcept
 {
     m_fovy = fovy;
+}
+
+void Camera3D::SetUp(const glm::vec3& upUnit) noexcept
+{
+    m_upUnit = upUnit;
 }
 
 }

@@ -60,6 +60,8 @@ namespace Accela::Render
         // Note: This is render resolution, which is different from window resolution and virtual resolution
         USize resolution{1920, 1080};
 
+        float maxRenderDistance{1000.0f};
+
         //
         // Shadows
         //

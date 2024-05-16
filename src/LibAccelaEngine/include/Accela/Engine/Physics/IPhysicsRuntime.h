@@ -111,6 +111,17 @@ namespace Accela::Engine
                                                                    const float& minDistance) = 0;
 
             /**
+             * Updates what direction is considered up for a player controller
+             *
+             * @param name The name that identifies the player
+             * @param upDirUnit Unit vector which denotes the up direction
+             *
+             * @return True if the update was applied, false if no such player
+             */
+            [[nodiscard]] virtual bool SetPlayerControllerUpDirection(const std::string& name,
+                                                                      const glm::vec3& upDirUnit) = 0;
+
+            /**
              * Destroys a previously created player controller (if it exists)
              *
              * @param name The name that identifies the player

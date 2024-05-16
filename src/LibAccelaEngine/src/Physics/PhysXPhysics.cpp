@@ -407,10 +407,6 @@ void PhysXPhysics::SetPhysXRigidBodyDataFrom(physx::PxRigidActor* pRigidActor, c
     // RigidBody
     //
     auto* pRigidBody = GetAsRigidBody(pRigidActor);
-    if (pRigidBody != nullptr)
-    {
-        pRigidBody->setMass(body.mass);
-    }
 
     //
     // RigidBody SubData
@@ -419,6 +415,9 @@ void PhysXPhysics::SetPhysXRigidBodyDataFrom(physx::PxRigidActor* pRigidActor, c
     {
         auto* pRigidDynamic = GetAsRigidDynamic(pRigidActor);
         const auto& dynamicData = std::get<RigidBodyDynamicData>(body.subData);
+
+        // setMass is at the RigidBody level but crashes if done on a static body ..
+        pRigidBody->setMass(body.mass);
 
         if (pRigidDynamic != nullptr)
         {
@@ -849,6 +848,19 @@ bool PhysXPhysics::SetPlayerControllerMovement(const std::string& name,
     }
 
     it->second.movementCommand = PhysxMovement(movement, minDistance);
+
+    return true;
+}
+
+bool PhysXPhysics::SetPlayerControllerUpDirection(const std::string& name, const glm::vec3& upDirUnit)
+{
+    const auto it = m_playerControllers.find(name);
+    if (it == m_playerControllers.cend())
+    {
+        return false;
+    }
+
+    it->second.pPxController->setUpDirection(ToPhysX(upDirUnit));
 
     return true;
 }
