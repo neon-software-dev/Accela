@@ -112,13 +112,17 @@ namespace Accela::Engine
         };
 
         /** Describes what (was) touching the trigger - either an entity or a player */
-        using TriggerOther = std::variant<EntityId, std::string>;
+        using TriggerOther = std::variant<EntityId, PlayerControllerName>;
 
-        PhysicsTriggerEvent(Type _type, EntityId _triggeredEntityId, TriggerOther _triggerOther)
-            : type(_type)
+        PhysicsTriggerEvent(PhysicsSceneName _scene, Type _type, EntityId _triggeredEntityId, TriggerOther _triggerOther)
+            : scene(std::move(_scene))
+            , type(_type)
             , triggeredEntityId(_triggeredEntityId)
             , triggerOther(std::move(_triggerOther))
         { }
+
+        /** The scene the event is for */
+        PhysicsSceneName scene;
 
         /** The trigger event type - touch found or lost */
         Type type{Type::TouchFound};
@@ -128,6 +132,11 @@ namespace Accela::Engine
 
         /** What triggered the trigger entity */
         TriggerOther triggerOther{};
+    };
+
+    struct PhysicsSceneParams
+    {
+        glm::vec3 gravity{0.0f, -9.81f, 0.0f};
     };
 }
 

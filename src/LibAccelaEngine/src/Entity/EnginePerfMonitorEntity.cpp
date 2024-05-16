@@ -250,36 +250,22 @@ void EnginePerfMonitorEntity::CreateEntities()
     );
     currentYPos += CreateEntity(
         Common::MetricType::Counter,
-        "Physics: Physics Internal Body Count: ",
-        "Engine_Physics_Internal_Bodies_Count",
+        "Physics: Scene Count: ",
+        "Engine_Physics_Scene_Count",
         textProperties,
         currentYPos
     );
     currentYPos += CreateEntity(
         Common::MetricType::Counter,
-        "Physics: PhysX Static Bodies Count: ",
-        "Engine_Physics_Static_Bodies_Count",
+        "Physics: Static Rigid Body Count: ",
+        "Engine_Physics_Static_Rigid_Bodies_Count",
         textProperties,
         currentYPos
     );
     currentYPos += CreateEntity(
         Common::MetricType::Counter,
-        "Physics: PhysX Dynamic Bodies Count: ",
-        "Engine_Dynamic_Rigid_Bodies_Count",
-        textProperties,
-        currentYPos
-    );
-    currentYPos += CreateEntity(
-        Common::MetricType::Double,
-        "Player Distance Above Ground: ",
-        "PLAYER_ABOVE_GROUND",
-        textProperties,
-        currentYPos
-    );
-    currentYPos += CreateEntity(
-        Common::MetricType::Counter,
-        "Player Location State: ",
-        "PLAYER_STATE",
+        "Physics: Dynamic Rigid Body Count: ",
+        "Engine_Physics_Dynamic_Rigid_Bodies_Count",
         textProperties,
         currentYPos
     );

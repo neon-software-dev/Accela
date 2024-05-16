@@ -11,14 +11,8 @@
 namespace Accela::Engine
 {
 
-inline bool AreUnitVectorsParallel(const glm::vec3& a, const glm::vec3& b)
-{
-    return glm::abs(glm::dot(a, b)) > .9999f;
-}
-
 std::pair<glm::vec3, glm::vec3> PlayerController::GetUpAndRightUnitsFrom(const glm::vec3& lookUnit)
 {
-    // TODO!: Use up as reported from physics system
     auto upUnit = Render::This({0,1,0}).ButIfParallelWith(lookUnit).Then({0,0,1});
 
     const auto rightUnit = glm::normalize(glm::cross(lookUnit, upUnit));

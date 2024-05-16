@@ -18,7 +18,8 @@ static constexpr float COAST_SPEED_CHANGE = 0.01f;
 
 std::expected<KinematicPlayerController::UPtr, bool> KinematicPlayerController::Create(
     const std::shared_ptr<IEngineRuntime>& engine,
-    const std::string& name,
+    const PhysicsSceneName& scene,
+    const PlayerControllerName& name,
     const glm::vec3& position,
     const float& radius,
     const float& height
@@ -27,6 +28,7 @@ std::expected<KinematicPlayerController::UPtr, bool> KinematicPlayerController::
     PhysicsMaterial playerMaterial{};
 
     if (!engine->GetWorldState()->GetPhysics()->CreatePlayerController(
+        scene,
         name,
         position,
         radius,
@@ -37,11 +39,12 @@ std::expected<KinematicPlayerController::UPtr, bool> KinematicPlayerController::
         return std::unexpected(false);
     }
 
-    return std::make_unique<KinematicPlayerController>(Tag{}, engine, name);
+    return std::make_unique<KinematicPlayerController>(Tag{}, engine, scene, name);
 }
 
-KinematicPlayerController::KinematicPlayerController(Tag, std::shared_ptr<IEngineRuntime> engine, std::string name)
+KinematicPlayerController::KinematicPlayerController(Tag, std::shared_ptr<IEngineRuntime> engine, PhysicsSceneName scene, PlayerControllerName name)
     : m_engine(std::move(engine))
+    , m_scene(std::move(scene))
     , m_name(std::move(name))
 {
 
@@ -54,7 +57,7 @@ KinematicPlayerController::~KinematicPlayerController()
 
 void KinematicPlayerController::DestroyInternal()
 {
-    m_engine->GetWorldState()->GetPhysics()->DestroyPlayerController(m_name);
+    (void)m_engine->GetWorldState()->GetPhysics()->DestroyPlayerController(m_name, m_scene);
 }
 
 KinematicLocationState KinematicPlayerController::GetLocationState() const
@@ -74,7 +77,7 @@ std::optional<KinematicJumpState> KinematicPlayerController::GetJumpState() cons
 
 glm::vec3 KinematicPlayerController::GetPosition() const
 {
-    const auto positionOpt = m_engine->GetWorldState()->GetPhysics()->GetPlayerControllerPosition(m_name);
+    const auto positionOpt = m_engine->GetWorldState()->GetPhysics()->GetPlayerControllerPosition(m_name, m_scene);
 
     assert(positionOpt.has_value());
 
@@ -88,7 +91,7 @@ glm::vec3 KinematicPlayerController::GetPosition() const
 
 void KinematicPlayerController::OnSimulationStep(const PlayerMovement& commandedMovement, const glm::vec3& lookUnit)
 {
-    const auto playerControllerState = m_engine->GetWorldState()->GetPhysics()->GetPlayerControllerState(m_name);
+    const auto playerControllerState = m_engine->GetWorldState()->GetPhysics()->GetPlayerControllerState(m_name, m_scene);
     if (!playerControllerState)
     {
         m_engine->GetLogger()->Log(Common::LogLevel::Error,
@@ -116,7 +119,8 @@ void KinematicPlayerController::OnSimulationStep(const PlayerMovement& commanded
     if (!m_engine->GetWorldState()->GetPhysics()->SetPlayerControllerMovement(
         m_name,
         commandedTranslation,
-        minMoveDistance))
+        minMoveDistance,
+        m_scene))
     {
         m_engine->GetLogger()->Log(Common::LogLevel::Error,
         "KinematicPlayerController::OnSimulationStep: Failed to update player movement");

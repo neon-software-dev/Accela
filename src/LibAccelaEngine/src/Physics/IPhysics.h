@@ -20,6 +20,7 @@
 
 #include <vector>
 #include <unordered_set>
+#include <unordered_map>
 #include <utility>
 #include <queue>
 
@@ -39,63 +40,77 @@ namespace Accela::Engine
             virtual void SimulationStep(unsigned int timeStep) = 0;
 
             /**
-             * @return The latest RigidBody for the corresponding eid, with a boolean specifying whether
-             * the body is dirty, or std::nullopt if no such entity body exists
+             * Instructs the physics system to mark bodies as no longer dirty.
              */
-            [[nodiscard]] virtual std::optional<std::pair<RigidBody, bool>> GetRigidBody(const EntityId& eid) = 0;
-
-            /**
-           * Instructs the physics system to mark bodies as no longer dirty. Call this
-           * after syncing to its data after a simulation step
-           */
             virtual void MarkBodiesClean() = 0;
 
             /**
-             * Pop all trigger events that have occurred during SimulationSteps, since the last
+             * Pops all trigger events that have occurred during SimulationSteps, since the last
              * time this method was called.
              *
-             * @return A time-sorted queue of trigger events
+             * @return A time-sorted queue of per-scene trigger events
              */
-            [[nodiscard]] virtual std::queue<PhysicsTriggerEvent> PopTriggerEvents() = 0;
+            [[nodiscard]] virtual std::unordered_map<PhysicsSceneName, std::queue<PhysicsTriggerEvent>> PopTriggerEvents() = 0;
+
+            /**
+            * @param eid The EntityId to fetch the RigidBody for
+            * @param scene Optional scene identifier which can reduce an internal lookup if supplied
+            *
+            * @return The latest RigidBody for the corresponding eid, with a boolean specifying whether
+            * the body is dirty, or std::nullopt if no such entity body exists
+            */
+            [[nodiscard]] virtual std::optional<std::pair<RigidBody, bool>> GetRigidBody(
+                const EntityId& eid,
+                const std::optional<PhysicsSceneName>& scene) = 0;
 
             /**
              * Add a rigid body to the physics simulation
              *
+             * @param scene The scene to create the body in
              * @param eid The EntityId associated with the body
              * @param rigidBody The body's definition
              */
-            virtual bool CreateRigidBody(const EntityId& eid, const RigidBody& rigidBody) = 0;
+            virtual bool CreateRigidBody(const PhysicsSceneName& scene,
+                                         const EntityId& eid,
+                                         const RigidBody& rigidBody) = 0;
 
             /**
              * Update an existing rigid body from components
              *
              * @param eid The EntityId associated with the body to be updated
              * @param rigidBody The body's definition
+             * @param scene Optional scene identifier which can reduce an internal lookup if supplied
              */
-            virtual bool UpdateRigidBody(const EntityId& eid, const RigidBody& rigidBody) = 0;
+            [[nodiscard]] virtual bool UpdateRigidBody(const EntityId& eid,
+                                                       const RigidBody& rigidBody,
+                                                       const std::optional<PhysicsSceneName>& scene) = 0;
 
             /**
              * Removes a rigid body previously created via CreateRigidBodyFromEntity() from the physics
              * simulation.
              *
              * @param eid The EntityId associated with the previously created body
+             * @param scene Optional scene identifier which can reduce an internal lookup if supplied
              */
-            virtual void DestroyRigidBody(const EntityId& eid) = 0;
+            [[nodiscard]] virtual bool DestroyRigidBody(const EntityId& eid,
+                                                        const std::optional<PhysicsSceneName>& scene) = 0;
 
             /**
-             * Resets the Physics system to a default state
+             * Resets all Physics scenes to a default state. All previously created
+             * scenes will still exist, but will be reset to their default, empty,
+             * state.
              */
             virtual void ClearAll() = 0;
 
             /**
-             * Sets debug rendering of physics state on or off
+             * Sets debug rendering of physics state on or off. Affects all scenes.
              *
              * @param enable Whether or not debug rendering is enabled
              */
             virtual void EnableDebugRenderOutput(bool enable) = 0;
 
             /**
-             * Fetches debug triangles which display the physics system.
+             * Fetches physics debug triangles from all scenes.
              *
              * Requires EnableDebugRenderOutput(true) to have previously been called, or else
              * returns an empty vector.

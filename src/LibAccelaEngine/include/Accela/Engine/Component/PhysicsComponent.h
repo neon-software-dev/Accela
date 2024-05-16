@@ -26,40 +26,44 @@ namespace Accela::Engine
             /**
              * Create a static physics body - Has infinite mass, no velocity
              */
-            [[nodiscard]] static PhysicsComponent StaticBody(const std::vector<PhysicsShape>& _shapes)
+            [[nodiscard]] static PhysicsComponent StaticBody(const PhysicsSceneName& scene, const std::vector<PhysicsShape>& _shapes)
             {
-                return {RigidBodyType::Static, _shapes};
+                return {scene, RigidBodyType::Static, _shapes};
             }
 
             /**
              * Create a kinematic physics body - Has infinite mass, velocity can be changed
              */
-            [[nodiscard]] static PhysicsComponent KinematicBody(const std::vector<PhysicsShape>& _shapes)
+            [[nodiscard]] static PhysicsComponent KinematicBody(const PhysicsSceneName& scene, const std::vector<PhysicsShape>& _shapes)
             {
-                return {RigidBodyType::Kinematic, _shapes};
+                return {scene, RigidBodyType::Kinematic, _shapes};
             }
 
             /**
              * Create a dynamic physics body - Has mass, has velocity
              */
-            [[nodiscard]] static PhysicsComponent DynamicBody(const std::vector<PhysicsShape>& _shapes, float _mass)
+            [[nodiscard]] static PhysicsComponent DynamicBody(const PhysicsSceneName& scene, const std::vector<PhysicsShape>& _shapes, float _mass)
             {
-                return {RigidBodyType::Dynamic, _shapes, _mass};
+                return {scene, RigidBodyType::Dynamic, _shapes, _mass};
             }
 
         private:
 
-            PhysicsComponent(RigidBodyType _bodyType,
+            PhysicsComponent(PhysicsSceneName _scene,
+                             RigidBodyType _bodyType,
                              std::vector<PhysicsShape> _shapes,
                              const float& _mass = 0.0f,
                              const glm::vec3& _linearVelocity = glm::vec3(0))
-                : bodyType(_bodyType)
+                : scene(std::move(_scene))
+                , bodyType(_bodyType)
                 , shapes(std::move(_shapes))
                 , mass(_mass)
                 , linearVelocity(_linearVelocity)
             { }
 
         public:
+
+            PhysicsSceneName scene;
 
             RigidBodyType bodyType{RigidBodyType::Dynamic};
 

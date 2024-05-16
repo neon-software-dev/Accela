@@ -8,6 +8,8 @@
 #define LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_COMMON_H
 
 #include <cstdint>
+#include <string>
+#include <unordered_map>
 
 namespace Accela::Engine
 {
@@ -25,6 +27,38 @@ namespace Accela::Engine
          */
         FullyLoaded
     };
+
+    constexpr std::string DEFAULT_NAME_ID = "default";
+
+    struct NameIdType
+    {
+        NameIdType() = default;
+        explicit NameIdType(std::string _name) : name(std::move(_name)) {}
+        [[nodiscard]] bool IsDefault() const noexcept { return name == DEFAULT_NAME_ID; }
+        auto operator<=>(const NameIdType&) const = default;
+        friend std::ostream& operator<<(std::ostream& output, const NameIdType& idc) { output << idc.name; return output; }
+        std::string name{DEFAULT_NAME_ID};
+    };
+}
+
+#define DEFINE_ENGINE_NAME_ID(ID_TYPE) \
+namespace Accela::Engine \
+{ \
+    struct ID_TYPE : public NameIdType{ using NameIdType::NameIdType;  }; \
+} \
+template<> \
+struct std::hash<Accela::Engine::ID_TYPE> \
+{ \
+    std::size_t operator()(const Accela::Engine::ID_TYPE& o) const noexcept { return std::hash<std::string>{}(o.name); } \
+}; \
+
+DEFINE_ENGINE_NAME_ID(PhysicsSceneName)
+DEFINE_ENGINE_NAME_ID(PlayerControllerName)
+
+namespace Accela::Engine
+{
+    static const PhysicsSceneName DEFAULT_PHYSICS_SCENE = PhysicsSceneName(Engine::DEFAULT_NAME_ID);
+    static const PlayerControllerName DEFAULT_PLAYER_NAME = PlayerControllerName(Engine::DEFAULT_NAME_ID);
 }
 
 #endif //LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_COMMON_H

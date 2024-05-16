@@ -44,8 +44,18 @@ void TestScene::ConfigureScene()
     // Display a skybox
     engine->GetWorldState()->SetSkyBox(Engine::DEFAULT_SCENE, m_skyBoxTextureId);
 
+    // Create a physics scene
+    (void)engine->GetWorldState()->GetPhysics()->CreateScene(Engine::DEFAULT_PHYSICS_SCENE, Engine::PhysicsSceneParams{});
+
     // Create player entity
-    m_player = *Engine::KinematicPlayerController::Create(engine, "player", {0,7,0}, .4f, 1.8f);
+    m_player = *Engine::KinematicPlayerController::Create(
+        engine,
+        Engine::DEFAULT_PHYSICS_SCENE,
+        Engine::DEFAULT_PLAYER_NAME,
+        {0,7,0},
+        .4f,
+        1.8f
+    );
 }
 
 void TestScene::CreateSceneEntities()
@@ -254,7 +264,7 @@ void TestScene::CreateFloorEntity(glm::vec3 position,
     //
     // PhysicsComponent
     //
-    Engine::PhysicsComponent physicsComponent = Engine::PhysicsComponent::StaticBody(
+    Engine::PhysicsComponent physicsComponent = Engine::PhysicsComponent::StaticBody(Engine::DEFAULT_PHYSICS_SCENE,
         {Engine::PhysicsShape(
         Engine::PhysicsMaterial(),
         Engine::Bounds_AABB(
@@ -289,7 +299,7 @@ void TestScene::CreateTerrainEntity(const float& scale, const glm::vec3& positio
     //
     // PhysicsComponent
     //
-    Engine::PhysicsComponent physicsComponent = Engine::PhysicsComponent::StaticBody(
+    Engine::PhysicsComponent physicsComponent = Engine::PhysicsComponent::StaticBody(Engine::DEFAULT_PHYSICS_SCENE,
         {Engine::PhysicsShape(
         Engine::PhysicsMaterial(),
         Engine::Bounds_HeightMap(m_terrainHeightMapMeshId))}
@@ -335,11 +345,11 @@ void TestScene::CreateCubeEntity(glm::vec3 position,
 
     if (isStatic)
     {
-        physicsComponent = Engine::PhysicsComponent::StaticBody({shape});
+        physicsComponent = Engine::PhysicsComponent::StaticBody(Engine::DEFAULT_PHYSICS_SCENE, {shape});
     }
     else
     {
-        physicsComponent = Engine::PhysicsComponent::DynamicBody({shape}, 3.0f);
+        physicsComponent = Engine::PhysicsComponent::DynamicBody(Engine::DEFAULT_PHYSICS_SCENE, {shape}, 3.0f);
     }
 
     physicsComponent->linearVelocity = linearVelocity;

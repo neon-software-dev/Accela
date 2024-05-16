@@ -40,7 +40,7 @@ void PhysicsSyncSystem::Execute(const RunState::Ptr& runState, entt::registry& r
 
 void PhysicsSyncSystem::OnPhysicsStateComponentDestroyed(const EntityId& entityId)
 {
-    m_physics->DestroyRigidBody(entityId);
+    (void)m_physics->DestroyRigidBody(entityId, std::nullopt);
 }
 
 void PhysicsSyncSystem::PreSimulationStep(const RunState::Ptr& runState, entt::registry& registry) const
@@ -65,14 +65,16 @@ void PhysicsSyncSystem::Pre_UpdatePhysics(const RunState::Ptr&, entt::registry& 
             {
                 case ComponentState::New:
                     m_physics->CreateRigidBody(
+                        physicsComponent.scene,
                         (EntityId)eid,
                         GetRigidBodyFrom(physicsComponent, transformComponent)
                     );
                     break;
                 case ComponentState::Dirty:
-                    m_physics->UpdateRigidBody(
+                    (void)m_physics->UpdateRigidBody(
                         (EntityId)eid,
-                        GetRigidBodyFrom(physicsComponent, transformComponent)
+                        GetRigidBodyFrom(physicsComponent, transformComponent),
+                        physicsComponent.scene
                     );
                     break;
                 case ComponentState::Synced:
@@ -108,11 +110,11 @@ void PhysicsSyncSystem::Post_SyncDirtyEntities(const RunState::Ptr&, entt::regis
             PhysicsComponent updatedPhysics = physicsComponent;
             TransformComponent updatedTransform = transformComponent;
 
-            const auto body = m_physics->GetRigidBody((EntityId)eid);
+            const auto body = m_physics->GetRigidBody((EntityId)eid, physicsComponent.scene);
             if (!body)
             {
                 m_logger->Log(Common::LogLevel::Error,
-                              "PhysicsSyncSystem::PostSimulationStep: No such entity body exists: {}", (EntityId)eid);
+                  "PhysicsSyncSystem::PostSimulationStep: No such entity body exists: {}", (EntityId)eid);
                 return;
             }
 
@@ -139,11 +141,16 @@ void PhysicsSyncSystem::Post_NotifyTriggers(const RunState::Ptr& runState, entt:
 {
     auto triggerEvents = m_physics->PopTriggerEvents();
 
-    while (!triggerEvents.empty())
+    for (const auto& it : triggerEvents)
     {
-        const auto& triggerEvent = triggerEvents.front();
-        runState->scene->OnPhysicsTriggerEvent(triggerEvent);
-        triggerEvents.pop();
+        auto sceneEvents = it.second;
+
+        while (!sceneEvents.empty())
+        {
+            const auto& triggerEvent = sceneEvents.front();
+            runState->scene->OnPhysicsTriggerEvent(triggerEvent);
+            sceneEvents.pop();
+        }
     }
 }
 

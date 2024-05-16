@@ -54,13 +54,17 @@ namespace Accela::Engine
 
             [[nodiscard]] static std::expected<UPtr, bool> Create(
                 const std::shared_ptr<IEngineRuntime>& engine,
-                const std::string& name,
+                const PhysicsSceneName& scene,
+                const PlayerControllerName& name,
                 const glm::vec3& position,
                 const float& radius,
                 const float& height
             );
 
-            explicit KinematicPlayerController(Tag, std::shared_ptr<IEngineRuntime> engine, std::string name);
+            explicit KinematicPlayerController(Tag,
+                                               std::shared_ptr<IEngineRuntime> engine,
+                                               PhysicsSceneName scene,
+                                               PlayerControllerName name);
             ~KinematicPlayerController() override;
 
             /**
@@ -108,7 +112,8 @@ namespace Accela::Engine
         private:
 
             std::shared_ptr<IEngineRuntime> m_engine;
-            std::string m_name;
+            PhysicsSceneName m_scene;
+            PlayerControllerName m_name;
 
             KinematicLocationState m_locationState{KinematicLocationState::Surface};
             std::optional<JumpState> m_currentJumpState;
