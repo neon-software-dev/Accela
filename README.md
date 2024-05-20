@@ -50,26 +50,24 @@ That being said, any user wishing to use Accela **without a GPL v3 license attac
 
 # Quick Start Guide
 
-## Building From Source
+## Building The Engine From Source
 
-Accela utilizes CMake for a build system and vcpkg for dependency management.
+The commands listed below are specific to Linux but should be easy to adopt to Windows.
 
-It's highly recommended to use vcpkg as it will handle fetching all of Accela's required dependencies. Visit https://vcpkg.io/ for instructions on how to install it.
+### Install Qt6
 
-The following commands are specific to Linux but should be easy to adopt to Windows.
+The AccelaEditor project depends on Qt6, which must be installed.
 
-### Fetch the Project Source
+On Windows, download and install the (LGPL / open source) development kit from the Qt website.
 
-Pull the project code from Github:
+On Linux, most distributions have Qt6 development files in the package management system for easy installation (e.g. qt6-base-dev package). Alternatively, build it from source. (Note: If building from source, the qtbase project must be built with Vulkan support or else the Accela build will fail with missing Vulkan-related Qt headers.)
 
-- `git clone https://github.com/neon-software-dev/Accela`
-- `cd Accela`
+### Install Nvidia PhysX
 
-### Building Nvidia PhysX
+The AccelaEngine project depends on PhysX, which must be installed.
 
-Accela depends on the Nvidia PhysX library, but this library currently has a broken vcpkg package for linux consumers, so PhysX is currently included as part of the Accela source and must be manually built.
-
-- `cd src/External/PhysX-5.3.1/physx/`
+- `git clone https://github.com/NVIDIA-Omniverse/PhysX`
+- `cd PhysX/physx/`
 - `./generate_projects.sh`
 
 You can choose which variants (checked, debug, profile, release) of PhysX you want to build. Only building release is fine if you don't want to debug into it. Go into the compiler directory for each variant you want, and build and install it.
@@ -78,21 +76,28 @@ You can choose which variants (checked, debug, profile, release) of PhysX you wa
 - `make`
 - `make install`
 
-When configuring CMake below to build Accela, you need to supply some paths to the PhysX variant's files as a CMake input parameter.
+When configuring CMake for Accela (see below), you need to supply some paths to the installed PhysX build files as parameters.
+
+### Install vcpkg
+
+Install vcpkg so that Accela can utilize it to fetch its dependencies.
+
+Visit https://vcpkg.io/ for installation instructions.
 
 ### Building Accela
 
-Navigate back to Accela's root directory and execute CMake:
+Pull the project code from Github:
 
-- `cd ../../../../../../`
-- `mkdir build`
-- `cd build`
-- `cmake -DACCELA_TARGET_PLATFORM=Desktop -DCMAKE_TOOLCHAIN_FILE="{/path/to}/vcpkg/scripts/buildsystems/vcpkg.cmake" -DPHYSX_INSTALL_DIR="{/path/to}/Accela/src/External/PhysX-5.3.1/physx/install/linux/PhysX"
--DPHYSX_BIN_DIR="{/path/to}/Accela/src/External/PhysX-5.3.1/physx/install/linux/PhysX/bin/linux.clang/{variant}" -DCMAKE_INSTALL_PREFIX="{/desired/install/directory}" ../src/`
+- `git clone https://github.com/neon-software-dev/Accela`
+- `mkdir Accela/build`
+- `cd Accela/build`
+- `cmake -DACCELA_TARGET_PLATFORM=Desktop -DCMAKE_TOOLCHAIN_FILE="{/path/to}/vcpkg/scripts/buildsystems/vcpkg.cmake" -DPHYSX_INSTALL_DIR="{/path/to}/PhysX-5.3.1/physx/install/linux/PhysX"
+-DPHYSX_BIN_DIR="{/path/to}/PhysX-5.3.1/physx/install/linux/PhysX/bin/linux.clang/{variant}" -DCMAKE_INSTALL_PREFIX="{/desired/install/directory}" ../src/`
+
+On Windows, you may need to point CMake to your Qt installation with a parameter such as:
+`-DCMAKE_PREFIX_PATH="C:\path\to\qt\6.7.0\{variant}"`
 
 Optional: Also append -DCMAKE_BUILD_TYPE=Release if you want to create a release build.
-
-Note that all strings enclosed in curly braces need to be replaced with values that make sense for your build environment/choices.
 
 Build and Install Accela
 
@@ -103,13 +108,17 @@ If desired, run the TestDesktopApp that was built:
 
 - `./built/TestDesktopApp`
 
+On Windows, in order to run the AccelaEditor project, you need to also deploy Qt6 files to the build directory:
+
+- `windeployqt6.exe [--debug/--release] C:\{path\to\}Accela\build\{variant}\built`
+
 ## Integration
 
 Once Accela is built and installed, its public includes and libraries will be located in the previously specified CMake install directory.
 
 A CMake-based client project can then be linked against Accela by passing the following CMake argument when configuring the client project:
 
-- `-DCMAKE_PREFIX_PATH=/accela/install/directory/lib/cmake`
+- `-DCMAKE_PREFIX_PATH={/path/to/install/directory}/lib/cmake`
 
 If using a different build system, point it towards the installed includes and libraries as appropriate for that build system.
 
