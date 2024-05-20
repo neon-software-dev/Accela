@@ -38,7 +38,7 @@ namespace Accela::Engine
             /**
              * @return Access to the SceneEvents system where listeners to be registered to observe scene events.
              */
-            [[nodiscard]] SceneEvents::Ptr GetEvents() const noexcept;
+            [[nodiscard]] virtual SceneEvents::Ptr GetEvents() const noexcept;
 
             /** Called when the scene is first started, before any other callbacks, and never again */
             void OnSceneStart(const IEngineRuntime::Ptr& engine) override;
@@ -68,7 +68,6 @@ namespace Accela::Engine
         private:
 
             SceneEvents::Ptr m_events;
-
     };
 }
 

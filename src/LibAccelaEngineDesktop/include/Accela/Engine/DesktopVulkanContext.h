@@ -7,7 +7,7 @@
 #ifndef LIBACCELAENGINEDESKTOP_SRC_DESKTOPVULKANCONTEXT_H
 #define LIBACCELAENGINEDESKTOP_SRC_DESKTOPVULKANCONTEXT_H
 
-#include <Accela/Platform/PlatformSDL.h>
+#include <Accela/Platform/IPlatform.h>
 #include <Accela/Render/IVulkanContext.h>
 
 namespace Accela::Engine
@@ -16,7 +16,7 @@ namespace Accela::Engine
     {
         public:
 
-            explicit DesktopVulkanContext(Platform::PlatformSDL::Ptr platform);
+            explicit DesktopVulkanContext(Platform::IPlatform::Ptr platform);
 
             //
             // IVulkanContext
@@ -37,7 +37,7 @@ namespace Accela::Engine
 
         private:
 
-            Platform::PlatformSDL::Ptr m_platform;
+            Platform::IPlatform::Ptr m_platform;
     };
 }
 

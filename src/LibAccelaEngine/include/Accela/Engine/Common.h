@@ -28,7 +28,7 @@ namespace Accela::Engine
         FullyLoaded
     };
 
-    constexpr std::string DEFAULT_NAME_ID = "default";
+    static constexpr auto DEFAULT_NAME_ID = "default";
 
     struct NameIdType
     {

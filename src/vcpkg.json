@@ -6,6 +6,7 @@
     "assimp",
     "vulkan",
     "vulkan-memory-allocator",
+    "openvr",
     {
       "name": "sdl2",
       "default-features": false,
@@ -16,8 +17,7 @@
       "default-features": false,
       "features": [ "libjpeg-turbo" ]
     },
-    "sdl2-ttf",
-    "openvr"
+    "sdl2-ttf"
   ],
   "name": "accela",
   "version": "0.1.0"

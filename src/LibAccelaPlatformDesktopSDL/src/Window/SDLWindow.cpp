@@ -4,9 +4,8 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
  
-#include <Accela/Platform/SDLWindow.h>
+#include <Accela/Platform/Window/SDLWindow.h>
 
-#include <SDL2/SDL_video.h>
 #include <SDL2/SDL_vulkan.h>
 #include <SDL2/SDL_mouse.h>
 
@@ -75,7 +74,7 @@ bool SDLWindow::GetVulkanRequiredExtensions(std::vector<std::string>& extensions
     return true;
 }
 
-bool SDLWindow::CreateVulkanSurface(VkInstance instance, VkSurfaceKHR *pSurface) const noexcept
+bool SDLWindow::CreateVulkanSurface(VkInstance instance, VkSurfaceKHR *pSurface) const
 {
     if (m_pWindow == nullptr)
     {

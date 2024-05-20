@@ -4,10 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
  
-#include "DesktopVulkanContext.h"
-
-#include <Accela/Platform/PlatformSDL.h>
-#include <Accela/Platform/SDLWindow.h>
+#include <Accela/Engine/DesktopVulkanContext.h>
 
 #include <openvr.h>
 
@@ -29,7 +26,7 @@ Platform::Eye ToPlatformEye(const Render::Eye& eye)
     return pEye;
 }
 
-DesktopVulkanContext::DesktopVulkanContext(Platform::PlatformSDL::Ptr platform)
+DesktopVulkanContext::DesktopVulkanContext(Platform::IPlatform::Ptr platform)
     : m_platform(std::move(platform))
 {
 
@@ -69,7 +66,7 @@ bool DesktopVulkanContext::GetRequiredInstanceExtensions(std::set<std::string>& 
     //
     std::vector<std::string> windowExtensions;
 
-    if (!std::dynamic_pointer_cast<Platform::SDLWindow>(m_platform->GetWindow())->GetVulkanRequiredExtensions(windowExtensions))
+    if (!m_platform->GetWindow()->GetVulkanRequiredExtensions(windowExtensions))
     {
         return false;
     }
@@ -127,12 +124,12 @@ bool DesktopVulkanContext::GetRequiredDeviceExtensions(VkPhysicalDevice vkPhysic
 
 bool DesktopVulkanContext::CreateVulkanSurface(VkInstance instance, VkSurfaceKHR *pSurface) const
 {
-    return std::dynamic_pointer_cast<Platform::SDLWindow>(m_platform->GetWindow())->CreateVulkanSurface(instance, pSurface);
+    return m_platform->GetWindow()->CreateVulkanSurface(instance, pSurface);
 }
 
 bool DesktopVulkanContext::GetSurfacePixelSize(std::pair<unsigned int, unsigned int>& size) const
 {
-    const auto sizeExpect = std::dynamic_pointer_cast<Platform::SDLWindow>(m_platform->GetWindow())->GetWindowSize();
+    const auto sizeExpect = m_platform->GetWindow()->GetWindowSize();
     if (!sizeExpect)
     {
         return false;

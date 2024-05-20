@@ -7,19 +7,16 @@
 #ifndef LIBACCELAPLATFORMSDL_INCLUDE_ACCELA_PLATFORM_PLATFORMSDL_H
 #define LIBACCELAPLATFORMSDL_INCLUDE_ACCELA_PLATFORM_PLATFORMSDL_H
 
-#include <Accela/Platform/IPlatform.h>
+#include <Accela/Platform/PlatformDesktop.h>
 
 #include <Accela/Common/Log/ILogger.h>
-
-#include <string>
-#include <vector>
 
 namespace Accela::Platform
 {
     /**
      * SDL-based implementation of IPlatform system for use on desktop (Linux and Windows) environments.
      */
-    class PlatformSDL : public IPlatform
+    class PlatformSDL : public PlatformDesktop
     {
         public:
 
@@ -29,24 +26,16 @@ namespace Accela::Platform
 
             explicit PlatformSDL(Common::ILogger::Ptr logger);
 
-            bool Startup() noexcept;
-            void Shutdown() noexcept;
+            [[nodiscard]] bool Startup() override;
+            void Shutdown() override;
 
             [[nodiscard]] IEvents::Ptr GetEvents() const noexcept override;
-            [[nodiscard]] IFiles::Ptr GetFiles() const noexcept override;
-            [[nodiscard]] IText::Ptr GetText() const noexcept override;
             [[nodiscard]] IWindow::Ptr GetWindow() const noexcept override;
-            [[nodiscard]] IVR::Ptr GetVR() const noexcept override;
 
         private:
 
-            Common::ILogger::Ptr m_logger;
-
             IEvents::Ptr m_events;
-            IFiles::Ptr m_files;
-            IText::Ptr m_text;
             IWindow::Ptr m_window;
-            IVR::Ptr m_vr;
     };
 }
 

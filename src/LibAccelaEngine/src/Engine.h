@@ -44,7 +44,7 @@ namespace Accela::Engine
                    std::shared_ptr<Platform::IPlatform> platform,
                    std::shared_ptr<Render::IRenderer> renderer);
 
-            void Run(Scene::UPtr initialScene, bool supportVRHeadset) override;
+            void Run(Scene::UPtr initialScene, bool supportVRHeadset, const std::function<void()>& onInitCallback) override;
 
         private:
 

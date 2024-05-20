@@ -43,7 +43,7 @@ Engine::Engine(Common::ILogger::Ptr logger,
 
 }
 
-void Engine::Run(Scene::UPtr initialScene, bool supportVRHeadset)
+void Engine::Run(Scene::UPtr initialScene, bool supportVRHeadset, const std::function<void()>& onInitCallback)
 {
     m_logger->Log(Common::LogLevel::Info, "AccelaEngine: Run start");
 
@@ -70,6 +70,8 @@ void Engine::Run(Scene::UPtr initialScene, bool supportVRHeadset)
         m_logger->Log(Common::LogLevel::Fatal, "AccelaEngine: Failed to initialize the run");
         return;
     }
+
+    std::invoke(onInitCallback);
 
     RunLoop(runtime, runState);
 
@@ -327,14 +329,22 @@ void Engine::ReceiveEngineSettingsChange(const EngineRuntime::Ptr& runtime, cons
     const auto windowCursorLockEvent = runtime->ReceiveSetWindowCursorLock();
     if (windowCursorLockEvent)
     {
-        m_platform->GetWindow()->LockCursorToWindow(*windowCursorLockEvent);
+        if (!m_platform->GetWindow()->LockCursorToWindow(*windowCursorLockEvent))
+        {
+            m_logger->Log(Common::LogLevel::Error,
+              "Engine::ReceiveEngineSettingsChange: Failed to apply cursor lock setting");
+        }
     }
 
     // Event to fullscreen the window
     const auto windowFullscreenEvent = runtime->ReceiveSetWindowFullscreen();
     if (windowFullscreenEvent)
     {
-        m_platform->GetWindow()->SetFullscreen(*windowFullscreenEvent);
+        if (!m_platform->GetWindow()->SetFullscreen(*windowFullscreenEvent))
+        {
+            m_logger->Log(Common::LogLevel::Error,
+              "Engine::ReceiveEngineSettingsChange: Failed to apply fullscreen setting");
+        }
     }
 }
 

@@ -26,7 +26,7 @@ target_link_libraries(AccelaEngineDesktop
 		AccelaEngine
 		AccelaCommon
 	PRIVATE
-		AccelaPlatformDesktop
+		AccelaPlatformDesktopSDL
 		AccelaRendererVk
 )
 

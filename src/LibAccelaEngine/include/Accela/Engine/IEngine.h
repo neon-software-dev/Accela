@@ -9,6 +9,8 @@
 
 #include "Scene/Scene.h"
 
+#include <functional>
+
 namespace Accela::Engine
 {
     class IEngine
@@ -28,7 +30,9 @@ namespace Accela::Engine
              *
              * TODO: supportVRHeadset -> more complete RunSettings or such
              */
-            virtual void Run(Scene::UPtr initialScene, bool supportVRHeadset) = 0;
+            virtual void Run(Scene::UPtr initialScene,
+                             bool supportVRHeadset,
+                             const std::function<void()>& onInitCallback) = 0;
     };
 }
 

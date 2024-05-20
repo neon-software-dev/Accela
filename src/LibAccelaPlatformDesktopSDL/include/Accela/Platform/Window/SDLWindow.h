@@ -11,11 +11,11 @@
 
 #include <Accela/Common/Log/ILogger.h>
 
+#include <SDL2/SDL_video.h>
+
 #include <vulkan/vulkan.h>
 
 #include <vector>
-
-class SDL_Window;
 
 namespace Accela::Platform
 {
@@ -34,12 +34,12 @@ namespace Accela::Platform
             [[nodiscard]] bool LockCursorToWindow(bool lock) const override;
             [[nodiscard]] bool SetFullscreen(bool fullscreen) const override;
             [[nodiscard]] bool SetWindowSize(const std::pair<unsigned int, unsigned int>& size) const override;
+            [[nodiscard]] bool GetVulkanRequiredExtensions(std::vector<std::string>& extensions) const override;
+            [[nodiscard]] bool CreateVulkanSurface(VkInstance instance, VkSurfaceKHR *pSurface) const override;
 
             void Destroy();
 
             SDL_Window* CreateWindow(const std::string& title, unsigned int width, unsigned int height) noexcept;
-            bool GetVulkanRequiredExtensions(std::vector<std::string>& extensions) const;
-            bool CreateVulkanSurface(VkInstance instance, VkSurfaceKHR *pSurface) const noexcept;
 
         private:
 

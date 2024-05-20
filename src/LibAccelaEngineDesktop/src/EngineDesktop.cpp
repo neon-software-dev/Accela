@@ -7,12 +7,11 @@
 #include <Accela/Engine/EngineDesktop.h>
 #include <Accela/Engine/Builder.h>
 #include <Accela/Engine/IEngine.h>
+#include <Accela/Engine/DesktopVulkanContext.h>
 #include <Accela/Platform/PlatformSDL.h>
-#include <Accela/Platform/SDLWindow.h>
+#include <Accela/Platform/SDLVulkanCalls.h>
+#include <Accela/Platform/Window/SDLWindow.h>
 #include <Accela/Render/RendererBuilder.h>
-
-#include "DesktopVulkanCalls.h"
-#include "DesktopVulkanContext.h"
 
 namespace Accela::Engine
 {
@@ -81,7 +80,7 @@ void EngineDesktop::Run(const std::string& appName,
     const auto renderer = Render::RendererBuilder(
         appName,
         appVersion,
-        std::make_shared<DesktopVulkanCalls>(),
+        std::make_shared<Platform::SDLVulkanCalls>(),
         std::make_shared<DesktopVulkanContext>(sdlPlatform)
     )
     .WithLogger(m_logger)
@@ -95,7 +94,7 @@ void EngineDesktop::Run(const std::string& appName,
 
     const bool supportVRHeadset = vrOutput == VROutput::Supported;
 
-    engine->Run(std::move(initialScene), supportVRHeadset);
+    engine->Run(std::move(initialScene), supportVRHeadset, [](){});
 
     //
     // Cleanup after the engine has finished running

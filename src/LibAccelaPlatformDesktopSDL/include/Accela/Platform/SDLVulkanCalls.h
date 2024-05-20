@@ -4,19 +4,19 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
  
-#ifndef LIBACCELAENGINEDESKTOP_SRC_DESKTOPVULKANCALLS_H
-#define LIBACCELAENGINEDESKTOP_SRC_DESKTOPVULKANCALLS_H
+#ifndef LIBACCELAPLATFORMDESKTOPSDL_INCLUDE_ACCELA_PLATFORM_SDLVULKANCALLS_H
+#define LIBACCELAPLATFORMDESKTOPSDL_INCLUDE_ACCELA_PLATFORM_SDLVULKANCALLS_H
 
 #include <Accela/Render/VulkanCalls.h>
 
 #include <SDL2/SDL_vulkan.h>
 
-namespace Accela::Engine
+namespace Accela::Platform
 {
     /**
      * Uses SDL to retrieve the vkGetInstanceProcAddr function
      */
-    class DesktopVulkanCalls : public Render::VulkanCalls
+    class SDLVulkanCalls : public Render::VulkanCalls
     {
         protected:
 
@@ -32,4 +32,4 @@ namespace Accela::Engine
     };
 }
 
-#endif //LIBACCELAENGINEDESKTOP_SRC_DESKTOPVULKANCALLS_H
+#endif //LIBACCELAPLATFORMDESKTOPSDL_INCLUDE_ACCELA_PLATFORM_SDLVULKANCALLS_H

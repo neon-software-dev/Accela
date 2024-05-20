@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.19.0)
 project(LibAccelaPlatform VERSION 0.0.1 LANGUAGES CXX)
 
 	find_package(assimp CONFIG REQUIRED)
+	find_package(Vulkan REQUIRED)
 
 	file(GLOB AccelaPlatform_Include_Headers "include/Accela/Platform/*.h")
 	file(GLOB AccelaPlatform_Include_Headers_Events "include/Accela/Platform/Event/*.h")
@@ -23,7 +24,9 @@ add_library(AccelaPlatform INTERFACE
 target_link_libraries(AccelaPlatform
 	INTERFACE
 		AccelaCommon
+		AccelaRenderer
 		assimp::assimp
+		Vulkan::Vulkan
 )
 
 target_include_directories(AccelaPlatform

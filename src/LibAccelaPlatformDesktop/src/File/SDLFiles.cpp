@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
  
-#include "SDLFiles.h"
+#include <Accela/Platform/File/SDLFiles.h>
 
 #include <Accela/Common/BuildInfo.h>
 

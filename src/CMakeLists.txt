@@ -75,8 +75,11 @@ message(STATUS "ACCELA: Configuring for target platform: ${ACCELA_TARGET_PLATFOR
 if (ACCELA_TARGET_PLATFORM STREQUAL ${ACCELA_TARGET_PLATFORM_DESKTOP})
     add_subdirectory(LibAccelaEngineDesktop)
     add_subdirectory(LibAccelaPlatformDesktop)
+    add_subdirectory(LibAccelaPlatformDesktopSDL)
+    add_subdirectory(LibAccelaPlatformDesktopQt)
     add_subdirectory(LibAccelaRendererVk)
     add_subdirectory(TestDesktopApp)
+    add_subdirectory(AccelaEditor)
 
 elseif(ACCELA_TARGET_PLATFORM STREQUAL ${ACCELA_TARGET_PLATFORM_ANDROID})
     # no-op
@@ -115,6 +118,8 @@ install(
     TARGETS
         AccelaEngineDesktop
         AccelaPlatformDesktop
+        AccelaPlatformDesktopSDL
+        AccelaPlatformDesktopQt
         AccelaRendererVk
     EXPORT ${ACCELA_TARGETS_EXPORT_NAME}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
