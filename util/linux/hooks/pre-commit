@@ -1,0 +1,7 @@
+#!/bin/sh
+cd ./util/linux/scripts/
+sh add_file_disclaimers.sh || {
+    echo 'Missing file disclaimers' ;
+    exit 1; 
+}
+
