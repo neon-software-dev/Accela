@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
+ *
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+ 
 #include "VulkanFramebuffer.h"
 #include "VulkanDebug.h"
 #include "VulkanDevice.h"

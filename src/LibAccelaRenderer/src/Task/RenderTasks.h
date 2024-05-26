@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
+ *
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+ 
 #ifndef LIBACCELARENDERER_SRC_TASK_RENDERTASKS_H
 #define LIBACCELARENDERER_SRC_TASK_RENDERTASKS_H
 

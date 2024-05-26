@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
+ *
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+ 
 #ifndef LIBACCELARENDERVK_SRC_UTIL_DESCRIPTORSETS
 #define LIBACCELARENDERVK_SRC_UTIL_DESCRIPTORSETS
 

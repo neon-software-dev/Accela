@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
+ *
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+ 
 #include <Accela/Platform/PlatformDesktop.h>
 #include <Accela/Platform/File/SDLFiles.h>
 #include <Accela/Platform/Text/SDLText.h>

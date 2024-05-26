@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
+ *
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+ 
 #ifndef LIBACCELACOMMON_INCLUDE_ACCELA_COMMON_TIMER_H
 #define LIBACCELACOMMON_INCLUDE_ACCELA_COMMON_TIMER_H
 

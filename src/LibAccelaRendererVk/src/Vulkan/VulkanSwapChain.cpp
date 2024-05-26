@@ -1,3 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
+ *
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+ 
 #include "VulkanSwapChain.h"
 #include "VulkanPhysicalDevice.h"
 #include "VulkanDevice.h"
