@@ -1,15 +1,10 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_ENTITY_MODELENTITY_H
 #define LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_ENTITY_MODELENTITY_H
 
 #include "Entity.h"
 
 #include <Accela/Engine/Common.h>
+#include <Accela/Engine/ResourceIdentifier.h>
 #include <Accela/Engine/Scene/SceneCommon.h>
 #include <Accela/Engine/Component/ModelRenderableComponent.h>
 
@@ -33,13 +28,13 @@ namespace Accela::Engine
 
             struct Params
             {
-                Params& WithModelName(const std::string& _modelName);
+                Params& WithModel(const ResourceIdentifier& _resource);
                 Params& WithPosition(const glm::vec3& _position);
                 Params& WithScale(const glm::vec3& _scale);
                 Params& WithOrientation(const glm::quat& _orientation);
                 Params& IncludedInShadowPass(bool _inShadowPass);
 
-                std::optional<std::string> modelName;
+                std::optional<ResourceIdentifier> resource;
                 std::optional<glm::vec3> position;
                 std::optional<glm::vec3> scale;
                 std::optional<glm::quat> orientation;

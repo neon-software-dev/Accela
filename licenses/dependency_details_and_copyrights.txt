@@ -81,3 +81,7 @@ https://github.com/kcat/openal-soft
 BSD 3-Clause "New" or "Revised" License
 https://github.com/NVIDIA-Omniverse/PhysX
 
+[nlohmann-json]
+MIT license
+https://github.com/nlohmann/json
+https://json.nlohmann.me/

@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef TESTDESKTOPAPP_DEVSCENE_H
 #define TESTDESKTOPAPP_DEVSCENE_H
 
@@ -42,18 +36,18 @@ namespace Accela
             //
             // Scene Setup
             //
-            [[nodiscard]] bool LoadAssets();
+            [[nodiscard]] bool LoadResources();
             void ConfigureScene();
             void CreateSceneEntities();
 
-            [[nodiscard]] static Render::ObjectMaterialProperties MakeSolidColorMaterial(const glm::vec3& color);
+            [[nodiscard]] static Engine::ObjectMaterialProperties DefineSolidColorMaterial(const glm::vec3& color);
 
             /** Add a light at the specified position */
             void CreatePointLight(const glm::vec3& position, bool drawEntity);
             void CreateSpotLight(const glm::vec3& position, bool drawEntity);
             void CreateLight(const glm::vec3& position, bool drawEntity, const Render::LightProperties& properties);
 
-            void CreateModelEntity(const std::string& modelName,
+            void CreateModelEntity(const Engine::ResourceIdentifier& model,
                                    const glm::vec3& position,
                                    const glm::vec3& scale = glm::vec3(1.0f),
                                    const std::optional<Engine::ModelAnimationState>& animationState = std::nullopt);

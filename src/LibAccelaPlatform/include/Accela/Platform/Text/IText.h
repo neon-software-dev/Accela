@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef LIBACCELAPLATFORM_INCLUDE_ACCELA_PLATFORM_TEXT_ITEXT_H
 #define LIBACCELAPLATFORM_INCLUDE_ACCELA_PLATFORM_TEXT_ITEXT_H
 
@@ -31,7 +25,7 @@ namespace Accela::Platform
 
             virtual void Destroy() = 0;
 
-            virtual bool LoadFontBlocking(const std::string& fontFileName, uint8_t fontSize) = 0;
+            virtual bool LoadFontBlocking(const std::string& fontFileName, const std::vector<unsigned char>& fontData, uint8_t fontSize) = 0;
             virtual bool IsFontLoaded(const std::string& fontFileName, uint8_t fontSize) = 0;
             virtual void UnloadFont(const std::string& fontFileName) = 0;
             virtual void UnloadFont(const std::string& fontFileName, uint8_t fontSize) = 0;

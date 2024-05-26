@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef LIBACCELAENGINE_SRC_MODEL_MODELLOADER_H
 #define LIBACCELAENGINE_SRC_MODEL_MODELLOADER_H
 
@@ -12,8 +6,6 @@
 #include <Accela/Engine/Model/ModelMaterial.h>
 #include <Accela/Engine/Model/ModelMesh.h>
 #include <Accela/Engine/Model/ModelBone.h>
-
-#include <Accela/Platform/File/IFiles.h>
 
 #include <Accela/Common/Log/ILogger.h>
 
@@ -28,9 +20,11 @@ namespace Accela::Engine
     {
         public:
 
-            ModelLoader(Common::ILogger::Ptr logger, Platform::IFiles::Ptr files);
+            explicit ModelLoader(Common::ILogger::Ptr logger);
 
-            [[nodiscard]] Model::Ptr LoadModel(const std::string& filePath) const;
+            [[nodiscard]] Model::Ptr LoadModel(const std::vector<unsigned char>& modelData,
+                                               const std::string& fileHint,
+                                               const std::string& tag) const;
 
         private:
 
@@ -60,7 +54,6 @@ namespace Accela::Engine
         private:
 
             Common::ILogger::Ptr m_logger;
-            Platform::IFiles::Ptr m_files;
     };
 }
 

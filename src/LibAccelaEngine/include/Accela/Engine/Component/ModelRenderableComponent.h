@@ -1,12 +1,7 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_COMPONENT_MODELRENDERABLECOMPONENT_H
 #define LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_COMPONENT_MODELRENDERABLECOMPONENT_H
 
+#include <Accela/Engine/ResourceIdentifier.h>
 #include <Accela/Engine/Scene/SceneCommon.h>
 
 #include <string>
@@ -52,8 +47,8 @@ namespace Accela::Engine
         /** The scene the model belongs to */
         std::string sceneName = DEFAULT_SCENE;
 
-        /** The name of the model to be displayed */
-        std::string modelName;
+        /** The identifier of the model to be displayed */
+        ResourceIdentifier modelResource;
 
         /** Whether the object is included in shadow passes */
         bool shadowPass{true};

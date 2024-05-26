@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef LIBACCELAENGINE_SRC_SCENE_AUDIORESOURCES_H
 #define LIBACCELAENGINE_SRC_SCENE_AUDIORESOURCES_H
 
@@ -11,10 +5,14 @@
 
 #include <Accela/Engine/Scene/IAudioResources.h>
 
+#include <Accela/Platform/Package/Package.h>
+
 #include <Accela/Common/Log/ILogger.h>
 #include <Accela/Common/Thread/MessageDrivenThreadPool.h>
 
 #include <unordered_set>
+#include <unordered_map>
+#include <expected>
 
 namespace Accela::Platform
 {
@@ -23,42 +21,46 @@ namespace Accela::Platform
 
 namespace Accela::Engine
 {
-    class IEngineAssets;
-
     class AudioResources : public IAudioResources
     {
         public:
 
             AudioResources(Common::ILogger::Ptr logger,
-                           std::shared_ptr<IEngineAssets> assets,
-                           std::shared_ptr<Platform::IFiles> files,
+                           IPackageResourcesPtr packages,
                            AudioManagerPtr audioManager,
                            std::shared_ptr<Common::MessageDrivenThreadPool> threadPool);
 
             //
             // IAudioResources
             //
-            [[nodiscard]] std::future<bool> LoadAssetsAudio(const std::string& audioFileName) override;
-            [[nodiscard]] std::future<bool> LoadAllAssetAudio() override;
-            [[nodiscard]] bool LoadAudio(const std::string& name, const Common::AudioData::Ptr& audioData) override;
-            void DestroyAudio(const std::string& name) override;
+            [[nodiscard]] std::future<bool> LoadAudio(const PackageResourceIdentifier& resource) override;
+            [[nodiscard]] bool LoadAudio(const CustomResourceIdentifier& resource, const Common::AudioData::Ptr& audioData) override;
+            [[nodiscard]] std::future<bool> LoadAllAudio(const PackageName& packageName) override;
+            [[nodiscard]] std::future<bool> LoadAllAudio() override;
+            void DestroyAudio(const ResourceIdentifier& resource) override;
+            void DestroyAllAudio(const PackageName& packageName) override;
             void DestroyAll() override;
 
         private:
 
-            [[nodiscard]] bool OnLoadAssetsAudio(const std::string& audioFileName);
-            [[nodiscard]] bool OnLoadAllAssetAudio();
+            [[nodiscard]] bool OnLoadAudio(const PackageResourceIdentifier& resource);
+            [[nodiscard]] bool OnLoadAllAudio(const PackageName& packageName);
+            [[nodiscard]] bool OnLoadAllAudio();
+
+            [[nodiscard]] bool LoadPackageAudio(const Platform::Package::Ptr& package, const PackageResourceIdentifier& resource);
+
+            [[nodiscard]] std::expected<Common::AudioData::Ptr, bool> AudioDataFromBytes(std::vector<unsigned char>& bytes, const std::string& tag) const;
 
         private:
 
             Common::ILogger::Ptr m_logger;
-            std::shared_ptr<IEngineAssets> m_assets;
-            std::shared_ptr<Platform::IFiles> m_files;
+            IPackageResourcesPtr m_packages;
             AudioManagerPtr m_audioManager;
             std::shared_ptr<Common::MessageDrivenThreadPool> m_threadPool;
 
             std::mutex m_audioMutex;
-            std::unordered_set<std::string> m_audio;
+            std::unordered_map<PackageName, std::unordered_set<ResourceIdentifier>> m_packageAudio;
+            std::unordered_set<ResourceIdentifier> m_customAudio;
     };
 }
 

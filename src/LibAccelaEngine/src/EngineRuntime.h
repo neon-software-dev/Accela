@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef LIBACCELAENGINE_SRC_ENGINERUNTIME_H
 #define LIBACCELAENGINE_SRC_ENGINERUNTIME_H
 
@@ -16,7 +10,6 @@ namespace Accela::Render
 
 namespace Accela::Engine
 {
-    class IEngineAssets;
     struct RunState;
 
     class EngineRuntime : public IEngineRuntime
@@ -29,13 +22,11 @@ namespace Accela::Engine
 
             EngineRuntime(Common::ILogger::Ptr logger,
                           Common::IMetrics::Ptr metrics,
-                          std::shared_ptr<IEngineAssets> assets,
                           std::shared_ptr<Render::IRenderer> renderer,
                           std::shared_ptr<RunState> runState);
 
             [[nodiscard]] Common::ILogger::Ptr GetLogger() const noexcept override;
             [[nodiscard]] Common::IMetrics::Ptr GetMetrics() const noexcept override;
-            [[nodiscard]] IEngineAssets::Ptr GetAssets() const noexcept override;
             [[nodiscard]] IWorldState::Ptr GetWorldState() const noexcept override;
             [[nodiscard]] IWorldResources::Ptr GetWorldResources() const noexcept override;
             [[nodiscard]] IKeyboardState::CPtr GetKeyboardState() const noexcept override;
@@ -69,7 +60,6 @@ namespace Accela::Engine
 
             Common::ILogger::Ptr m_logger;
             Common::IMetrics::Ptr m_metrics;
-            std::shared_ptr<IEngineAssets> m_assets;
             std::shared_ptr<Render::IRenderer> m_renderer;
 
             std::shared_ptr<RunState> m_runState;

@@ -1,15 +1,9 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef LIBACCELAPLATFORM_INCLUDE_ACCELA_PLATFORM_FILE_IFILES_H
 #define LIBACCELAPLATFORM_INCLUDE_ACCELA_PLATFORM_FILE_IFILES_H
 
-#include <Accela/Common/ImageData.h>
+#include <Accela/Platform/Package/Package.h>
 
-#include <assimp/Importer.hpp>
+#include <Accela/Common/ImageData.h>
 
 #include <expected>
 #include <string>
@@ -20,12 +14,18 @@
 
 namespace Accela::Platform
 {
+    static constexpr const char* ACCELA_DIR = "accela";
     static constexpr const char* ASSETS_DIR = "assets";
+    static constexpr const char* PACKAGES_DIR = "packages";
+    static constexpr const char* CONSTRUCTS_DIR = "constructs";
     static constexpr const char* SHADERS_SUBDIR = "shaders";
     static constexpr const char* TEXTURES_SUBDIR = "textures";
     static constexpr const char* AUDIO_SUBDIR = "audio";
-    static constexpr const char* FONTS_DIR = "fonts";
-    static constexpr const char* MODELS_DIR = "models";
+    static constexpr const char* FONTS_SUBDIR = "fonts";
+    static constexpr const char* MODELS_SUBDIR = "models";
+
+    static constexpr const char* PACKAGE_EXTENSION = ".acp";
+    static constexpr const char* CONSTRUCT_EXTENSION = ".acc";
 
     /**
      * Interface to accessing engine files from disk on PC, APK assets on Android.
@@ -43,29 +43,22 @@ namespace Accela::Platform
 
             virtual ~IFiles() = default;
 
-            [[nodiscard]] virtual std::string GetAssetsDirectory() const = 0;
-            [[nodiscard]] virtual std::string GetAssetsSubdirectory(const std::string& subDirName) const = 0;
-            [[nodiscard]] virtual std::string GetAssetFilePath(const std::string& subdir, const std::string& fileName) const = 0;
+            [[nodiscard]] virtual std::string GetAccelaDirectory() const = 0;
+            [[nodiscard]] virtual std::string GetAccelaSubdirectory(const std::string& subDirName) const = 0;
+            [[nodiscard]] virtual std::string GetAccelaFilePath(const std::string& subdir, const std::string& fileName) const = 0;
+            [[nodiscard]] virtual std::expected<std::vector<std::string>, bool> ListFilesInAccelaSubdir(const std::string& subdir) const = 0;
+
+            [[nodiscard]] virtual std::string GetPackagesDirectory() const = 0;
+            [[nodiscard]] virtual std::string GetPackageDirectory(const std::string& packageName) const = 0;
+
+            [[nodiscard]] virtual std::expected<Package::Ptr, bool> LoadPackage(const std::string& packageName) const = 0;
+
             [[nodiscard]] virtual std::string GetSubdirPath(const std::string& root, const std::string& subdir) const = 0;
-            [[nodiscard]] virtual std::expected<std::vector<std::string>, bool> ListFilesInAssetsSubdir(const std::string& subdir) const = 0;
             [[nodiscard]] virtual std::expected<std::vector<std::string>, bool> ListFilesInDirectory(const std::string& directory) const = 0;
             [[nodiscard]] virtual std::string EnsureEndsWithSeparator(const std::string& source) const = 0;
 
-            [[nodiscard]] virtual std::expected<Common::ImageData::Ptr, unsigned int> LoadAssetTexture(const std::string& fileName) const = 0;
-            [[nodiscard]] virtual std::expected<Common::ImageData::Ptr, unsigned int> LoadAssetModelTexture(const std::string& modelName, const std::string& fileName) const = 0;
             [[nodiscard]] virtual std::expected<Common::ImageData::Ptr, bool> LoadCompressedTexture(const std::vector<std::byte>& data, const std::size_t& dataByteSize, const std::optional<std::string>& dataFormatHint) const = 0;
-            [[nodiscard]] virtual std::expected<std::vector<unsigned char>, bool> LoadAssetFile(const std::string& subdir, const std::string& fileName) const = 0;
-
-            /**
-             * The Assimp library access files on disk through an internal IOSystem interface that can
-             * be provided by the client. The default IOSystem uses standard c-funcs to access disk files.
-             * However, some platforms, such as Android, have different requirements, such as the ability
-             * to load files out of an APK's assets. For such platforms, they can override this method
-             * and configure the Assimp Importer to use a custom IOSystem.
-             *
-             * @param importer The Assimp importer to be configured
-             */
-            virtual void ConfigureAssimpImporter(Assimp::Importer& importer) const { (void) importer; }
+            [[nodiscard]] virtual std::expected<std::vector<unsigned char>, bool> LoadAccelaFile(const std::string& subdir, const std::string& fileName) const = 0;
     };
 }
 

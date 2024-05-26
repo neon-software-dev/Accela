@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef LIBACCELACOMMON_INCLUDE_ACCELA_COMMON_THREAD_RESULTMESSAGE_H
 #define LIBACCELACOMMON_INCLUDE_ACCELA_COMMON_THREAD_RESULTMESSAGE_H
 
@@ -69,6 +63,24 @@ namespace Accela::Common
         private:
 
             std::promise<T> m_promise;
+    };
+
+    //
+    // Specific Common ResultMessages
+    //
+
+    /**
+     * A ResultMessage which returns a boolean result
+     */
+    struct BoolResultMessage : public Common::ResultMessage<bool>
+    {
+        BoolResultMessage()
+            : Common::ResultMessage<bool>("BoolResultMessage")
+        { }
+
+        explicit BoolResultMessage(std::string typeIdentifier)
+            : Common::ResultMessage<bool>(std::move(typeIdentifier))
+        { }
     };
 }
 

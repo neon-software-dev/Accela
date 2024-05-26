@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #include "SDLUtil.h"
 
 namespace Accela::Platform
@@ -20,7 +14,7 @@ SDL_Color SDLUtil::ToSDLColor(const Color& color)
     return sdlColor;
 }
 
-Common::ImageData::Ptr SDLUtil::SDLSurfaceToImageData(const Common::ILogger::Ptr& logger, SDL_Surface *pSurface)
+Common::ImageData::Ptr SDLUtil::SDLSurfaceToImageData(SDL_Surface *pSurface)
 {
     SDL_LockSurface(pSurface);
 
@@ -40,8 +34,6 @@ Common::ImageData::Ptr SDLUtil::SDLSurfaceToImageData(const Common::ILogger::Ptr
 
         if (pFormattedSurface == nullptr)
         {
-            logger->Log(Common::LogLevel::Error,
-                "SDLSurfaceToImageData: Surface could not be converted to a supported pixel format");
             return nullptr;
         }
 

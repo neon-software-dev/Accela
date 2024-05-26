@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef LIBACCELAENGINE_SRC_SHADERUTIL_H
 #define LIBACCELAENGINE_SRC_SHADERUTIL_H
 
@@ -36,7 +30,7 @@ namespace Accela::Engine
         //
         // Get list of all file names in the shaders assets subdirectory
         //
-        const auto shaderFileNamesExpect = files->ListFilesInAssetsSubdir(Platform::SHADERS_SUBDIR);
+        const auto shaderFileNamesExpect = files->ListFilesInAccelaSubdir(Platform::SHADERS_SUBDIR);
         if (!shaderFileNamesExpect)
         {
             return std::unexpected(shaderFileNamesExpect.error());
@@ -69,7 +63,7 @@ namespace Accela::Engine
                 continue;
             }
 
-            const auto shaderContentsExpect = files->LoadAssetFile(Platform::SHADERS_SUBDIR, spvFileName);
+            const auto shaderContentsExpect = files->LoadAccelaFile(Platform::SHADERS_SUBDIR, spvFileName);
             if (!shaderContentsExpect)
             {
                 logger->Log(Common::LogLevel::Error, "ReadShadersFromAssets: Failed to load shader contents from file: {}", spvFileName);

@@ -1,13 +1,7 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_BOUNDS_BOUNDS_HEIGHTMAP_H
 #define LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_BOUNDS_BOUNDS_HEIGHTMAP_H
 
-#include <Accela/Render/Id.h>
+#include <Accela/Engine/ResourceIdentifier.h>
 
 namespace Accela::Engine
 {
@@ -16,11 +10,14 @@ namespace Accela::Engine
      */
     struct Bounds_HeightMap
     {
-        explicit Bounds_HeightMap(Render::MeshId _heightMapMeshId)
-            : heightMapMeshId(_heightMapMeshId)
+        /**
+         * @param _resource Identifies the mesh resource to use as height map bounds
+         */
+        explicit Bounds_HeightMap(ResourceIdentifier _resource)
+            : resource(std::move(_resource))
         { }
 
-        Render::MeshId heightMapMeshId;
+        ResourceIdentifier resource;
     };
 }
 

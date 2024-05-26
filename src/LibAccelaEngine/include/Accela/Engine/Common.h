@@ -1,15 +1,10 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_COMMON_H
 #define LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_COMMON_H
 
 #include <cstdint>
 #include <string>
 #include <unordered_map>
+#include <optional>
 
 namespace Accela::Engine
 {
@@ -54,6 +49,7 @@ struct std::hash<Accela::Engine::ID_TYPE> \
 
 DEFINE_ENGINE_NAME_ID(PhysicsSceneName)
 DEFINE_ENGINE_NAME_ID(PlayerControllerName)
+DEFINE_ENGINE_NAME_ID(PackageName)
 
 namespace Accela::Engine
 {

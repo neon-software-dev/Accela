@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #include "PhysXScene.h"
 
 #include "../Scene/MeshResources.h"
@@ -653,11 +647,11 @@ physx::PxShape* PhysXScene::CreateShape_StaticMesh(const ShapeData& shape,
     const auto boundsStaticMesh = std::get<Bounds_StaticMesh>(shape.bounds);
 
     const auto staticMeshDataOpt = std::dynamic_pointer_cast<MeshResources>(m_worldResources->Meshes())
-        ->GetStaticMeshData(boundsStaticMesh.staticMeshId);
+        ->GetStaticMeshData(boundsStaticMesh.resource);
     if (!staticMeshDataOpt)
     {
         m_logger->Log(Common::LogLevel::Error,
-          "PhysXScene::CreateShape_StaticMesh: No such static mesh found, id: {}", boundsStaticMesh.staticMeshId.id);
+          "PhysXScene::CreateShape_StaticMesh: No such static mesh found, id: {}", boundsStaticMesh.resource.GetUniqueName());
         return nullptr;
     }
 
@@ -726,11 +720,11 @@ physx::PxShape* PhysXScene::CreateShape_HeightMap(const ShapeData& shape,
     const auto boundsHeightMap = std::get<Bounds_HeightMap>(shape.bounds);
 
     const auto heightMapDataOpt = std::dynamic_pointer_cast<MeshResources>(m_worldResources->Meshes())
-        ->GetHeightMapData(boundsHeightMap.heightMapMeshId);
+        ->GetHeightMapData(boundsHeightMap.resource);
     if (!heightMapDataOpt)
     {
         m_logger->Log(Common::LogLevel::Error,
-          "PhysXScene::CreateShape_StaticMesh: No such height map mesh found, id: {}", boundsHeightMap.heightMapMeshId.id);
+          "PhysXScene::CreateShape_StaticMesh: No such height map mesh found, id: {}", boundsHeightMap.resource.GetUniqueName());
         return nullptr;
     }
 

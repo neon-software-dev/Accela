@@ -1,14 +1,7 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #include "ModelResources.h"
+#include "PackageResources.h"
 
 #include "../Util.h"
-
-#include <Accela/Engine/IEngineAssets.h>
 
 #include <Accela/Platform/File/IFiles.h>
 
@@ -21,172 +14,177 @@
 namespace Accela::Engine
 {
 
-struct BoolResultMessage : public Common::ResultMessage<bool>
-{
-    BoolResultMessage()
-        : Common::ResultMessage<bool>("BoolResultMessage")
-    { }
-};
-
 ModelResources::ModelResources(Common::ILogger::Ptr logger,
+                               IPackageResourcesPtr packages,
                                std::shared_ptr<Render::IRenderer> renderer,
-                               std::shared_ptr<IEngineAssets> assets,
                                std::shared_ptr<Platform::IFiles> files,
                                std::shared_ptr<Common::MessageDrivenThreadPool> threadPool)
    : m_logger(std::move(logger))
+   , m_packages(std::move(packages))
    , m_renderer(std::move(renderer))
-   , m_assets(std::move(assets))
    , m_files(std::move(files))
    , m_threadPool(std::move(threadPool))
+   , m_modelLoader(m_logger)
 {
 
 }
 
-std::future<bool> ModelResources::LoadAssetsModel(const std::string& modelFileName, ResultWhen resultWhen)
+std::future<bool> ModelResources::LoadModel(const PackageResourceIdentifier& resource, ResultWhen resultWhen)
 {
-    auto message = std::make_shared<BoolResultMessage>();
+    auto message = std::make_shared<Common::BoolResultMessage>();
     auto messageFuture = message->CreateFuture();
 
     m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& _message){
-        std::dynamic_pointer_cast<BoolResultMessage>(_message)->SetResult(
-            OnLoadAssetsModel(modelFileName, resultWhen)
+        std::dynamic_pointer_cast<Common::BoolResultMessage>(_message)->SetResult(
+            OnLoadModel(resource, resultWhen)
         );
     });
 
     return messageFuture;
 }
 
-std::future<bool> ModelResources::LoadAllAssetModels(ResultWhen resultWhen)
+std::future<bool> ModelResources::LoadAllModels(const PackageName& packageName, ResultWhen resultWhen)
 {
-    auto message = std::make_shared<BoolResultMessage>();
+    auto message = std::make_shared<Common::BoolResultMessage>();
     auto messageFuture = message->CreateFuture();
 
     m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& _message){
-        std::dynamic_pointer_cast<BoolResultMessage>(_message)->SetResult(
-            OnLoadAllAssetModels(resultWhen)
+        std::dynamic_pointer_cast<Common::BoolResultMessage>(_message)->SetResult(
+            OnLoadAllModels(packageName, resultWhen)
         );
     });
 
     return messageFuture;
 }
 
-std::future<bool> ModelResources::LoadModel(const std::string& modelName, const Model::Ptr& model, ResultWhen resultWhen)
+std::future<bool> ModelResources::LoadAllModels(ResultWhen resultWhen)
 {
-    auto message = std::make_shared<BoolResultMessage>();
+    auto message = std::make_shared<Common::BoolResultMessage>();
     auto messageFuture = message->CreateFuture();
 
     m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& _message){
-        std::dynamic_pointer_cast<BoolResultMessage>(_message)->SetResult(
-            OnLoadModel(modelName, model, resultWhen)
+        std::dynamic_pointer_cast<Common::BoolResultMessage>(_message)->SetResult(
+            OnLoadAllModels(resultWhen)
         );
     });
 
     return messageFuture;
 }
 
-bool ModelResources::OnLoadAssetsModel(const std::string& modelFileName, ResultWhen resultWhen)
+std::future<bool> ModelResources::LoadModel(const CustomResourceIdentifier& resource,
+                                            const Model::Ptr& model,
+                                            const ModelTextures& modelTextures,
+                                            ResultWhen resultWhen)
 {
-    m_logger->Log(Common::LogLevel::Info, "ModelResources: Reading asset model: {}", modelFileName);
+    auto message = std::make_shared<Common::BoolResultMessage>();
+    auto messageFuture = message->CreateFuture();
 
-    const auto splitFileName = SplitFileName(modelFileName);
-    if (!splitFileName)
-    {
-        m_logger->Log(Common::LogLevel::Error, "ModelResources: Not a valid model filename: {}", modelFileName);
-        return false;
-    }
+    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& _message){
+        std::dynamic_pointer_cast<Common::BoolResultMessage>(_message)->SetResult(
+            LoadPackageModelInternal(resource, model, modelTextures, resultWhen)
+        );
+    });
 
-    const auto modelExpect = m_assets->ReadModelBlocking(splitFileName->first, splitFileName->second);
-    if (!modelExpect)
+    return messageFuture;
+}
+
+bool ModelResources::OnLoadModel(const PackageResourceIdentifier& resource, ResultWhen resultWhen)
+{
+    const auto package = m_packages->GetPackage(*resource.GetPackageName());
+    if (!package)
     {
         m_logger->Log(Common::LogLevel::Error,
-          "ModelResources::OnLoadAssetsModel: Failed to load model from assets: {}", modelFileName);
+          "ModelResources::OnLoadModel: No such package: {}", resource.GetPackageName()->name);
         return false;
     }
 
-    return OnLoadModel(splitFileName->first, *modelExpect, resultWhen);
+    const auto modelData = (*package)->GetModelData(resource.GetResourceName());
+    if (!modelData)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "ModelResources::OnLoadModel: Failed to get model data: {}", resource.GetUniqueName());
+        return false;
+    }
+
+    const auto splitFileName = SplitFileName(resource.GetResourceName());
+    if (!splitFileName)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "ModelResources::OnLoadModel: Invalid model file name: {}", resource.GetUniqueName());
+        return false;
+    }
+
+    const auto model = m_modelLoader.LoadModel(*modelData, splitFileName->second, resource.GetUniqueName());
+    if (model == nullptr)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "ModelResources::OnLoadModel: ModelLoader failed to load model: {}", resource.GetUniqueName());
+        return false;
+    }
+
+    auto modelTextures = LoadPackageModelTextures(resource, model, *package);
+    if (!modelTextures)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "ModelResources::OnLoadModel: Failed to load package model textures: {}", resource.GetUniqueName());
+        return false;
+    }
+
+    return LoadPackageModelInternal(resource, model, *modelTextures, resultWhen);
 }
 
-bool ModelResources::OnLoadAllAssetModels(ResultWhen resultWhen)
+bool ModelResources::OnLoadAllModels(const PackageName& packageName, ResultWhen resultWhen)
 {
-    m_logger->Log(Common::LogLevel::Info, "ModelResources: Reading all asset models");
+    m_logger->Log(Common::LogLevel::Info, "ModelResources: Loading all model resources for package: {}", packageName.name);
 
-    const auto allAssetModels = GetAllAssetModelFileNames();
-
-    m_logger->Log(Common::LogLevel::Info, "ModelResources: Discovered {} models to be loaded", allAssetModels.size());
+    const auto package = m_packages->GetPackage(packageName);
+    if (!package)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "ModelResources::OnLoadAllModels: No such package: {}", packageName.name);
+        return false;
+    }
 
     bool allSuccessful = true;
 
-    for (const auto& assetModel : allAssetModels)
+    const auto modelFileNames = (*package)->GetModelFileNames();
+
+    for (const auto& modelFileName : modelFileNames)
     {
-        allSuccessful = allSuccessful && OnLoadAssetsModel(assetModel, resultWhen);
+        allSuccessful = allSuccessful && OnLoadModel(PackageResourceIdentifier(packageName, modelFileName), resultWhen);
     }
 
     return allSuccessful;
 }
 
-std::vector<std::string> ModelResources::GetAllAssetModelFileNames() const
+bool ModelResources::OnLoadAllModels(ResultWhen resultWhen)
 {
-    std::vector<std::string> results;
+    m_logger->Log(Common::LogLevel::Info, "ModelResources: Loading all model resources");
 
-    //
-    // Returns a list of all the model directories within the models assets folder
-    //
-    const auto allModelDirs = m_files->ListFilesInAssetsSubdir(Platform::MODELS_DIR);
-    if (!allModelDirs)
+    const auto packages = m_packages->GetAllPackages();
+
+    bool allSuccessful = true;
+
+    for (const auto& package : packages)
     {
-        m_logger->Log(Common::LogLevel::Error,
-          "ModelResources::OnLoadAllAssetModels: Failed to list files in models directory");
-        return {};
+        allSuccessful = allSuccessful && OnLoadAllModels(PackageName(package->GetPackageName()), resultWhen);
     }
 
-    const auto assetsModelsSubdirectory = m_files->EnsureEndsWithSeparator(
-        m_files->GetAssetsSubdirectory(Platform::MODELS_DIR)
-    );
-
-    //
-    // For each model directory, list the files inside and try to find its model file
-    //
-    for (const auto& modelName : *allModelDirs)
-    {
-        // The path to the model subdirectory with the models directory
-        const auto modelDirPath = assetsModelsSubdirectory + modelName;
-
-        // All the files (and directories) within the model's directory
-        const auto allModelFiles = m_files->ListFilesInDirectory(modelDirPath);
-        if (!allModelFiles)
-        {
-            m_logger->Log(Common::LogLevel::Error,
-              "ModelResources::OnLoadAllAssetModels: Failed to list files in model directory: {}", modelName);
-            continue;
-        }
-
-        // For each item in the directory, look for a file with the filename matching the model name
-        for (const auto& modelFile : *allModelFiles)
-        {
-            const auto splitFileName = SplitFileName(modelFile);
-            if (!splitFileName) { continue; }
-
-            // If the filename matches the model name, consider this the model file
-            if (splitFileName->first == modelName)
-            {
-                results.push_back(modelFile);
-                break;
-            }
-        }
-    }
-
-    return results;
+    return allSuccessful;
 }
 
-bool ModelResources::OnLoadModel(const std::string& modelName, const Model::Ptr& model, ResultWhen resultWhen)
+bool ModelResources::LoadPackageModelInternal(const ResourceIdentifier& resource,
+                                              const Model::Ptr& model,
+                                              const std::unordered_map<std::string, Common::ImageData::Ptr>& modelTextures,
+                                              ResultWhen resultWhen)
 {
-    m_logger->Log(Common::LogLevel::Info, "ModelResources: Loading model: {}", modelName);
+    m_logger->Log(Common::LogLevel::Info, "ModelResources: Loading model: {}", resource.GetUniqueName());
 
-    if (m_models.contains(modelName))
+    if (m_models.contains(resource))
     {
-        m_logger->Log(Common::LogLevel::Error,
-          "ModelResources::OnLoadModel: Model already existed, name: {}", modelName);
-        return false;
+        m_logger->Log(Common::LogLevel::Warning,
+          "ModelResources::LoadPackageModelInternal: Model already existed, name: {}", resource.GetUniqueName());
+        return true;
     }
 
     RegisteredModel registeredModel{};
@@ -201,11 +199,11 @@ bool ModelResources::OnLoadModel(const std::string& modelName, const Model::Ptr&
 
     for (const auto& materialIt : model->materials)
     {
-        const auto materialIdExpected = LoadModelMeshMaterial(registeredModel, modelName, materialIt.second, resultWhen);
+        const auto materialIdExpected = LoadModelMeshMaterial(registeredModel, resource.GetResourceName(), materialIt.second, modelTextures, resultWhen);
         if (!materialIdExpected)
         {
             m_logger->Log(Common::LogLevel::Error,
-              "ModelResources::OnLoadModel: Failed to load a mesh material: {}", materialIt.second.name);
+              "ModelResources::LoadPackageModelInternal: Failed to load mesh material: {}", materialIt.second.name);
             return false;
         }
 
@@ -221,13 +219,60 @@ bool ModelResources::OnLoadModel(const std::string& modelName, const Model::Ptr&
         if (!meshIdExpected)
         {
             m_logger->Log(Common::LogLevel::Error,
-              "ModelResources::OnLoadModel: Failed to load a mesh: {}", modelMeshIt.second.name);
+              "ModelResources::LoadPackageModelInternal: Failed to load mesh: {}", modelMeshIt.second.name);
             return false;
         }
     }
 
     std::lock_guard<std::recursive_mutex> modelsLock(m_modelsMutex);
-    m_models.insert({modelName, registeredModel});
+    m_models.insert({resource, registeredModel});
+
+    return true;
+}
+
+std::expected<ModelTextures, bool> ModelResources::LoadPackageModelTextures(const PackageResourceIdentifier& resource,
+                                                                            const Model::Ptr& model,
+                                                                            const Platform::Package::Ptr& package)
+{
+    //
+    // Loads from package all non-embedded textures for all the model's materials
+    //
+
+    std::unordered_map<std::string, Common::ImageData::Ptr> textures;
+
+    for (const auto& material : model->materials)
+    {
+        if (!LoadPackageModelTextures(resource, material.second.ambientTextures, package, textures)) { return std::unexpected(false); }
+        if (!LoadPackageModelTextures(resource, material.second.diffuseTextures, package, textures)) { return std::unexpected(false); }
+        if (!LoadPackageModelTextures(resource, material.second.specularTextures, package, textures)) { return std::unexpected(false); }
+        if (!LoadPackageModelTextures(resource, material.second.normalTextures, package, textures)) { return std::unexpected(false); }
+    }
+
+    return textures;
+}
+
+bool ModelResources::LoadPackageModelTextures(const PackageResourceIdentifier& resource,
+                                              const std::vector<ModelTexture>& textures,
+                                              const Platform::Package::Ptr& package,
+                                              ModelTextures& result)
+{
+    for (const auto& texture : textures)
+    {
+        // Don't need to load any package data for embedded textures
+        if (texture.embeddedData) { continue; }
+
+        const auto textureFileName = texture.fileName;
+
+        const auto textureData = package->GetModelTextureData(resource.GetResourceName(), textureFileName);
+        if (!textureData)
+        {
+            m_logger->Log(Common::LogLevel::Error,
+              "ModelResources::LoadPackageModelTextures: Failed to load texture from package: {}", textureFileName);
+            return false;
+        }
+
+        result.insert({textureFileName, *textureData});
+    }
 
     return true;
 }
@@ -235,6 +280,7 @@ bool ModelResources::OnLoadModel(const std::string& modelName, const Model::Ptr&
 std::expected<Render::MaterialId, bool> ModelResources::LoadModelMeshMaterial(RegisteredModel& registeredModel,
                                                                               const std::string& modelName,
                                                                               const ModelMaterial& material,
+                                                                              const ModelTextures& modelTextures,
                                                                               ResultWhen resultWhen) const
 {
     //
@@ -289,7 +335,7 @@ std::expected<Render::MaterialId, bool> ModelResources::LoadModelMeshMaterial(Re
 
     for (const auto& texture : material.ambientTextures)
     {
-        const auto textureIdExpected = LoadModelMaterialTexture(registeredModel, modelName, texture, resultWhen);
+        const auto textureIdExpected = LoadModelMaterialTexture(registeredModel, modelName, texture, modelTextures, resultWhen);
         if (!textureIdExpected)
         {
             return std::unexpected(false);
@@ -301,7 +347,7 @@ std::expected<Render::MaterialId, bool> ModelResources::LoadModelMeshMaterial(Re
     }
     for (const auto& texture : material.diffuseTextures)
     {
-        const auto textureIdExpected = LoadModelMaterialTexture(registeredModel, modelName, texture, resultWhen);
+        const auto textureIdExpected = LoadModelMaterialTexture(registeredModel, modelName, texture, modelTextures, resultWhen);
         if (!textureIdExpected)
         {
             return std::unexpected(false);
@@ -313,7 +359,7 @@ std::expected<Render::MaterialId, bool> ModelResources::LoadModelMeshMaterial(Re
     }
     for (const auto& texture : material.specularTextures)
     {
-        const auto textureIdExpected = LoadModelMaterialTexture(registeredModel, modelName, texture, resultWhen);
+        const auto textureIdExpected = LoadModelMaterialTexture(registeredModel, modelName, texture, modelTextures, resultWhen);
         if (!textureIdExpected)
         {
             return std::unexpected(false);
@@ -325,7 +371,7 @@ std::expected<Render::MaterialId, bool> ModelResources::LoadModelMeshMaterial(Re
     }
     for (const auto& texture : material.normalTextures)
     {
-        const auto textureIdExpected = LoadModelMaterialTexture(registeredModel, modelName, texture, resultWhen);
+        const auto textureIdExpected = LoadModelMaterialTexture(registeredModel, modelName, texture, modelTextures, resultWhen);
         if (!textureIdExpected)
         {
             return std::unexpected(false);
@@ -359,6 +405,7 @@ std::expected<Render::MaterialId, bool> ModelResources::LoadModelMeshMaterial(Re
 std::expected<Render::TextureId, bool> ModelResources::LoadModelMaterialTexture(RegisteredModel& registeredModel,
                                                                                 const std::string& modelName,
                                                                                 const ModelTexture& modelTexture,
+                                                                                const ModelTextures& modelTextures,
                                                                                 ResultWhen resultWhen) const
 {
     const auto loadedTextureIt = registeredModel.loadedTextures.find(modelTexture.fileName);
@@ -390,7 +437,7 @@ std::expected<Render::TextureId, bool> ModelResources::LoadModelMaterialTexture(
             if (!textureLoadExpect)
             {
                 m_logger->Log(Common::LogLevel::Error,
-                              "LoadModelMaterialTexture: Failed to interpret compressed texture data: {}", modelTexture.fileName);
+                  "ModelResources::LoadModelMaterialTexture: Failed to interpret compressed texture data: {}", modelTexture.fileName);
                 return std::unexpected(false);
             }
 
@@ -414,14 +461,15 @@ std::expected<Render::TextureId, bool> ModelResources::LoadModelMaterialTexture(
     //
     if (!textureData)
     {
-        const auto textureLoadExpect = m_files->LoadAssetModelTexture(modelName, modelTexture.fileName);
-        if (!textureLoadExpect)
+        const auto it = modelTextures.find(modelTexture.fileName);
+        if (it == modelTextures.cend())
         {
-            m_logger->Log(Common::LogLevel::Error, "LoadModelMaterialTexture: Failed to load texture file: {}", modelTexture.fileName);
+            m_logger->Log(Common::LogLevel::Error,
+              "ModelResources::LoadModelMaterialTexture: Failed to get texture data: {} : {}", modelName, modelTexture.fileName);
             return std::unexpected(false);
         }
 
-        textureData = *textureLoadExpect;
+        textureData = it->second;
     }
 
     //
@@ -452,7 +500,7 @@ std::expected<Render::MeshId, bool> ModelResources::LoadModelMesh(RegisteredMode
     const auto materialId = registeredMaterials.find(modelMesh.materialIndex);
     if (materialId == registeredMaterials.cend())
     {
-        m_logger->Log(Common::LogLevel::Error, "LoadModelMesh: Can't load mesh as its material doesn't exist");
+        m_logger->Log(Common::LogLevel::Error, "ModelResources::LoadModelMesh: Can't load mesh as its material doesn't exist");
         return std::unexpected(false);
     }
 
@@ -505,11 +553,11 @@ std::expected<Render::MeshId, bool> ModelResources::LoadModelMesh(RegisteredMode
     return meshId;
 }
 
-std::optional<RegisteredModel> ModelResources::GetLoadedModel(const std::string& modelName) const
+std::optional<RegisteredModel> ModelResources::GetLoadedModel(const ResourceIdentifier& resource) const
 {
     std::lock_guard<std::recursive_mutex> modelsLock(m_modelsMutex);
 
-    const auto it = m_models.find(modelName);
+    const auto it = m_models.find(resource);
     if (it == m_models.cend())
     {
         return std::nullopt;
@@ -518,16 +566,15 @@ std::optional<RegisteredModel> ModelResources::GetLoadedModel(const std::string&
     return it->second;
 }
 
-void ModelResources::DestroyModel(const std::string& modelName)
+void ModelResources::DestroyModel(const ResourceIdentifier& resource)
 {
-    m_logger->Log(Common::LogLevel::Info, "ModelResources::DestroyModel: Destroying model, name: {}", modelName);
+    m_logger->Log(Common::LogLevel::Info, "ModelResources::DestroyModel: Destroying model resource: {}", resource.GetUniqueName());
 
     std::lock_guard<std::recursive_mutex> modelsLock(m_modelsMutex);
 
-    const auto model = GetLoadedModel(modelName);
+    const auto model = GetLoadedModel(resource);
     if (!model)
     {
-        m_logger->Log(Common::LogLevel::Error, "ModelResources::DestroyModel: Model doesn't exist, name: {}", modelName);
         return;
     }
 
@@ -550,12 +597,12 @@ void ModelResources::DestroyModel(const std::string& modelName)
     }
 
     // Erase our knowledge of the model
-    m_models.erase(modelName);
+    m_models.erase(resource);
 }
 
 void ModelResources::DestroyAll()
 {
-    m_logger->Log(Common::LogLevel::Info, "ModelResources::DestroyAll: Destroying all models");
+    m_logger->Log(Common::LogLevel::Info, "ModelResources: Destroying all model resources");
 
     while (!m_models.empty())
     {

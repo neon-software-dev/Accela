@@ -1,12 +1,5 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #include "MeshResources.h"
 
-#include <Accela/Engine/IEngineAssets.h>
 #include <Accela/Engine/Scene/ITextureResources.h>
 
 #include <Accela/Platform/File/IFiles.h>
@@ -27,25 +20,23 @@ struct MeshResultMessage : public Common::ResultMessage<Render::MeshId>
 };
 
 MeshResources::MeshResources(Common::ILogger::Ptr logger,
-                             std::shared_ptr<ITextureResources> textures,
+                             ITextureResourcesPtr textures,
                              std::shared_ptr<Render::IRenderer> renderer,
-                             std::shared_ptr<IEngineAssets> assets,
                              std::shared_ptr<Platform::IFiles> files,
                              std::shared_ptr<Common::MessageDrivenThreadPool> threadPool)
     : m_logger(std::move(logger))
     , m_textures(std::move(textures))
     , m_renderer(std::move(renderer))
-    , m_assets(std::move(assets))
     , m_files(std::move(files))
     , m_threadPool(std::move(threadPool))
 {
 
 }
 
-std::future<Render::MeshId> MeshResources::LoadStaticMesh(const std::vector<Render::MeshVertex>& vertices,
+std::future<Render::MeshId> MeshResources::LoadStaticMesh(const CustomResourceIdentifier& resource,
+                                                          const std::vector<Render::MeshVertex>& vertices,
                                                           const std::vector<uint32_t>& indices,
                                                           Render::MeshUsage usage,
-                                                          const std::string& tag,
                                                           ResultWhen resultWhen)
 {
     auto message = std::make_shared<MeshResultMessage>();
@@ -53,19 +44,19 @@ std::future<Render::MeshId> MeshResources::LoadStaticMesh(const std::vector<Rend
 
     m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& _message){
         std::dynamic_pointer_cast<MeshResultMessage>(_message)->SetResult(
-            OnLoadStaticMesh(vertices, indices, usage, tag, resultWhen)
+            OnLoadStaticMesh(resource, vertices, indices, usage, resultWhen)
         );
     });
 
     return messageFuture;
 }
 
-std::future<Render::MeshId> MeshResources::LoadHeightMapMesh(const Render::TextureId& heightMapTextureId,
+std::future<Render::MeshId> MeshResources::LoadHeightMapMesh(const CustomResourceIdentifier& resource,
+                                                             const Render::TextureId& heightMapTextureId,
                                                              const Render::USize& heightMapDataSize,
                                                              const Render::USize& meshSize_worldSpace,
                                                              const float& displacementFactor,
                                                              Render::MeshUsage usage,
-                                                             const std::string& tag,
                                                              ResultWhen resultWhen)
 {
     auto message = std::make_shared<MeshResultMessage>();
@@ -73,19 +64,19 @@ std::future<Render::MeshId> MeshResources::LoadHeightMapMesh(const Render::Textu
 
     m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& _message){
         std::dynamic_pointer_cast<MeshResultMessage>(_message)->SetResult(
-            OnLoadHeightMapMesh(heightMapTextureId, heightMapDataSize, meshSize_worldSpace, displacementFactor, usage, tag, resultWhen)
+            OnLoadHeightMapMesh(resource, heightMapTextureId, heightMapDataSize, meshSize_worldSpace, displacementFactor, usage, resultWhen)
         );
     });
 
     return messageFuture;
 }
 
-std::future<Render::MeshId> MeshResources::LoadHeightMapMesh(const Common::ImageData::Ptr& heightMapImage,
+std::future<Render::MeshId> MeshResources::LoadHeightMapMesh(const CustomResourceIdentifier& resource,
+                                                             const Common::ImageData::Ptr& heightMapImage,
                                                              const Render::USize& heightMapDataSize,
                                                              const Render::USize& meshSize_worldSpace,
                                                              const float& displacementFactor,
                                                              Render::MeshUsage usage,
-                                                             const std::string& tag,
                                                              ResultWhen resultWhen)
 {
     auto message = std::make_shared<MeshResultMessage>();
@@ -93,46 +84,46 @@ std::future<Render::MeshId> MeshResources::LoadHeightMapMesh(const Common::Image
 
     m_threadPool->PostMessage(message, [=, this](const Common::Message::Ptr& _message) {
         std::dynamic_pointer_cast<MeshResultMessage>(_message)->SetResult(
-            OnLoadHeightMapMesh(heightMapImage, heightMapDataSize, meshSize_worldSpace, displacementFactor, usage, tag, resultWhen)
+            OnLoadHeightMapMesh(resource, heightMapImage, heightMapDataSize, meshSize_worldSpace, displacementFactor, usage, resultWhen)
         );
     });
 
     return messageFuture;
 }
 
-Render::MeshId MeshResources::OnLoadStaticMesh(const std::vector<Render::MeshVertex>& vertices,
+Render::MeshId MeshResources::OnLoadStaticMesh(const CustomResourceIdentifier& resource,
+                                               const std::vector<Render::MeshVertex>& vertices,
                                                const std::vector<uint32_t>& indices,
                                                Render::MeshUsage usage,
-                                               const std::string& tag,
                                                ResultWhen resultWhen)
 {
-    m_logger->Log(Common::LogLevel::Info, "MeshResources: Loading static mesh: {}", tag);
+    m_logger->Log(Common::LogLevel::Info, "MeshResources: Loading static mesh resource: {}", resource.GetUniqueName());
 
     const auto mesh = std::make_shared<Render::StaticMesh>(
         m_renderer->GetIds()->meshIds.GetId(),
         vertices,
         indices,
-        tag
+        resource.GetUniqueName()
     );
 
     // Record the mesh's data before moving on with the mesh loading process
     {
         std::lock_guard<std::mutex> dataLock(m_staticMeshDataMutex);
-        m_staticMeshData.insert({mesh->id, std::make_shared<RegisteredStaticMesh>(vertices, indices)});
+        m_staticMeshData.insert({resource, std::make_shared<RegisteredStaticMesh>(vertices, indices)});
     }
 
-    return LoadMesh(mesh, usage, resultWhen);
+    return LoadMesh(resource, mesh, usage, resultWhen);
 }
 
-Render::MeshId MeshResources::OnLoadHeightMapMesh(const Render::TextureId& heightMapTextureId,
+Render::MeshId MeshResources::OnLoadHeightMapMesh(const CustomResourceIdentifier& resource,
+                                                  const Render::TextureId& heightMapTextureId,
                                                   const Render::USize& heightMapDataSize,
                                                   const Render::USize& meshSize_worldSpace,
                                                   const float& displacementFactor,
                                                   Render::MeshUsage usage,
-                                                  const std::string& tag,
                                                   ResultWhen resultWhen)
 {
-    m_logger->Log(Common::LogLevel::Info, "MeshResources: Loading height map mesh: {}", tag);
+    m_logger->Log(Common::LogLevel::Info, "MeshResources: Loading height map mesh resource: {}", resource.GetUniqueName());
 
     //
     // Fetch the texture's data
@@ -156,22 +147,22 @@ Render::MeshId MeshResources::OnLoadHeightMapMesh(const Render::TextureId& heigh
     // Load the height map mesh from the texture's image data
     //
     return OnLoadHeightMapMesh(
+        resource,
         heightMapTextureOpt->data.value(),
         heightMapDataSize,
         meshSize_worldSpace,
         displacementFactor,
         usage,
-        tag,
         resultWhen
     );
 }
 
-Render::MeshId MeshResources::OnLoadHeightMapMesh(const Common::ImageData::Ptr& heightMapImage,
+Render::MeshId MeshResources::OnLoadHeightMapMesh(const CustomResourceIdentifier& resource,
+                                                  const Common::ImageData::Ptr& heightMapImage,
                                                   const Render::USize& heightMapDataSize,
                                                   const Render::USize& meshSize_worldSpace,
                                                   const float& displacementFactor,
                                                   Render::MeshUsage usage,
-                                                  const std::string& tag,
                                                   ResultWhen resultWhen)
 {
     //
@@ -186,27 +177,29 @@ Render::MeshId MeshResources::OnLoadHeightMapMesh(const Common::ImageData::Ptr& 
         m_renderer->GetIds()->meshIds.GetId(),
         *heightMapData,
         meshSize_worldSpace,
-        tag
+        resource.GetUniqueName()
     );
 
     // Record the height map's data before moving on with the mesh loading process
     {
         std::lock_guard<std::mutex> meshesLock(m_heightMapDataMutex);
-        m_heightMapData.insert({heightMapMesh->id, heightMapData});
+        m_heightMapData.insert({resource, heightMapData});
     }
 
-    return LoadMesh(heightMapMesh, usage, resultWhen);
+    return LoadMesh(resource, heightMapMesh, usage, resultWhen);
 }
 
-Render::MeshId MeshResources::LoadMesh(const Render::Mesh::Ptr& mesh,
+Render::MeshId MeshResources::LoadMesh(const CustomResourceIdentifier& resource,
+                                       const Render::Mesh::Ptr& mesh,
                                        Render::MeshUsage usage,
                                        ResultWhen resultWhen)
 {
-    if (m_meshes.contains(mesh->id))
+    const auto meshId = GetMeshId(resource);
+    if (meshId)
     {
-        m_logger->Log(Common::LogLevel::Error,
-          "MeshResources::LoadMesh: Mesh already existed, id: {}", mesh->id.id);
-        return Render::INVALID_ID;
+        m_logger->Log(Common::LogLevel::Warning,
+          "MeshResources::LoadMesh: Mesh was already loaded, ignoring: {}", resource.GetUniqueName());
+        return *meshId;
     }
 
     //
@@ -220,8 +213,8 @@ Render::MeshId MeshResources::LoadMesh(const Render::Mesh::Ptr& mesh,
         std::lock_guard<std::mutex> meshesLock(m_meshesMutex);
         std::lock_guard<std::mutex> heightMapDataLock(m_heightMapDataMutex);
 
-        m_meshes.erase(mesh->id);
-        m_heightMapData.erase(mesh->id); // May or may not exist
+        m_meshes.erase(resource);
+        m_heightMapData.erase(resource); // May or may not exist
 
         return {Render::INVALID_ID};
     }
@@ -231,48 +224,60 @@ Render::MeshId MeshResources::LoadMesh(const Render::Mesh::Ptr& mesh,
     //
     std::lock_guard<std::mutex> meshesLock(m_meshesMutex);
 
-    m_meshes.insert(mesh->id);
+    m_meshes.insert({resource, mesh->id});
 
     return mesh->id;
 }
 
-void MeshResources::DestroyMesh(const Render::MeshId& meshId)
+std::optional<Render::MeshId> MeshResources::GetMeshId(const ResourceIdentifier& resource) const
 {
-    if (!meshId.IsValid()) { return; }
+    std::lock_guard<std::mutex> meshesLock(m_meshesMutex);
 
-    m_logger->Log(Common::LogLevel::Info, "MeshResources::DestroyMesh: Destroying mesh, id: {}", meshId.id);
+    const auto it = m_meshes.find(resource);
+    if (it == m_meshes.cend())
+    {
+        return std::nullopt;
+    }
+
+    return it->second;
+}
+
+void MeshResources::DestroyMesh(const ResourceIdentifier& resource)
+{
+    m_logger->Log(Common::LogLevel::Info, "MeshResources: Destroying mesh resource: {}", resource.GetUniqueName());
 
     std::lock_guard<std::mutex> meshesLock(m_meshesMutex);
     std::lock_guard<std::mutex> staticMeshDataLock(m_staticMeshDataMutex);
     std::lock_guard<std::mutex> heightMapDataLock(m_heightMapDataMutex);
 
-    if (!m_meshes.contains(meshId))
+    const auto it = m_meshes.find(resource);
+    if (it == m_meshes.cend())
     {
         return;
     }
 
-    m_renderer->DestroyMesh(meshId);
+    m_renderer->DestroyMesh(it->second);
 
-    m_meshes.erase(meshId);
-    m_staticMeshData.erase(meshId);
-    m_heightMapData.erase(meshId); // May or may not exist
+    m_meshes.erase(resource);
+    m_staticMeshData.erase(resource);
+    m_heightMapData.erase(resource); // May or may not exist
 }
 
 void MeshResources::DestroyAll()
 {
-    m_logger->Log(Common::LogLevel::Info, "MeshResources::DestroyAll: Destroying all meshes");
+    m_logger->Log(Common::LogLevel::Info, "MeshResources: Destroying all mesh resources");
 
     while (!m_meshes.empty())
     {
-        DestroyMesh(*m_meshes.cbegin());
+        DestroyMesh(m_meshes.cbegin()->first);
     }
 }
 
-std::optional<RegisteredStaticMesh::Ptr> MeshResources::GetStaticMeshData(const Render::MeshId& meshId) const
+std::optional<RegisteredStaticMesh::Ptr> MeshResources::GetStaticMeshData(const ResourceIdentifier& resource) const
 {
     std::lock_guard<std::mutex> dataLock(m_staticMeshDataMutex);
 
-    const auto it = m_staticMeshData.find(meshId);
+    const auto it = m_staticMeshData.find(resource);
     if (it == m_staticMeshData.cend())
     {
         return std::nullopt;
@@ -281,11 +286,11 @@ std::optional<RegisteredStaticMesh::Ptr> MeshResources::GetStaticMeshData(const 
     return it->second;
 }
 
-std::optional<HeightMapData::Ptr> MeshResources::GetHeightMapData(const Render::MeshId& meshId) const
+std::optional<HeightMapData::Ptr> MeshResources::GetHeightMapData(const ResourceIdentifier& resource) const
 {
     std::lock_guard<std::mutex> heightMapDataLock(m_heightMapDataMutex);
 
-    const auto it = m_heightMapData.find(meshId);
+    const auto it = m_heightMapData.find(resource);
     if (it == m_heightMapData.cend())
     {
         return std::nullopt;

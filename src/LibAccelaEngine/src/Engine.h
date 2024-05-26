@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef LIBACCELAENGINE_SRC_ENGINE_H
 #define LIBACCELAENGINE_SRC_ENGINE_H
 
@@ -70,7 +64,6 @@ namespace Accela::Engine
             Common::ILogger::Ptr m_logger;
             Common::IMetrics::Ptr m_metrics;
             std::shared_ptr<Platform::IPlatform> m_platform;
-            std::shared_ptr<IEngineAssets> m_assets;
             std::shared_ptr<Render::IRenderer> m_renderer;
             AudioManagerPtr m_audioManager;
 

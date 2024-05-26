@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef LIBACCELARENDERERVK_INCLUDE_ACCELA_RENDER_VMAFUNCS_H
 #define LIBACCELARENDERERVK_INCLUDE_ACCELA_RENDER_VMAFUNCS_H
 

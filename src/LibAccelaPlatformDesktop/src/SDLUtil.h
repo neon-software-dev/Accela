@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef LIBACCELAPLATFORMSDL_SRC_SDLUTIL_H
 #define LIBACCELAPLATFORMSDL_SRC_SDLUTIL_H
 
@@ -25,10 +19,9 @@ namespace Accela::Platform
             /**
             * Converts an SDL_Surface to an internal RGBA32 ImageData object.
             *
-            * @param logger - Logger to receive any error messages
             * @param pSurface - The SDL surface to be converted.
             */
-            [[nodiscard]] static Common::ImageData::Ptr SDLSurfaceToImageData(const Common::ILogger::Ptr& logger, SDL_Surface *pSurface);
+            [[nodiscard]] static Common::ImageData::Ptr SDLSurfaceToImageData(SDL_Surface *pSurface);
 
             /**
              * Returns a new surface which contains the supplied surface's pixels but with the surface's

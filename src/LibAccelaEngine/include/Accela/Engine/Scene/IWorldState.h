@@ -1,13 +1,8 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_SCENE_IWORLDSTATE_H
 #define LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_SCENE_IWORLDSTATE_H
 
 #include "../Common.h"
+#include "../ResourceIdentifier.h"
 #include "../Camera2D.h"
 #include "../Camera3D.h"
 
@@ -224,25 +219,26 @@ namespace Accela::Engine
              * Play a sound associated in world space with a particular Entity
              *
              * @param entity The entity the sound should be emitted from
-             * @param fileName The file name of the (previously loaded) sound to be played
+             * @param resource Identifies the sound resource to be played
              * @param properties Properties for how the sound should be displayed
              *
              * @return An AudioSourceId associated with the sound play instance, or false on error
              */
             virtual std::expected<AudioSourceId, bool> PlayEntitySound(const EntityId& entity,
-                                                                      const std::string& fileName,
-                                                                      const AudioSourceProperties& properties) = 0;
+                                                                       const ResourceIdentifier& resource,
+                                                                       const AudioSourceProperties& properties) = 0;
 
             /**
-             * Play a sound globally, not attached to any particular entity
+             * Play a package sound globally, not attached to any particular entity
              *
-             * @param fileName The file name of the (previously loaded) sound to be played
+             * @param resource Identifies the sound resource to be played
              * @param properties Properties for how the sound should be displayed
              *
              * @return An AudioSourceId associated with the sound play instance, or false on error
              */
-            virtual std::expected<AudioSourceId, bool> PlayGlobalSound(const std::string& fileName,
-                                                                      const AudioSourceProperties& properties) = 0;
+            virtual std::expected<AudioSourceId, bool> PlayGlobalSound(
+                const ResourceIdentifier& resource,
+                const AudioSourceProperties& properties) = 0;
 
             /**
              * Stops a global sound that was previously started via a call to PlayGlobalSound(..)

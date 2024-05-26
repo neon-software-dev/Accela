@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef LIBACCELAENGINE_SRC_FORWARDDECLARES_H
 #define LIBACCELAENGINE_SRC_FORWARDDECLARES_H
 
@@ -18,6 +12,12 @@ namespace Accela::Engine
     class AudioManager; using AudioManagerPtr = std::shared_ptr<AudioManager>;
     class IPhysics; using IPhysicsPtr = std::shared_ptr<IPhysics>;
     class IPhysicsRuntime; using IPhysicsRuntimePtr = std::shared_ptr<IPhysicsRuntime>;
+    class IPackageResources; using IPackageResourcesPtr = std::shared_ptr<IPackageResources>;
+    class ITextureResources; using ITextureResourcesPtr = std::shared_ptr<ITextureResources>;
+    class IFontResources; using IFontResourcesPtr = std::shared_ptr<IFontResources>;
+    class IMaterialResources; using IMaterialResourcesPtr = std::shared_ptr<IMaterialResources>;
+    class IMeshResources; using IMeshResourcesPtr = std::shared_ptr<IMeshResources>;
+    class IModelResources; using IModelResourcesPtr = std::shared_ptr<IModelResources>;
 }
 
 #endif //LIBACCELAENGINE_SRC_FORWARDDECLARES_H

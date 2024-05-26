@@ -1,12 +1,8 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef LIBACCELAENGINE_SRC_AUDIO_AUDIOMANAGER_H
 #define LIBACCELAENGINE_SRC_AUDIO_AUDIOMANAGER_H
 
+#include <Accela/Engine/Common.h>
+#include <Accela/Engine/ResourceIdentifier.h>
 #include <Accela/Engine/Audio/AudioCommon.h>
 #include <Accela/Engine/Audio/AudioSourceProperties.h>
 #include <Accela/Engine/Audio/AudioListener.h>
@@ -20,6 +16,7 @@
 
 #include <expected>
 #include <memory>
+#include <mutex>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -44,13 +41,12 @@ namespace Accela::Engine
             bool Startup();
             void Shutdown();
 
-            [[nodiscard]] bool RegisterAudio(const std::string& name, const Common::AudioData::Ptr& audioData);
-            void DestroyAudio(const std::string& name);
+            [[nodiscard]] bool RegisterAudio(const ResourceIdentifier& resource, const Common::AudioData::Ptr& audioData);
+            void DestroyAudio(const ResourceIdentifier& resource);
             void DestroyAllAudio();
 
-            [[nodiscard]] std::expected<AudioSourceId, bool> CreateSource(
-                const std::string& fileName,
-                const SourceProperties& properties);
+            [[nodiscard]] std::expected<AudioSourceId, bool> CreateSource(const ResourceIdentifier& resource,
+                                                                          const SourceProperties& properties);
             void DestroySource(const AudioSourceId& sourceId);
             bool PlaySource(const AudioSourceId& sourceId);
             bool IsSourceStopped(const AudioSourceId& sourceId);
@@ -81,14 +77,21 @@ namespace Accela::Engine
             ALCdevice* m_pDevice{nullptr};
             ALCcontext* m_pContext{nullptr};
 
-            // Buffer name (file name) -> Buffer properties
-            std::unordered_map<std::string, BufferProperties> m_buffers;
+            //
+            // Multi-threaded access
+            //
+            std::recursive_mutex m_buffersMutex;
+            std::unordered_map<ResourceIdentifier, BufferProperties> m_buffers;
 
-            // SourceId -> Source properties
+            //
+            // Engine-threaded access only
+            //
+
+            // SourceId -> SourceProperties
             std::unordered_map<ALuint, SourceProperties> m_sources;
 
-            // SourceId -> Buffer name
-            std::unordered_map<ALuint, std::string> m_sourceToBuffer;
+            // SourceId -> ResourceIdentifier
+            std::unordered_map<ALuint, ResourceIdentifier> m_sourceToResource;
     };
 }
 

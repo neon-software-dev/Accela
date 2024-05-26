@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #include <Accela/Platform/Text/SDLText.h>
 
 #include "../SDLUtil.h"
@@ -13,9 +7,8 @@
 namespace Accela::Platform
 {
 
-SDLText::SDLText(Common::ILogger::Ptr logger, IFiles::Ptr files)
+SDLText::SDLText(Common::ILogger::Ptr logger)
     : m_logger(std::move(logger))
-    , m_files(std::move(files))
 {
 
 }
@@ -30,7 +23,7 @@ void SDLText::Destroy()
     }
 }
 
-bool SDLText::LoadFontBlocking(const std::string& fontFileName, uint8_t fontSize)
+bool SDLText::LoadFontBlocking(const std::string& fontFileName, const std::vector<unsigned char>& fontData, uint8_t fontSize)
 {
     if (IsFontLoaded(fontFileName, fontSize))
     {
@@ -40,10 +33,15 @@ bool SDLText::LoadFontBlocking(const std::string& fontFileName, uint8_t fontSize
 
     m_logger->Log(Common::LogLevel::Info, "LoadFont: Loading font: {}x{}", fontFileName, fontSize);
 
-    const std::string filePath = m_files->GetAssetFilePath(FONTS_DIR, fontFileName);
+    auto loadedFont = std::make_shared<LoadedFont>();
+    loadedFont->fontData = fontData;
 
-    TTF_Font* pFont = TTF_OpenFont(filePath.c_str(), fontSize);
-    if (pFont == nullptr)
+    // Needed to make a persistent heap copy of font data in memory for this RWops, as the font data needs to stay
+    // alive until the TTF_Font that's created is closed
+    const auto pRwOps = SDL_RWFromConstMem((void*)loadedFont->fontData.data(), (int)loadedFont->fontData.size());
+
+    loadedFont->pFont = TTF_OpenFontRW(pRwOps, 1, fontSize);
+    if (loadedFont->pFont == nullptr)
     {
         m_logger->Log(Common::LogLevel::Error, "LoadFont: TTF_OpenFont failed for font: {}x{}", fontFileName, fontSize);
         return false;
@@ -54,7 +52,7 @@ bool SDLText::LoadFontBlocking(const std::string& fontFileName, uint8_t fontSize
 
         if (IsFontLoaded(fontFileName, fontSize))
         {
-            TTF_CloseFont(pFont);
+            TTF_CloseFont(loadedFont->pFont);
             return true;
         }
 
@@ -64,7 +62,7 @@ bool SDLText::LoadFontBlocking(const std::string& fontFileName, uint8_t fontSize
             it = m_fonts.insert({fontFileName, {}}).first;
         }
 
-        it->second.insert({fontSize, pFont});
+        it->second.insert({fontSize, loadedFont});
     }
 
     return true;
@@ -119,7 +117,7 @@ void SDLText::UnloadFont(const std::string& fontFileName, uint8_t fontSize)
     }
 
     m_logger->Log(Common::LogLevel::Info, "UnloadFont: Unloading font: {}x{}", fontFileName, fontSize);
-    TTF_CloseFont(sizeIt->second);
+    TTF_CloseFont(sizeIt->second->pFont);
 
     it->second.erase(sizeIt);
 
@@ -195,7 +193,7 @@ SDLText::RenderText(const std::string& text, const TextProperties& properties) c
         return std::unexpected(false);
     }
 
-    renderedText.imageData = SDLUtil::SDLSurfaceToImageData(m_logger, pResizedSurface);
+    renderedText.imageData = SDLUtil::SDLSurfaceToImageData(pResizedSurface);
     SDL_FreeSurface(pResizedSurface);
 
     return renderedText;
@@ -211,7 +209,7 @@ TTF_Font* SDLText::GetLoadedFont(const std::string& fontFileName, uint8_t fontSi
     const auto sizeIt = it->second.find(fontSize);
     if (sizeIt == it->second.cend()) { return nullptr; }
 
-    return sizeIt->second;
+    return sizeIt->second->pFont;
 }
 
 }

@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #include "ModelLoader.h"
 #include "AssimpUtil.h"
 
@@ -25,25 +19,21 @@ static const unsigned int MAX_BONES_PER_VERTEX = 4;
 #define AI_MATKEY_GLTF_ALPHAMODE "$mat.gltf.alphaMode", 0, 0
 #define AI_MATKEY_GLTF_ALPHACUTOFF "$mat.gltf.alphaCutoff", 0, 0
 
-ModelLoader::ModelLoader(Common::ILogger::Ptr logger, Platform::IFiles::Ptr files)
-    : m_logger(std::move(logger)), m_files(std::move(files))
+ModelLoader::ModelLoader(Common::ILogger::Ptr logger)
+    : m_logger(std::move(logger))
 {
 
 }
 
-Model::Ptr ModelLoader::LoadModel(const std::string& filePath) const
+Model::Ptr ModelLoader::LoadModel(const std::vector<unsigned char>& modelData, const std::string& fileHint, const std::string& tag) const
 {
-    m_logger->Log(Common::LogLevel::Info, "--[Disk Model Load] {} --", filePath);
+    m_logger->Log(Common::LogLevel::Info, "--[Disk Model Load] {}, {} --", tag, fileHint);
 
     Common::Timer loadTimer("LoadModelTime");
 
-    // TODO Android: Removed the importer because on windows assimp had linker issues with
-    //  using C++ assimp functionality. Need to fix that to be able to restore importer.
-    //Assimp::Importer importer;
-    //m_files->ConfigureAssimpImporter(importer);
-
-    const aiScene *pScene = aiImportFile(
-        filePath.c_str(),
+    const aiScene *pScene = aiImportFileFromMemory(
+        (char*)modelData.data(),
+        modelData.size(),
         aiProcess_Triangulate |           // Always output triangles instead of arbitrarily sized faces
         //aiProcess_FlipWindingOrder |
         //aiProcess_MakeLeftHanded |
@@ -52,12 +42,13 @@ Model::Ptr ModelLoader::LoadModel(const std::string& filePath) const
         aiProcess_FlipUVs |                     // Vulkan uses a flipped UV coordinate system
         aiProcess_GenSmoothNormals |            // Generate normals for models that don't have them
         aiProcess_ValidateDataStructure |       // Validate the model
-        aiProcess_CalcTangentSpace              // Calculate tangent and bitangent vectors for models with normal maps
+        aiProcess_CalcTangentSpace,              // Calculate tangent and bitangent vectors for models with normal maps
+        fileHint.c_str()
     );
 
     if (pScene == nullptr || pScene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || pScene->mRootNode == nullptr)
     {
-        m_logger->Log(Common::LogLevel::Error, "Failed to load model from disk: {}", filePath);
+        m_logger->Log(Common::LogLevel::Error, "Failed to load model from disk: {}", tag);
         return nullptr;
     }
 
@@ -72,12 +63,12 @@ Model::Ptr ModelLoader::LoadModel(const std::string& filePath) const
 
     const auto loadTime = loadTimer.StopTimer();
 
-    m_logger->Log(Common::LogLevel::Info, "Model: Num Meshes: {}", model->meshes.size());
-    m_logger->Log(Common::LogLevel::Info, "Model: Num Materials: {}", model->materials.size());
-    m_logger->Log(Common::LogLevel::Info, "Model: Num Nodes: {}", model->nodeMap.size());
-    m_logger->Log(Common::LogLevel::Info, "Model: Num Nodes With Meshes: {}", model->nodesWithMeshes.size());
-    m_logger->Log(Common::LogLevel::Info, "Model: Num Animations: {}", model->animations.size());
-    m_logger->Log(Common::LogLevel::Info, "Model loaded in {}ms", loadTime.count());
+    m_logger->Log(Common::LogLevel::Debug, "{}: Num Meshes: {}", tag, model->meshes.size());
+    m_logger->Log(Common::LogLevel::Debug, "{}: Num Materials: {}", tag, model->materials.size());
+    m_logger->Log(Common::LogLevel::Debug, "{}: Num Nodes: {}", tag, model->nodeMap.size());
+    m_logger->Log(Common::LogLevel::Debug, "{}: Num Nodes With Meshes: {}", tag, model->nodesWithMeshes.size());
+    m_logger->Log(Common::LogLevel::Debug, "{}: Num Animations: {}", tag, model->animations.size());
+    m_logger->Log(Common::LogLevel::Debug, "{}: loaded in {}ms", tag, loadTime.count());
 
     // TODO Android: Remove, see above
     aiReleaseImport(pScene);

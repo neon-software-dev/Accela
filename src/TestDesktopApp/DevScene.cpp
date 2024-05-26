@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #include "DevScene.h"
 #include "CubeMesh.h"
 #include "SphereMesh.h"
@@ -22,7 +16,7 @@ void DevScene::OnSceneStart(const Engine::IEngineRuntime::Ptr& engine)
 {
     Scene::OnSceneStart(engine);
 
-    if (!LoadAssets())
+    if (!LoadResources())
     {
         engine->StopEngine();
         return;
@@ -78,107 +72,99 @@ void DevScene::CreateSceneEntities()
     //                  Engine::ModelAnimationState(Engine::ModelAnimationType::Looping, ""));
 }
 
-bool DevScene::LoadAssets()
+bool DevScene::LoadResources()
 {
     //
-    // Fonts
+    // Load package resources
     //
-    if (!engine->GetWorldResources()->Fonts()->LoadFont(FONT_FILE_NAME, 10, 20).get()) { return false; }
+    if (!engine->GetWorldResources()->EnsurePackageResources(Engine::PackageName("TestDesktopApp"), Engine::ResultWhen::FullyLoaded).get())
+    {
+        return false;
+    }
 
     //
-    // Textures
+    // Load custom textures
     //
-    if (!engine->GetWorldResources()->Textures()->LoadAllAssetTextures(Engine::ResultWhen::Ready).get()) { return false; }
-
-    const std::array<std::string, 6> skyBoxFileNames = {"skybox_right.jpg", "skybox_left.jpg", "skybox_top.jpg", "skybox_bottom.jpg", "skybox_front.jpg", "skybox_back.jpg"};
-    m_skyBoxTextureId = engine->GetWorldResources()->Textures()->LoadAssetCubeTexture(skyBoxFileNames, "skybox", Engine::ResultWhen::Ready).get();
+    const std::array<Engine::PackageResourceIdentifier, 6> skyBoxResources = {
+        Engine::PRI("TestDesktopApp", "skybox_right.jpg"),
+        Engine::PRI("TestDesktopApp", "skybox_left.jpg"),
+        Engine::PRI("TestDesktopApp", "skybox_top.jpg"),
+        Engine::PRI("TestDesktopApp", "skybox_bottom.jpg"),
+        Engine::PRI("TestDesktopApp", "skybox_front.jpg"),
+        Engine::PRI("TestDesktopApp", "skybox_back.jpg"),
+    };
+    m_skyBoxTextureId = engine->GetWorldResources()->Textures()->LoadCubeTexture(skyBoxResources, "skybox", Engine::ResultWhen::Ready).get();
     if (m_skyBoxTextureId == Render::INVALID_ID) { return false; }
 
     //
-    // Audio
-    //
-    if (!engine->GetWorldResources()->Audio()->LoadAllAssetAudio().get()) { return false; }
-
-    //
-    // Meshes
+    // Load custom meshes
     //
     m_cubeMeshId = engine->GetWorldResources()->Meshes()->LoadStaticMesh(
+        Engine::CRI("Cube"),
         CubeVertices,
         CubeIndices,
         Render::MeshUsage::Immutable,
-        "Cube",
         Engine::ResultWhen::Ready).get();
     if (m_cubeMeshId == Render::INVALID_ID) { return false; }
 
     m_sphereMeshId = engine->GetWorldResources()->Meshes()->LoadStaticMesh(
+        Engine::CRI("Sphere"),
         CreateSphereMeshVertices(1.0f),
         CreateSphereMeshIndices(),
         Render::MeshUsage::Immutable,
-        "Sphere",
         Engine::ResultWhen::Ready).get();
     if (m_sphereMeshId == Render::INVALID_ID) { return false; }
 
-    //
-    // Height Maps
-    //
     m_terrainHeightMapMeshId = engine->GetWorldResources()->Meshes()->LoadHeightMapMesh(
-        *engine->GetWorldResources()->Textures()->GetAssetTextureId("rolling_hills_heightmap.png"),
+        Engine::CRI("TerrainHeightMap"),
+        *engine->GetWorldResources()->Textures()->GetTextureId(Engine::PRI("TestDesktopApp", "rolling_hills_heightmap.png")),
         Render::USize(40,40), // How many data points to create from the height map image
         Render::USize(10,10), // World-space x/z size of the resulting terrain mesh
         20.0f, // Constant that's multiplied against height map height values
         Render::MeshUsage::Immutable,
-        "TerrainHeightMap",
-        Engine::ResultWhen::Ready
-    ).get();
+        Engine::ResultWhen::Ready).get();
     if (m_terrainHeightMapMeshId == Render::INVALID_ID) { return false; }
 
     //
-    // Materials
+    // Load custom materials
     //
     m_solidRedMaterialId = engine->GetWorldResources()->Materials()->LoadObjectMaterial(
-        MakeSolidColorMaterial({1,0,0}), "red", Engine::ResultWhen::Ready
-    ).get();
+        Engine::CRI("Red"),
+        DefineSolidColorMaterial({1,0,0}),
+        Engine::ResultWhen::Ready).get();
     if (m_solidRedMaterialId == Render::INVALID_ID) { return false; }
 
     m_solidWhiteMaterialId = engine->GetWorldResources()->Materials()->LoadObjectMaterial(
-        MakeSolidColorMaterial({1,1,1}), "white", Engine::ResultWhen::Ready
-    ).get();
+        Engine::CRI("White"),
+        DefineSolidColorMaterial({1,1,1}),
+        Engine::ResultWhen::Ready).get();
     if (m_solidWhiteMaterialId == Render::INVALID_ID) { return false; }
 
-    const auto terrainTextureId = *engine->GetWorldResources()->Textures()->GetAssetTextureId("rolling_hills_bitmap.png");
-    Render::ObjectMaterialProperties terrainMaterial{};
+    Engine::ObjectMaterialProperties terrainMaterial{};
     terrainMaterial.isAffectedByLighting = true;
     terrainMaterial.ambientColor = {1,1,1};
     terrainMaterial.diffuseColor = {1,1,1};
     terrainMaterial.specularColor = {0.0f, 0.0f, 0.0f};
     terrainMaterial.shininess = 32.0f;
-    terrainMaterial.ambientTextureBind = terrainTextureId;
-    terrainMaterial.diffuseTextureBind = terrainTextureId;
-    terrainMaterial.specularTextureBind = Render::TextureId{Render::INVALID_ID};
+    terrainMaterial.ambientTexture = Engine::PRI("TestDesktopApp", "rolling_hills_bitmap.png");
+    terrainMaterial.diffuseTexture = Engine::PRI("TestDesktopApp", "rolling_hills_bitmap.png");
     m_terrainMaterialId = engine->GetWorldResources()->Materials()->LoadObjectMaterial(
-        terrainMaterial, "terrain", Engine::ResultWhen::Ready
-    ).get();
+        Engine::CRI("Terrain"),
+        terrainMaterial,
+        Engine::ResultWhen::Ready).get();
     if (m_terrainMaterialId == Render::INVALID_ID) { return false; }
-
-    //
-    // Models
-    //
-    engine->GetWorldResources()->Models()->LoadAllAssetModels(Engine::ResultWhen::Ready).get();
 
     return true;
 }
 
-Render::ObjectMaterialProperties DevScene::MakeSolidColorMaterial(const glm::vec3& color)
+Engine::ObjectMaterialProperties DevScene::DefineSolidColorMaterial(const glm::vec3& color)
 {
-    Render::ObjectMaterialProperties solidMaterial{};
+    Engine::ObjectMaterialProperties solidMaterial{};
     solidMaterial.isAffectedByLighting = true;
     solidMaterial.ambientColor = color;
     solidMaterial.diffuseColor = color;
     solidMaterial.specularColor = color;
     solidMaterial.shininess = 32.0f;
-    solidMaterial.ambientTextureBind = Render::TextureId{Render::INVALID_ID};
-    solidMaterial.diffuseTextureBind = Render::TextureId{Render::INVALID_ID};
-    solidMaterial.specularTextureBind = Render::TextureId{Render::INVALID_ID};
     return solidMaterial;
 }
 
@@ -214,16 +200,10 @@ void DevScene::CreateLight(const glm::vec3& position, bool drawEntity, const Ren
 {
     const auto eid = engine->GetWorldState()->CreateEntity();
 
-    //
-    // LightComponent
-    //
     auto lightComponent = Engine::LightComponent(properties);
     lightComponent.castsShadows = true;
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, lightComponent);
 
-    //
-    // TransformComponent
-    //
     auto transformComponent = Engine::TransformComponent{};
     transformComponent.SetPosition(position);
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, transformComponent);
@@ -238,63 +218,43 @@ void DevScene::CreateLight(const glm::vec3& position, bool drawEntity, const Ren
         Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, objectRenderableComponent);
     }
 
-    if (m_lightEid == 0)
-    {
-        m_lightEid = eid;
-    }
+    if (m_lightEid == 0) { m_lightEid = eid; }
 }
 
-void DevScene::CreateModelEntity(const std::string& modelName,
+void DevScene::CreateModelEntity(const Engine::ResourceIdentifier& model,
                                  const glm::vec3& position,
                                  const glm::vec3& scale,
                                  const std::optional<Engine::ModelAnimationState>& animationState)
 {
     const auto eid = engine->GetWorldState()->CreateEntity();
 
-    //
-    // ModelRenderableComponent
-    //
     auto modelRenderableComponent = Engine::ModelRenderableComponent{};
-    modelRenderableComponent.modelName = modelName;
+    modelRenderableComponent.modelResource = model;
     modelRenderableComponent.animationState = animationState;
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, modelRenderableComponent);
 
-    //
-    // TransformComponent
-    //
     auto transformComponent = Engine::TransformComponent{};
     transformComponent.SetPosition(position);
     transformComponent.SetScale(scale);
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, transformComponent);
 }
 
-void DevScene::CreateFloorEntity(glm::vec3 position,
-                                  float sideLength,
-                                  glm::quat orientation)
+void DevScene::CreateFloorEntity(glm::vec3 position, float sideLength, glm::quat orientation)
 {
     const auto eid = engine->GetWorldState()->CreateEntity();
 
-    //
-    // ObjectRenderableComponent
-    //
     auto objectRenderableComponent = Engine::ObjectRenderableComponent{};
     objectRenderableComponent.sceneName = "default";
     objectRenderableComponent.meshId = m_cubeMeshId;
     objectRenderableComponent.materialId = m_solidRedMaterialId;
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, objectRenderableComponent);
 
-    //
-    // TransformComponent
-    //
     auto transformComponent = Engine::TransformComponent{};
     transformComponent.SetPosition(position);
     transformComponent.SetScale(glm::vec3{sideLength, 0.1f, sideLength});
     transformComponent.SetOrientation(orientation);
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, transformComponent);
 
-    //
-    // PhysicsComponent
-    //
     Engine::PhysicsComponent physicsComponent = Engine::PhysicsComponent::StaticBody(Engine::DEFAULT_PHYSICS_SCENE,
         {Engine::PhysicsShape(
             Engine::PhysicsMaterial(),
@@ -310,29 +270,20 @@ void DevScene::CreateTerrainEntity(const float& scale, const glm::vec3& position
 {
     const auto eid = engine->GetWorldState()->CreateEntity();
 
-    //
-    // ObjectRenderableComponent
-    //
     auto objectRenderableComponent = Engine::ObjectRenderableComponent{};
     objectRenderableComponent.meshId = m_terrainHeightMapMeshId;
     objectRenderableComponent.materialId = m_terrainMaterialId;
     objectRenderableComponent.shadowPass = true;
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, objectRenderableComponent);
 
-    //
-    // TransformComponent
-    //
     auto transformComponent = Engine::TransformComponent{};
     transformComponent.SetPosition(position);
     transformComponent.SetScale({scale, 1, scale});
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, transformComponent);
 
-    //
-    // PhysicsComponent
-    //
     Engine::PhysicsComponent physicsComponent = Engine::PhysicsComponent::StaticBody(Engine::DEFAULT_PHYSICS_SCENE,
         {Engine::PhysicsShape(Engine::PhysicsMaterial(),
-        Engine::Bounds_HeightMap(m_terrainHeightMapMeshId))}
+        Engine::Bounds_HeightMap(Engine::CRI("TerrainHeightMap")))}
     );
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, physicsComponent);
 }
@@ -344,26 +295,17 @@ void DevScene::CreateCubeEntity(glm::vec3 position,
 {
     const auto eid = engine->GetWorldState()->CreateEntity();
 
-    //
-    // ObjectRenderableComponent
-    //
     auto objectRenderableComponent = Engine::ObjectRenderableComponent{};
     objectRenderableComponent.sceneName = "default";
     objectRenderableComponent.meshId = m_cubeMeshId;
     objectRenderableComponent.materialId = m_solidRedMaterialId;
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, objectRenderableComponent);
 
-    //
-    // TransformComponent
-    //
     auto transformComponent = Engine::TransformComponent{};
     transformComponent.SetPosition(position);
     transformComponent.SetScale(scale);
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, transformComponent);
 
-    //
-    // PhysicsComponent
-    //
     std::optional<Engine::PhysicsComponent> physicsComponent;
 
     auto shape = Engine::PhysicsShape(
@@ -538,7 +480,10 @@ void DevScene::ShootCubeFromCamera()
     //
     // Play the whoosh sound effect
     //
-    (void)engine->GetWorldState()->PlayGlobalSound("whoosh", Engine::AudioSourceProperties{});
+    (void)engine->GetWorldState()->PlayGlobalSound(
+        Engine::PackageResourceIdentifier("TestDesktopApp", "whoosh.wav"),
+        Engine::AudioSourceProperties{}
+    );
 }
 
 void DevScene::OnCommandEntryKeyEvent(const Platform::KeyEvent& event)
@@ -635,7 +580,7 @@ void DevScene::OnNormalKeyEvent(const Platform::KeyEvent& event)
             }
             else
             {
-                m_perfMonitor = Engine::EnginePerfMonitorEntity::Create(engine, GetEvents(), FONT_FILE_NAME);
+                m_perfMonitor = Engine::EnginePerfMonitorEntity::Create(engine, GetEvents(), Engine::PRI("TestDesktopApp", FONT_FILE_NAME), 28);
             }
         }
 

@@ -1,14 +1,7 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #include "EngineRuntime.h"
 #include "RunState.h"
 #include "Scene/WorldState.h"
 
-#include <Accela/Engine/IEngineAssets.h>
 #include <Accela/Engine/Scene/Scene.h>
 
 #include <Accela/Render/IRenderer.h>
@@ -18,12 +11,10 @@ namespace Accela::Engine
 
 EngineRuntime::EngineRuntime(Common::ILogger::Ptr logger,
                              Common::IMetrics::Ptr metrics,
-                             std::shared_ptr<IEngineAssets> assets,
                              std::shared_ptr<Render::IRenderer> renderer,
                              std::shared_ptr<RunState> runState)
     : m_logger(std::move(logger))
     , m_metrics(std::move(metrics))
-    , m_assets(std::move(assets))
     , m_renderer(std::move(renderer))
     , m_runState(std::move(runState))
 {
@@ -32,7 +23,6 @@ EngineRuntime::EngineRuntime(Common::ILogger::Ptr logger,
 
 Common::ILogger::Ptr EngineRuntime::GetLogger() const noexcept { return m_logger; }
 Common::IMetrics::Ptr EngineRuntime::GetMetrics() const noexcept { return m_metrics; }
-IEngineAssets::Ptr EngineRuntime::GetAssets() const noexcept { return m_assets; }
 IWorldState::Ptr EngineRuntime::GetWorldState() const noexcept { return m_runState->worldState; }
 IWorldResources::Ptr EngineRuntime::GetWorldResources() const noexcept { return m_runState->worldResources; }
 IKeyboardState::CPtr EngineRuntime::GetKeyboardState() const noexcept { return m_runState->keyboardState; }

@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef LIBACCELAPLATFORMSDL_SRC_WINDOW_SDLWINDOW_H
 #define LIBACCELAPLATFORMSDL_SRC_WINDOW_SDLWINDOW_H
 

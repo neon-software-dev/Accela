@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_ENTITY_ENGINEPERFMONITORENTITY_H
 #define LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_ENTITY_ENGINEPERFMONITORENTITY_H
 
@@ -39,7 +33,8 @@ namespace Accela::Engine
             static EnginePerfMonitorEntity::UPtr Create(
                 IEngineRuntime::Ptr engine,
                 SceneEvents::Ptr sceneEvents,
-                std::string fontName,
+                PackageResourceIdentifier fontResource,
+                std::uint8_t fontSize,
                 std::string sceneName = DEFAULT_SCENE,
                 const glm::vec3& position = {0,0,0},
                 uint32_t refreshInterval = 20);
@@ -47,7 +42,8 @@ namespace Accela::Engine
             EnginePerfMonitorEntity(ConstructTag,
                                     IEngineRuntime::Ptr engine,
                                     SceneEvents::Ptr sceneEvents,
-                                    std::string fontName,
+                                    PackageResourceIdentifier fontResource,
+                                    std::uint8_t fontSize,
                                     std::string sceneName,
                                     const glm::vec3& position,
                                     uint32_t refreshInterval);
@@ -95,7 +91,8 @@ namespace Accela::Engine
 
         private:
 
-            std::string m_fontName;
+            PackageResourceIdentifier m_fontResource;
+            std::uint8_t m_fontSize;
             glm::vec3 m_position;
             uint32_t m_refreshInterval;
 

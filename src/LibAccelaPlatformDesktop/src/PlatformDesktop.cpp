@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #include <Accela/Platform/PlatformDesktop.h>
 #include <Accela/Platform/File/SDLFiles.h>
 #include <Accela/Platform/Text/SDLText.h>
@@ -20,7 +14,7 @@ namespace Accela::Platform
 PlatformDesktop::PlatformDesktop(Common::ILogger::Ptr logger)
     : m_logger(std::move(logger))
     , m_files(std::make_shared<SDLFiles>(m_logger))
-    , m_text(std::make_shared<SDLText>(m_logger, m_files))
+    , m_text(std::make_shared<SDLText>(m_logger))
     , m_vr(std::make_shared<OpenVR>(m_logger))
 {
 

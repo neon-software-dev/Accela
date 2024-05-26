@@ -1,13 +1,8 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_SCENE_IFONTRESOURCES_H
 #define LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_SCENE_IFONTRESOURCES_H
 
-#include <string>
+#include <Accela/Engine/ResourceIdentifier.h>
+
 #include <memory>
 #include <future>
 
@@ -27,48 +22,75 @@ namespace Accela::Engine
             virtual ~IFontResources() = default;
 
             /**
-             * Loads a single size of a font from the assets fonts directory
+             * Loads a single size of a font resource from a package.
              *
-             * @param fontFileName The filename of the font to be loaded
-             * @param fontSize The font size to be loaded
+             * @param resource Identifies the font resource
+             * @param fontSize The specific font size to be loaded
              *
-             * @return A future with the result of the operation
+             * @return A future containing whether the operation was successful
              */
-            [[nodiscard]] virtual std::future<bool> LoadFont(const std::string& fontFileName, uint8_t fontSize) = 0;
+            [[nodiscard]] virtual std::future<bool> LoadFont(const PackageResourceIdentifier& resource, uint8_t fontSize) = 0;
 
             /**
-             * Loads a range of sizes of a font from the assets fonts directory
+             * Loads a range of sizes of a font resource from a package.
              *
-             * @param fontFileName The filename of the font to be loaded
+             * @param resource Identifies the font resource
              * @param startFontSize The inclusive starting font size to load
              * @param endFontSize The inclusive ending font size to load
              *
-             * @return A future with the result of the operation
+             * @return A future containing whether all font sizes loaded successfully
              */
-            [[nodiscard]] virtual std::future<bool> LoadFont(const std::string& fontFileName, uint8_t startFontSize, uint8_t endFontSize) = 0;
+            [[nodiscard]] virtual std::future<bool> LoadFont(const PackageResourceIdentifier& resource,
+                                                             uint8_t startFontSize,
+                                                             uint8_t endFontSize) = 0;
 
             /**
-             * @return Whether the specific font file and font size is currently loaded
-             */
-            [[nodiscard]] virtual bool IsFontLoaded(const std::string& fontFileName, uint8_t fontSize) = 0;
-
-            /**
-             * Destroy all sizes of a previously loaded font
+             * Loads a range of font sizes for every font within a package.
              *
-             * @param fontFileName The name of the font to destroy
+             * @param packageName Identifies the package
+             * @param startFontSize The inclusive starting font size to load
+             * @param endFontSize The inclusive ending font size to load
+             *
+             * @return A future containing whether all fonts/sizes loaded successfully
              */
-            virtual void DestroyFont(const std::string& fontFileName) = 0;
+            [[nodiscard]] virtual std::future<bool> LoadAllFonts(const PackageName& packageName,
+                                                                 uint8_t startFontSize,
+                                                                 uint8_t endFontSize) = 0;
 
             /**
-            * Destroy a particular size of a previously loaded font
+             * Loads a range of font sizes for every font within every registered package.
+             *
+             * @param startFontSize The inclusive starting font size to load
+             * @param endFontSize The inclusive ending font size to load
+             *
+             * @return A future containing whether all fonts/sizes loaded successfully
+             */
+            [[nodiscard]] virtual std::future<bool> LoadAllFonts(uint8_t startFontSize, uint8_t endFontSize) = 0;
+
+            /**
+             * Query for whether a specific font size of a specific font resource is loaded.
+             *
+             * @return Whether the font + size is loaded
+             */
+            [[nodiscard]] virtual bool IsFontLoaded(const ResourceIdentifier& resource, uint8_t fontSize) = 0;
+
+            /**
+             * Destroy all sizes of a previously loaded font resource
+             *
+             * @param resource Identifies the font resource
+             */
+            virtual void DestroyFont(const ResourceIdentifier& resource) = 0;
+
+            /**
+            * Destroy a particular size of a previously loaded font resource
             *
-            * @param fontFileName The name of the font to destroy
+            * @param resource Identifies the font resource
             * @param fontSize The size of the font to destroy
             */
-            virtual void DestroyFont(const std::string& fontFileName, uint8_t fontSize) = 0;
+            virtual void DestroyFont(const ResourceIdentifier& resource, uint8_t fontSize) = 0;
 
             /**
-             * Destroy all previously loaded font
+             * Destroy all previously loaded font resources
              */
             virtual void DestroyAll() = 0;
     };

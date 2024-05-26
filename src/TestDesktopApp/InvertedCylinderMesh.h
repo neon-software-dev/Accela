@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef TESTDESKTOPAPP_INVERTEDCYLINDERMESH_H
 #define TESTDESKTOPAPP_INVERTEDCYLINDERMESH_H
 

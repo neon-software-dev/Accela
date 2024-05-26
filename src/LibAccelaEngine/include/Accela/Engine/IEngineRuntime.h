@@ -1,13 +1,6 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_IENGINERUNTIME_H
 #define LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_IENGINERUNTIME_H
 
-#include <Accela/Engine/IEngineAssets.h>
 #include <Accela/Engine/IKeyboardState.h>
 #include <Accela/Engine/Scene/IWorldState.h>
 #include <Accela/Engine/Scene/IWorldResources.h>
@@ -40,7 +33,6 @@ namespace Accela::Engine
 
             [[nodiscard]] virtual Common::ILogger::Ptr GetLogger() const noexcept = 0;
             [[nodiscard]] virtual Common::IMetrics::Ptr GetMetrics() const noexcept = 0;
-            [[nodiscard]] virtual IEngineAssets::Ptr GetAssets() const noexcept = 0;
             [[nodiscard]] virtual IWorldState::Ptr GetWorldState() const noexcept = 0;
             [[nodiscard]] virtual IWorldResources::Ptr GetWorldResources() const noexcept = 0;
             [[nodiscard]] virtual IKeyboardState::CPtr GetKeyboardState() const noexcept = 0;

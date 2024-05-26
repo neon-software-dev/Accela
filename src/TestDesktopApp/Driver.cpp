@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #include <Accela/Engine/EngineDesktop.h>
 #include <Accela/Common/Log/StdLogger.h>
 #include <Accela/Common/Metrics/InMemoryMetrics.h>
@@ -30,7 +24,7 @@ int main()
         1,
         Engine::WindowParams("TestDesktopApp", Render::USize(1920, 1080)),
         Engine::VROutput::None,
-        std::make_unique<TestScene>()
+        std::make_unique<DevScene>()
     );
 
     desktopEngine.Shutdown();

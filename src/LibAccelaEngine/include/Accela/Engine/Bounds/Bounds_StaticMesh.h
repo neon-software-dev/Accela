@@ -1,13 +1,7 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_BOUNDS_BOUNDS_STATICMESH_H
 #define LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_BOUNDS_BOUNDS_STATICMESH_H
 
-#include <Accela/Render/Id.h>
+#include <Accela/Engine/ResourceIdentifier.h>
 
 namespace Accela::Engine
 {
@@ -16,11 +10,14 @@ namespace Accela::Engine
      */
     struct Bounds_StaticMesh
     {
-        explicit Bounds_StaticMesh(Render::MeshId _staticMeshId)
-            : staticMeshId(_staticMeshId)
+        /**
+         * @param _resource Identifies the mesh resource to use as bounds
+         */
+        explicit Bounds_StaticMesh(ResourceIdentifier _resource)
+            : resource(std::move(_resource))
         { }
 
-        Render::MeshId staticMeshId;
+        ResourceIdentifier resource;
     };
 }
 

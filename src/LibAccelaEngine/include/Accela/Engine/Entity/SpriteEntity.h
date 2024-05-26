@@ -1,13 +1,8 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_ENTITY_SPRITEENTITY_H
 #define LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_ENTITY_SPRITEENTITY_H
 
 #include <Accela/Engine/Common.h>
+#include <Accela/Engine/ResourceIdentifier.h>
 #include <Accela/Engine/Entity/Entity.h>
 #include <Accela/Engine/Scene/SceneCommon.h>
 
@@ -76,7 +71,7 @@ namespace Accela::Engine
 
             [[nodiscard]] std::optional<Render::TextureId> GetTextureId() const noexcept;
             void SetTextureById(Render::TextureId textureId);
-            [[nodiscard]] bool SetTextureByAssetName(const std::string& assetName);
+            [[nodiscard]] bool SetTextureByResource(const ResourceIdentifier& resource);
 
             [[nodiscard]] std::optional<Render::URect> GetSourcePixelRect() const noexcept;
             void SetSourcePixelRect(const Render::URect& srcPixelRect);

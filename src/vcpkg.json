@@ -4,6 +4,7 @@
     "entt",
     "audiofile",
     "assimp",
+    "nlohmann-json",
     "vulkan",
     "vulkan-memory-allocator",
     "openvr",

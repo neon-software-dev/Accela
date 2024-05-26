@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef LIBACCELAENGINE_SRC_SCENE_RENDERERSYNCSYSTEM_H
 #define LIBACCELAENGINE_SRC_SCENE_RENDERERSYNCSYSTEM_H
 
@@ -54,7 +48,7 @@ namespace Accela::Engine
             void SyncTerrainRenderables(const RunState::Ptr& runState, entt::registry& registry, Render::WorldUpdate& update);
             void SyncLights(const RunState::Ptr& runState, entt::registry& registry, Render::WorldUpdate& update);
 
-            [[nodiscard]] std::optional<ModelPose> GetModelPose(const std::string& modelName,
+            [[nodiscard]] std::optional<ModelPose> GetModelPose(const ResourceIdentifier& model,
                                                                 const std::optional<ModelAnimationState>& animationState);
 
         private:

@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #include <Accela/Platform/PlatformQt.h>
 #include <Accela/Platform/Window/QtWindow.h>
 

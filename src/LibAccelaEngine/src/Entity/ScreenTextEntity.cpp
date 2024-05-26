@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #include <Accela/Engine/Entity/ScreenTextEntity.h>
 #include <Accela/Engine/Component/Components.h>
 
@@ -18,8 +12,8 @@ ScreenTextEntity::Params& ScreenTextEntity::Params::WithTextLayoutMode(TextLayou
 ScreenTextEntity::Params& ScreenTextEntity::Params::WithPosition(const glm::vec3& _position) { position = _position; return *this; }
 
 ScreenTextEntity::UPtr ScreenTextEntity::Create(const IEngineRuntime::Ptr& engine,
-                                               const Params& params,
-                                               const std::string& sceneName)
+                                                const Params& params,
+                                                const std::string& sceneName)
 {
     const auto eid = engine->GetWorldState()->CreateEntity();
 

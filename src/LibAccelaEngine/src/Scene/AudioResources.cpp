@@ -1,167 +1,302 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #include "AudioResources.h"
-
-#include "../Util.h"
+#include "PackageResources.h"
 
 #include "../Audio/AudioManager.h"
-
-#include <Accela/Engine/IEngineAssets.h>
-
-#include <Accela/Platform/File/IFiles.h>
+#include "../Audio/AudioUtil.h"
 
 #include <Accela/Common/Thread/ResultMessage.h>
+#include <Accela/Common/Thread/ThreadUtil.h>
 
 namespace Accela::Engine
 {
 
-struct BoolResultMessage : public Common::ResultMessage<bool>
-{
-    BoolResultMessage()
-        : Common::ResultMessage<bool>("BoolResultMessage")
-    { }
-};
-
 AudioResources::AudioResources(Common::ILogger::Ptr logger,
-                               std::shared_ptr<IEngineAssets> assets,
-                               std::shared_ptr<Platform::IFiles> files,
+                               IPackageResourcesPtr packages,
                                AudioManagerPtr audioManager,
                                std::shared_ptr<Common::MessageDrivenThreadPool> threadPool)
     : m_logger(std::move(logger))
-    , m_assets(std::move(assets))
-    , m_files(std::move(files))
+    , m_packages(std::move(packages))
     , m_audioManager(std::move(audioManager))
     , m_threadPool(std::move(threadPool))
 {
 
 }
 
-std::future<bool> AudioResources::LoadAssetsAudio(const std::string& audioFileName)
+std::future<bool> AudioResources::LoadAudio(const PackageResourceIdentifier& resource)
 {
-    auto message = std::make_shared<BoolResultMessage>();
+    auto message = std::make_shared<Common::BoolResultMessage>();
     auto messageFuture = message->CreateFuture();
 
     m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& _message){
-        std::dynamic_pointer_cast<BoolResultMessage>(_message)->SetResult(
-            OnLoadAssetsAudio(audioFileName)
+        std::dynamic_pointer_cast<Common::BoolResultMessage>(_message)->SetResult(
+            OnLoadAudio(resource)
         );
     });
 
     return messageFuture;
 }
 
-std::future<bool> AudioResources::LoadAllAssetAudio()
+bool AudioResources::OnLoadAudio(const PackageResourceIdentifier& resource)
 {
-    auto message = std::make_shared<BoolResultMessage>();
+    const auto package = m_packages->GetPackage(*resource.GetPackageName());
+    if (!package)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "AudioResources::OnLoadAudio: No such package: {}", resource.GetPackageName()->name);
+        return false;
+    }
+
+    return LoadPackageAudio(*package, resource);
+}
+
+bool AudioResources::LoadAudio(const CustomResourceIdentifier& resource, const Common::AudioData::Ptr& audioData)
+{
+    m_logger->Log(Common::LogLevel::Info,
+      "AudioResources: Loading custom audio resource: {}", resource.GetUniqueName());
+
+    if (m_customAudio.contains(resource))
+    {
+        m_logger->Log(Common::LogLevel::Warning,
+          "AudioResources::LoadAudio: Custom audio resource already exists, ignoring: {}", resource.GetUniqueName());
+        return true;
+    }
+
+    if (!m_audioManager->RegisterAudio(resource, audioData))
+    {
+        m_logger->Log(Common::LogLevel::Warning,
+          "AudioResources::LoadAudio: Failed to register audio: {}", resource.GetUniqueName());
+        return false;
+    }
+
+    m_customAudio.insert(resource);
+
+    return true;
+}
+
+std::future<bool> AudioResources::LoadAllAudio(const PackageName& packageName)
+{
+    auto message = std::make_shared<Common::BoolResultMessage>();
     auto messageFuture = message->CreateFuture();
 
     m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& _message){
-        std::dynamic_pointer_cast<BoolResultMessage>(_message)->SetResult(
-            OnLoadAllAssetAudio()
+        std::dynamic_pointer_cast<Common::BoolResultMessage>(_message)->SetResult(
+            OnLoadAllAudio(packageName)
         );
     });
 
     return messageFuture;
 }
 
-bool AudioResources::OnLoadAssetsAudio(const std::string& audioFileName)
+bool AudioResources::OnLoadAllAudio(const PackageName& packageName)
 {
-    m_logger->Log(Common::LogLevel::Info, "AudioResources: Loading asset audio: {}", audioFileName);
+    m_logger->Log(Common::LogLevel::Info, "AudioResources: Loading all audio resources for package: {}", packageName.name);
 
-    const auto splitFileName = SplitFileName(audioFileName);
-    if (!splitFileName)
+    const auto package = m_packages->GetPackage(packageName);
+    if (!package)
     {
         m_logger->Log(Common::LogLevel::Error,
-          "AudioResources::OnLoadAssetsAudio: Invalid audio file name: {}", audioFileName);
+          "AudioResources::OnLoadAllAudio: No such package exists: {}", packageName.name);
         return false;
     }
 
-    const auto audioExpect = m_assets->ReadAudioBlocking(audioFileName);
-    if (!audioExpect)
-    {
-        m_logger->Log(Common::LogLevel::Error,
-          "AudioResources::OnLoadAssetsAudio: Failed to read asset audio: {}", audioFileName);
-        return false;
-    }
-
-    return LoadAudio(splitFileName->first, *audioExpect);
-}
-
-bool AudioResources::OnLoadAllAssetAudio()
-{
-    m_logger->Log(Common::LogLevel::Info, "AudioResources: Loading all asset audio");
-
-    const auto allAudioFiles = m_files->ListFilesInAssetsSubdir(Platform::AUDIO_SUBDIR);
-    if (!allAudioFiles)
-    {
-        m_logger->Log(Common::LogLevel::Error,
-          "AudioResources::OnLoadAllAssetAudio: Failed to list files in audio directory");
-        return false;
-    }
+    const auto packageAudioFileNames = (*package)->GetAudioFileNames();
 
     bool allSuccessful = true;
 
-    for (const auto& audioFileName : *allAudioFiles)
+    for (const auto& audioFileName : packageAudioFileNames)
     {
-        allSuccessful = allSuccessful && OnLoadAssetsAudio(audioFileName);
+        allSuccessful = allSuccessful && LoadPackageAudio(*package, PRI(packageName, audioFileName));
     }
 
     return allSuccessful;
 }
 
-bool AudioResources::LoadAudio(const std::string& name, const Common::AudioData::Ptr& audioData)
+std::future<bool> AudioResources::LoadAllAudio()
 {
-    m_logger->Log(Common::LogLevel::Info, "AudioResources: Loading audio: {}", name);
+    auto message = std::make_shared<Common::BoolResultMessage>();
+    auto messageFuture = message->CreateFuture();
 
-    std::lock_guard<std::mutex> audioLock(m_audioMutex);
+    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& _message){
+        std::dynamic_pointer_cast<Common::BoolResultMessage>(_message)->SetResult(
+            OnLoadAllAudio()
+        );
+    });
 
-    if (m_audio.contains(name))
-    {
-        m_logger->Log(Common::LogLevel::Error,
-          "AudioResources::RegisterAudio: Audio with name has already been registered: {}", name);
-        return false;
-    }
-
-    if (!m_audioManager->RegisterAudio(name, audioData))
-    {
-        m_logger->Log(Common::LogLevel::Error,
-          "AudioResources::RegisterAudio: Failed to register audio with the audio manager: {}", name);
-        return false;
-    }
-
-    m_audio.insert(name);
-
-    return true;
+    return messageFuture;
 }
 
-void AudioResources::DestroyAudio(const std::string& name)
+bool AudioResources::OnLoadAllAudio()
 {
-    m_logger->Log(Common::LogLevel::Info, "AudioResources::DestroyAudio: Destroying audio: {}", name);
+    m_logger->Log(Common::LogLevel::Info, "AudioResources: Loading all audio for all packages");
 
-    if (!m_audio.contains(name))
+    bool allSuccessful = true;
+
+    for (const auto& package : m_packages->GetAllPackages())
     {
-        m_logger->Log(Common::LogLevel::Error,
-          "AudioResources::DestroyAudio: No such audio has been registered: {}", name);
+        allSuccessful = allSuccessful && OnLoadAllAudio(PackageName(package->GetPackageName()));
+    }
+
+    return allSuccessful;
+}
+
+void AudioResources::DestroyAudio(const ResourceIdentifier& resource)
+{
+    m_logger->Log(Common::LogLevel::Info, "AudioResources: Destroying audio resource: {}", resource.GetUniqueName());
+
+    std::lock_guard<std::mutex> lock(m_audioMutex);
+
+    // Destroy the audio in the audio manager
+    m_audioManager->DestroyAudio(resource);
+
+    // Erase our knowledge of the resource
+    if (resource.IsPackageResource())
+    {
+        const auto it = m_packageAudio.find(*resource.GetPackageName());
+        if (it == m_packageAudio.cend())
+        {
+            m_logger->Log(Common::LogLevel::Error,
+              "AudioResources::DestroyAudio: No package tracking entry for: {}", resource.GetUniqueName());
+            return;
+        }
+
+        // Erase our knowledge of the audio resource within its package
+        it->second.erase(resource);
+
+        // If the package has no audio left, erase our record of it too
+        if (it->second.empty())
+        {
+            m_packageAudio.erase(it);
+        }
+    }
+    else
+    {
+        m_customAudio.erase(resource);
+    }
+}
+
+void AudioResources::DestroyAllAudio(const PackageName& packageName)
+{
+    m_logger->Log(Common::LogLevel::Info, "AudioResources: Destroying all audio resource for package: {}", packageName.name);
+
+    std::lock_guard<std::mutex> lock(m_audioMutex);
+
+    const auto it = m_packageAudio.find(packageName);
+    if (it == m_packageAudio.cend())
+    {
         return;
     }
 
-    m_audioManager->DestroyAudio(name);
+    for (const auto& resource : it->second)
+    {
+        m_logger->Log(Common::LogLevel::Info, "AudioResources: Destroying audio resource: {}", resource.GetUniqueName());
 
-    m_audio.erase(name);
+        // Destroy the resource in the audio manager
+        m_audioManager->DestroyAudio(resource);
+    }
+
+    // Erase our knowledge of the package
+    m_packageAudio.erase(it);
 }
 
 void AudioResources::DestroyAll()
 {
-    m_logger->Log(Common::LogLevel::Info, "AudioResources::DestroyAll: Destroying all audio");
+    m_logger->Log(Common::LogLevel::Info, "AudioResources: Destroying all audio resources");
 
-    while (!m_audio.empty())
+    while (!m_customAudio.empty())
     {
-        DestroyAudio(*m_audio.cbegin());
+        DestroyAudio(*m_customAudio.cbegin());
     }
+
+    while (!m_packageAudio.empty())
+    {
+        DestroyAllAudio(m_packageAudio.cbegin()->first);
+    }
+}
+
+bool AudioResources::LoadPackageAudio(const Platform::Package::Ptr& package, const PackageResourceIdentifier& resource)
+{
+    const auto packageName = PackageName(package->GetPackageName());
+
+    m_logger->Log(Common::LogLevel::Info, "AudioResources: Loading package audio resource: {}", resource.GetUniqueName());
+
+    std::lock_guard<std::mutex> lock(m_audioMutex);
+
+    auto audioBytes = package->GetAudioData(resource.GetResourceName());
+    if (!audioBytes)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "AudioResources::LoadPackageAudio: Failed to get audio bytes: {}", resource.GetUniqueName());
+        return false;
+    }
+
+    const auto audioData = AudioDataFromBytes(*audioBytes, resource.GetResourceName());
+    if (!audioData)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "AudioResources::LoadPackageAudio: Failed to create audio data: {}", resource.GetUniqueName());
+        return false;
+    }
+
+    if (!m_audioManager->RegisterAudio(resource, *audioData))
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "AudioResources::LoadPackageAudio: Failed to register audio: {}", resource.GetUniqueName());
+        return false;
+    }
+
+    m_packageAudio[packageName].insert(resource);
+
+    return true;
+}
+
+std::expected<Common::AudioData::Ptr, bool> AudioResources::AudioDataFromBytes(std::vector<unsigned char>& bytes, const std::string& tag) const
+{
+    AudioFile<double> audioFile;
+    if (!audioFile.loadFromMemory(bytes))
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "AudioResources::AudioDataFromBytes: Failed to load audio file from bytes: {}", tag);
+        return std::unexpected(false);
+    }
+
+    Common::AudioData::Format audioFileFormat{};
+
+    if (audioFile.getNumChannels() == 1 && audioFile.getBitDepth() == 8)
+    {
+        audioFileFormat = Common::AudioData::Format::Mono8;
+    }
+    else if (audioFile.getNumChannels() == 1)
+    {
+        // We transform all bit depth >= 16 to 16 bit as that's the most OpenAL supports
+        audioFileFormat = Common::AudioData::Format::Mono16;
+    }
+    else if (audioFile.getNumChannels() == 2 && audioFile.getBitDepth() == 8)
+    {
+        audioFileFormat = Common::AudioData::Format::Stereo8;
+    }
+    else if (audioFile.getNumChannels() == 2)
+    {
+        // We transform all bit depth >= 16 to 16 bit as that's the most OpenAL supports
+        audioFileFormat = Common::AudioData::Format::Stereo16;
+    }
+    else
+    {
+        m_logger->Log(Common::LogLevel::Error,
+                      "AudioResources::AudioDataFromBytes: Unsupported audio file: {}. Num channels: {}, bit depth: {}",
+                      tag,
+                      audioFile.getNumChannels(),
+                      audioFile.getBitDepth()
+        );
+        return std::unexpected(false);
+    }
+
+    std::vector<std::byte> audioByteBuffer = AudioUtil::AudioFileToByteBuffer(audioFile);
+
+    return std::make_shared<Common::AudioData>(
+        audioFileFormat,
+        audioFile.getSampleRate(),
+        audioByteBuffer
+    );
 }
 
 }

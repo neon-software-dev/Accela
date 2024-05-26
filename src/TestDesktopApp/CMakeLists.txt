@@ -18,37 +18,16 @@ target_link_libraries(TestDesktopApp
 )
 
 ##########
-# Set up custom commands to copy everything from the assets directory to the build output's assets directory
+# Set up custom commands to copy accela directory to the build output directory
 #
-file (GLOB_RECURSE resources "${CMAKE_CURRENT_SOURCE_DIR}/assets/*.*")
+file (GLOB_RECURSE ACCELA_INPUT_RESOURCES "${CMAKE_CURRENT_SOURCE_DIR}/accela/*.*")
+file (GLOB_RECURSE ACCELA_OUTPUT_RESOURCES "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/accela/*.*")
 
-foreach(resource ${resources})
-	get_filename_component(filename ${resource} NAME) # file.png
-	get_filename_component(dir ${resource} DIRECTORY) # /path/to/assets/textures/
-	get_filename_component(dirname ${dir} NAME) # textures/
-
-	set (asset_local_dir "")
-
-	while(NOT ${dirname} STREQUAL "assets")
-		get_filename_component(path_component ${dir} NAME)
-		set (asset_local_dir "${path_component}/${asset_local_dir}")
-		get_filename_component(dir ${dir} DIRECTORY)
-		get_filename_component(dirname ${dir} NAME)
-	endwhile()
-
-	set(asset_local_path "${asset_local_dir}${filename}") # textures/file.png
-	set(install_file "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets/${asset_local_path}") # /path/to/bin/assets/textures/file.png
-
-	add_custom_command(
-			COMMENT "Asset file install '${asset_local_path}'"
-			OUTPUT ${install_file}
-			DEPENDS ${resource}
-			COMMAND ${CMAKE_COMMAND} -E copy_if_different
-			${resource}
-			${install_file}
-	)
-	add_custom_target("${dirname}-${filename}-copy" ALL DEPENDS ${resource} ${install_file})
-
-endforeach()
+add_custom_target("CopyAccelaResources" ALL
+		COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different
+			"${CMAKE_CURRENT_SOURCE_DIR}/accela/" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/accela/"
+		DEPENDS ${ACCELA_INPUT_RESOURCES} ${ACCELA_OUTPUT_RESOURCES}
+		COMMENT "Copying Accela Resources"
+)
 #
 ##########

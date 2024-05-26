@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #include "AudioManager.h"
 
 #include <vector>
@@ -151,15 +145,17 @@ void AudioManager::Shutdown()
     }
 }
 
-bool AudioManager::RegisterAudio(const std::string& name, const Common::AudioData::Ptr& audioData)
+bool AudioManager::RegisterAudio(const ResourceIdentifier& resource, const Common::AudioData::Ptr& audioData)
 {
+    std::lock_guard<std::recursive_mutex> lock(m_buffersMutex);
+
     if (m_pDevice == nullptr || m_pContext == nullptr) { return false; }
 
-    m_logger->Log(Common::LogLevel::Info, "RegisterAudio: Registering audio: {}", name);
+    m_logger->Log(Common::LogLevel::Info, "RegisterAudio: Registering audio: {}", resource.GetUniqueName());
 
-    if (m_buffers.find(name) != m_buffers.cend())
+    if (m_buffers.find(resource) != m_buffers.cend())
     {
-        m_logger->Log(Common::LogLevel::Warning, "RegisterAudio: Audio already loaded, ignoring: {}", name);
+        m_logger->Log(Common::LogLevel::Warning, "RegisterAudio: Audio already loaded, ignoring: {}", resource.GetUniqueName());
         return true;
     }
 
@@ -172,7 +168,7 @@ bool AudioManager::RegisterAudio(const std::string& name, const Common::AudioDat
     if ((error = alGetError()) != AL_NO_ERROR)
     {
         m_logger->Log(Common::LogLevel::Debug,
-          "RegisterAudio: Failed to generate a buffer for audio: {}, error code: {}", name, error);
+          "RegisterAudio: Failed to generate a buffer for audio: {}, error code: {}", resource.GetUniqueName(), error);
         return false;
     }
 
@@ -199,25 +195,27 @@ bool AudioManager::RegisterAudio(const std::string& name, const Common::AudioDat
     if ((error = alGetError()) != AL_NO_ERROR)
     {
         m_logger->Log(Common::LogLevel::Debug,
-          "RegisterAudio: Failed to buffer data for sound: {}, error code: {}", name, error);
+          "RegisterAudio: Failed to buffer data for sound: {}, error code: {}", resource.GetUniqueName(), error);
         alDeleteBuffers(1, &bufferId);
         return false;
     }
 
-    m_buffers.insert(std::make_pair(name, BufferProperties(bufferId, audioFormat)));
+    m_buffers.insert(std::make_pair(resource, BufferProperties(bufferId, audioFormat)));
 
     return true;
 }
 
-void AudioManager::DestroyAudio(const std::string& name)
+void AudioManager::DestroyAudio(const ResourceIdentifier& resource)
 {
-    const auto it = m_buffers.find(name);
+    std::lock_guard<std::recursive_mutex> lock(m_buffersMutex);
+
+    const auto it = m_buffers.find(resource);
     if (it == m_buffers.cend())
     {
         return;
     }
 
-    m_logger->Log(Common::LogLevel::Info, "DestroyAudio: Destroying audio: {}", name);
+    m_logger->Log(Common::LogLevel::Info, "DestroyAudio: Destroying audio: {}", resource.GetUniqueName());
 
     // Delete all the sources that were using this buffer
     while (!it->second.sources.empty())
@@ -235,6 +233,8 @@ void AudioManager::DestroyAudio(const std::string& name)
 
 void AudioManager::DestroyAllAudio()
 {
+    std::lock_guard<std::recursive_mutex> lock(m_buffersMutex);
+
     // Note that sources are destroyed as part of DestroyAudio
     while (!m_buffers.empty())
     {
@@ -243,14 +243,16 @@ void AudioManager::DestroyAllAudio()
 }
 
 std::expected<AudioSourceId, bool>
-AudioManager::CreateSource(const std::string& fileName, const AudioManager::SourceProperties& properties)
+AudioManager::CreateSource(const ResourceIdentifier& resource, const AudioManager::SourceProperties& properties)
 {
+    std::lock_guard<std::recursive_mutex> lock(m_buffersMutex);
+
     if (m_pDevice == nullptr || m_pContext == nullptr) { return false; }
 
-    auto bufferIt = m_buffers.find(fileName);
+    auto bufferIt = m_buffers.find(resource);
     if (bufferIt == m_buffers.cend())
     {
-        m_logger->Log(Common::LogLevel::Error, "CreateSource: Unable to create source as audio is not loaded: {}", fileName);
+        m_logger->Log(Common::LogLevel::Error, "CreateSource: Unable to create source as audio is not loaded: {}", resource.GetUniqueName());
         return std::unexpected(false);
     }
 
@@ -259,7 +261,8 @@ AudioManager::CreateSource(const std::string& fileName, const AudioManager::Sour
     {
         if (bufferIt->second.bufferFormat != AL_FORMAT_MONO8 && bufferIt->second.bufferFormat != AL_FORMAT_MONO16)
         {
-            m_logger->Log(Common::LogLevel::Error, "CreateSource: non-mono audio format local source is disallowed: {}", fileName);
+            m_logger->Log(Common::LogLevel::Error,
+              "CreateSource: non-mono audio format local source is disallowed: {}", resource.GetUniqueName());
             return std::unexpected(false);
         }
     }
@@ -273,7 +276,7 @@ AudioManager::CreateSource(const std::string& fileName, const AudioManager::Sour
     if ((error = alGetError()) != AL_NO_ERROR)
     {
         m_logger->Log(Common::LogLevel::Error,
-          "CreateSource: Failed to generate source for: {}, error code: {}", fileName, error);
+          "CreateSource: Failed to generate source for: {}, error code: {}", resource.GetUniqueName(), error);
         return std::unexpected(false);
     }
 
@@ -284,7 +287,7 @@ AudioManager::CreateSource(const std::string& fileName, const AudioManager::Sour
 
     // Make a record of the source
     m_sources.insert(std::make_pair(sourceId, properties));
-    m_sourceToBuffer.insert(std::make_pair(sourceId, fileName));
+    m_sourceToResource.insert(std::make_pair(sourceId, resource));
 
     // Update the buffer's record to show that the source is using it
     bufferIt->second.sources.insert(sourceId);
@@ -305,9 +308,11 @@ void AudioManager::DestroySource(const AudioSourceId& sourceId)
     m_logger->Log(Common::LogLevel::Debug, "DestroySource: Destroying source: {}", sourceId);
 
     // Mark the buffer as not being used by this source
-    const auto bufferNameIt = m_sourceToBuffer.find(sourceId);
-    if (bufferNameIt != m_sourceToBuffer.cend())
+    const auto bufferNameIt = m_sourceToResource.find(sourceId);
+    if (bufferNameIt != m_sourceToResource.cend())
     {
+        std::lock_guard<std::recursive_mutex> lock(m_buffersMutex);
+
         auto bufferIt = m_buffers.find(bufferNameIt->second);
         if (bufferIt != m_buffers.cend())
         {
@@ -317,7 +322,7 @@ void AudioManager::DestroySource(const AudioSourceId& sourceId)
 
     // Delete the source
     alDeleteSources(1, &sourceIt->first);
-    m_sourceToBuffer.erase(sourceId);
+    m_sourceToResource.erase(sourceId);
     m_sources.erase(sourceIt);
 }
 

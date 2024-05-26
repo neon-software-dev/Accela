@@ -1,10 +1,5 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #include <Accela/Platform/File/SDLFiles.h>
+#include <Accela/Platform/Package/DiskPackage.h>
 
 #include <Accela/Common/BuildInfo.h>
 
@@ -21,11 +16,6 @@ SDLFiles::SDLFiles(Common::ILogger::Ptr logger)
     : m_logger(std::move(logger))
 {
 
-}
-
-std::expected<std::vector<std::string>, bool> SDLFiles::ListFilesInAssetsSubdir(const std::string& subdir) const
-{
-    return ListFilesInDirectory(GetAssetsSubdirectory(subdir));
 }
 
 std::expected<std::vector<std::string>, bool> SDLFiles::ListFilesInDirectory(const std::string& directory) const
@@ -48,19 +38,12 @@ std::expected<std::vector<std::string>, bool> SDLFiles::ListFilesInDirectory(con
     return filenames;
 }
 
-std::expected<Common::ImageData::Ptr, unsigned int> SDLFiles::LoadAssetTexture(const std::string& fileName) const
-{
-    const auto filePath = GetAssetFilePath(TEXTURES_SUBDIR, fileName);
-
-    return LoadTexture(filePath);
-}
-
 std::expected<Common::ImageData::Ptr, bool>
 SDLFiles::LoadCompressedTexture(const std::vector<std::byte>& data,
                                 const size_t& dataByteSize,
                                 const std::optional<std::string>& dataFormatHint) const
 {
-    auto pRwOps = SDL_RWFromMem((void*)data.data(), (int)dataByteSize);
+    auto pRwOps = SDL_RWFromConstMem((void*)data.data(), (int)dataByteSize);
 
     SDL_Surface* pSurface{nullptr};
 
@@ -89,15 +72,6 @@ SDLFiles::LoadCompressedTexture(const std::vector<std::byte>& data,
     return imageData;
 }
 
-std::expected<Common::ImageData::Ptr, unsigned int>
-SDLFiles::LoadAssetModelTexture(const std::string& modelName, const std::string& fileName) const
-{
-    const auto modelsDir = GetAssetsSubdirectory(MODELS_DIR);
-    const auto modelDir = GetSubdirPath(modelsDir, modelName);
-
-    return LoadTexture(modelDir + fileName);
-}
-
 std::expected<Common::ImageData::Ptr, unsigned int> SDLFiles::LoadTexture(const std::string& filePath) const
 {
     SDL_Surface *pSurface = IMG_Load(filePath.c_str());
@@ -117,9 +91,9 @@ std::expected<Common::ImageData::Ptr, unsigned int> SDLFiles::LoadTexture(const 
     return imageData;
 }
 
-[[nodiscard]] std::expected<std::vector<unsigned char>, bool> SDLFiles::LoadAssetFile(const std::string& subdir, const std::string& fileName) const
+[[nodiscard]] std::expected<std::vector<unsigned char>, bool> SDLFiles::LoadAccelaFile(const std::string& subdir, const std::string& fileName) const
 {
-    const auto filePath = GetAssetFilePath(subdir, fileName);
+    const auto filePath = GetAccelaFilePath(subdir, fileName);
 
     std::ifstream file(filePath.c_str(), std::ios::in | std::ios::binary);
     if (!file.is_open())
@@ -140,19 +114,50 @@ std::string SDLFiles::GetExecutableDirectory()
     return SDL_GetBasePath();
 }
 
-std::string SDLFiles::GetAssetsDirectory() const
+std::string SDLFiles::GetAccelaDirectory() const
 {
-    return GetExecutableDirectory() + EnsureEndsWithSeparator(ASSETS_DIR);
+    return GetExecutableDirectory() + EnsureEndsWithSeparator(ACCELA_DIR);
 }
 
-std::string SDLFiles::GetAssetsSubdirectory(const std::string& subDirName) const
+std::string SDLFiles::GetAccelaSubdirectory(const std::string& subDirName) const
 {
-    return GetAssetsDirectory() + EnsureEndsWithSeparator(subDirName);
+    return GetAccelaDirectory() + EnsureEndsWithSeparator(subDirName);
 }
 
-std::string SDLFiles::GetAssetFilePath(const std::string& subdir, const std::string& fileName) const
+std::string SDLFiles::GetAccelaFilePath(const std::string& subdir, const std::string& fileName) const
 {
-    return GetAssetsSubdirectory(subdir) + fileName;
+    return GetAccelaSubdirectory(subdir) + fileName;
+}
+
+std::expected<std::vector<std::string>, bool> SDLFiles::ListFilesInAccelaSubdir(const std::string& subdir) const
+{
+    return ListFilesInDirectory(GetAccelaSubdirectory(subdir));
+}
+
+std::string SDLFiles::GetPackagesDirectory() const
+{
+    return GetAccelaSubdirectory(PACKAGES_DIR);
+}
+
+std::string SDLFiles::GetPackageDirectory(const std::string& packageName) const
+{
+    return GetAccelaSubdirectory(PACKAGES_DIR) + EnsureEndsWithSeparator(packageName);
+}
+
+std::expected<Package::Ptr, bool> SDLFiles::LoadPackage(const std::string& packageName) const
+{
+    const auto packageDirectory = std::filesystem::path(GetPackageDirectory(packageName));
+    const auto packageFile = packageDirectory / std::string(packageName + Platform::PACKAGE_EXTENSION);
+
+    const auto package = DiskPackage::OpenOnDisk(packageFile);
+    if (!package)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "SDLFiles::LoadPackage: Failed to load package {}, error code: {}", packageName, (int)package.error());
+        return std::unexpected(false);
+    }
+
+    return *package;
 }
 
 std::string SDLFiles::GetSubdirPath(const std::string& root, const std::string& subdir) const

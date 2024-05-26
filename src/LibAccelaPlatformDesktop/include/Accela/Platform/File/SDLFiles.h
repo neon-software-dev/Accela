@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef LIBACCELAPLATFORMSDL_SRC_FILE_SDLFILES_H
 #define LIBACCELAPLATFORMSDL_SRC_FILE_SDLFILES_H
 
@@ -23,17 +17,22 @@ namespace Accela::Platform
 
             explicit SDLFiles(Common::ILogger::Ptr logger);
 
-            [[nodiscard]] std::string GetAssetsDirectory() const override;
-            [[nodiscard]] std::string GetAssetsSubdirectory(const std::string& subDirName) const override;
-            [[nodiscard]] std::string GetAssetFilePath(const std::string& subdir, const std::string& fileName) const override;
+            [[nodiscard]] std::string GetAccelaDirectory() const override;
+            [[nodiscard]] std::string GetAccelaSubdirectory(const std::string& subDirName) const override;
+            [[nodiscard]] std::string GetAccelaFilePath(const std::string& subdir, const std::string& fileName) const override;
+            [[nodiscard]] std::expected<std::vector<std::string>, bool> ListFilesInAccelaSubdir(const std::string& subdir) const override;
+
+            [[nodiscard]] std::string GetPackagesDirectory() const override;
+            [[nodiscard]] std::string GetPackageDirectory(const std::string& packageName) const override;
+
+            [[nodiscard]] std::expected<Package::Ptr, bool> LoadPackage(const std::string& packageName) const override;
+
             [[nodiscard]] std::string GetSubdirPath(const std::string& root, const std::string& subdir) const override;
             [[nodiscard]] std::string EnsureEndsWithSeparator(const std::string& source) const override;
-            [[nodiscard]] std::expected<std::vector<std::string>, bool> ListFilesInAssetsSubdir(const std::string& subdir) const override;
+
             [[nodiscard]] std::expected<std::vector<std::string>, bool> ListFilesInDirectory(const std::string& directory) const override;
-            [[nodiscard]] std::expected<Common::ImageData::Ptr, unsigned int> LoadAssetTexture(const std::string& fileName) const override;
-            [[nodiscard]] std::expected<Common::ImageData::Ptr, unsigned int> LoadAssetModelTexture(const std::string& modelName, const std::string& fileName) const override;
             [[nodiscard]] std::expected<Common::ImageData::Ptr, bool> LoadCompressedTexture(const std::vector<std::byte>& data, const std::size_t& dataByteSize, const std::optional<std::string>& dataFormatHint) const override;
-            [[nodiscard]] std::expected<std::vector<unsigned char>, bool> LoadAssetFile(const std::string& subdir, const std::string& fileName) const override;
+            [[nodiscard]] std::expected<std::vector<unsigned char>, bool> LoadAccelaFile(const std::string& subdir, const std::string& fileName) const override;
 
         private:
 

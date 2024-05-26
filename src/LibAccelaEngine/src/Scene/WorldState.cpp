@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #include "WorldState.h"
 #include "AudioSystem.h"
 #include "RendererSyncSystem.h"
@@ -584,14 +578,14 @@ void WorldState::SetSkyBox(const std::string& sceneName,
 }
 
 std::expected<AudioSourceId, bool> WorldState::PlayEntitySound(const EntityId& entity,
-                                                              const std::string& fileName,
-                                                              const AudioSourceProperties& properties)
+                                                               const ResourceIdentifier& resource,
+                                                               const AudioSourceProperties& properties)
 {
     AudioManager::SourceProperties sourceProperties{};
     sourceProperties.localSource = true;
     sourceProperties.audioProperties = properties;
 
-    const auto sourceIdExpected = m_audioManager->CreateSource(fileName, sourceProperties);
+    const auto sourceIdExpected = m_audioManager->CreateSource(resource, sourceProperties);
     if (!sourceIdExpected.has_value())
     {
         return std::unexpected(sourceIdExpected.error());
@@ -611,13 +605,13 @@ std::expected<AudioSourceId, bool> WorldState::PlayEntitySound(const EntityId& e
     return sourceIdExpected.value();
 }
 
-std::expected<AudioSourceId, bool> WorldState::PlayGlobalSound(const std::string& fileName, const AudioSourceProperties& properties)
+std::expected<AudioSourceId, bool> WorldState::PlayGlobalSound(const ResourceIdentifier& resource, const AudioSourceProperties& properties)
 {
     AudioManager::SourceProperties sourceProperties{};
     sourceProperties.localSource = false;
     sourceProperties.audioProperties = properties;
 
-    const auto sourceIdExpected = m_audioManager->CreateSource(fileName, sourceProperties);
+    const auto sourceIdExpected = m_audioManager->CreateSource(resource, sourceProperties);
     if (!sourceIdExpected.has_value())
     {
         return std::unexpected(sourceIdExpected.error());

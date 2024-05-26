@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef LIBACCELAENGINE_SRC_SCENE_WORLDSTATE_H
 #define LIBACCELAENGINE_SRC_SCENE_WORLDSTATE_H
 
@@ -148,12 +142,15 @@ namespace Accela::Engine
             //
             // Audio
             //
-            std::expected<AudioSourceId, bool> PlayEntitySound(const EntityId& entity,
-                                                              const std::string& fileName,
-                                                              const AudioSourceProperties& properties) override;
+            [[nodiscard]] std::expected<AudioSourceId, bool> PlayEntitySound(
+                const EntityId& entity,
+                const ResourceIdentifier& resource,
+                const AudioSourceProperties& properties) override;
 
-            std::expected<AudioSourceId, bool> PlayGlobalSound(const std::string& fileName,
-                                                              const AudioSourceProperties& properties) override;
+            [[nodiscard]] std::expected<AudioSourceId, bool> PlayGlobalSound(
+                const ResourceIdentifier& resource,
+                const AudioSourceProperties& properties) override;
+
             void StopGlobalSound(AudioSourceId sourceId) override;
 
             void SetAudioListener(const AudioListener& listener) override;

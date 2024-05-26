@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef TESTDESKTOPAPP_TESTSCENE_H
 #define TESTDESKTOPAPP_TESTSCENE_H
 
@@ -36,11 +30,11 @@ namespace Accela
             //
             // Scene Setup
             //
-            [[nodiscard]] bool LoadAssets();
+            [[nodiscard]] bool LoadResources();
             void ConfigureScene();
             void CreateSceneEntities();
 
-            [[nodiscard]] static Render::ObjectMaterialProperties MakeSolidColorMaterial(const glm::vec3& color);
+            [[nodiscard]] static Engine::ObjectMaterialProperties DefineSolidColorMaterial(const glm::vec3& color);
 
             /** Add a light at the specified position */
             void CreateLight(const glm::vec3& position);

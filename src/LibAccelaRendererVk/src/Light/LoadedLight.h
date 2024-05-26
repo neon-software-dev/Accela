@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef LIBACCELARENDERERVK_SRC_LIGHT_LOADEDLIGHT_H
 #define LIBACCELARENDERERVK_SRC_LIGHT_LOADEDLIGHT_H
 

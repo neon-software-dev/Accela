@@ -1,17 +1,10 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_SCENE_IAUDIORESOURCES_H
 #define LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_SCENE_IAUDIORESOURCES_H
 
-#include <Accela/Engine/Common.h>
+#include <Accela/Engine/ResourceIdentifier.h>
 
 #include <Accela/Common/AudioData.h>
 
-#include <string>
 #include <future>
 #include <memory>
 
@@ -31,40 +24,56 @@ namespace Accela::Engine
             virtual ~IAudioResources() = default;
 
             /**
-             * Load an audio file from assets
+             * Load an audio resource from a package
              *
-             * @param audioFileName The filename of the audio file
+             * @param resource Identifies the audio resource
              *
-             * @return A future that's signaled when the operation is completed
+             * @return A future containing whether the operation was successful
              */
-            [[nodiscard]] virtual std::future<bool> LoadAssetsAudio(const std::string& audioFileName) = 0;
+            [[nodiscard]] virtual std::future<bool> LoadAudio(const PackageResourceIdentifier& resource) = 0;
 
             /**
-             * Load all audio files from assets
+             * Loads a custom audio resource
              *
-             * @return A future that's signaled when the operation is completed
+             * @param resource Identifies the audio resource
+             * @param audioData The custom audio data to be loaded
+             *
+             * @return Whether the operation was successful
              */
-            [[nodiscard]] virtual std::future<bool> LoadAllAssetAudio() = 0;
+            [[nodiscard]] virtual bool LoadAudio(const CustomResourceIdentifier& resource, const Common::AudioData::Ptr& audioData) = 0;
 
             /**
-             * Loads audio data
+             * Load all audio resources from the specified package
              *
-             * @param name Unique name to associate with the audio data
-             * @param audioData The audio data
+             * @param packageName The name of the package to load audio from
              *
-             * @return Whether the audio was loaded successfully
+             * @return A future containing whether all package audio loaded successfully
              */
-            [[nodiscard]] virtual bool LoadAudio(const std::string& name, const Common::AudioData::Ptr& audioData) = 0;
+            [[nodiscard]] virtual std::future<bool> LoadAllAudio(const PackageName& packageName) = 0;
 
             /**
-             * Destroys previously registered audio data
+             * Load all audio resources across all registered packages
              *
-             * @param name The name associated with the audio data to be destroyed
+             * @return A future containing whether all audio loaded successfully
              */
-            virtual void DestroyAudio(const std::string& name) = 0;
+            [[nodiscard]] virtual std::future<bool> LoadAllAudio() = 0;
 
             /**
-             * Destroy all previously loaded audio data
+             * Destroys a previously loaded audio resource
+             *
+             * @param resource Identifies the resource to be destroyed
+             */
+            virtual void DestroyAudio(const ResourceIdentifier& resource) = 0;
+
+            /**
+             * Destroys all previously loaded audio resources for a specific package
+             *
+             * @param packageName The name identifying the package
+             */
+            virtual void DestroyAllAudio(const PackageName& packageName) = 0;
+
+            /**
+             * Destroy all previously loaded audio resources
              */
             virtual void DestroyAll() = 0;
     };

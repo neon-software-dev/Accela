@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #include <Accela/Engine/Entity/SpriteEntity.h>
 #include <Accela/Engine/Component/Components.h>
 
@@ -87,9 +81,9 @@ void SpriteEntity::SetTextureById(Render::TextureId textureId)
     if (dirty && CanSyncSpriteComponent()) { SyncSpriteComponent(); }
 }
 
-bool SpriteEntity::SetTextureByAssetName(const std::string& assetName)
+bool SpriteEntity::SetTextureByResource(const ResourceIdentifier& resource)
 {
-    const auto textureIdOpt = m_engine->GetWorldResources()->Textures()->GetAssetTextureId(assetName);
+    const auto textureIdOpt = m_engine->GetWorldResources()->Textures()->GetTextureId(resource);
     if (!textureIdOpt)
     {
         return false;

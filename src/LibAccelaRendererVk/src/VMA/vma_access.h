@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 /**
  * Wrapper include for the Vulkan Memory Allocator header file. All usages of the VMA must include
  * this file, rather than directly including vm_mem_alloc.h

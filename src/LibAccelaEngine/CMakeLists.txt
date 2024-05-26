@@ -9,6 +9,7 @@ project(LibAccelaEngine VERSION 0.0.1 LANGUAGES CXX)
 	find_package(AudioFile CONFIG REQUIRED)
 	find_package(assimp CONFIG REQUIRED)
 
+
 	#########################
 	# TODO: Remove this block when PhysX package in vcpkg isn't broken for linux
 	find_library(PhysXCharacterKinematicFile PhysXCharacterKinematic_static_64 HINTS "${PHYSX_BIN_DIR}" REQUIRED)
@@ -92,6 +93,7 @@ project(LibAccelaEngine VERSION 0.0.1 LANGUAGES CXX)
 	file(GLOB AccelaEngine_Include_Headers_Bounds "include/Accela/Engine/Bounds/*.h")
 	file(GLOB AccelaEngine_Include_Headers_Physics "include/Accela/Engine/Physics/*.h")
 	file(GLOB AccelaEngine_Include_Headers_Util "include/Accela/Engine/Util/*.h")
+	file(GLOB AccelaEngine_Include_Headers_Material "include/Accela/Engine/Material/*.h")
 
 	file(GLOB AccelaEngine_Sources "src/*.cpp")
 	file(GLOB AccelaEngine_Headers "src/*.h")
@@ -122,6 +124,7 @@ add_library(AccelaEngine STATIC
 	${AccelaEngine_Include_Headers_Bounds}
 	${AccelaEngine_Include_Headers_Physics}
 	${AccelaEngine_Include_Headers_Util}
+	${AccelaEngine_Include_Headers_Material}
 
 	${AccelaEngine_Sources}
 	${AccelaEngine_Headers}
@@ -170,7 +173,6 @@ target_link_libraries(AccelaEngine
 		OpenAL::OpenAL
 		AudioFile
 		assimp::assimp
-		PhysXCharacterKinematic
 		${PHYSX_TARGETS}
 )
 

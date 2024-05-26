@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #include <Accela/Engine/Entity/EnginePerfMonitorEntity.h>
 
 #include <format>
@@ -11,12 +5,11 @@
 namespace Accela::Engine
 {
 
-static constexpr uint8_t Font_Size = 28;
-
 EnginePerfMonitorEntity::UPtr EnginePerfMonitorEntity::Create(
     IEngineRuntime::Ptr engine,
     SceneEvents::Ptr sceneEvents,
-    std::string fontName,
+    PackageResourceIdentifier fontResource,
+    std::uint8_t fontSize,
     std::string sceneName,
     const glm::vec3& position,
     uint32_t refreshInterval)
@@ -25,7 +18,8 @@ EnginePerfMonitorEntity::UPtr EnginePerfMonitorEntity::Create(
         ConstructTag{},
         std::move(engine),
         std::move(sceneEvents),
-        std::move(fontName),
+        std::move(fontResource),
+        std::move(fontSize),
         std::move(sceneName),
         position,
         refreshInterval
@@ -38,18 +32,20 @@ EnginePerfMonitorEntity::EnginePerfMonitorEntity(
     ConstructTag,
     IEngineRuntime::Ptr engine,
     SceneEvents::Ptr sceneEvents,
-    std::string fontName,
+    PackageResourceIdentifier fontResource,
+    std::uint8_t fontSize,
     std::string sceneName,
     const glm::vec3& position,
     uint32_t refreshInterval)
     : SceneEntity(std::move(engine), std::move(sceneName), std::move(sceneEvents))
-    , m_fontName(std::move(fontName))
+    , m_fontResource(std::move(fontResource))
+    , m_fontSize(fontSize)
     , m_position(position)
     , m_refreshInterval(refreshInterval)
 {
-    if (!m_engine->GetWorldResources()->Fonts()->IsFontLoaded(m_fontName, Font_Size))
+    if (!m_engine->GetWorldResources()->Fonts()->IsFontLoaded(m_fontResource, m_fontSize))
     {
-        (void)m_engine->GetWorldResources()->Fonts()->LoadFont(m_fontName, Font_Size).get();
+        m_engine->GetWorldResources()->Fonts()->LoadFont(m_fontResource, m_fontSize).get();
     }
 
     CreateEntities();
@@ -63,8 +59,8 @@ EnginePerfMonitorEntity::~EnginePerfMonitorEntity()
 void EnginePerfMonitorEntity::CreateEntities()
 {
     const auto textProperties = Platform::TextProperties{
-        m_fontName,
-        Font_Size,
+        m_fontResource.GetResourceName(),
+        m_fontSize,
         0,
         Platform::Color::Red(),
         Platform::Color(255,255,255,50)

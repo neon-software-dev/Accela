@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #include <Accela/Engine/Entity/ModelEntity.h>
 #include <Accela/Engine/IEngineRuntime.h>
 #include <Accela/Engine/Component/Components.h>
@@ -11,7 +5,7 @@
 namespace Accela::Engine
 {
 
-ModelEntity::Params& ModelEntity::Params::WithModelName(const std::string& _modelName) { modelName = _modelName; return *this; }
+ModelEntity::Params& ModelEntity::Params::WithModel(const ResourceIdentifier& _resource) { resource = _resource; return *this; }
 ModelEntity::Params& ModelEntity::Params::WithPosition(const glm::vec3& _position) { position = _position; return *this; }
 ModelEntity::Params& ModelEntity::Params::WithScale(const glm::vec3& _scale) { scale = _scale; return *this; }
 ModelEntity::Params& ModelEntity::Params::WithOrientation(const glm::quat& _orientation) { orientation = _orientation; return *this; }
@@ -90,7 +84,7 @@ void ModelEntity::SyncAll()
 bool ModelEntity::CanSyncModelComponent() const
 {
     if (!m_eid) { return false; }
-    if (!m_params->modelName) { return false; }
+    if (!m_params->resource) { return false; }
 
     return true;
 }
@@ -99,7 +93,7 @@ void ModelEntity::SyncModelComponent()
 {
     auto modelRenderableComponent = Engine::ModelRenderableComponent{};
     modelRenderableComponent.sceneName = m_sceneName;
-    modelRenderableComponent.modelName = *m_params->modelName;
+    modelRenderableComponent.modelResource = *m_params->resource;
 
     if (m_params->inShadowPass) { modelRenderableComponent.shadowPass = *m_params->inShadowPass; }
     if (m_animationState) { modelRenderableComponent.animationState = *m_animationState; }

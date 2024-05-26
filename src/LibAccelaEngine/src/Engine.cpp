@@ -1,15 +1,8 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #include "Engine.h"
 #include "ShaderUtil.h"
 #include "Metrics.h"
 #include "EngineRuntime.h"
 #include "RunState.h"
-#include "EngineAssets.h"
 
 #include "Scene/WorldState.h"
 #include "Scene/WorldLogic.h"
@@ -36,7 +29,6 @@ Engine::Engine(Common::ILogger::Ptr logger,
     : m_logger(std::move(logger))
     , m_metrics(std::move(metrics))
     , m_platform(std::move(platform))
-    , m_assets(std::make_shared<EngineAssets>(m_logger, m_platform->GetFiles()))
     , m_renderer(std::move(renderer))
     , m_audioManager(std::make_shared<AudioManager>(m_logger))
 {
@@ -57,13 +49,13 @@ void Engine::Run(Scene::UPtr initialScene, bool supportVRHeadset, const std::fun
     renderSettings.framesInFlight = 3;
     renderSettings.presentToHeadset = supportVRHeadset && m_platform->GetVR()->IsVRAvailable();
 
-    const auto worldResources = std::make_shared<WorldResources>(m_logger, m_renderer, m_platform->GetFiles(), m_assets, m_platform->GetText(), m_audioManager);
+    const auto worldResources = std::make_shared<WorldResources>(m_logger, m_renderer, m_platform->GetFiles(), m_platform->GetText(), m_audioManager);
 
     auto physics = std::make_shared<PhysXPhysics>(m_logger, m_metrics, worldResources);
     const auto worldState = std::make_shared<WorldState>(m_logger, m_metrics, worldResources, m_platform->GetWindow(), m_renderer, m_audioManager, physics, renderSettings, virtualResolution);
 
     const auto runState = std::make_shared<RunState>(std::move(initialScene), worldResources, worldState);
-    const auto runtime = std::make_shared<EngineRuntime>(m_logger, m_metrics, m_assets, m_renderer, runState);
+    const auto runtime = std::make_shared<EngineRuntime>(m_logger, m_metrics, m_renderer, runState);
 
     if (!InitializeRun(runState))
     {

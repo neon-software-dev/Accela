@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #include "ModelAnimatorSystem.h"
 
 #include "../Scene/ModelResources.h"
@@ -41,11 +35,11 @@ void ModelAnimatorSystem::ProcessRenderableModelEntity(const RunState::Ptr& runS
     // Calculate new animation time/state
     //
     const auto registeredModelOpt = std::dynamic_pointer_cast<ModelResources>(m_worldResources->Models())
-        ->GetLoadedModel(modelComponent.modelName);
+        ->GetLoadedModel(modelComponent.modelResource);
     if (!registeredModelOpt)
     {
         m_logger->Log(Common::LogLevel::Error,
-          "ModelAnimatorSystem: Model doesn't exist: {}", modelComponent.modelName);
+          "ModelAnimatorSystem: Model doesn't exist: {}", modelComponent.modelResource.GetUniqueName());
         return;
     }
 

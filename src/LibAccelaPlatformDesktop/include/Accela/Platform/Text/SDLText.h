@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef LIBACCELAPLATFORMSDL_SRC_TEXT_SDLTEXT_H
 #define LIBACCELAPLATFORMSDL_SRC_TEXT_SDLTEXT_H
 
@@ -25,11 +19,11 @@ namespace Accela::Platform
     {
         public:
 
-            SDLText(Common::ILogger::Ptr logger, IFiles::Ptr files);
+            explicit SDLText(Common::ILogger::Ptr logger);
 
             void Destroy() override;
 
-            bool LoadFontBlocking(const std::string& fontFileName, uint8_t fontSize) override;
+            bool LoadFontBlocking(const std::string& fontFileName, const std::vector<unsigned char>& fontData, uint8_t fontSize) override;
             bool IsFontLoaded(const std::string& fontFileName, uint8_t fontSize) override;
             void UnloadFont(const std::string& fontFileName) override;
             void UnloadFont(const std::string& fontFileName, uint8_t fontSize) override;
@@ -39,15 +33,22 @@ namespace Accela::Platform
 
         private:
 
+            struct LoadedFont
+            {
+                std::vector<unsigned char> fontData;
+                TTF_Font* pFont;
+            };
+
+        private:
+
             TTF_Font* GetLoadedFont(const std::string& fontFileName, uint8_t fontSize) const;
 
         private:
 
             Common::ILogger::Ptr m_logger;
-            IFiles::Ptr m_files;
 
             // Font file name -> [{Font size -> Font}]
-            std::unordered_map<std::string, std::unordered_map<uint8_t, TTF_Font*>> m_fonts;
+            std::unordered_map<std::string, std::unordered_map<uint8_t, std::shared_ptr<LoadedFont>>> m_fonts;
             mutable std::recursive_mutex m_fontsMutex;
     };
 }

@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #include "RendererSyncSystem.h"
 
 #include "../Metrics.h"
@@ -197,7 +191,7 @@ void RendererSyncSystem::SyncModelRenderables(const RunState::Ptr&, entt::regist
             // Post the model according to the model's animation state. Will either return the model's bind pose
             // if no animation is active, or the proper pose for the animation if one exists
             //
-            modelAnimationComponent.modelPose = GetModelPose(modelRenderableComponent.modelName, modelRenderableComponent.animationState);
+            modelAnimationComponent.modelPose = GetModelPose(modelRenderableComponent.modelResource, modelRenderableComponent.animationState);
             if (!modelAnimationComponent.modelPose)
             {
                 return;
@@ -291,10 +285,10 @@ void RendererSyncSystem::SyncModelRenderables(const RunState::Ptr&, entt::regist
         });
 }
 
-std::optional<ModelPose> RendererSyncSystem::GetModelPose(const std::string& modelName,
+std::optional<ModelPose> RendererSyncSystem::GetModelPose(const ResourceIdentifier& model,
                                                           const std::optional<ModelAnimationState>& animationState)
 {
-    const auto registeredModelOpt = std::dynamic_pointer_cast<ModelResources>(m_worldResources->Models())->GetLoadedModel(modelName);
+    const auto registeredModelOpt = std::dynamic_pointer_cast<ModelResources>(m_worldResources->Models())->GetLoadedModel(model);
     if (!registeredModelOpt)
     {
         return std::nullopt;

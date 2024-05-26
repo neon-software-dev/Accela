@@ -1,9 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2024 Joe @ NEON Software
- *
- * SPDX-License-Identifier: GPL-3.0-only
- */
- 
 #ifndef LIBACCELAPLATFORMDESKTOP_SRC_VR_OPENVR_H
 #define LIBACCELAPLATFORMDESKTOP_SRC_VR_OPENVR_H
 

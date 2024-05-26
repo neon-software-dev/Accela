@@ -11,6 +11,7 @@ project(LibAccelaPlatform VERSION 0.0.1 LANGUAGES CXX)
 	file(GLOB AccelaPlatform_Include_Headers_Text "include/Accela/Platform/Text/*.h")
 	file(GLOB AccelaPlatform_Include_Headers_Window "include/Accela/Platform/Window/*.h")
 	file(GLOB AccelaPlatform_Include_Headers_VR "include/Accela/Platform/VR/*.h")
+	file(GLOB AccelaPlatform_Include_Headers_Package "include/Accela/Platform/Package/*.h")
 
 add_library(AccelaPlatform INTERFACE
 	${AccelaPlatform_Include_Headers}
@@ -19,6 +20,7 @@ add_library(AccelaPlatform INTERFACE
 	${AccelaPlatform_Include_Headers_Text}
 	${AccelaPlatform_Include_Headers_Window}
 	${AccelaPlatform_Include_Headers_VR}
+	${AccelaPlatform_Include_Headers_Package}
 )
 
 target_link_libraries(AccelaPlatform
