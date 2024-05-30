@@ -5,7 +5,7 @@
  */
  
 #include <Accela/Platform/File/SDLFiles.h>
-#include <Accela/Platform/Package/DiskPackage.h>
+#include <Accela/Platform/Package/DiskPackageSource.h>
 
 #include <Accela/Common/BuildInfo.h>
 
@@ -45,11 +45,10 @@ std::expected<std::vector<std::string>, bool> SDLFiles::ListFilesInDirectory(con
 }
 
 std::expected<Common::ImageData::Ptr, bool>
-SDLFiles::LoadCompressedTexture(const std::vector<std::byte>& data,
-                                const size_t& dataByteSize,
-                                const std::optional<std::string>& dataFormatHint) const
+SDLFiles::LoadTexture(const std::vector<std::byte>& data,
+                      const std::optional<std::string>& dataFormatHint) const
 {
-    auto pRwOps = SDL_RWFromConstMem((void*)data.data(), (int)dataByteSize);
+    auto pRwOps = SDL_RWFromConstMem((void*)data.data(), (int)data.size());
 
     SDL_Surface* pSurface{nullptr};
 
@@ -64,14 +63,14 @@ SDLFiles::LoadCompressedTexture(const std::vector<std::byte>& data,
 
     if (pSurface == nullptr)
     {
-        m_logger->Log(Common::LogLevel::Error, "LoadCompressedTexture: IMG_Load failed, had data format? {}", dataFormatHint.has_value());
+        m_logger->Log(Common::LogLevel::Error, "LoadTexture: IMG_Load failed, had data format? {}", dataFormatHint.has_value());
         return std::unexpected(false);
     }
 
     auto imageData = SDLSurfaceToImageData(m_logger, pSurface);
     if (imageData == nullptr)
     {
-        m_logger->Log(Common::LogLevel::Error, "LoadCompressedTexture: SDLSurfaceToImageData failed");
+        m_logger->Log(Common::LogLevel::Error, "LoadTexture: SDLSurfaceToImageData failed");
         return std::unexpected(false);
     }
 
@@ -150,12 +149,12 @@ std::string SDLFiles::GetPackageDirectory(const std::string& packageName) const
     return GetAccelaSubdirectory(PACKAGES_DIR) + EnsureEndsWithSeparator(packageName);
 }
 
-std::expected<Package::Ptr, bool> SDLFiles::LoadPackage(const std::string& packageName) const
+std::expected<PackageSource::Ptr, bool> SDLFiles::LoadPackage(const std::string& packageName) const
 {
     const auto packageDirectory = std::filesystem::path(GetPackageDirectory(packageName));
     const auto packageFile = packageDirectory / std::string(packageName + Platform::PACKAGE_EXTENSION);
 
-    const auto package = DiskPackage::OpenOnDisk(packageFile);
+    const auto package = DiskPackageSource::OpenOnDisk(packageFile);
     if (!package)
     {
         m_logger->Log(Common::LogLevel::Error,

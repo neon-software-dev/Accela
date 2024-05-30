@@ -27,6 +27,7 @@
 namespace Accela::Platform
 {
     class IText;
+    class IFiles;
 }
 
 namespace Accela::Render
@@ -43,6 +44,7 @@ namespace Accela::Engine
             TextureResources(Common::ILogger::Ptr logger,
                              IPackageResourcesPtr packages,
                              std::shared_ptr<Render::IRenderer> renderer,
+                             std::shared_ptr<Platform::IFiles> files,
                              std::shared_ptr<Platform::IText> text,
                              std::shared_ptr<Common::MessageDrivenThreadPool> threadPool);
 
@@ -110,6 +112,7 @@ namespace Accela::Engine
             Common::ILogger::Ptr m_logger;
             IPackageResourcesPtr m_packages;
             std::shared_ptr<Render::IRenderer> m_renderer;
+            std::shared_ptr<Platform::IFiles> m_files;
             std::shared_ptr<Platform::IText> m_text;
             std::shared_ptr<Common::MessageDrivenThreadPool> m_threadPool;
 

@@ -35,9 +35,9 @@ namespace Accela::Engine
             // IPackageResources
             //
             [[nodiscard]] std::future<bool> OpenAndRegisterPackage(const PackageName& packageName) override;
-            [[nodiscard]] bool RegisterPackage(const Platform::Package::Ptr& package) override;
-            [[nodiscard]] std::vector<Platform::Package::Ptr> GetAllPackages() const override;
-            [[nodiscard]] std::optional<Platform::Package::Ptr> GetPackage(const PackageName& packageName) const override;
+            [[nodiscard]] bool RegisterPackageSource(const Platform::PackageSource::Ptr& package) override;
+            [[nodiscard]] std::vector<Platform::PackageSource::Ptr> GetAllPackages() const override;
+            [[nodiscard]] std::optional<Platform::PackageSource::Ptr> GetPackageSource(const PackageName& packageName) const override;
             void ClosePackage(const PackageName& packageName) override;
 
         private:
@@ -51,7 +51,7 @@ namespace Accela::Engine
             std::shared_ptr<Common::MessageDrivenThreadPool> m_threadPool;
 
             mutable std::mutex m_packagesMutex;
-            std::unordered_map<PackageName, Platform::Package::Ptr> m_packages;
+            std::unordered_map<PackageName, Platform::PackageSource::Ptr> m_packages;
     };
 }
 

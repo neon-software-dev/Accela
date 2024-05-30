@@ -13,6 +13,8 @@
 #include <Accela/Common/Thread/ResultMessage.h>
 #include <Accela/Common/Thread/ThreadUtil.h>
 
+#include <cstring>
+
 namespace Accela::Engine
 {
 
@@ -44,7 +46,7 @@ std::future<bool> AudioResources::LoadAudio(const PackageResourceIdentifier& res
 
 bool AudioResources::OnLoadAudio(const PackageResourceIdentifier& resource)
 {
-    const auto package = m_packages->GetPackage(*resource.GetPackageName());
+    const auto package = m_packages->GetPackageSource(*resource.GetPackageName());
     if (!package)
     {
         m_logger->Log(Common::LogLevel::Error,
@@ -97,7 +99,7 @@ bool AudioResources::OnLoadAllAudio(const PackageName& packageName)
 {
     m_logger->Log(Common::LogLevel::Info, "AudioResources: Loading all audio resources for package: {}", packageName.name);
 
-    const auto package = m_packages->GetPackage(packageName);
+    const auto package = m_packages->GetPackageSource(packageName);
     if (!package)
     {
         m_logger->Log(Common::LogLevel::Error,
@@ -105,13 +107,13 @@ bool AudioResources::OnLoadAllAudio(const PackageName& packageName)
         return false;
     }
 
-    const auto packageAudioFileNames = (*package)->GetAudioFileNames();
+    const auto audioResourceNames = (*package)->GetAudioResourceNames();
 
     bool allSuccessful = true;
 
-    for (const auto& audioFileName : packageAudioFileNames)
+    for (const auto& audioResourceName : audioResourceNames)
     {
-        allSuccessful = allSuccessful && LoadPackageAudio(*package, PRI(packageName, audioFileName));
+        allSuccessful = allSuccessful && LoadPackageAudio(*package, PRI(packageName, audioResourceName));
     }
 
     return allSuccessful;
@@ -219,7 +221,7 @@ void AudioResources::DestroyAll()
     }
 }
 
-bool AudioResources::LoadPackageAudio(const Platform::Package::Ptr& package, const PackageResourceIdentifier& resource)
+bool AudioResources::LoadPackageAudio(const Platform::PackageSource::Ptr& package, const PackageResourceIdentifier& resource)
 {
     const auto packageName = PackageName(package->GetPackageName());
 
@@ -255,10 +257,13 @@ bool AudioResources::LoadPackageAudio(const Platform::Package::Ptr& package, con
     return true;
 }
 
-std::expected<Common::AudioData::Ptr, bool> AudioResources::AudioDataFromBytes(std::vector<unsigned char>& bytes, const std::string& tag) const
+std::expected<Common::AudioData::Ptr, bool> AudioResources::AudioDataFromBytes(std::vector<std::byte>& bytes, const std::string& tag) const
 {
+    std::vector<uint8_t> audioUInts(bytes.size());
+    memcpy(audioUInts.data(), bytes.data(), bytes.size());
+
     AudioFile<double> audioFile;
-    if (!audioFile.loadFromMemory(bytes))
+    if (!audioFile.loadFromMemory(audioUInts))
     {
         m_logger->Log(Common::LogLevel::Error,
           "AudioResources::AudioDataFromBytes: Failed to load audio file from bytes: {}", tag);

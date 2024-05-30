@@ -29,7 +29,7 @@ void SDLText::Destroy()
     }
 }
 
-bool SDLText::LoadFontBlocking(const std::string& fontFileName, const std::vector<unsigned char>& fontData, uint8_t fontSize)
+bool SDLText::LoadFontBlocking(const std::string& fontFileName, const std::vector<std::byte>& fontData, uint8_t fontSize)
 {
     if (IsFontLoaded(fontFileName, fontSize))
     {

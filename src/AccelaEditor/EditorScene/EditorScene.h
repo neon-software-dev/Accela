@@ -7,9 +7,13 @@
 #ifndef ACCELAEDITOR_EDITORSCENE_EDITORSCENE_H
 #define ACCELAEDITOR_EDITORSCENE_EDITORSCENE_H
 
-#include "SceneQuitCommand.h"
+#include "Messages.h"
+
+#include "../Util/PollingMessageFulfiller.h"
 
 #include <Accela/Engine/Scene/Scene.h>
+
+#include <Accela/Common/Thread/Message.h>
 
 #include <memory>
 #include <queue>
@@ -34,27 +38,32 @@ namespace Accela
             [[nodiscard]] std::string GetName() const override { return "EditorScene"; };
 
             void OnSimulationStep(unsigned int) override;
+            void OnSceneStop() override;
 
             //
             // Internal
             //
 
             /**
-             * Enqueues a SceneCommand for processing. Thread safe. The commands are popped
+             * Enqueues a message for processing. Thread safe. The messages are popped
              * and consumed during OnSimulationStep callbacks.
              */
-            void EnqueueCommand(const SceneCommand::Ptr& command);
+            void EnqueueMessage(const Common::Message::Ptr& command);
 
         private:
 
-            void ProcessCommands();
-            void ProcessCommand(const SceneCommand::Ptr& command);
-            void ProcessQuitCommand(const SceneQuitCommand::Ptr&);
+            void ProcessMessages();
+            void ProcessMessage(const Common::Message::Ptr& message);
+            void ProcessSceneQuitCommand(const SceneQuitCommand::Ptr& cmd);
+            void ProcessLoadPackageResourcesCommand(const LoadPackageResourcesCommand::Ptr& cmd);
+            void ProcessDestroySceneResourcesCommand(const DestroySceneResourcesCommand::Ptr& cmd);
 
         private:
 
-            std::mutex m_commandsMutex;
-            std::queue<SceneCommand::Ptr> m_commands;
+            std::mutex m_messagesMutex;
+            std::queue<Common::Message::Ptr> m_messages;
+
+            PollingMessageFulfiller m_messageFulfiller;
     };
 }
 

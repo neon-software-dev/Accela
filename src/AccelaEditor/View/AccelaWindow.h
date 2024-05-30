@@ -4,10 +4,14 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
  
-#ifndef ACCELAEDITOR_WINDOW_ACCELAWINDOW_H
-#define ACCELAEDITOR_WINDOW_ACCELAWINDOW_H
+#ifndef ACCELAEDITOR_VIEW_ACCELAWINDOW_H
+#define ACCELAEDITOR_VIEW_ACCELAWINDOW_H
 
 #include "../EditorScene/EditorScene.h"
+
+#include <Accela/Common/Log/ILogger.h>
+#include <Accela/Common/Metrics/IMetrics.h>
+#include <Accela/Common/Thread/Message.h>
 
 #include <QWindow>
 
@@ -27,10 +31,10 @@ namespace Accela
 
         public:
 
-            AccelaWindow();
+            AccelaWindow(Common::ILogger::Ptr logger, Common::IMetrics::Ptr metrics);
             ~AccelaWindow() override;
 
-            void EnqueueCommand(const SceneCommand::Ptr& command) const;
+            void EnqueueSceneMessage(const Common::Message::Ptr& message) const;
 
             /**
              * Stops the accela engine, if it's running, stops the engine
@@ -49,4 +53,4 @@ namespace Accela
     };
 }
 
-#endif //ACCELAEDITOR_WINDOW_ACCELAWINDOW_H
+#endif //ACCELAEDITOR_VIEW_ACCELAWINDOW_H

@@ -9,7 +9,6 @@ project(LibAccelaEngine VERSION 0.0.1 LANGUAGES CXX)
 	find_package(AudioFile CONFIG REQUIRED)
 	find_package(assimp CONFIG REQUIRED)
 
-
 	#########################
 	# TODO: Remove this block when PhysX package in vcpkg isn't broken for linux
 	find_library(PhysXCharacterKinematicFile PhysXCharacterKinematic_static_64 HINTS "${PHYSX_BIN_DIR}" REQUIRED)
@@ -94,6 +93,7 @@ project(LibAccelaEngine VERSION 0.0.1 LANGUAGES CXX)
 	file(GLOB AccelaEngine_Include_Headers_Physics "include/Accela/Engine/Physics/*.h")
 	file(GLOB AccelaEngine_Include_Headers_Util "include/Accela/Engine/Util/*.h")
 	file(GLOB AccelaEngine_Include_Headers_Material "include/Accela/Engine/Material/*.h")
+	file(GLOB AccelaEngine_Include_Headers_Package "include/Accela/Engine/Package/*.h")
 
 	file(GLOB AccelaEngine_Sources "src/*.cpp")
 	file(GLOB AccelaEngine_Headers "src/*.h")
@@ -113,6 +113,8 @@ project(LibAccelaEngine VERSION 0.0.1 LANGUAGES CXX)
 	file(GLOB AccelaEngine_Headers_Util "src/Util/*.h")
 	file(GLOB AccelaEngine_Sources_Physics "src/Physics/*.cpp")
 	file(GLOB AccelaEngine_Headers_Physics "src/Physics/*.h")
+	file(GLOB AccelaEngine_Sources_Package "src/Package/*.cpp")
+	file(GLOB AccelaEngine_Headers_Package "src/Package/*.h")
 
 add_library(AccelaEngine STATIC
 	${AccelaEngine_Include_Headers}
@@ -125,6 +127,7 @@ add_library(AccelaEngine STATIC
 	${AccelaEngine_Include_Headers_Physics}
 	${AccelaEngine_Include_Headers_Util}
 	${AccelaEngine_Include_Headers_Material}
+	${AccelaEngine_Include_Headers_Package}
 
 	${AccelaEngine_Sources}
 	${AccelaEngine_Headers}
@@ -144,6 +147,8 @@ add_library(AccelaEngine STATIC
 	${AccelaEngine_Headers_Util}
 	${AccelaEngine_Sources_Physics}
 	${AccelaEngine_Headers_Physics}
+	${AccelaEngine_Sources_Package}
+	${AccelaEngine_Headers_Package}
 )
 
 if (ACCELA_USE_GPU_CUDA)

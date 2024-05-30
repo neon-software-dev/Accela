@@ -11,7 +11,7 @@
 
 #include <Accela/Engine/Scene/IAudioResources.h>
 
-#include <Accela/Platform/Package/Package.h>
+#include "Accela/Platform/Package/PackageSource.h"
 
 #include <Accela/Common/Log/ILogger.h>
 #include <Accela/Common/Thread/MessageDrivenThreadPool.h>
@@ -53,9 +53,9 @@ namespace Accela::Engine
             [[nodiscard]] bool OnLoadAllAudio(const PackageName& packageName);
             [[nodiscard]] bool OnLoadAllAudio();
 
-            [[nodiscard]] bool LoadPackageAudio(const Platform::Package::Ptr& package, const PackageResourceIdentifier& resource);
+            [[nodiscard]] bool LoadPackageAudio(const Platform::PackageSource::Ptr& package, const PackageResourceIdentifier& resource);
 
-            [[nodiscard]] std::expected<Common::AudioData::Ptr, bool> AudioDataFromBytes(std::vector<unsigned char>& bytes, const std::string& tag) const;
+            [[nodiscard]] std::expected<Common::AudioData::Ptr, bool> AudioDataFromBytes(std::vector<std::byte>& bytes, const std::string& tag) const;
 
         private:
 

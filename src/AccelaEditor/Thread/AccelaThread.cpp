@@ -21,11 +21,14 @@
 namespace Accela
 {
 
-AccelaThread::AccelaThread(QWindow *pWindow, EditorScene::Ptr scene)
+AccelaThread::AccelaThread(QWindow *pWindow,
+                           Common::ILogger::Ptr logger,
+                           Common::IMetrics::Ptr metrics,
+                           EditorScene::Ptr scene)
     : m_pWindow(pWindow)
+    , m_logger(std::move(logger))
+    , m_metrics(std::move(metrics))
     , m_scene(std::move(scene))
-    , m_logger(std::make_shared<Common::StdLogger>(Common::LogLevel::Warning))
-    , m_metrics(std::make_shared<Common::InMemoryMetrics>())
     , m_platform(std::make_shared<Platform::PlatformQt>(m_logger))
 {
     std::dynamic_pointer_cast<Platform::QtWindow>(m_platform->GetWindow())
@@ -64,7 +67,7 @@ void AccelaThread::QuitEngine()
     }
     else if (m_state == State::RunningEngine)
     {
-        m_scene->EnqueueCommand(std::make_shared<SceneQuitCommand>());
+        m_scene->EnqueueMessage(std::make_shared<SceneQuitCommand>());
     }
 
     WaitForEngineQuitFinished();

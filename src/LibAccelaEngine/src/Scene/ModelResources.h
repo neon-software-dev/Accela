@@ -14,7 +14,7 @@
 
 #include <Accela/Engine/Scene/IModelResources.h>
 
-#include <Accela/Platform/Package/Package.h>
+#include "Accela/Platform/Package/PackageSource.h"
 
 #include <Accela/Common/Log/ILogger.h>
 #include <Accela/Common/Thread/MessageDrivenThreadPool.h>
@@ -77,12 +77,12 @@ namespace Accela::Engine
             [[nodiscard]] std::expected<ModelTextures, bool> LoadPackageModelTextures(
                 const PackageResourceIdentifier& resource,
                 const Model::Ptr& model,
-                const Platform::Package::Ptr& package);
+                const Platform::PackageSource::Ptr& package);
 
             [[nodiscard]] bool LoadPackageModelTextures(
                 const PackageResourceIdentifier& resource,
                 const std::vector<ModelTexture>& textures,
-                const Platform::Package::Ptr& package,
+                const Platform::PackageSource::Ptr& package,
                 ModelTextures& result);
 
             [[nodiscard]] std::expected<Render::MaterialId, bool> LoadModelMeshMaterial(

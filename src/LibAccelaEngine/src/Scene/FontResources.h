@@ -11,7 +11,7 @@
 
 #include <Accela/Engine/Scene/IFontResources.h>
 
-#include <Accela/Platform/Package/Package.h>
+#include "Accela/Platform/Package/PackageSource.h"
 
 #include <Accela/Common/Log/ILogger.h>
 #include <Accela/Common/Thread/MessageDrivenThreadPool.h>
@@ -56,7 +56,7 @@ namespace Accela::Engine
             [[nodiscard]] bool OnLoadAllFonts(const PackageName& packageName, uint8_t startFontSize, uint8_t endFontSize);
             [[nodiscard]] bool OnLoadAllFonts(uint8_t startFontSize, uint8_t endFontSize);
 
-            [[nodiscard]] bool LoadPackageFont(const Platform::Package::Ptr& package,
+            [[nodiscard]] bool LoadPackageFont(const Platform::PackageSource::Ptr& package,
                                                const PackageResourceIdentifier& resource,
                                                uint8_t startFontSize,
                                                uint8_t endFontSize);

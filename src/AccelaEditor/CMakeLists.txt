@@ -7,22 +7,30 @@ project(AccelaEditor VERSION 0.0.1)
 
 	file(GLOB AccelaEditor_Sources "*.cpp")
 	file(GLOB AccelaEditor_Headers "*.h")
-	file(GLOB AccelaEditor_Sources_Window "Window/*.cpp")
-	file(GLOB AccelaEditor_Headers_Window "Window/*.h")
+	file(GLOB AccelaEditor_Sources_View "View/*.cpp")
+	file(GLOB AccelaEditor_Headers_View "View/*.h")
 	file(GLOB AccelaEditor_Sources_EditorScene "EditorScene/*.cpp")
 	file(GLOB AccelaEditor_Headers_EditorScene "EditorScene/*.h")
 	file(GLOB AccelaEditor_Sources_Thread "Thread/*.cpp")
 	file(GLOB AccelaEditor_Headers_Thread "Thread/*.h")
+	file(GLOB AccelaEditor_Sources_ViewModel "ViewModel/*.cpp")
+	file(GLOB AccelaEditor_Headers_ViewModel "ViewModel/*.h")
+	file(GLOB AccelaEditor_Sources_Util "Util/*.cpp")
+	file(GLOB AccelaEditor_Headers_Util "Util/*.h")
 
 qt_add_executable(AccelaEditor
 	${AccelaEditor_Sources}
 	${AccelaEditor_Headers}
-	${AccelaEditor_Sources_Window}
-	${AccelaEditor_Headers_Window}
+	${AccelaEditor_Sources_View}
+	${AccelaEditor_Headers_View}
 	${AccelaEditor_Sources_EditorScene}
 	${AccelaEditor_Headers_EditorScene}
 	${AccelaEditor_Sources_Thread}
 	${AccelaEditor_Headers_Thread}
+	${AccelaEditor_Sources_ViewModel}
+	${AccelaEditor_Headers_ViewModel}
+	${AccelaEditor_Sources_Util}
+	${AccelaEditor_Headers_Util}
 )
 
 target_compile_features(AccelaEditor PUBLIC cxx_std_23)

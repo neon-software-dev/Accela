@@ -39,7 +39,10 @@ namespace Accela
              * Create an AccelaThread which renders into the provided (vulkan-capable)
              * QWindow, and which runs the provided EditorScene.
              */
-            AccelaThread(QWindow *pWindow, EditorScene::Ptr scene);
+            AccelaThread(QWindow *pWindow,
+                         Common::ILogger::Ptr logger,
+                         Common::IMetrics::Ptr metrics,
+                         EditorScene::Ptr scene);
 
             /**
              * Start the engine within this thread, if it's not already
@@ -91,9 +94,9 @@ namespace Accela
         private:
 
             QWindow* m_pWindow;
-            EditorScene::Ptr m_scene;
             Common::ILogger::Ptr m_logger;
             Common::IMetrics::Ptr m_metrics;
+            EditorScene::Ptr m_scene;
             Platform::PlatformQt::Ptr m_platform;
 
             State m_state{State::WaitingForCommand};

@@ -39,7 +39,7 @@ WorldResources::WorldResources(Common::ILogger::Ptr logger,
     , m_text(std::move(text))
     , m_audioManager(std::move(audioManager))
     , m_packages(std::make_shared<PackageResources>(m_logger, m_files, m_threadPool))
-    , m_textures(std::make_shared<TextureResources>(m_logger, m_packages, m_renderer,m_text, m_threadPool))
+    , m_textures(std::make_shared<TextureResources>(m_logger, m_packages, m_renderer, m_files, m_text, m_threadPool))
     , m_meshes(std::make_shared<MeshResources>(m_logger, m_textures, m_renderer, m_files, m_threadPool))
     , m_materials(std::make_shared<MaterialResources>(m_logger, m_textures, m_renderer, m_threadPool))
     , m_audio(std::make_shared<AudioResources>(m_logger, m_packages, m_audioManager, m_threadPool))
@@ -78,7 +78,7 @@ bool WorldResources::OnEnsurePackageResources(const PackageName& packageName, Re
     //
     // Open the package's data and register the package source
     //
-    auto package = m_packages->GetPackage(packageName);
+    const auto package = m_packages->GetPackageSource(packageName);
     if (!package)
     {
         if (!m_packages->OpenAndRegisterPackage(packageName).get())
@@ -87,8 +87,6 @@ bool WorldResources::OnEnsurePackageResources(const PackageName& packageName, Re
               "WorldResources::OnOpenAndLoadPackage: Failed to open/register package: {}", packageName.name);
             return false;
         }
-
-        package = m_packages->GetPackage(packageName);
     }
 
     //

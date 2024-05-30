@@ -37,11 +37,13 @@ struct TextRenderResultMessage : public Common::ResultMessage<std::expected<Text
 TextureResources::TextureResources(Common::ILogger::Ptr logger,
                                    IPackageResourcesPtr packages,
                                    std::shared_ptr<Render::IRenderer> renderer,
+                                   std::shared_ptr<Platform::IFiles> files,
                                    std::shared_ptr<Platform::IText> text,
                                    std::shared_ptr<Common::MessageDrivenThreadPool> threadPool)
     : m_logger(std::move(logger))
     , m_packages(std::move(packages))
     , m_renderer(std::move(renderer))
+    , m_files(std::move(files))
     , m_text(std::move(text))
     , m_threadPool(std::move(threadPool))
 {
@@ -128,7 +130,7 @@ bool TextureResources::OnLoadAllTextures(const PackageName& packageName, ResultW
 {
     m_logger->Log(Common::LogLevel::Info, "TextureResources: Loading all texture resources from package: {}", packageName.name);
 
-    const auto package = m_packages->GetPackage(packageName);
+    const auto package = m_packages->GetPackageSource(packageName);
     if (!package)
     {
         m_logger->Log(Common::LogLevel::Error,
@@ -136,13 +138,13 @@ bool TextureResources::OnLoadAllTextures(const PackageName& packageName, ResultW
         return false;
     }
 
-    const auto textureFileNames = (*package)->GetTextureFileNames();
+    const auto textureResourceNames = (*package)->GetTextureResourceNames();
 
     bool allSuccess = true;
 
-    for (const auto& textureFileName : textureFileNames)
+    for (const auto& textureResourceName : textureResourceNames)
     {
-        if (!OnLoadTexture(PackageResourceIdentifier(packageName, textureFileName), resultWhen).IsValid())
+        if (!OnLoadTexture(PRI(packageName, textureResourceName), resultWhen).IsValid())
         {
             allSuccess = false;
         }
@@ -270,11 +272,11 @@ Render::TextureId TextureResources::LoadPackageTexture(const std::vector<Package
     //
     // Fetch the package for each resource
     //
-    std::vector<Platform::Package::Ptr> packages;
+    std::vector<Platform::PackageSource::Ptr> packages;
 
     for (const auto& resource : resources)
     {
-        const auto package = m_packages->GetPackage(*resource.GetPackageName());
+        const auto package = m_packages->GetPackageSource(*resource.GetPackageName());
         if (!package)
         {
             m_logger->Log(Common::LogLevel::Error,
@@ -292,13 +294,26 @@ Render::TextureId TextureResources::LoadPackageTexture(const std::vector<Package
 
     for (unsigned int x = 0; x < resources.size(); ++x)
     {
-        const auto textureDataExpect = packages.at(x)->GetTextureData(resources.at(x).GetResourceName());
-        if (!textureDataExpect)
+        const auto resourcePackage = packages.at(x);
+        const auto resourceName = resources.at(x).GetResourceName();
+
+        const auto textureBytesExpect = resourcePackage->GetTextureData(resourceName);
+        const auto textureDataFormatHint = resourcePackage->GetTextureFormatHint(resourceName);
+        if (!textureBytesExpect || !textureDataFormatHint)
         {
             m_logger->Log(Common::LogLevel::Error,
               "TextureResources::LoadPackageTexture: Failed to read texture: {}", resources.at(x).GetUniqueName());
             return Render::INVALID_ID;
         }
+
+        const auto textureDataExpect = m_files->LoadTexture(*textureBytesExpect, *textureDataFormatHint);
+        if (!textureDataExpect)
+        {
+            m_logger->Log(Common::LogLevel::Error,
+                "TextureResources::LoadPackageTexture: Failed to convert texture to an image: {}", resources.at(x).GetUniqueName());
+            return Render::INVALID_ID;
+        }
+
         textureData.textureImages.push_back(*textureDataExpect);
     }
 

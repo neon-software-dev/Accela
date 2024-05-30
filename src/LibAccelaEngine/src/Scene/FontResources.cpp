@@ -56,7 +56,7 @@ std::future<bool> FontResources::LoadFont(const PackageResourceIdentifier& resou
 
 bool FontResources::OnLoadFont(const PackageResourceIdentifier& resource, uint8_t startFontSize, uint8_t endFontSize)
 {
-    const auto package = m_packages->GetPackage(*resource.GetPackageName());
+    const auto package = m_packages->GetPackageSource(*resource.GetPackageName());
     if (!package)
     {
         m_logger->Log(Common::LogLevel::Error,
@@ -85,7 +85,7 @@ bool FontResources::OnLoadAllFonts(const PackageName& packageName, uint8_t start
 {
     m_logger->Log(Common::LogLevel::Info, "FontResources: Loading all fonts for package: {}", packageName.name);
 
-    const auto package = m_packages->GetPackage(packageName);
+    const auto package = m_packages->GetPackageSource(packageName);
     if (!package)
     {
         m_logger->Log(Common::LogLevel::Error,
@@ -95,11 +95,11 @@ bool FontResources::OnLoadAllFonts(const PackageName& packageName, uint8_t start
 
     bool allSuccessful = true;
 
-    for (const auto& fontFileName : (*package)->GetFontFileNames())
+    for (const auto& fontResourceName : (*package)->GetFontResourceNames())
     {
         allSuccessful = allSuccessful && LoadPackageFont(
             *package,
-            PRI((*package)->GetPackageName(),fontFileName),
+            PRI((*package)->GetPackageName(), fontResourceName),
             startFontSize,
             endFontSize
         );
@@ -136,7 +136,7 @@ bool FontResources::OnLoadAllFonts(uint8_t startFontSize, uint8_t endFontSize)
     return allSuccessful;
 }
 
-bool FontResources::LoadPackageFont(const Platform::Package::Ptr& package,
+bool FontResources::LoadPackageFont(const Platform::PackageSource::Ptr& package,
                                     const PackageResourceIdentifier& resource,
                                     uint8_t startFontSize,
                                     uint8_t endFontSize)

@@ -96,7 +96,7 @@ std::future<bool> ModelResources::LoadModel(const CustomResourceIdentifier& reso
 
 bool ModelResources::OnLoadModel(const PackageResourceIdentifier& resource, ResultWhen resultWhen)
 {
-    const auto package = m_packages->GetPackage(*resource.GetPackageName());
+    const auto package = m_packages->GetPackageSource(*resource.GetPackageName());
     if (!package)
     {
         m_logger->Log(Common::LogLevel::Error,
@@ -143,7 +143,7 @@ bool ModelResources::OnLoadAllModels(const PackageName& packageName, ResultWhen 
 {
     m_logger->Log(Common::LogLevel::Info, "ModelResources: Loading all model resources for package: {}", packageName.name);
 
-    const auto package = m_packages->GetPackage(packageName);
+    const auto package = m_packages->GetPackageSource(packageName);
     if (!package)
     {
         m_logger->Log(Common::LogLevel::Error,
@@ -153,11 +153,11 @@ bool ModelResources::OnLoadAllModels(const PackageName& packageName, ResultWhen 
 
     bool allSuccessful = true;
 
-    const auto modelFileNames = (*package)->GetModelFileNames();
+    const auto modelResourceNames = (*package)->GetModelResourceNames();
 
-    for (const auto& modelFileName : modelFileNames)
+    for (const auto& modelResourceName : modelResourceNames)
     {
-        allSuccessful = allSuccessful && OnLoadModel(PackageResourceIdentifier(packageName, modelFileName), resultWhen);
+        allSuccessful = allSuccessful && OnLoadModel(PRI(packageName, modelResourceName), resultWhen);
     }
 
     return allSuccessful;
@@ -238,7 +238,7 @@ bool ModelResources::LoadPackageModelInternal(const ResourceIdentifier& resource
 
 std::expected<ModelTextures, bool> ModelResources::LoadPackageModelTextures(const PackageResourceIdentifier& resource,
                                                                             const Model::Ptr& model,
-                                                                            const Platform::Package::Ptr& package)
+                                                                            const Platform::PackageSource::Ptr& package)
 {
     //
     // Loads from package all non-embedded textures for all the model's materials
@@ -259,7 +259,7 @@ std::expected<ModelTextures, bool> ModelResources::LoadPackageModelTextures(cons
 
 bool ModelResources::LoadPackageModelTextures(const PackageResourceIdentifier& resource,
                                               const std::vector<ModelTexture>& textures,
-                                              const Platform::Package::Ptr& package,
+                                              const Platform::PackageSource::Ptr& package,
                                               ModelTextures& result)
 {
     for (const auto& texture : textures)
@@ -267,17 +267,26 @@ bool ModelResources::LoadPackageModelTextures(const PackageResourceIdentifier& r
         // Don't need to load any package data for embedded textures
         if (texture.embeddedData) { continue; }
 
-        const auto textureFileName = texture.fileName;
+        const auto textureResourceName = texture.fileName;
 
-        const auto textureData = package->GetModelTextureData(resource.GetResourceName(), textureFileName);
-        if (!textureData)
+        const auto textureBytesExpect = package->GetModelTextureData(resource.GetResourceName(), textureResourceName);
+        const auto textureDataFormatHint = package->GetTextureFormatHint(textureResourceName);
+        if (!textureBytesExpect || !textureDataFormatHint)
         {
             m_logger->Log(Common::LogLevel::Error,
-              "ModelResources::LoadPackageModelTextures: Failed to load texture from package: {}", textureFileName);
+              "ModelResources::LoadPackageModelTextures: Failed to load texture from package: {}", textureResourceName);
             return false;
         }
 
-        result.insert({textureFileName, *textureData});
+        const auto textureDataExpect = m_files->LoadTexture(*textureBytesExpect, *textureDataFormatHint);
+        if (!textureDataExpect)
+        {
+            m_logger->Log(Common::LogLevel::Error,
+              "TextureResources::LoadPackageTexture: Failed to convert texture to an image: {}", resource.GetUniqueName());
+            return Render::INVALID_ID;
+        }
+
+        result.insert({textureResourceName, *textureDataExpect});
     }
 
     return true;
@@ -436,9 +445,8 @@ std::expected<Render::TextureId, bool> ModelResources::LoadModelMaterialTexture(
         // If the embedded data is compressed, rely on platform to uncompress it into an image
         if (embeddedDataIsCompressed)
         {
-            const auto textureLoadExpect = m_files->LoadCompressedTexture(
+            const auto textureLoadExpect = m_files->LoadTexture(
                 modelTexture.embeddedData->data,
-                modelTexture.embeddedData->dataWidth,
                 modelTexture.embeddedData->dataFormat);
             if (!textureLoadExpect)
             {

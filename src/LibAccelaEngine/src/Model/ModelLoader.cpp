@@ -31,7 +31,7 @@ ModelLoader::ModelLoader(Common::ILogger::Ptr logger)
 
 }
 
-Model::Ptr ModelLoader::LoadModel(const std::vector<unsigned char>& modelData, const std::string& fileHint, const std::string& tag) const
+Model::Ptr ModelLoader::LoadModel(const std::vector<std::byte>& modelData, const std::string& fileHint, const std::string& tag) const
 {
     m_logger->Log(Common::LogLevel::Info, "--[Disk Model Load] {}, {} --", tag, fileHint);
 

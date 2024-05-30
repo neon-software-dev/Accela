@@ -13,36 +13,64 @@ void EditorScene::OnSimulationStep(unsigned int timeStep)
 {
     Scene::OnSimulationStep(timeStep);
 
-    ProcessCommands();
+    ProcessMessages();
+    m_messageFulfiller.FulfillFinished();
 }
 
-void EditorScene::EnqueueCommand(const SceneCommand::Ptr& command)
+void EditorScene::OnSceneStop()
 {
-    std::lock_guard<std::mutex> commandsLock(m_commandsMutex);
-    m_commands.push(command);
+    m_messageFulfiller.BlockingWaitForAll();
+
+    Scene::OnSceneStop();
 }
 
-void EditorScene::ProcessCommands()
+void EditorScene::EnqueueMessage(const Common::Message::Ptr& message)
 {
-    std::lock_guard<std::mutex> commandsLock(m_commandsMutex);
+    std::lock_guard<std::mutex> commandsLock(m_messagesMutex);
+    m_messages.push(message);
+}
 
-    while (!m_commands.empty())
+void EditorScene::ProcessMessages()
+{
+    std::lock_guard<std::mutex> lock(m_messagesMutex);
+
+    while (!m_messages.empty())
     {
-        ProcessCommand(m_commands.front());
-        m_commands.pop();
+        ProcessMessage(m_messages.front());
+        m_messages.pop();
     }
 }
 
-void EditorScene::ProcessCommand(const SceneCommand::Ptr& command)
+void EditorScene::ProcessMessage(const Common::Message::Ptr& message)
 {
-    if (command->GetType() == SceneQuitCommand::TYPE) {
-        ProcessQuitCommand(std::dynamic_pointer_cast<SceneQuitCommand>(command));
+    if (message->GetTypeIdentifier() == SceneQuitCommand::TYPE) {
+        ProcessSceneQuitCommand(std::dynamic_pointer_cast<SceneQuitCommand>(message));
+    }
+    else if (message->GetTypeIdentifier() == LoadPackageResourcesCommand::TYPE) {
+        ProcessLoadPackageResourcesCommand(std::dynamic_pointer_cast<LoadPackageResourcesCommand>(message));
+    }
+    else if (message->GetTypeIdentifier() == DestroySceneResourcesCommand::TYPE) {
+        ProcessDestroySceneResourcesCommand(std::dynamic_pointer_cast<DestroySceneResourcesCommand>(message));
     }
 }
 
-void EditorScene::ProcessQuitCommand(const SceneCommand::Ptr&)
+void EditorScene::ProcessSceneQuitCommand(const SceneQuitCommand::Ptr&)
 {
     engine->StopEngine();
+}
+
+void EditorScene::ProcessLoadPackageResourcesCommand(const LoadPackageResourcesCommand::Ptr& cmd)
+{
+    m_messageFulfiller.FulfillWhenFinished(
+        cmd,
+        engine->GetWorldResources()->EnsurePackageResources(cmd->packageName, Engine::ResultWhen::FullyLoaded)
+    );
+}
+
+void EditorScene::ProcessDestroySceneResourcesCommand(const DestroySceneResourcesCommand::Ptr& cmd)
+{
+    engine->GetWorldResources()->DestroyAll();
+    cmd->SetResult(true);
 }
 
 }

@@ -11,14 +11,19 @@
 namespace Accela
 {
 
-AccelaWindow::AccelaWindow()
+AccelaWindow::AccelaWindow(Common::ILogger::Ptr logger, Common::IMetrics::Ptr metrics)
     : m_scene(std::make_shared<EditorScene>())
 {
     setSurfaceType(QSurface::VulkanSurface);
 
     // Start the engine thread when the window is constructed, but doesn't run
     // the engine yet
-    m_accelaThread = std::make_unique<AccelaThread>(this, m_scene);
+    m_accelaThread = std::make_unique<AccelaThread>(
+        this,
+        std::move(logger),
+        std::move(metrics),
+        m_scene
+    );
     m_accelaThread->start(); // TODO Perf: Configure priority
 }
 
@@ -27,9 +32,9 @@ AccelaWindow::~AccelaWindow()
     Destroy();
 }
 
-void AccelaWindow::EnqueueCommand(const SceneCommand::Ptr& command) const
+void AccelaWindow::EnqueueSceneMessage(const Common::Message::Ptr& message) const
 {
-    m_scene->EnqueueCommand(command);
+    m_scene->EnqueueMessage(message);
 }
 
 void AccelaWindow::showEvent(QShowEvent *e)

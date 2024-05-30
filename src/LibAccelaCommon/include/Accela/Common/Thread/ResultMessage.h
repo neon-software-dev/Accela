@@ -32,6 +32,15 @@ namespace Accela::Common
             { }
 
             /**
+             * Creates a ResultMessage which fulfills a provided promise rather than
+             * creating a new promise unique to this message.
+             */
+            ResultMessage(std::string typeIdentifier, std::promise<T> promise)
+                : Message(std::move(typeIdentifier))
+                , m_promise(std::move(promise))
+            { }
+
+            /**
              * Call this on caller thread before sending the message to
              * get the future which holds the result of the message.
              *

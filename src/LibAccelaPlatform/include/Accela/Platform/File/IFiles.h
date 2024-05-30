@@ -7,7 +7,7 @@
 #ifndef LIBACCELAPLATFORM_INCLUDE_ACCELA_PLATFORM_FILE_IFILES_H
 #define LIBACCELAPLATFORM_INCLUDE_ACCELA_PLATFORM_FILE_IFILES_H
 
-#include <Accela/Platform/Package/Package.h>
+#include "Accela/Platform/Package/PackageSource.h"
 
 #include <Accela/Common/ImageData.h>
 
@@ -30,8 +30,8 @@ namespace Accela::Platform
     static constexpr const char* FONTS_SUBDIR = "fonts";
     static constexpr const char* MODELS_SUBDIR = "models";
 
-    static constexpr const char* PACKAGE_EXTENSION = ".acp";
-    static constexpr const char* CONSTRUCT_EXTENSION = ".acc";
+    static constexpr const char* PACKAGE_EXTENSION = ".apc";
+    static constexpr const char* CONSTRUCT_EXTENSION = ".acn";
 
     /**
      * Interface to accessing engine files from disk on PC, APK assets on Android.
@@ -57,13 +57,13 @@ namespace Accela::Platform
             [[nodiscard]] virtual std::string GetPackagesDirectory() const = 0;
             [[nodiscard]] virtual std::string GetPackageDirectory(const std::string& packageName) const = 0;
 
-            [[nodiscard]] virtual std::expected<Package::Ptr, bool> LoadPackage(const std::string& packageName) const = 0;
+            [[nodiscard]] virtual std::expected<PackageSource::Ptr, bool> LoadPackage(const std::string& packageName) const = 0;
 
             [[nodiscard]] virtual std::string GetSubdirPath(const std::string& root, const std::string& subdir) const = 0;
             [[nodiscard]] virtual std::expected<std::vector<std::string>, bool> ListFilesInDirectory(const std::string& directory) const = 0;
             [[nodiscard]] virtual std::string EnsureEndsWithSeparator(const std::string& source) const = 0;
 
-            [[nodiscard]] virtual std::expected<Common::ImageData::Ptr, bool> LoadCompressedTexture(const std::vector<std::byte>& data, const std::size_t& dataByteSize, const std::optional<std::string>& dataFormatHint) const = 0;
+            [[nodiscard]] virtual std::expected<Common::ImageData::Ptr, bool> LoadTexture(const std::vector<std::byte>& data, const std::optional<std::string>& dataFormatHint) const = 0;
             [[nodiscard]] virtual std::expected<std::vector<unsigned char>, bool> LoadAccelaFile(const std::string& subdir, const std::string& fileName) const = 0;
     };
 }

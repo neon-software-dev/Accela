@@ -31,13 +31,13 @@ namespace Accela::Platform
             [[nodiscard]] std::string GetPackagesDirectory() const override;
             [[nodiscard]] std::string GetPackageDirectory(const std::string& packageName) const override;
 
-            [[nodiscard]] std::expected<Package::Ptr, bool> LoadPackage(const std::string& packageName) const override;
+            [[nodiscard]] std::expected<PackageSource::Ptr, bool> LoadPackage(const std::string& packageName) const override;
 
             [[nodiscard]] std::string GetSubdirPath(const std::string& root, const std::string& subdir) const override;
             [[nodiscard]] std::string EnsureEndsWithSeparator(const std::string& source) const override;
 
             [[nodiscard]] std::expected<std::vector<std::string>, bool> ListFilesInDirectory(const std::string& directory) const override;
-            [[nodiscard]] std::expected<Common::ImageData::Ptr, bool> LoadCompressedTexture(const std::vector<std::byte>& data, const std::size_t& dataByteSize, const std::optional<std::string>& dataFormatHint) const override;
+            [[nodiscard]] std::expected<Common::ImageData::Ptr, bool> LoadTexture(const std::vector<std::byte>& data, const std::optional<std::string>& dataFormatHint) const override;
             [[nodiscard]] std::expected<std::vector<unsigned char>, bool> LoadAccelaFile(const std::string& subdir, const std::string& fileName) const override;
 
         private:

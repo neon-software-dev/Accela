@@ -13,6 +13,7 @@
 #include <expected>
 #include <memory>
 #include <string>
+#include <cstddef>
 
 namespace Accela::Platform
 {
@@ -31,7 +32,7 @@ namespace Accela::Platform
 
             virtual void Destroy() = 0;
 
-            virtual bool LoadFontBlocking(const std::string& fontFileName, const std::vector<unsigned char>& fontData, uint8_t fontSize) = 0;
+            virtual bool LoadFontBlocking(const std::string& fontFileName, const std::vector<std::byte>& fontData, uint8_t fontSize) = 0;
             virtual bool IsFontLoaded(const std::string& fontFileName, uint8_t fontSize) = 0;
             virtual void UnloadFont(const std::string& fontFileName) = 0;
             virtual void UnloadFont(const std::string& fontFileName, uint8_t fontSize) = 0;

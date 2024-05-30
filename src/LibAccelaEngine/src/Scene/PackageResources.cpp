@@ -37,7 +37,7 @@ std::future<bool> PackageResources::OpenAndRegisterPackage(const PackageName& pa
     return messageFuture;
 }
 
-bool PackageResources::RegisterPackage(const Platform::Package::Ptr& package)
+bool PackageResources::RegisterPackageSource(const Platform::PackageSource::Ptr& package)
 {
     const auto packageName = PackageName(package->GetPackageName());
 
@@ -49,7 +49,7 @@ bool PackageResources::RegisterPackage(const Platform::Package::Ptr& package)
     if (it != m_packages.cend())
     {
         m_logger->Log(Common::LogLevel::Warning,
-          "PackageResources::RegisterPackage: Package already registered, ignoring: {}", packageName.name);
+          "PackageResources::RegisterPackage: PackageSource already registered, ignoring: {}", packageName.name);
         return true;
     }
 
@@ -58,11 +58,11 @@ bool PackageResources::RegisterPackage(const Platform::Package::Ptr& package)
     return true;
 }
 
-std::vector<Platform::Package::Ptr> PackageResources::GetAllPackages() const
+std::vector<Platform::PackageSource::Ptr> PackageResources::GetAllPackages() const
 {
     std::lock_guard<std::mutex> lock(m_packagesMutex);
 
-    std::vector<Platform::Package::Ptr> packages;
+    std::vector<Platform::PackageSource::Ptr> packages;
 
     for (const auto& it : m_packages)
     {
@@ -72,7 +72,7 @@ std::vector<Platform::Package::Ptr> PackageResources::GetAllPackages() const
     return packages;
 }
 
-std::optional<Platform::Package::Ptr> PackageResources::GetPackage(const PackageName& packageName) const
+std::optional<Platform::PackageSource::Ptr> PackageResources::GetPackageSource(const PackageName& packageName) const
 {
     std::lock_guard<std::mutex> lock(m_packagesMutex);
 
@@ -101,11 +101,11 @@ bool PackageResources::OnOpenAndRegisterPackage(const PackageName& packageName)
     const auto package = m_files->LoadPackage(packageName.name);
     if (!package)
     {
-        m_logger->Log(Common::LogLevel::Error, "PackageResources::OnOpenAndRegisterPackage: Package load failed");
+        m_logger->Log(Common::LogLevel::Error, "PackageResources::OnOpenAndRegisterPackage: PackageSource load failed");
         return false;
     }
 
-    return RegisterPackage(*package);
+    return RegisterPackageSource(*package);
 }
 
 }

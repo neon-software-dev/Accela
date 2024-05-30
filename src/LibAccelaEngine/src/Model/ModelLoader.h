@@ -19,6 +19,7 @@
 
 #include <vector>
 #include <string>
+#include <cstddef>
 
 namespace Accela::Engine
 {
@@ -28,7 +29,7 @@ namespace Accela::Engine
 
             explicit ModelLoader(Common::ILogger::Ptr logger);
 
-            [[nodiscard]] Model::Ptr LoadModel(const std::vector<unsigned char>& modelData,
+            [[nodiscard]] Model::Ptr LoadModel(const std::vector<std::byte>& modelData,
                                                const std::string& fileHint,
                                                const std::string& tag) const;
 

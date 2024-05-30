@@ -29,7 +29,7 @@ namespace Accela::Platform
 
             void Destroy() override;
 
-            bool LoadFontBlocking(const std::string& fontFileName, const std::vector<unsigned char>& fontData, uint8_t fontSize) override;
+            bool LoadFontBlocking(const std::string& fontFileName, const std::vector<std::byte>& fontData, uint8_t fontSize) override;
             bool IsFontLoaded(const std::string& fontFileName, uint8_t fontSize) override;
             void UnloadFont(const std::string& fontFileName) override;
             void UnloadFont(const std::string& fontFileName, uint8_t fontSize) override;
@@ -41,7 +41,7 @@ namespace Accela::Platform
 
             struct LoadedFont
             {
-                std::vector<unsigned char> fontData;
+                std::vector<std::byte> fontData;
                 TTF_Font* pFont;
             };
 

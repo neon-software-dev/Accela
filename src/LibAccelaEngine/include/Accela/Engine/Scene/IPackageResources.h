@@ -9,7 +9,7 @@
 
 #include <Accela/Engine/Common.h>
 
-#include <Accela/Platform/Package/Package.h>
+#include "Accela/Platform/Package/PackageSource.h"
 
 #include <memory>
 #include <future>
@@ -29,9 +29,9 @@ namespace Accela::Engine
             virtual ~IPackageResources() = default;
 
             [[nodiscard]] virtual std::future<bool> OpenAndRegisterPackage(const PackageName& packageName) = 0;
-            [[nodiscard]] virtual bool RegisterPackage(const Platform::Package::Ptr& package) = 0;
-            [[nodiscard]] virtual std::vector<Platform::Package::Ptr> GetAllPackages() const = 0;
-            [[nodiscard]] virtual std::optional<Platform::Package::Ptr> GetPackage(const PackageName& packageName) const = 0;
+            [[nodiscard]] virtual bool RegisterPackageSource(const Platform::PackageSource::Ptr& package) = 0;
+            [[nodiscard]] virtual std::vector<Platform::PackageSource::Ptr> GetAllPackages() const = 0;
+            [[nodiscard]] virtual std::optional<Platform::PackageSource::Ptr> GetPackageSource(const PackageName& packageName) const = 0;
             virtual void ClosePackage(const PackageName& packageName) = 0;
     };
 }
