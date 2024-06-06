@@ -5,12 +5,10 @@
  */
  
 #include <Accela/Engine/Package/DiskPackage.h>
-#include <Accela/Engine/Package/Package.h>
+#include <Accela/Engine/Package/Manifest.h>
 #include <Accela/Engine/Package/Construct.h>
 
 #include <Accela/Platform/File/IFiles.h>
-
-#include <nlohmann/json.hpp>
 
 #include <fstream>
 
@@ -72,54 +70,88 @@ std::expected<std::filesystem::path, DiskPackage::CreateOnDiskError> DiskPackage
         }
     }
 
-    // Create the root package file
+    //
+    // Create a default package and write it to disk
+    //
+    Package package(
+        nullptr,
+        Manifest(packageName.name, MANIFEST_VERSION),
+        {std::make_shared<Construct>("default")}
+    );
+
+    if (!WritePackageFilesToDisk(packageDir, package))
     {
-        std::ofstream ofs;
-        ofs.open(packageFilePath, std::ofstream::out);
-
-        if (!ofs.good())
-        {
-            return std::unexpected(CreateOnDiskError::FailedToCreatePackageFile);
-        }
-
-        const auto defaultPackage = Package(packageName.name, PACKAGE_VERSION);
-        const auto defaultPackageBytes = defaultPackage.ToBytes();
-        if (!defaultPackageBytes)
-        {
-            return std::unexpected(CreateOnDiskError::FailedToSerializeData);
-        }
-
-        ofs.write(reinterpret_cast<const char*>(defaultPackageBytes->data()), (long)defaultPackageBytes->size());
-        ofs.close();
-    }
-
-    // Create a default construct
-    {
-        const auto defaultConstructName = "default";
-
-        const auto defaultConstructPath =
-            packageDir / Platform::CONSTRUCTS_DIR / (defaultConstructName + std::string(Platform::CONSTRUCT_EXTENSION));
-
-        std::ofstream ofs;
-        ofs.open(defaultConstructPath, std::ofstream::out);
-
-        if (!ofs.good())
-        {
-            return std::unexpected(CreateOnDiskError::FailedToCreateConstructFile);
-        }
-
-        const auto defaultConstruct = Construct(defaultConstructName);
-        const auto defaultConstructBytes = defaultConstruct.ToBytes();
-        if (!defaultConstructBytes)
-        {
-            return std::unexpected(CreateOnDiskError::FailedToSerializeData);
-        }
-
-        ofs.write(reinterpret_cast<const char*>(defaultConstructBytes->data()), (long)defaultConstructBytes->size());
-        ofs.close();
+        return std::unexpected(CreateOnDiskError::FailedToWriteFiles);
     }
 
     return packageFilePath;
+}
+
+bool DiskPackage::WritePackageFilesToDisk(const std::filesystem::path& packageDir, const Package& package)
+{
+    std::error_code ec{};
+
+    // If the package directory doesn't exist, bail out
+    if (!std::filesystem::exists(packageDir))
+    {
+        return false;
+    }
+
+    //
+    // Write the manifest file
+    //
+    {
+        // FileName of the package file (e.g. 'PackageName.acp')
+        const auto packageFileName = package.manifest.GetPackageName() + Platform::PACKAGE_EXTENSION;
+
+        // Full path to the package file on disk
+        auto packageFilePath = packageDir / packageFileName;
+
+        std::ofstream ofs;
+        ofs.open(packageFilePath, std::ofstream::out | std::ofstream::trunc);
+
+        if (!ofs.good())
+        {
+            return false;
+        }
+
+        const auto manifestBytes = package.manifest.ToBytes();
+        if (!manifestBytes)
+        {
+            return false;
+        }
+
+        ofs.write(reinterpret_cast<const char *>(manifestBytes->data()), (long) manifestBytes->size());
+        ofs.close();
+    }
+
+    //
+    // Write the construct files
+    //
+    for (const auto& construct : package.constructs)
+    {
+        const auto constructPath =
+            packageDir / Platform::CONSTRUCTS_DIR / (construct->GetName() + std::string(Platform::CONSTRUCT_EXTENSION));
+
+        std::ofstream ofs;
+        ofs.open(constructPath, std::ofstream::out | std::ofstream::trunc);
+
+        if (!ofs.good())
+        {
+            return false;
+        }
+
+        const auto constructBytes = construct->ToBytes();
+        if (!constructBytes)
+        {
+            return false;
+        }
+
+        ofs.write(reinterpret_cast<const char *>(constructBytes->data()), (long) constructBytes->size());
+        ofs.close();
+    }
+
+    return true;
 }
 
 }

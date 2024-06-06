@@ -25,101 +25,116 @@ ConstructsWidget::ConstructsWidget(std::shared_ptr<MainWindowVM> mainVM, QWidget
 
 ConstructsWidget::~ConstructsWidget()
 {
-    m_pConstructComboBox = nullptr;
-    m_pEntitiesListWidget = nullptr;
+    m_pConstructsListWidget = nullptr;
 }
 
 void ConstructsWidget::InitUI()
 {
+    //
+    // Constructs List
+    //
+    m_pConstructsListWidget = new QListWidget();
+    connect(m_pConstructsListWidget, &QListWidget::currentRowChanged, this, &ConstructsWidget::UI_OnConstructsCurrentRowChanged);
+    UpdateConstructsListContents();
+
+    //
+    // Main layout
+    //
     auto pLayout = new QVBoxLayout(this);
-
-    //
-    // Construct ComboBox
-    //
-    m_pConstructComboBox = new QComboBox();
-    connect(m_pConstructComboBox, &QComboBox::currentIndexChanged, this, &ConstructsWidget::UI_OnConstructComboCurrentIndexChanged);
-    UpdateConstructsComboBoxContents();
-
-    //
-    // Entities List
-    //
-    m_pEntitiesListWidget = new QListWidget();
-    UpdateEntitiesListContents();
-
-    pLayout->addWidget(m_pConstructComboBox);
-    pLayout->addWidget(m_pEntitiesListWidget, 1);
+    pLayout->addWidget(m_pConstructsListWidget, 1);
 }
 
 void ConstructsWidget::BindVM()
 {
-    connect(m_mainVM.get(), &MainWindowVM::VM_OnPackageChanged, this, &ConstructsWidget::VM_OnPackageChanged);
-    connect(m_mainVM.get(), &MainWindowVM::VM_OnConstructChanged, this, &ConstructsWidget::VM_OnConstructChanged);
+    connect(m_mainVM.get(), &MainWindowVM::VM_OnPackageSelected, this, &ConstructsWidget::VM_OnPackageSelected);
+    connect(m_mainVM.get(), &MainWindowVM::VM_OnConstructSelected, this, &ConstructsWidget::VM_OnConstructSelected);
 }
 
-void ConstructsWidget::UI_OnConstructComboCurrentIndexChanged(int index)
+void ConstructsWidget::UI_OnConstructsCurrentRowChanged(int index)
 {
-    // TODO!
-
-    if (index >= 0)
+    // Ignore list selection events when we're updating the list's contents
+    if (m_updatingConstructsList)
     {
-        m_mainVM->OnConstructChanged(std::make_shared<Engine::Construct>(m_pConstructComboBox->itemText(index).toStdString()));
+        return;
     }
-    else
+
+    if (index < 0)
     {
-        m_mainVM->OnConstructChanged(std::nullopt);
+        m_mainVM->OnConstructSelected(std::nullopt);
+        return;
     }
+
+    const auto& constructs = m_mainVM->GetModel().package->constructs;
+
+    if (index >= (int)constructs.size())
+    {
+        assert(false);
+        return;
+    }
+
+    m_mainVM->OnConstructSelected(constructs.at(index));
 }
 
-void ConstructsWidget::VM_OnPackageChanged(const std::optional<Platform::PackageSource::Ptr>&)
+void ConstructsWidget::VM_OnPackageSelected(const std::optional<Engine::Package>&)
 {
-    UpdateConstructsComboBoxContents();
+    UpdateConstructsListContents();
 }
 
-void ConstructsWidget::VM_OnConstructChanged(const std::optional<Engine::Construct::Ptr>&)
+void ConstructsWidget::VM_OnConstructSelected(const std::optional<Engine::Construct::Ptr>& selected)
 {
-    UpdateEntitiesListContents();
+    int index = -1;
+
+    unsigned int currentIndex = 0;
+
+    for (const auto& construct : m_mainVM->GetModel().package->constructs)
+    {
+        if (construct == selected)
+        {
+            index = (int)currentIndex;
+        }
+
+        currentIndex++;
+    }
+
+    m_pConstructsListWidget->setCurrentRow(index);
 }
 
-void ConstructsWidget::UpdateConstructsComboBoxContents()
+void ConstructsWidget::UpdateConstructsListContents()
 {
+    m_updatingConstructsList = true;
+
     //
     // Clear State
     //
-    m_pConstructComboBox->clear();
-    m_pConstructComboBox->setEnabled(false);
+    m_pConstructsListWidget->clear();
 
     //
     // Update State
     //
     const auto& package = m_mainVM->GetModel().package;
-    if (!package) { return; }
-
-    m_pConstructComboBox->setEnabled(true);
-
-    for (const auto& constructName : (*package)->GetConstructResourceNames())
+    if (!package)
     {
-        m_pConstructComboBox->addItem(QString::fromStdString(constructName));
-    }
-}
-
-void ConstructsWidget::UpdateEntitiesListContents()
-{
-    //
-    // Clear State
-    //
-    m_pEntitiesListWidget->clear();
-
-    //
-    // Update State
-    //
-    const auto selectedConstruct = m_mainVM->GetModel().construct;
-    if (!selectedConstruct)
-    {
+        m_updatingConstructsList = false;
         return;
     }
 
-    m_pEntitiesListWidget->addItem(QString::fromStdString((*selectedConstruct)->GetName()));
+    int selectedRow = -1;
+    unsigned int currentRow = 0;
 
+    for (const auto& construct : package->constructs)
+    {
+        if (construct == m_mainVM->GetModel().construct)
+        {
+            selectedRow = (int)currentRow;
+        }
+
+        m_pConstructsListWidget->addItem(QString::fromStdString(construct->GetName()));
+        currentRow++;
+    }
+
+    m_pConstructsListWidget->setCurrentRow(selectedRow);
+
+    m_updatingConstructsList = false;
 }
 
 }

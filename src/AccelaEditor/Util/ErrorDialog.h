@@ -13,10 +13,11 @@
 
 namespace Accela
 {
-    void DisplayError(const std::string& message)
+    void DisplayError(const QString& message)
     {
         QMessageBox msgBox{};
-        msgBox.setText(QString::fromStdString(message));
+        msgBox.setWindowTitle("Error");
+        msgBox.setText(message);
         msgBox.exec();
     }
 }

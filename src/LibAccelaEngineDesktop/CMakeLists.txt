@@ -3,15 +3,21 @@ cmake_minimum_required(VERSION 3.19.0)
 project(LibAccelaEngineDesktop VERSION 0.0.1 LANGUAGES CXX)
 
 	file(GLOB AccelaEngineDesktop_Include_Headers "include/Accela/Engine/*.h")
+	file(GLOB AccelaEngineDesktop_Include_Headers_Package "include/Accela/Engine/Package/*.h")
 
 	file(GLOB AccelaEngineDesktop_Sources "src/*.cpp")
 	file(GLOB AccelaEngineDesktop_Headers "src/*.h")
+	file(GLOB AccelaEngineDesktop_Sources_Package "src/Package/*.cpp")
+	file(GLOB AccelaEngineDesktop_Headers_Package "src/Package/*.h")
 
 add_library(AccelaEngineDesktop STATIC
 	${AccelaEngineDesktop_Include_Headers}
+	${AccelaEngineDesktop_Include_Headers_Package}
 
 	${AccelaEngineDesktop_Sources}
 	${AccelaEngineDesktop_Headers}
+	${AccelaEngineDesktop_Sources_Package}
+	${AccelaEngineDesktop_Headers_Package}
 )
 
 target_compile_features(AccelaEngineDesktop

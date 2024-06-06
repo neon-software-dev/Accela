@@ -7,7 +7,7 @@
 #ifndef ACCELAEDITOR_VIEW_RESOURCESWIDGET_H
 #define ACCELAEDITOR_VIEW_RESOURCESWIDGET_H
 
-#include "Accela/Platform/Package/PackageSource.h"
+#include <Accela/Engine/Package/Package.h>
 
 #include <QWidget>
 
@@ -31,9 +31,11 @@ namespace Accela
 
         private slots:
 
+            // Signals from the UI
             void UI_TypeComboCurrentIndexChanged(int index);
 
-            void VM_OnPackageChanged(const std::optional<Platform::PackageSource::Ptr>& package);
+            // Signals from the ViewModel
+            void VM_OnPackageSelected(const std::optional<Engine::Package>& package);
 
         private:
 

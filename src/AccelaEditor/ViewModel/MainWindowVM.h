@@ -7,8 +7,9 @@
 #ifndef ACCELAEDITOR_VIEWMODEL_MAINWINDOWVM_H
 #define ACCELAEDITOR_VIEWMODEL_MAINWINDOWVM_H
 
-#include "Accela/Platform/Package/PackageSource.h"
-#include <Accela/Engine/Package/Construct.h>
+#include <Accela/Engine/Package/Package.h>
+
+#include <Accela/Common/Log/ILogger.h>
 
 #include <QObject>
 
@@ -24,28 +25,50 @@ namespace Accela
 
             struct Model
             {
-                std::optional<Platform::PackageSource::Ptr> package;
+                std::optional<Engine::Package> package;
                 std::optional<Engine::Construct::Ptr> construct;
+                std::optional<Engine::CEntity::Ptr> entity;
             };
 
         public:
 
-            explicit MainWindowVM(Model model);
+            MainWindowVM(Common::ILogger::Ptr logger, Model model);
 
             [[nodiscard]] const Model& GetModel() const noexcept { return m_model; }
 
-            void OnPackageChanged(const std::optional<Platform::PackageSource::Ptr>& package);
-            void OnConstructChanged(const std::optional<Engine::Construct::Ptr>& construct);
+            template <typename ComponentType>
+            [[nodiscard]] std::optional<std::shared_ptr<ComponentType>> GetEntityComponent(const Engine::Component::Type& type);
+
+            void OnPackageSelected(const std::optional<Engine::Package>& package);
+            void OnConstructSelected(const std::optional<Engine::Construct::Ptr>& construct);
+            void OnConstructInvalidated();
+            void OnEntitySelected(const std::optional<Engine::CEntity::Ptr>& entity);
+            void OnEntityInvalidated();
+            void OnComponentInvalidated(const Engine::Component::Ptr& component);
 
         signals:
 
-            void VM_OnPackageChanged(const std::optional<Platform::PackageSource::Ptr>& package);
-            void VM_OnConstructChanged(const std::optional<Engine::Construct::Ptr>& construct);
+            void VM_OnPackageSelected(const std::optional<Engine::Package>& package);
+            void VM_OnConstructSelected(const std::optional<Engine::Construct::Ptr>& construct);
+            void VM_OnConstructInvalidated(const Engine::Construct::Ptr& construct);
+            void VM_OnEntitySelected(const std::optional<Engine::CEntity::Ptr>& entity);
+            void VM_OnEntityInvalidated(const Engine::CEntity::Ptr& entity);
+            void VM_OnComponentInvalidated(const Engine::CEntity::Ptr& entity, const Engine::Component::Ptr& component);
 
         private:
 
+            Common::ILogger::Ptr m_logger;
             Model m_model;
     };
+
+    template <typename ComponentType>
+    [[nodiscard]] std::optional<std::shared_ptr<ComponentType>> MainWindowVM::GetEntityComponent(const Engine::Component::Type& type)
+    {
+        if (!m_model.entity) { return std::nullopt; }
+        const auto component = (*m_model.entity)->GetComponent(type);
+        if (!component) { return std::nullopt; }
+        return std::dynamic_pointer_cast<ComponentType>(*component);
+    }
 }
 
 #endif //ACCELAEDITOR_VIEWMODEL_MAINWINDOWVM_H

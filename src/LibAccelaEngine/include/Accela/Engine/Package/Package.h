@@ -7,48 +7,38 @@
 #ifndef LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_PACKAGE_PACKAGE_H
 #define LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_PACKAGE_PACKAGE_H
 
-#include <memory>
-#include <expected>
+#include "Manifest.h"
+#include "Construct.h"
+
+#include <Accela/Platform/Package/PackageSource.h>
+
 #include <vector>
-#include <cstddef>
-#include <string>
 
 namespace Accela::Engine
 {
-    static constexpr unsigned int PACKAGE_VERSION = 1;
-
-    class Package
+    /**
+     * An in-memory representation of a package
+     */
+    struct Package
     {
-        public:
+        Package() = default;
 
-            using Ptr = std::shared_ptr<Package>;
-            using UPtr = std::unique_ptr<Package>;
+        Package(Platform::PackageSource::Ptr _source, Manifest _manifest, std::vector<Construct::Ptr> _constructs)
+            : source(std::move(_source))
+            , manifest(std::move(_manifest))
+            , constructs(std::move(_constructs))
+        { }
 
-            enum class CreateError
-            {
-                InvalidPackageFormat,
-                UnsupportedVersion,
-                ParseFailure
-            };
+        /** The interface through which the package's data can be fetched */
+        Platform::PackageSource::Ptr source;
 
-        public:
+        /** The package's manifest */
+        Manifest manifest;
 
-            [[nodiscard]] static std::expected<UPtr, CreateError> FromBytes(const std::string& packageName,
-                                                                            const std::vector<std::byte>& data);
+        /** The package's constructs */
+        std::vector<Construct::Ptr> constructs;
 
-            [[nodiscard]] std::expected<std::vector<std::byte>, bool> ToBytes() const;
-
-        public:
-
-            Package(std::string name, unsigned int packageVersion);
-
-            [[nodiscard]] std::string GetName() const noexcept { return m_name; }
-            [[nodiscard]] unsigned int GetPackageVersion() const noexcept { return m_packageVersion; }
-
-        private:
-
-            std::string m_name;
-            unsigned int m_packageVersion;
+        auto operator<=>(const Package&) const = default;
     };
 }
 

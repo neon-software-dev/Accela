@@ -7,13 +7,11 @@
 #ifndef ACCELAEDITOR_VIEW_CONSTRUCTSWIDGET_H
 #define ACCELAEDITOR_VIEW_CONSTRUCTSWIDGET_H
 
-#include "Accela/Platform/Package/PackageSource.h"
-#include <Accela/Engine/Package/Construct.h>
+#include <Accela/Engine/Package/Package.h>
 
 #include <QWidget>
 
 class QListWidget;
-class QComboBox;
 
 namespace Accela
 {
@@ -30,25 +28,25 @@ namespace Accela
 
         private slots:
 
-            void UI_OnConstructComboCurrentIndexChanged(int index);
+            void UI_OnConstructsCurrentRowChanged(int index);
 
-            void VM_OnPackageChanged(const std::optional<Platform::PackageSource::Ptr>& package);
-            void VM_OnConstructChanged(const std::optional<Engine::Construct::Ptr>& construct);
+            void VM_OnPackageSelected(const std::optional<Engine::Package>& package);
+            void VM_OnConstructSelected(const std::optional<Engine::Construct::Ptr>& construct);
 
         private:
 
             void InitUI();
             void BindVM();
 
-            void UpdateConstructsComboBoxContents();
-            void UpdateEntitiesListContents();
+            void UpdateConstructsListContents();
 
         private:
 
             std::shared_ptr<MainWindowVM> m_mainVM;
 
-            QComboBox* m_pConstructComboBox{nullptr};
-            QListWidget* m_pEntitiesListWidget{nullptr};
+            QListWidget* m_pConstructsListWidget{nullptr};
+
+            bool m_updatingConstructsList{false};
     };
 }
 

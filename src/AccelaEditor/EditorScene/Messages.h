@@ -8,8 +8,11 @@
 #define ACCELAEDITOR_EDITORSCENE_MESSAGES_H
 
 #include <Accela/Engine/Common.h>
+#include <Accela/Engine/Package/Component.h>
 
 #include <Accela/Common/Thread/ResultMessage.h>
+
+#include <vector>
 
 namespace Accela
 {
@@ -36,6 +39,35 @@ namespace Accela
         using Ptr = std::shared_ptr<DestroySceneResourcesCommand>;
         static constexpr auto TYPE = "DestroySceneResourcesCommand";
         DestroySceneResourcesCommand() : Common::ResultMessage<bool>(TYPE) { }
+    };
+
+    struct CreateEntityCommand : public Common::ResultMessage<Engine::EntityId>
+    {
+        using Ptr = std::shared_ptr<CreateEntityCommand>;
+        static constexpr auto TYPE = "CreateEntityCommand";
+        CreateEntityCommand() : Common::ResultMessage<Engine::EntityId>(TYPE) { }
+    };
+
+    struct DestroyAllEntitiesCommand : public Common::ResultMessage<bool>
+    {
+        using Ptr = std::shared_ptr<DestroyAllEntitiesCommand>;
+        static constexpr auto TYPE = "DestroyAllEntitiesCommand";
+        explicit DestroyAllEntitiesCommand()
+            : Common::ResultMessage<bool>(TYPE) { }
+    };
+
+    struct SetEntityComponentCommand : public Common::ResultMessage<bool>
+    {
+        using Ptr = std::shared_ptr<SetEntityComponentCommand>;
+        static constexpr auto TYPE = "SetEntityComponentCommand";
+        explicit SetEntityComponentCommand(Engine::EntityId _eid, Engine::Component::Ptr _component)
+            : Common::ResultMessage<bool>(TYPE)
+            , eid(_eid)
+            , component(std::move(_component))
+          { }
+
+        Engine::EntityId eid;
+        Engine::Component::Ptr component;
     };
 }
 

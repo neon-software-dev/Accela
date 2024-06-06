@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <string>
 #include <vector>
+#include <memory>
 
 namespace Accela::Platform
 {
@@ -22,6 +23,8 @@ namespace Accela::Platform
     class DiskPackageSource : public PackageSource
     {
         public:
+
+            using Ptr = std::shared_ptr<DiskPackageSource>;
 
             enum class OpenPackageError
             {
@@ -37,12 +40,12 @@ namespace Accela::Platform
             /**
              * Opens and reads a package on disk
              *
-             * @param packageFile The path to the package's package file
+             * @param manifestFile The path to the package's manifest file
              *
              * @return A PackageSource object, or OpenPackageError on error
              */
             [[nodiscard]] static std::expected<PackageSource::Ptr, OpenPackageError> OpenOnDisk(
-                const std::filesystem::path& packageFile);
+                const std::filesystem::path& manifestFile);
 
         private:
 
@@ -67,7 +70,7 @@ namespace Accela::Platform
             [[nodiscard]] std::expected<std::string, bool> GetModelTextureFormatHint(const std::string& modelResourceName,
                                                                                      const std::string& resourceName) const override;
 
-            [[nodiscard]] std::expected<std::vector<std::byte>, unsigned int> GetPackageFileData() const override;
+            [[nodiscard]] std::expected<std::vector<std::byte>, unsigned int> GetManifestFileData() const override;
             [[nodiscard]] std::expected<std::vector<std::byte>, unsigned int> GetFontData(const std::string& resourceName) const override;
             [[nodiscard]] std::expected<std::vector<std::byte>, unsigned int> GetAudioData(const std::string& resourceName) const override;
             [[nodiscard]] std::expected<std::vector<std::byte>, unsigned int> GetModelData(const std::string& resourceName) const override;
@@ -79,7 +82,8 @@ namespace Accela::Platform
             //
             // Internal
             //
-            [[nodiscard]] std::filesystem::path GetPackageFilePath() const noexcept { return m_packageFilePath; }
+            [[nodiscard]] std::filesystem::path GetPackageDir() const noexcept { return m_packageDir; }
+            [[nodiscard]] std::filesystem::path GetManifestFilePath() const noexcept { return m_manifestFilePath; }
 
         private:
 
@@ -93,7 +97,7 @@ namespace Accela::Platform
         private:
 
             std::filesystem::path m_packageDir;
-            std::filesystem::path m_packageFilePath;
+            std::filesystem::path m_manifestFilePath;
 
             //
             // PackageSource structure

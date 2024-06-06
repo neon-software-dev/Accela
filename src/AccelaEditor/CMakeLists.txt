@@ -18,6 +18,8 @@ project(AccelaEditor VERSION 0.0.1)
 	file(GLOB AccelaEditor_Sources_Util "Util/*.cpp")
 	file(GLOB AccelaEditor_Headers_Util "Util/*.h")
 
+	qt_add_resources(AccelaEditor_Sources "Resources/resources.qrc")
+
 qt_add_executable(AccelaEditor
 	${AccelaEditor_Sources}
 	${AccelaEditor_Headers}

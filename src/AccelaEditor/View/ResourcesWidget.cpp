@@ -59,7 +59,7 @@ void ResourcesWidget::InitUI()
 
 void ResourcesWidget::BindVM()
 {
-    connect(m_mainVM.get(), &MainWindowVM::VM_OnPackageChanged, this, &ResourcesWidget::VM_OnPackageChanged);
+    connect(m_mainVM.get(), &MainWindowVM::VM_OnPackageSelected, this, &ResourcesWidget::VM_OnPackageSelected);
 }
 
 void ResourcesWidget::UI_TypeComboCurrentIndexChanged(int)
@@ -67,7 +67,7 @@ void ResourcesWidget::UI_TypeComboCurrentIndexChanged(int)
     UpdateResourcesListContents();
 }
 
-void ResourcesWidget::VM_OnPackageChanged(const std::optional<Platform::PackageSource::Ptr>&)
+void ResourcesWidget::VM_OnPackageSelected(const std::optional<Engine::Package>&)
 {
     UpdateResourcesListContents();
 }
@@ -101,10 +101,10 @@ void ResourcesWidget::UpdateResourcesListContents()
 
     switch (currentIndex)
     {
-        case 0: { resourceNames = (*package)->GetAudioResourceNames(); } break;
-        case 1: { resourceNames = (*package)->GetFontResourceNames(); } break;
-        case 2: { resourceNames = (*package)->GetTextureResourceNames(); } break;
-        case 3: { resourceNames = (*package)->GetModelResourceNames(); } break;
+        case 0: { resourceNames = package->source->GetAudioResourceNames(); } break;
+        case 1: { resourceNames = package->source->GetFontResourceNames(); } break;
+        case 2: { resourceNames = package->source->GetTextureResourceNames(); } break;
+        case 3: { resourceNames = package->source->GetModelResourceNames(); } break;
         default: { /* no-op */ }
     }
 

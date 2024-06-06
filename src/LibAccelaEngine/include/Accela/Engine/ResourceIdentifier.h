@@ -25,6 +25,9 @@ namespace Accela::Engine
             [[nodiscard]] std::string GetResourceName() const noexcept { return resourceName; }
             [[nodiscard]] std::string GetUniqueName() const;
 
+            void SetPackageName(const std::optional<PackageName>& _packageName) { packageName = _packageName; }
+            void SetResourceName(const std::string& _resourceName) { resourceName = _resourceName; }
+
             [[nodiscard]] bool IsValid() const { return !resourceName.empty(); }
             [[nodiscard]] bool IsPackageResource() const { return packageName.has_value(); }
 

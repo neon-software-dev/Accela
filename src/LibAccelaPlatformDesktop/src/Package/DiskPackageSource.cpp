@@ -15,12 +15,12 @@
 namespace Accela::Platform
 {
 
-std::expected<PackageSource::Ptr, DiskPackageSource::OpenPackageError> DiskPackageSource::OpenOnDisk(const std::filesystem::path& packageFile)
+std::expected<PackageSource::Ptr, DiskPackageSource::OpenPackageError> DiskPackageSource::OpenOnDisk(const std::filesystem::path& manifestFile)
 {
     //
-    // The package file should exist
+    // The manifest file should exist
     //
-    if (!std::filesystem::exists(packageFile))
+    if (!std::filesystem::exists(manifestFile))
     {
         return std::unexpected(OpenPackageError::PackageFileDoesntExist);
     }
@@ -28,34 +28,34 @@ std::expected<PackageSource::Ptr, DiskPackageSource::OpenPackageError> DiskPacka
     //
     // Subdirectories for assets and constructs should exist
     //
-    const auto packageDir = packageFile.parent_path();
+    const auto manifestDir = manifestFile.parent_path();
 
-    if (!std::filesystem::exists(packageDir / Platform::ASSETS_DIR))
+    if (!std::filesystem::exists(manifestDir / Platform::ASSETS_DIR))
     {
         return std::unexpected(OpenPackageError::PackageStructureBroken);
     }
-    if (!std::filesystem::exists(packageDir / Platform::CONSTRUCTS_DIR))
+    if (!std::filesystem::exists(manifestDir / Platform::CONSTRUCTS_DIR))
     {
         return std::unexpected(OpenPackageError::PackageStructureBroken);
     }
 
     //
-    // Create the package object and have it load its metadata from the package
+    // Create the package source object and have it load its metadata from the package
     //
-    auto package = std::make_shared<DiskPackageSource>(Tag{}, packageDir, packageFile);
+    auto packageSource = std::make_shared<DiskPackageSource>(Tag{}, manifestDir, manifestFile);
 
-    if (!package->LoadMetadata())
+    if (!packageSource->LoadMetadata())
     {
         return std::unexpected(OpenPackageError::FailureLoadingMetadata);
     }
 
-    return package;
+    return packageSource;
 }
 
 DiskPackageSource::DiskPackageSource(DiskPackageSource::Tag, std::filesystem::path packageDir, std::filesystem::path packageFilePath)
     : PackageSource(packageFilePath.filename().replace_extension())
     , m_packageDir(std::move(packageDir))
-    , m_packageFilePath(std::move(packageFilePath))
+    , m_manifestFilePath(std::move(packageFilePath))
 {
 
 }
@@ -239,9 +239,9 @@ DiskPackageSource::GetModelTextureFormatHint(const std::string&, const std::stri
     return path.extension();
 }
 
-std::expected<std::vector<std::byte>, unsigned int> DiskPackageSource::GetPackageFileData() const
+std::expected<std::vector<std::byte>, unsigned int> DiskPackageSource::GetManifestFileData() const
 {
-    return GetFileBytes(m_packageFilePath);
+    return GetFileBytes(m_manifestFilePath);
 }
 
 std::expected<std::vector<std::byte>, unsigned int> DiskPackageSource::GetFontData(const std::string& resourceName) const

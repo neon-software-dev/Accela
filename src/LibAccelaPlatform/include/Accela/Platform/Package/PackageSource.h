@@ -49,7 +49,7 @@ namespace Accela::Platform
             [[nodiscard]] virtual std::expected<std::string, bool> GetModelTextureFormatHint(const std::string& modelResourceName,
                                                                                              const std::string& resourceName) const = 0;
 
-            [[nodiscard]] virtual std::expected<std::vector<std::byte>, unsigned int> GetPackageFileData() const = 0;
+            [[nodiscard]] virtual std::expected<std::vector<std::byte>, unsigned int> GetManifestFileData() const = 0;
             [[nodiscard]] virtual std::expected<std::vector<std::byte>, unsigned int> GetFontData(const std::string& resourceName) const = 0;
             [[nodiscard]] virtual std::expected<std::vector<std::byte>, unsigned int> GetAudioData(const std::string& resourceName) const = 0;
             [[nodiscard]] virtual std::expected<std::vector<std::byte>, unsigned int> GetModelData(const std::string& resourceName) const = 0;

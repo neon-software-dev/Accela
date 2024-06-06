@@ -37,6 +37,7 @@ namespace Accela
             //
             [[nodiscard]] std::string GetName() const override { return "EditorScene"; };
 
+            void OnSceneStart(const Engine::IEngineRuntime::Ptr& engine) override;
             void OnSimulationStep(unsigned int) override;
             void OnSceneStop() override;
 
@@ -57,6 +58,9 @@ namespace Accela
             void ProcessSceneQuitCommand(const SceneQuitCommand::Ptr& cmd);
             void ProcessLoadPackageResourcesCommand(const LoadPackageResourcesCommand::Ptr& cmd);
             void ProcessDestroySceneResourcesCommand(const DestroySceneResourcesCommand::Ptr& cmd);
+            void ProcessDestroyAllEntitiesCommand(const DestroyAllEntitiesCommand::Ptr& cmd);
+            void ProcessCreateEntityCommand(const CreateEntityCommand::Ptr& cmd);
+            void ProcessSetEntityComponentCommand(const SetEntityComponentCommand::Ptr& cmd);
 
         private:
 

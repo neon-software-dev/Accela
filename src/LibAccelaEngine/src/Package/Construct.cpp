@@ -6,15 +6,12 @@
  
 #include <Accela/Engine/Package/Construct.h>
 
+#include "ConstructModel.h"
+
+#include "../Util/SerializeObj.h"
+
 namespace Accela::Engine
 {
-
-std::expected<Construct::Ptr, bool> Construct::FromBytes(const std::string& constructName,
-                                                         const std::vector<std::byte>& data)
-{
-    (void)data;
-    return std::make_shared<Construct>(constructName);
-}
 
 Construct::Construct(std::string name)
     : m_name(std::move(name))
@@ -22,20 +19,25 @@ Construct::Construct(std::string name)
 
 }
 
+std::expected<Construct::Ptr, bool> Construct::FromBytes(const std::vector<std::byte>& data)
+{
+    const auto constructExpect = ObjectFromBytes<Construct, ConstructModel>(data);
+    if (!constructExpect)
+    {
+        return std::unexpected(false);
+    }
+
+    return std::make_shared<Construct>(*constructExpect);
+}
+
 std::expected<std::vector<std::byte>, bool> Construct::ToBytes() const
 {
-    return {};
-    /*PackageModel model{
-        .packageVersion = m_packageVersion
-    };
+    return ObjectToBytes<Construct, ConstructModel>(*this);
+}
 
-    const nlohmann::json j = model;
-    const auto jStr = to_string(j);
-
-    std::vector<std::byte> byteBuffer(jStr.length());
-    memcpy(byteBuffer.data(), jStr.data(), jStr.length());
-
-    return byteBuffer;*/
+void Construct::AddEntity(const CEntity::Ptr& entity)
+{
+    m_entities.push_back(entity);
 }
 
 }
