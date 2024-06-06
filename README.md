@@ -32,13 +32,7 @@ Please give Accela a try (while adhering to the license terms) and provide feedb
 
 ## License
 
-Accela is currently distributed under the GPL v3 software license. Please see the LICENSE file for the legally binding details.
-
-The intent in choosing this license was to accomplish the following:
-1. Users may freely use and modify Accela in private, non-public software
-2. Users may use and modify Accela in public software, whether free or commericial, but in doing so are required to also adopt GPL v3 for their own software and release that software as open source software
-
-That being said, any user wishing to use Accela **without a GPL v3 license attached to it** may contact the owner / copyright holder of Accela to purchase such a license. This process will be standardized when Accela is offically launched.
+Accela is currently distributed under the GPL v3 software license. Please see the LICENSE file for the details.
 
 ## Screenshots
 
@@ -112,21 +106,11 @@ On Windows, in order to run the AccelaEditor project, you need to also deploy Qt
 
 - `windeployqt6.exe [--debug/--release] C:\{path\to\}Accela\build\{variant}\built`
 
-## Integration
-
-Once Accela is built and installed, its public includes and libraries will be located in the previously specified CMake install directory.
-
-A CMake-based client project can then be linked against Accela by passing the following CMake argument when configuring the client project:
-
-- `-DCMAKE_PREFIX_PATH={/path/to/install/directory}/lib/cmake`
-
-If using a different build system, point it towards the installed includes and libraries as appropriate for that build system.
-
 # Usage
 
-Please see the included TestDesktopApp project in src/TestDesktopApp for a full reference implementation of how to use the Accela engine.
+Please see the included TestDesktopApp project in src/TestDesktopApp for a reference implementation of how to use the Accela engine.
 
-The engine currently only supports a programmatic interface for defining scenes. In the future a graphical scene editor will be created which will provide a secondary mechanism for defining scenes.
+The engine currently only supports a programmatic interface for defining scenes. A graphical editor (Accela Editor) is actively under development.
 
 A full usage guide and API documentation will be coming soon.
 
@@ -154,12 +138,12 @@ class TestScene : public Engine::Scene
 {
     public:
 
-        std::string GetName() const override { return "TestScene"; }
+        [[nodiscard]] std::string GetName() const override { return "TestScene"; }
 
         void OnSceneStart(const Engine::IEngineRuntime::Ptr& engine) override
         {
-	    Scene::OnSceneStart(engine);
-	    
+            Scene::OnSceneStart(engine);
+
             ConfigureScene();
             LoadResources();
             CreateTextEntity();
@@ -168,22 +152,26 @@ class TestScene : public Engine::Scene
 
         void ConfigureScene()
         {
-	    // Configure dim white light ambient lighting
-            engine->GetWorldState()->SetAmbientLighting(Engine::DEFAULT_SCENE, 1.0f, {1,1,1});
+            // Configure white light ambient lighting
+            engine->GetWorldState()->SetAmbientLighting(
+                Engine::DEFAULT_SCENE,
+                0.8f, 	// Light intensity
+                {1,1,1} // Light color
+            );
         }
 
         void LoadResources()
         {
-	    // Load a font from assets for text rendering
-            engine->GetWorldResources()->Fonts()->LoadFont("font.ttf", 64).get();
-
-	    // Load a model from assets
-            engine->GetWorldResources()->Models()->LoadAssetsModel("model.obj", Engine::ResultWhen::Ready).get();
+            // Load all resources from the TestPackage package
+            engine->GetWorldResources()->EnsurePackageResources(
+                Engine::PackageName("TestPackage"),
+                Engine::ResultWhen::Ready
+            ).get();
         }
 
         void CreateTextEntity()
         {
-	    // Create a TextEntity to render text on the screen
+            // Create a TextEntity to render text on the screen
 
             m_textEntity = Engine::ScreenTextEntity::Create(
                 engine,
@@ -192,23 +180,23 @@ class TestScene : public Engine::Scene
                     .WithPosition({0, 0, 0})
                     .WithTextLayoutMode(Engine::TextLayoutMode::TopLeft)
                     .WithProperties(Platform::TextProperties(
-                        "font.ttf",                     // Font file name
-                        64,                             // Font size
-                        0,                              // Wrap length
-                        Platform::Color::Red(),         // Foreground color
-                        Platform::Color::Transparent()  // Background color
+                        "font.ttf", 			// Font file name
+                        20, 				// Font size
+                        0, 				// Wrap length
+                        Platform::Color::Red(), 	// Foreground color
+                        Platform::Color::Transparent() 	// Background color
                     ))
             );
         }
 
         void CreateModelEntity()
         {
-	    // Manually create a Model to render in 3D space (alternatively, use ModelEntity)
+            // Manually create a Model to render in 3D space (alternatively, use ModelEntity)
 
             const auto eid = engine->GetWorldState()->CreateEntity();
 
             auto modelRenderableComponent = Engine::ModelRenderableComponent{};
-            modelRenderableComponent.modelName = "model";
+            modelRenderableComponent.modelResource = Engine::PRI("TestPackage", "model.glb");
             Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, modelRenderableComponent);
 
             auto transformComponent = Engine::TransformComponent{};
@@ -220,30 +208,6 @@ class TestScene : public Engine::Scene
 
         Engine::ScreenTextEntity::UPtr m_textEntity;
 };
-
-int main()
-{
-    auto desktopEngine = Engine::EngineDesktop(
-        std::make_shared<Common::StdLogger>(Common::LogLevel::Warning),
-        std::make_shared<Common::InMemoryMetrics>()
-    );
-
-    if (!desktopEngine.Startup()) { return 1; }
-
-    desktopEngine.Run(
-        "AppName",
-        1, // App version
-        Engine::WindowParams("Window Title", Render::USize(2560, 1440)),
-        Engine::VROutput::None,
-        std::make_unique<TestScene>()
-    );
-
-    desktopEngine.Shutdown();
-
-    return 0;
-}
-
-
 ```
 
 
