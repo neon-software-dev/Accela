@@ -40,4 +40,11 @@ void Construct::AddEntity(const CEntity::Ptr& entity)
     m_entities.push_back(entity);
 }
 
+void Construct::RemoveEntity(const std::string& entityName)
+{
+    std::erase_if(m_entities, [&](const auto& entity){
+        return entity->name == entityName;
+    });
+}
+
 }

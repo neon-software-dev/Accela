@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
  
-#ifndef ACCELAEDITOR_UTIL_WORKERTHREAD_H
-#define ACCELAEDITOR_UTIL_WORKERTHREAD_H
+#ifndef ACCELAEDITOR_THREAD_WORKERTHREAD_H
+#define ACCELAEDITOR_THREAD_WORKERTHREAD_H
 
 #include <QThread>
 #include <functional>
@@ -139,4 +139,4 @@ namespace Accela
     };
 }
 
-#endif //ACCELAEDITOR_UTIL_WORKERTHREAD_H
+#endif //ACCELAEDITOR_THREAD_WORKERTHREAD_H

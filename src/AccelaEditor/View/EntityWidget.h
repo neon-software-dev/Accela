@@ -32,7 +32,7 @@ namespace Accela
             void UI_OnAddComponentActionTriggered(QAction *action);
 
             // Signals from the ViewModel
-            void VM_OnEntitySelected(const std::optional<Engine::CEntity::Ptr>& entity);
+            void VM_OnEntityChanged(const std::optional<Engine::CEntity::Ptr>& entity);
             void VM_OnEntityInvalidated(const Engine::CEntity::Ptr& entity);
 
         private:

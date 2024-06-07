@@ -7,10 +7,7 @@
 #ifndef ACCELAEDITOR_VIEW_MAINWINDOW_H
 #define ACCELAEDITOR_VIEW_MAINWINDOW_H
 
-#include "../Thread/PackageLoadThread.h"
-#include "../Util/WorkerThread.h"
-
-#include "Accela/Platform/Package/PackageSource.h"
+#include <Accela/Engine/Package/Package.h>
 
 #include <Accela/Common/Log/ILogger.h>
 #include <Accela/Common/Metrics/IMetrics.h>
@@ -28,9 +25,6 @@ namespace Accela
 {
     class AccelaWindow;
     class MainWindowVM;
-    class QtFutureNotifier;
-    class SceneSyncer;
-    class PackageLoadThread;
 
     class MainWindow : public QMainWindow
     {
@@ -55,17 +49,12 @@ namespace Accela
             void UI_OnMenuWindow_EntityTriggered(bool);
             void UI_OnDockWidgetVisibilityChanged(bool);
 
-            // Signals that manipulate the progress dialog
-            void OnProgressUpdate(unsigned int progress, unsigned int total, const std::string& progressText);
-            void OnProgressFinished();
-
-            // Signals from PackageLoadThread
-            void OnPackageLoadFinished(const std::expected<Engine::Package, unsigned int>& result);
-
             // Signals from the ViewModel
-            void VM_OnPackageSelected(const std::optional<Engine::Package>& package);
-            void VM_OnConstructSelected(const std::optional<Engine::Construct::Ptr>& construct);
-            void VM_OnComponentInvalidated(const Engine::CEntity::Ptr& entity, const Engine::Component::Ptr& component);
+            void VM_ErrorDialogShow(const std::string& title, const std::string& message);
+            void VM_ProgressDialogShow(const std::string& title);
+            void VM_ProgressDialogUpdate(unsigned int progress, unsigned int total, const std::string& status);
+            void VM_ProgressDialogClose();
+            void VM_OnPackageChanged(const std::optional<Engine::Package>& package);
 
         private:
 
@@ -76,16 +65,7 @@ namespace Accela
 
             void closeEvent(QCloseEvent* e) override;
 
-            void DisplayProgressDialog(const QString& title, const unsigned int& minimumDurationMs);
-            void LoadPackage(const std::filesystem::path& packageFilePath);
             void UpdateWindowTitle();
-
-            template <typename ResultType>
-            void RunThreadWithModalProgressDialog(const QString& progressTitle,
-                                                  const QString& progressLabel,
-                                                  const unsigned int& minimumDurationMs,
-                                                  const std::function<ResultType(const WorkerThread::WorkControl&)>& runLogic,
-                                                  const std::function<void(WorkerThread::ResultHolder::Ptr)>& resultLogic);
 
         private:
 
@@ -98,7 +78,6 @@ namespace Accela
             QDockWidget* m_pEntityDockWidget{nullptr};
 
             AccelaWindow* m_pAccelaWindow{nullptr};
-            std::unique_ptr<SceneSyncer> m_sceneEntitySyncer;
 
             // File actions
             QAction* m_pSavePackageAction{nullptr};
@@ -111,9 +90,6 @@ namespace Accela
             QAction* m_pEntityWindowAction{nullptr};
 
             QProgressDialog* m_pProgressDialog{nullptr};
-
-            std::unique_ptr<QtFutureNotifier> m_qtFutureNotifier;
-            PackageLoadThread* m_pPackageLoadThread{nullptr};
 
             std::shared_ptr<MainWindowVM> m_vm;
     };

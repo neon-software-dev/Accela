@@ -26,7 +26,7 @@ namespace Accela::Engine
         using Ptr = std::shared_ptr<CTransformComponentModel>;
 
         glm::vec3 position{0.0f};
-        glm::quat orientation{glm::identity<glm::quat>()};
+        glm::vec3 eulerRotation{0.0f};
         glm::vec3 scale{1.0f};
 
         [[nodiscard]] Component::Type GetType() const override { return Component::Type::Transform; }
@@ -34,19 +34,15 @@ namespace Accela::Engine
         [[nodiscard]] static CTransformComponentModel::Ptr From(const CTransformComponent::Ptr& component)
         {
             auto model = std::make_shared<CTransformComponentModel>();
-            model->position = component->component.GetPosition();
-            model->orientation = component->component.GetOrientation();
-            model->scale = component->component.GetScale();
+            model->position = component->position;
+            model->eulerRotation = component->eulerRotation;
+            model->scale = component->scale;
             return model;
         }
 
         [[nodiscard]] Component::Ptr From() const override
         {
-            TransformComponent transformComponent{};
-            transformComponent.SetPosition(position);
-            transformComponent.SetOrientation(orientation);
-            transformComponent.SetScale(scale);
-            return std::make_shared<CTransformComponent>(transformComponent);
+            return std::make_shared<CTransformComponent>(position, eulerRotation, scale);
         }
     };
 
@@ -54,7 +50,7 @@ namespace Accela::Engine
     {
         j = nlohmann::json{
             {"position", m->position},
-            {"orientation", m->orientation},
+            {"eulerRotation", m->eulerRotation},
             {"scale", m->scale}
         };
     }
@@ -62,7 +58,7 @@ namespace Accela::Engine
     void from_json(const nlohmann::json& j, CTransformComponentModel::Ptr& m)
     {
         j.at("position").get_to(m->position);
-        j.at("orientation").get_to(m->orientation);
+        j.at("eulerRotation").get_to(m->eulerRotation);
         j.at("scale").get_to(m->scale);
     }
 }

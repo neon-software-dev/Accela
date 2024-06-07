@@ -7,8 +7,6 @@
 #ifndef ACCELAEDITOR_EDITORSCENE_SCENESYNCER_H
 #define ACCELAEDITOR_EDITORSCENE_SCENESYNCER_H
 
-#include "../ViewModel/MainWindowVM.h"
-
 #include <Accela/Engine/Common.h>
 #include <Accela/Engine/Package/Construct.h>
 #include <Accela/Engine/Package/Component.h>
@@ -28,7 +26,13 @@ namespace Accela
     {
         public:
 
-            SceneSyncer(Common::ILogger::Ptr logger, AccelaWindow* pAccelaWindow);
+            explicit SceneSyncer(Common::ILogger::Ptr logger);
+
+            /**
+             * Provide the reference to an AccelaWindow that this SceneSyncer
+             * should communicate with to keep an Accela scene in sync
+             */
+            void AttachToAccelaWindow(AccelaWindow* pAccelaWindow);
 
             /**
              * Loads all resources for the provided package (as well as opening the package if
@@ -54,6 +58,11 @@ namespace Accela
             void BlockingCreateEntity(const Engine::CEntity::Ptr& entity);
 
             /**
+             * Destroys an entity by name
+             */
+            [[nodiscard]] std::future<bool> DestroyEntity(const std::string& entityName);
+
+            /**
              * Destroys all previously created entities
              */
             [[nodiscard]] std::future<bool> DestroyAllEntities();
@@ -66,7 +75,8 @@ namespace Accela
         private:
 
             Common::ILogger::Ptr m_logger;
-            AccelaWindow* m_pAccelaWindow;
+
+            std::optional<AccelaWindow*> m_accelaWindow;
 
             // Entity name -> Entity Id
             std::unordered_map<std::string, Engine::EntityId> m_entities;

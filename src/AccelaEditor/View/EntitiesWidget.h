@@ -26,20 +26,20 @@ namespace Accela
 
         public:
 
-            EntitiesWidget(std::shared_ptr<MainWindowVM> mainVM,
-                           SceneSyncer* pSceneEntitySyncer,
-                           QWidget* pParent = nullptr);
+            explicit EntitiesWidget(std::shared_ptr<MainWindowVM> mainVM, QWidget* pParent = nullptr);
             ~EntitiesWidget() override;
 
         private slots:
 
             // Signals from the UI
             void UI_OnActionCreateEntityTriggered(bool);
+            void UI_OnActionDeleteEntityTriggered(bool);
             void UI_OnEntityListCurrentRowChanged(int);
 
             // Signals from the ViewModel
-            void VM_OnConstructSelected(const std::optional<Engine::Construct::Ptr>& construct);
+            void VM_OnConstructChanged(const std::optional<Engine::Construct::Ptr>& construct);
             void VM_OnConstructInvalidated(const Engine::Construct::Ptr& construct);
+            void VM_OnEntityChanged(const std::optional<Engine::CEntity::Ptr>& entity);
 
         private:
 
@@ -49,14 +49,12 @@ namespace Accela
             void UpdateToolbarActions();
             void UpdateEntitiesListContents();
 
-            [[nodiscard]] std::string GetNewEntityName() const;
-
         private:
 
             std::shared_ptr<MainWindowVM> m_mainVM;
-            SceneSyncer* m_pSceneEntitySyncer;
 
             QPushButton* m_pCreateEntityPushButton{nullptr};
+            QPushButton* m_pDeleteEntityPushButton{nullptr};
             QListWidget* m_pEntitiesListWidget{nullptr};
 
             bool m_updatingEntitiesList{false};

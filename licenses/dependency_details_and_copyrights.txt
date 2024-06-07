@@ -85,3 +85,7 @@ https://github.com/NVIDIA-Omniverse/PhysX
 MIT license
 https://github.com/nlohmann/json
 https://json.nlohmann.me/
+
+[Qt6]
+GNU LGPL Version 3
+https://www.qt.io/product/qt6

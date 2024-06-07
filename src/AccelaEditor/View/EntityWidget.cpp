@@ -88,35 +88,28 @@ void EntityWidget::InitUI()
 
 void EntityWidget::BindVM()
 {
-    connect(m_mainVM.get(), &MainWindowVM::VM_OnEntitySelected, this, &EntityWidget::VM_OnEntitySelected);
+    connect(m_mainVM.get(), &MainWindowVM::VM_OnEntityChanged, this, &EntityWidget::VM_OnEntityChanged);
     connect(m_mainVM.get(), &MainWindowVM::VM_OnEntityInvalidated, this, &EntityWidget::VM_OnEntityInvalidated);
 }
 
 void EntityWidget::UI_OnAddComponentActionTriggered(QAction *pAction)
 {
-    Engine::Component::Ptr component;
-
     if (pAction == m_pAddTransformComponentAction)
     {
-        component = std::make_shared<Engine::CTransformComponent>();
-        (*m_mainVM->GetModel().entity)->components.push_back(component);
+        m_mainVM->OnCreateComponent(Engine::Component::Type::Transform);
     }
     else if (pAction == m_pAddModelRenderableComponentAction)
     {
-        component = std::make_shared<Engine::CModelRenderableComponent>();
-        (*m_mainVM->GetModel().entity)->components.push_back(component);
+        m_mainVM->OnCreateComponent(Engine::Component::Type::ModelRenderable);
     }
     else
     {
         assert(false);
         return;
     }
-
-    m_mainVM->OnEntityInvalidated();
-    m_mainVM->OnComponentInvalidated(component);
 }
 
-void EntityWidget::VM_OnEntitySelected(const std::optional<Engine::CEntity::Ptr>&)
+void EntityWidget::VM_OnEntityChanged(const std::optional<Engine::CEntity::Ptr>&)
 {
     UpdateToolbarActions();
     UpdateComponentsListContents();

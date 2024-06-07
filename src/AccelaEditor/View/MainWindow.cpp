@@ -12,12 +12,7 @@
 #include "EntitiesWidget.h"
 #include "EntityWidget.h"
 
-#include "../EditorScene/SceneSyncer.h"
-
 #include "../Util/ErrorDialog.h"
-#include "../Util/QtFutureNotifier.h"
-
-#include <Accela/Engine/Package/DiskPackage.h>
 
 #include <Accela/Platform/File/IFiles.h>
 
@@ -43,7 +38,6 @@ MainWindow::MainWindow(Common::ILogger::Ptr logger, Common::IMetrics::Ptr metric
     : QMainWindow(nullptr)
     , m_logger(std::move(logger))
     , m_metrics(std::move(metrics))
-    , m_qtFutureNotifier(std::make_unique<QtFutureNotifier>(this))
     , m_vm(std::make_shared<MainWindowVM>(m_logger, MainWindowVM::Model{}))
 {
     InitUI();
@@ -168,7 +162,7 @@ void MainWindow::InitWidgets()
     auto pAccelaWidget = QWidget::createWindowContainer(m_pAccelaWindow, this);
     setCentralWidget(pAccelaWidget);
 
-    m_sceneEntitySyncer = std::make_unique<SceneSyncer>(m_logger, m_pAccelaWindow);
+    m_vm->AttachToAccelaWindow(m_pAccelaWindow);
 
     //
     // Package Resources Dock Widget
@@ -203,7 +197,7 @@ void MainWindow::InitWidgets()
     connect(m_pEntitiesDockWidget, &QDockWidget::visibilityChanged, this, &MainWindow::UI_OnDockWidgetVisibilityChanged);
     addDockWidget(Qt::RightDockWidgetArea, m_pEntitiesDockWidget);
 
-    auto pEntitiesWidget = new EntitiesWidget(m_vm, m_sceneEntitySyncer.get(), m_pEntitiesDockWidget);
+    auto pEntitiesWidget = new EntitiesWidget(m_vm, m_pEntitiesDockWidget);
     m_pEntitiesDockWidget->setWidget(pEntitiesWidget);
 
     //
@@ -221,29 +215,15 @@ void MainWindow::InitWidgets()
 
 void MainWindow::BindVM()
 {
-    connect(m_vm.get(), &MainWindowVM::VM_OnPackageSelected, this, &MainWindow::VM_OnPackageSelected);
-    connect(m_vm.get(), &MainWindowVM::VM_OnConstructSelected, this, &MainWindow::VM_OnConstructSelected);
-    connect(m_vm.get(), &MainWindowVM::VM_OnComponentInvalidated, this, &MainWindow::VM_OnComponentInvalidated);
+    connect(m_vm.get(), &MainWindowVM::VM_ErrorDialogShow, this, &MainWindow::VM_ErrorDialogShow);
+    connect(m_vm.get(), &MainWindowVM::VM_ProgressDialogShow, this, &MainWindow::VM_ProgressDialogShow);
+    connect(m_vm.get(), &MainWindowVM::VM_ProgressDialogUpdate, this, &MainWindow::VM_ProgressDialogUpdate);
+    connect(m_vm.get(), &MainWindowVM::VM_ProgressDialogClose, this, &MainWindow::VM_ProgressDialogClose);
+    connect(m_vm.get(), &MainWindowVM::VM_OnPackageChanged, this, &MainWindow::VM_OnPackageChanged);
 }
 
 void MainWindow::closeEvent(QCloseEvent *e)
 {
-    // Cancel and wait for the package load thread to finish, if one is running.
-    //
-    // Note: Qt will have automatically done work to forcefully stop the thread's
-    // event loop by this point so, us running Cancel logic won't actually do anything.
-    if (m_pPackageLoadThread != nullptr)
-    {
-        if (m_pPackageLoadThread->isRunning())
-        {
-            m_pPackageLoadThread->Cancel();
-            m_pPackageLoadThread->wait(QDeadlineTimer::Forever);
-        }
-
-        m_pPackageLoadThread = nullptr;
-    }
-
-    m_qtFutureNotifier->Destroy();
     m_pAccelaWindow->Destroy();
 
     QWidget::closeEvent(e);
@@ -262,7 +242,7 @@ void MainWindow::UI_OnMenuFile_OpenPackageTriggered(bool)
         return;
     }
 
-    LoadPackage(std::filesystem::path(packageFile.toStdString()));
+    m_vm->OnLoadPackage(std::filesystem::path(packageFile.toStdString()));
 }
 
 void MainWindow::UI_OnMenuFile_NewPackageTriggered(bool)
@@ -276,52 +256,17 @@ void MainWindow::UI_OnMenuFile_NewPackageTriggered(bool)
         return;
     }
 
-    LoadPackage(*packageFilePath);
+    m_vm->OnLoadPackage(*packageFilePath);
 }
 
 void MainWindow::UI_OnMenuFile_SavePackageTriggered(bool)
 {
-    const auto& package = (*m_vm->GetModel().package);
-    const auto diskPackageSource = std::dynamic_pointer_cast<Platform::DiskPackageSource>(package.source);
-
-    m_logger->Log(Common::LogLevel::Info, "MainWindow: Saving package: {}", package.manifest.GetPackageName());
-    RunThreadWithModalProgressDialog<bool>(
-        tr("Saving..."),
-        tr("Writing package files"),
-        STANDARD_MIN_DURATION,
-        [=](const WorkerThread::WorkControl&) {
-            return Engine::DiskPackage::WritePackageFilesToDisk(diskPackageSource->GetPackageDir(), package);
-        }, [](const WorkerThread::ResultHolder::Ptr& result) {
-            if (!WorkerThread::ResultAs<bool>(result))
-            {
-                DisplayError(tr("Failed to save the package"));
-            }
-        }
-    );
+    m_vm->OnSavePackage();
 }
 
 void MainWindow::UI_OnMenuFile_ClosePackageTriggered(bool)
 {
-    const auto& package = (*m_vm->GetModel().package);
-
-    m_logger->Log(Common::LogLevel::Info, "MainWindow: Closing package: {}", package.manifest.GetPackageName());
-    RunThreadWithModalProgressDialog<bool>(
-        tr("Closing..."),
-        tr("Closing package"),
-        STANDARD_MIN_DURATION,
-        [=,this](const WorkerThread::WorkControl&) {
-            m_sceneEntitySyncer->DestroyAllEntities().get();
-            m_sceneEntitySyncer->DestroyAllResources().get();
-            return true;
-        }, [this](const WorkerThread::ResultHolder::Ptr& result) {
-            if (!WorkerThread::ResultAs<bool>(result))
-            {
-                DisplayError(tr("Failed to close the package"));
-            }
-
-            m_vm->OnPackageSelected(std::nullopt);
-        }
-    );
+    m_vm->OnClosePackage();
 }
 
 void MainWindow::UI_OnMenuFile_ExitTriggered(bool)
@@ -358,75 +303,6 @@ void MainWindow::UI_OnDockWidgetVisibilityChanged(bool)
     m_pEntityWindowAction->setEnabled(!m_pEntityDockWidget->isVisible());
 }
 
-void MainWindow::OnProgressUpdate(unsigned int progress, unsigned int total, const std::string& progressText)
-{
-    if (m_pProgressDialog)
-    {
-        m_pProgressDialog->setValue((int)progress);
-        m_pProgressDialog->setMaximum((int)total);
-        m_pProgressDialog->setLabelText(QString::fromStdString(progressText));
-    }
-}
-
-void MainWindow::OnProgressFinished()
-{
-    if (m_pProgressDialog)
-    {
-        m_pProgressDialog->close();
-        m_pProgressDialog = nullptr;
-    }
-}
-
-void MainWindow::OnPackageLoadFinished(const std::expected<Engine::Package, unsigned int>& result)
-{
-    m_pPackageLoadThread = nullptr;
-
-    if (!result)
-    {
-        DisplayError(QString::fromStdString(std::format("Failed to open package, error code: {:#x}", result.error())));
-        return;
-    }
-
-    m_vm->OnPackageSelected(*result);
-}
-
-void MainWindow::VM_OnPackageSelected(const std::optional<Engine::Package>& package)
-{
-    UpdateWindowTitle();
-
-    // Update actions for the package
-    m_pSavePackageAction->setEnabled(package.has_value());
-    m_pClosePackageAction->setEnabled(package.has_value());
-}
-
-void MainWindow::VM_OnConstructSelected(const std::optional<Engine::Construct::Ptr>& construct)
-{
-    if (!construct)
-    {
-        return;
-    }
-
-    RunThreadWithModalProgressDialog<bool>(
-        tr("Opening..."),
-        tr("Opening construct"),
-        STANDARD_MIN_DURATION,
-        [=,this](const WorkerThread::WorkControl&) {
-            m_sceneEntitySyncer->BlockingFullSyncConstruct(construct);
-            return true;
-        }, [](const WorkerThread::ResultHolder::Ptr& result) {
-            if (!WorkerThread::ResultAs<bool>(result))
-            {
-                DisplayError(tr("Failed to open the construct"));
-            }
-        }
-    );
-}
-
-void MainWindow::VM_OnComponentInvalidated(const Engine::CEntity::Ptr& entity, const Engine::Component::Ptr& component)
-{
-    (void)m_sceneEntitySyncer->UpdateEntityComponent(entity->name, component);
-}
-
 void MainWindow::UpdateWindowTitle()
 {
     if (m_vm->GetModel().package)
@@ -441,70 +317,61 @@ void MainWindow::UpdateWindowTitle()
     }
 }
 
-void MainWindow::DisplayProgressDialog(const QString& title, const unsigned int& minimumDurationMs)
+void MainWindow::VM_ErrorDialogShow(const std::string& title, const std::string& message)
+{
+    DisplayError(tr(title.c_str()), tr(message.c_str()));
+}
+
+void MainWindow::VM_ProgressDialogShow(const std::string& title)
 {
     assert(m_pProgressDialog == nullptr);
+    if (m_pProgressDialog != nullptr)
+    {
+        return;
+    }
 
     m_pProgressDialog = new QProgressDialog(this);
-    m_pProgressDialog->setWindowTitle(title);
+    m_pProgressDialog->setWindowTitle(tr(title.c_str()));
     m_pProgressDialog->setCancelButtonText(tr("Cancel"));
     m_pProgressDialog->setModal(true);
-    m_pProgressDialog->setMinimumDuration((int)minimumDurationMs);
-}
-
-void MainWindow::LoadPackage(const std::filesystem::path& packageFilePath)
-{
-    assert(m_pPackageLoadThread == nullptr);
-
-    DisplayProgressDialog(tr("Loading package"), STANDARD_MIN_DURATION);
-
-    // Create a PackageLoadThread instance which will load the package and send events to us about its progress
-    //
-    // Note: PackageLoadThread will destroy all entities/resources as needed to prepare for the new package
-    m_pPackageLoadThread = new PackageLoadThread(this, m_sceneEntitySyncer.get(), packageFilePath);
-    connect(m_pProgressDialog, &QProgressDialog::canceled, m_pPackageLoadThread, &PackageLoadThread::Cancel);
-    connect(m_pPackageLoadThread, &PackageLoadThread::ProgressUpdate, this, &MainWindow::OnProgressUpdate);
-    connect(m_pPackageLoadThread, &PackageLoadThread::PackageLoadFinished, this, &MainWindow::OnPackageLoadFinished);
-    connect(m_pPackageLoadThread, &PackageLoadThread::finished, this, &MainWindow::OnProgressFinished);
-    connect(m_pPackageLoadThread, &PackageLoadThread::finished, m_pPackageLoadThread, &QObject::deleteLater);
-
-    m_pPackageLoadThread->start();
-}
-
-template<typename ResultType>
-void MainWindow::RunThreadWithModalProgressDialog(const QString& progressTitle,
-                                                  const QString& progressLabel,
-                                                  const unsigned int& minimumDurationMs,
-                                                  const std::function<ResultType(const WorkerThread::WorkControl&)>& runLogic,
-                                                  const std::function<void(WorkerThread::ResultHolder::Ptr)>& resultLogic)
-{
-    DisplayProgressDialog(progressTitle, minimumDurationMs);
-    m_pProgressDialog->setValue(0);
+    m_pProgressDialog->setMinimumDuration((int)STANDARD_MIN_DURATION);
     m_pProgressDialog->setMaximum(1);
-    m_pProgressDialog->setLabelText(progressLabel);
+    m_pProgressDialog->setValue(0);
 
-    auto workerThread = WorkerThread::Create<ResultType>(this, runLogic);
+    connect(m_pProgressDialog, &QProgressDialog::canceled, m_vm.get(), &MainWindowVM::OnProgressCancelled);
+}
 
-    // If the progress dialog is cancelled, pass that signal to the worker thread / worker logic
-    connect(m_pProgressDialog, &QProgressDialog::canceled, workerThread, &WorkerThread::OnCancelled);
+void MainWindow::VM_ProgressDialogUpdate(unsigned int progress, unsigned int total, const std::string& status)
+{
+    assert(m_pProgressDialog != nullptr);
 
-    // When the thread finishes running, close the progress dialog
-    connect(workerThread, &WorkerThread::finished, this, &MainWindow::OnProgressFinished);
+    if (m_pProgressDialog)
+    {
+        m_pProgressDialog->setValue((int)progress);
+        m_pProgressDialog->setMaximum((int)total);
+        m_pProgressDialog->setLabelText(tr(status.c_str()));
+    }
+}
 
-    // When the thread finishes running, run its result logic.
-    //
-    // Note: we do this on the 'finished' signal rather than the 'OnResult' signal so that the
-    // progress dialog will have been closed before processing the result, so the result logic can
-    // start a new progress dialog flow as desired without erroring out because a progress dialog is
-    // still already open.
-    connect(workerThread, &WorkerThread::finished, this, [=](){
-        std::invoke(resultLogic, workerThread->GetResult());
-    });
+void MainWindow::VM_ProgressDialogClose()
+{
+    assert(m_pProgressDialog != nullptr);
 
-    // When the thread finishes running, schedule it to be deleted
-    connect(workerThread, &WorkerThread::finished, workerThread, &QObject::deleteLater);
+    if (m_pProgressDialog)
+    {
+        m_pProgressDialog->close();
+        m_pProgressDialog = nullptr;
+    }
+}
 
-    workerThread->start();
+void MainWindow::VM_OnPackageChanged(const std::optional<Engine::Package>& package)
+{
+    // Update the window title to contain the package name
+    UpdateWindowTitle();
+
+    // Update available actions for the package
+    m_pSavePackageAction->setEnabled(package.has_value());
+    m_pClosePackageAction->setEnabled(package.has_value());
 }
 
 }

@@ -35,19 +35,23 @@ void ConstructsWidget::InitUI()
     //
     m_pConstructsListWidget = new QListWidget();
     connect(m_pConstructsListWidget, &QListWidget::currentRowChanged, this, &ConstructsWidget::UI_OnConstructsCurrentRowChanged);
-    UpdateConstructsListContents();
 
     //
     // Main layout
     //
     auto pLayout = new QVBoxLayout(this);
     pLayout->addWidget(m_pConstructsListWidget, 1);
+
+    //
+    // Initial contents update
+    //
+    UpdateConstructsListContents();
 }
 
 void ConstructsWidget::BindVM()
 {
-    connect(m_mainVM.get(), &MainWindowVM::VM_OnPackageSelected, this, &ConstructsWidget::VM_OnPackageSelected);
-    connect(m_mainVM.get(), &MainWindowVM::VM_OnConstructSelected, this, &ConstructsWidget::VM_OnConstructSelected);
+    connect(m_mainVM.get(), &MainWindowVM::VM_OnPackageChanged, this, &ConstructsWidget::VM_OnPackageChanged);
+    connect(m_mainVM.get(), &MainWindowVM::VM_OnConstructChanged, this, &ConstructsWidget::VM_OnConstructChanged);
 }
 
 void ConstructsWidget::UI_OnConstructsCurrentRowChanged(int index)
@@ -58,12 +62,14 @@ void ConstructsWidget::UI_OnConstructsCurrentRowChanged(int index)
         return;
     }
 
+    // If no construct selected, tell the VM that
     if (index < 0)
     {
-        m_mainVM->OnConstructSelected(std::nullopt);
+        m_mainVM->OnLoadConstruct(std::nullopt);
         return;
     }
 
+    // Otherwise, tell the VM about the construct that's now selected
     const auto& constructs = m_mainVM->GetModel().package->constructs;
 
     if (index >= (int)constructs.size())
@@ -72,23 +78,23 @@ void ConstructsWidget::UI_OnConstructsCurrentRowChanged(int index)
         return;
     }
 
-    m_mainVM->OnConstructSelected(constructs.at(index));
+    m_mainVM->OnLoadConstruct(constructs.at(index)->GetName());
 }
 
-void ConstructsWidget::VM_OnPackageSelected(const std::optional<Engine::Package>&)
+void ConstructsWidget::VM_OnPackageChanged(const std::optional<Engine::Package>&)
 {
     UpdateConstructsListContents();
 }
 
-void ConstructsWidget::VM_OnConstructSelected(const std::optional<Engine::Construct::Ptr>& selected)
+void ConstructsWidget::VM_OnConstructChanged(const std::optional<Engine::Construct::Ptr>& construct)
 {
     int index = -1;
 
     unsigned int currentIndex = 0;
 
-    for (const auto& construct : m_mainVM->GetModel().package->constructs)
+    for (const auto& it : m_mainVM->GetModel().package->constructs)
     {
-        if (construct == selected)
+        if (it == construct)
         {
             index = (int)currentIndex;
         }

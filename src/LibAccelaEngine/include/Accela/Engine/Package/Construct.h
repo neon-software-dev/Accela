@@ -38,6 +38,7 @@ namespace Accela::Engine
             [[nodiscard]] const std::vector<CEntity::Ptr>& GetEntities() const noexcept { return m_entities; }
 
             void AddEntity(const CEntity::Ptr& entity);
+            void RemoveEntity(const std::string& entityName);
 
         private:
 

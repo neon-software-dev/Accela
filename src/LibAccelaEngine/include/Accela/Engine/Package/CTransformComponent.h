@@ -9,7 +9,7 @@
 
 #include <Accela/Engine/Package/Component.h>
 
-#include <Accela/Engine/Component/TransformComponent.h>
+#include <glm/glm.hpp>
 
 namespace Accela::Engine
 {
@@ -18,15 +18,19 @@ namespace Accela::Engine
         using Ptr = std::shared_ptr<CTransformComponent>;
 
         CTransformComponent() = default;
-
-        explicit CTransformComponent(TransformComponent _component)
-            : component(_component)
+        CTransformComponent(const glm::vec3& _position, const glm::vec3& _eulerRotation, const glm::vec3& _scale)
+            : position(_position)
+            , eulerRotation(_eulerRotation)
+            , scale(_scale)
         { }
 
         [[nodiscard]] Component::Type GetType() const override { return Component::Type::Transform; }
         [[nodiscard]] bool IsComplete() const override { return true; };
 
-        TransformComponent component;
+        glm::vec3 position{0.0f};
+        // Stored as euler angles for use in editor, converted to quaternions at engine interface
+        glm::vec3 eulerRotation{0.0f};
+        glm::vec3 scale{100.0f};
     };
 }
 

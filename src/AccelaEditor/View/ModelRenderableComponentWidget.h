@@ -7,10 +7,10 @@
 #ifndef ACCELAEDITOR_VIEW_MODELRENDERABLECOMPONENTWIDGET_H
 #define ACCELAEDITOR_VIEW_MODELRENDERABLECOMPONENTWIDGET_H
 
+#include "ComponentWidget.h"
+
 #include <Accela/Engine/Package/CEntity.h>
 #include <Accela/Engine/Package/CModelRenderableComponent.h>
-
-#include <QWidget>
 
 #include <memory>
 
@@ -20,7 +20,7 @@ namespace Accela
 {
     class MainWindowVM;
 
-    class ModelRenderableComponentWidget : public QWidget
+    class ModelRenderableComponentWidget : public ComponentWidget
     {
         Q_OBJECT
 
@@ -38,14 +38,12 @@ namespace Accela
 
         private:
 
-            void InitUI();
+            void InitUI(QBoxLayout* pContentLayout);
             void BindVM();
 
             void UpdateModelComboContents();
 
         private:
-
-            std::shared_ptr<MainWindowVM> m_mainVM;
 
             QComboBox* m_pModelComboBox{nullptr};
 

@@ -58,6 +58,7 @@ namespace Accela
             void ProcessSceneQuitCommand(const SceneQuitCommand::Ptr& cmd);
             void ProcessLoadPackageResourcesCommand(const LoadPackageResourcesCommand::Ptr& cmd);
             void ProcessDestroySceneResourcesCommand(const DestroySceneResourcesCommand::Ptr& cmd);
+            void ProcessDestroyEntityCommand(const DestroyEntityCommand::Ptr& cmd);
             void ProcessDestroyAllEntitiesCommand(const DestroyAllEntitiesCommand::Ptr& cmd);
             void ProcessCreateEntityCommand(const CreateEntityCommand::Ptr& cmd);
             void ProcessSetEntityComponentCommand(const SetEntityComponentCommand::Ptr& cmd);

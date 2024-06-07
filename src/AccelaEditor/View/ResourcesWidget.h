@@ -35,7 +35,7 @@ namespace Accela
             void UI_TypeComboCurrentIndexChanged(int index);
 
             // Signals from the ViewModel
-            void VM_OnPackageSelected(const std::optional<Engine::Package>& package);
+            void VM_OnPackageChanged(const std::optional<Engine::Package>& package);
 
         private:
 

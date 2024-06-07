@@ -18,10 +18,9 @@
 namespace Accela
 {
 
-EntitiesWidget::EntitiesWidget(std::shared_ptr<MainWindowVM> mainVM, SceneSyncer* pSceneEntitySyncer, QWidget *pParent)
+EntitiesWidget::EntitiesWidget(std::shared_ptr<MainWindowVM> mainVM, QWidget *pParent)
     : QWidget(pParent)
     , m_mainVM(std::move(mainVM))
-    , m_pSceneEntitySyncer(pSceneEntitySyncer)
 {
     InitUI();
     BindVM();
@@ -29,8 +28,8 @@ EntitiesWidget::EntitiesWidget(std::shared_ptr<MainWindowVM> mainVM, SceneSyncer
 
 EntitiesWidget::~EntitiesWidget()
 {
-    m_pSceneEntitySyncer = nullptr;
     m_pCreateEntityPushButton = nullptr;
+    m_pDeleteEntityPushButton = nullptr;
     m_pEntitiesListWidget = nullptr;
 }
 
@@ -46,7 +45,12 @@ void EntitiesWidget::InitUI()
     m_pCreateEntityPushButton->setIcon(QIcon(":/icons/add.png"));
     connect(m_pCreateEntityPushButton, &QPushButton::clicked, this, &EntitiesWidget::UI_OnActionCreateEntityTriggered);
 
+    m_pDeleteEntityPushButton = new QPushButton();
+    m_pDeleteEntityPushButton->setIcon(QIcon(":/icons/delete.png"));
+    connect(m_pDeleteEntityPushButton, &QPushButton::clicked, this, &EntitiesWidget::UI_OnActionDeleteEntityTriggered);
+
     pActionsLayout->addWidget(m_pCreateEntityPushButton);
+    pActionsLayout->addWidget(m_pDeleteEntityPushButton);
 
     //
     // Entities List Widget
@@ -70,19 +74,19 @@ void EntitiesWidget::InitUI()
 
 void EntitiesWidget::BindVM()
 {
-    connect(m_mainVM.get(), &MainWindowVM::VM_OnConstructSelected, this, &EntitiesWidget::VM_OnConstructSelected);
+    connect(m_mainVM.get(), &MainWindowVM::VM_OnConstructChanged, this, &EntitiesWidget::VM_OnConstructChanged);
     connect(m_mainVM.get(), &MainWindowVM::VM_OnConstructInvalidated, this, &EntitiesWidget::VM_OnConstructInvalidated);
+    connect(m_mainVM.get(), &MainWindowVM::VM_OnEntityChanged, this, &EntitiesWidget::VM_OnEntityChanged);
 }
 
 void EntitiesWidget::UI_OnActionCreateEntityTriggered(bool)
 {
-    const auto entity = std::make_shared<Engine::CEntity>(GetNewEntityName());
+    m_mainVM->OnCreateEntity();
+}
 
-    m_pSceneEntitySyncer->BlockingCreateEntity(entity);
-
-    (*m_mainVM->GetModel().construct)->AddEntity(entity);
-
-    m_mainVM->OnConstructInvalidated();
+void EntitiesWidget::UI_OnActionDeleteEntityTriggered(bool)
+{
+    m_mainVM->OnDeleteEntity();
 }
 
 void EntitiesWidget::UI_OnEntityListCurrentRowChanged(int currentRow)
@@ -103,10 +107,13 @@ void EntitiesWidget::UI_OnEntityListCurrentRowChanged(int currentRow)
         entity = constructEntities.at(currentRow);
     }
 
-    m_mainVM->OnEntitySelected(entity);
+    if (entity.has_value())
+    {
+        m_mainVM->OnLoadEntity((*entity)->name);
+    }
 }
 
-void EntitiesWidget::VM_OnConstructSelected(const std::optional<Engine::Construct::Ptr>&)
+void EntitiesWidget::VM_OnConstructChanged(const std::optional<Engine::Construct::Ptr>&)
 {
     UpdateToolbarActions();
     UpdateEntitiesListContents();
@@ -117,9 +124,15 @@ void EntitiesWidget::VM_OnConstructInvalidated(const Engine::Construct::Ptr&)
     UpdateEntitiesListContents();
 }
 
+void EntitiesWidget::VM_OnEntityChanged(const std::optional<Engine::CEntity::Ptr>&)
+{
+    UpdateToolbarActions();
+}
+
 void EntitiesWidget::UpdateToolbarActions()
 {
     m_pCreateEntityPushButton->setEnabled(m_mainVM->GetModel().construct.has_value());
+    m_pDeleteEntityPushButton->setEnabled(m_mainVM->GetModel().entity.has_value());
 }
 
 void EntitiesWidget::UpdateEntitiesListContents()
@@ -161,40 +174,6 @@ void EntitiesWidget::UpdateEntitiesListContents()
     }
 
     m_updatingEntitiesList = false;
-
-    ////
-
-    // Now that the list is re-created, if the entity the VM thinks is selected wasn't
-    // a valid option in the list, tell the VM about this
-    if (m_mainVM->GetModel().entity.has_value() && selectedEntityItem == nullptr)
-    {
-        m_mainVM->OnEntitySelected(std::nullopt);
-    }
-}
-
-std::string EntitiesWidget::GetNewEntityName() const
-{
-    unsigned int firstFreePostfix = 1;
-
-    for (const auto& entity : (*m_mainVM->GetModel().construct)->GetEntities())
-    {
-        if (entity->name.starts_with(Engine::DEFAULT_CENTITY_NAME) &&
-            entity->name.length() >= Engine::DEFAULT_CENTITY_NAME.length() + 2)
-        {
-            const auto postFix = entity->name.substr(Engine::DEFAULT_CENTITY_NAME.length());
-
-            try
-            {
-                const auto postFixInt = std::stoi(postFix);
-
-                firstFreePostfix = std::max((int)firstFreePostfix, postFixInt + 1);
-            }
-            catch (std::exception& e)
-            { }
-        }
-    }
-
-    return std::format("{} {}", Engine::DEFAULT_CENTITY_NAME, firstFreePostfix);
 }
 
 }

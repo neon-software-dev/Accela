@@ -16,25 +16,18 @@ namespace Accela
 {
 
 ModelRenderableComponentWidget::ModelRenderableComponentWidget(std::shared_ptr<MainWindowVM> mainVM, QWidget *pParent)
-    : QWidget(pParent)
-    , m_mainVM(std::move(mainVM))
+    : ComponentWidget(tr("Model Renderable"), Engine::Component::Type::ModelRenderable, std::move(mainVM), pParent)
 {
-    InitUI();
+    InitUI(CreateComponentUI());
 }
 
-void ModelRenderableComponentWidget::InitUI()
+void ModelRenderableComponentWidget::InitUI(QBoxLayout* pContentLayout)
 {
-    auto pGroupBox = new QGroupBox(tr("Model Renderable Component"), this);
-    auto pGroupBoxLayout = new QVBoxLayout(pGroupBox);
-
     m_pModelComboBox = new QComboBox();
     m_pModelComboBox->setCurrentIndex(-1);
     connect(m_pModelComboBox, &QComboBox::currentIndexChanged, this, &ModelRenderableComponentWidget::UI_OnModelComboCurrentIndexChanged);
 
-    pGroupBoxLayout->addWidget(m_pModelComboBox);
-
-    auto pLayout = new QVBoxLayout(this);
-    pLayout->addWidget(pGroupBox);
+    pContentLayout->addWidget(m_pModelComboBox);
 
     //
     // Initial Contents Update
@@ -60,7 +53,7 @@ void ModelRenderableComponentWidget::UI_OnModelComboCurrentIndexChanged(int inde
         return;
     }
 
-    auto modelRenderableComponent = m_mainVM->GetEntityComponent<Engine::CModelRenderableComponent>(Engine::Component::Type::ModelRenderable);
+    auto modelRenderableComponent = m_mainVM->GetModel().GetEntityComponent<Engine::CModelRenderableComponent>(Engine::Component::Type::ModelRenderable);
     if (!modelRenderableComponent)
     {
         assert(false);
@@ -84,7 +77,7 @@ void ModelRenderableComponentWidget::UI_OnModelComboCurrentIndexChanged(int inde
         selectedResourceName
     );
 
-    m_mainVM->OnComponentInvalidated(*modelRenderableComponent);
+    m_mainVM->OnComponentModified(*modelRenderableComponent);
 }
 
 void ModelRenderableComponentWidget::VM_OnComponentInvalidated(const Engine::CEntity::Ptr&, const Engine::Component::Ptr& component)
@@ -123,7 +116,7 @@ void ModelRenderableComponentWidget::UpdateModelComboContents()
         return;
     }
 
-    auto modelRenderableComponent = m_mainVM->GetEntityComponent<Engine::CModelRenderableComponent>(Engine::Component::Type::ModelRenderable);
+    auto modelRenderableComponent = m_mainVM->GetModel().GetEntityComponent<Engine::CModelRenderableComponent>(Engine::Component::Type::ModelRenderable);
     if (!modelRenderableComponent)
     {
         assert(false);

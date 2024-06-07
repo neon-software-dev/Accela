@@ -48,6 +48,18 @@ namespace Accela
         CreateEntityCommand() : Common::ResultMessage<Engine::EntityId>(TYPE) { }
     };
 
+    struct DestroyEntityCommand : public Common::ResultMessage<bool>
+    {
+        using Ptr = std::shared_ptr<DestroyEntityCommand>;
+        static constexpr auto TYPE = "DestroyEntityCommand";
+        explicit DestroyEntityCommand(const Engine::EntityId& _eid)
+            : Common::ResultMessage<bool>(TYPE)
+            , eid(_eid)
+            { }
+
+        Engine::EntityId eid;
+    };
+
     struct DestroyAllEntitiesCommand : public Common::ResultMessage<bool>
     {
         using Ptr = std::shared_ptr<DestroyAllEntitiesCommand>;

@@ -62,6 +62,8 @@ void EditorScene::ProcessMessage(const Common::Message::Ptr& message)
         ProcessLoadPackageResourcesCommand(std::dynamic_pointer_cast<LoadPackageResourcesCommand>(message));
     } else if (message->GetTypeIdentifier() == DestroySceneResourcesCommand::TYPE) {
         ProcessDestroySceneResourcesCommand(std::dynamic_pointer_cast<DestroySceneResourcesCommand>(message));
+    } else if (message->GetTypeIdentifier() == DestroyEntityCommand::TYPE) {
+        ProcessDestroyEntityCommand(std::dynamic_pointer_cast<DestroyEntityCommand>(message));
     } else if (message->GetTypeIdentifier() == DestroyAllEntitiesCommand::TYPE) {
         ProcessDestroyAllEntitiesCommand(std::dynamic_pointer_cast<DestroyAllEntitiesCommand>(message));
     } else if (message->GetTypeIdentifier() == CreateEntityCommand::TYPE) {
@@ -87,6 +89,12 @@ void EditorScene::ProcessLoadPackageResourcesCommand(const LoadPackageResourcesC
 void EditorScene::ProcessDestroySceneResourcesCommand(const DestroySceneResourcesCommand::Ptr& cmd)
 {
     engine->GetWorldResources()->DestroyAll();
+    cmd->SetResult(true);
+}
+
+void EditorScene::ProcessDestroyEntityCommand(const DestroyEntityCommand::Ptr& cmd)
+{
+    engine->GetWorldState()->DestroyEntity(cmd->eid);
     cmd->SetResult(true);
 }
 
@@ -129,12 +137,34 @@ void EditorScene::ProcessSetEntityComponentCommand(const SetEntityComponentComma
     switch (cmd->component->GetType())
     {
         case Engine::Component::Type::Transform:
-            Engine::AddOrUpdateComponent(engine->GetWorldState(), cmd->eid, std::dynamic_pointer_cast<Engine::CTransformComponent>(cmd->component)->component);
+        {
+            const auto cTransformComponent = std::dynamic_pointer_cast<Engine::CTransformComponent>(cmd->component);
+
+            auto engineComponent = Engine::TransformComponent();
+            engineComponent.SetPosition(cTransformComponent->position);
+
+            engineComponent.SetOrientation(
+                glm::angleAxis(glm::radians(cTransformComponent->eulerRotation.x), glm::vec3(1,0,0)) *
+                glm::angleAxis(glm::radians(cTransformComponent->eulerRotation.y), glm::vec3(0,1,0)) *
+                glm::angleAxis(glm::radians(cTransformComponent->eulerRotation.z), glm::vec3(0,0,1))
+            );
+
+            // Divided by 100 to convert from editor 100% to engine 1.0f
+            engineComponent.SetScale(cTransformComponent->scale / 100.0f);
+
+            Engine::AddOrUpdateComponent(engine->GetWorldState(), cmd->eid, engineComponent);
+        }
         break;
         case Engine::Component::Type::ModelRenderable:
-            Engine::AddOrUpdateComponent(engine->GetWorldState(), cmd->eid, std::dynamic_pointer_cast<Engine::CModelRenderableComponent>(cmd->component)->component);
+        {
+            auto engineComponent = std::dynamic_pointer_cast<Engine::CModelRenderableComponent>(cmd->component)->component;
+
+            Engine::AddOrUpdateComponent(engine->GetWorldState(), cmd->eid, engineComponent);
+        }
         break;
     }
+
+    cmd->SetResult(true);
 }
 
 }

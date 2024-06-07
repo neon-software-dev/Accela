@@ -30,8 +30,8 @@ namespace Accela
 
             void UI_OnConstructsCurrentRowChanged(int index);
 
-            void VM_OnPackageSelected(const std::optional<Engine::Package>& package);
-            void VM_OnConstructSelected(const std::optional<Engine::Construct::Ptr>& construct);
+            void VM_OnPackageChanged(const std::optional<Engine::Package>& package);
+            void VM_OnConstructChanged(const std::optional<Engine::Construct::Ptr>& construct);
 
         private:
 

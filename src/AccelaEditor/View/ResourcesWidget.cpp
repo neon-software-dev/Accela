@@ -59,7 +59,7 @@ void ResourcesWidget::InitUI()
 
 void ResourcesWidget::BindVM()
 {
-    connect(m_mainVM.get(), &MainWindowVM::VM_OnPackageSelected, this, &ResourcesWidget::VM_OnPackageSelected);
+    connect(m_mainVM.get(), &MainWindowVM::VM_OnPackageChanged, this, &ResourcesWidget::VM_OnPackageChanged);
 }
 
 void ResourcesWidget::UI_TypeComboCurrentIndexChanged(int)
@@ -67,7 +67,7 @@ void ResourcesWidget::UI_TypeComboCurrentIndexChanged(int)
     UpdateResourcesListContents();
 }
 
-void ResourcesWidget::VM_OnPackageSelected(const std::optional<Engine::Package>&)
+void ResourcesWidget::VM_OnPackageChanged(const std::optional<Engine::Package>&)
 {
     UpdateResourcesListContents();
 }
