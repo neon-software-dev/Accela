@@ -157,9 +157,15 @@ bool RendererVk::CreatePrograms()
         return false;
     }
 
-    if (!m_programs->CreateProgram("Object", {"Object.vert.spv", "Object.frag.spv"}))
+    if (!m_programs->CreateProgram("ObjectDeferred", {"Object.vert.spv", "ObjectDeferred.frag.spv"}))
     {
         m_logger->Log(Common::LogLevel::Error, "CreatePrograms: Failed to create Object program");
+        return false;
+    }
+
+    if (!m_programs->CreateProgram("ObjectForward", {"Object.vert.spv", "ObjectForward.frag.spv"}))
+    {
+        m_logger->Log(Common::LogLevel::Error, "CreatePrograms: Failed to create ObjectForward program");
         return false;
     }
 
@@ -169,7 +175,13 @@ bool RendererVk::CreatePrograms()
         return false;
     }
 
-    if (!m_programs->CreateProgram("BoneObject", {"BoneObject.vert.spv", "Object.frag.spv"}))
+    if (!m_programs->CreateProgram("BoneObjectDeferred", {"BoneObject.vert.spv", "ObjectDeferred.frag.spv"}))
+    {
+        m_logger->Log(Common::LogLevel::Error, "CreatePrograms: Failed to create BoneObject program");
+        return false;
+    }
+
+    if (!m_programs->CreateProgram("BoneObjectForward", {"BoneObject.vert.spv", "ObjectForward.frag.spv"}))
     {
         m_logger->Log(Common::LogLevel::Error, "CreatePrograms: Failed to create BoneObject program");
         return false;
@@ -181,7 +193,7 @@ bool RendererVk::CreatePrograms()
         return false;
     }
 
-    if (!m_programs->CreateProgram("Terrain", {"Terrain.tesc.spv", "Terrain.tese.spv", "Terrain.vert.spv", "Object.frag.spv"}))
+    if (!m_programs->CreateProgram("TerrainDeferred", {"Terrain.tesc.spv", "Terrain.tese.spv", "Terrain.vert.spv", "ObjectDeferred.frag.spv"}))
     {
         m_logger->Log(Common::LogLevel::Error, "CreatePrograms: Failed to create Terrain program");
         return false;
@@ -753,60 +765,53 @@ void RendererVk::OffscreenRender(const std::string& sceneName,
     const auto offscreenRenderPass = m_vulkanObjs->GetOffscreenRenderPass();
 
     //
-    // GPass Opaque Subpass
+    // Opaque Deferred Subpass
     //
     {
-        CmdBufferSectionLabel sectionLabel(m_vulkanObjs->GetCalls(), graphicsCommandBuffer, "GPassOpaque");
+        CmdBufferSectionLabel sectionLabel(m_vulkanObjs->GetCalls(), graphicsCommandBuffer, "Deferred");
 
-        m_objectRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
-            .Render(
-                sceneName,
-                RenderType::GpassOpaque,
-                renderParams,
-                graphicsCommandBuffer,
-                offscreenRenderPass,
-                framebufferObjs.GetFramebuffer(),
-                viewProjections,
-                std::nullopt
-            );
+        //
+        // Opaque Objects
+        //
+        {
+            CmdBufferSectionLabel innerSectionLabel(m_vulkanObjs->GetCalls(), graphicsCommandBuffer, "ObjectOpaque");
 
-        m_terrainRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
-            .Render(
-                sceneName,
-                renderParams,
-                graphicsCommandBuffer,
-                offscreenRenderPass,
-                framebufferObjs.GetFramebuffer(),
-                viewProjections
-            );
-    }
+            m_objectRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
+                .Render(
+                    sceneName,
+                    RenderType::GpassOpaque,
+                    renderParams,
+                    graphicsCommandBuffer,
+                    offscreenRenderPass,
+                    framebufferObjs.GetFramebuffer(),
+                    viewProjections,
+                    shadowMaps,
+                    std::nullopt
+                );
+        }
 
-    //
-    // GPass Translucent Subpass
-    //
-    {
-        CmdBufferSectionLabel sectionLabel(m_vulkanObjs->GetCalls(), graphicsCommandBuffer, "GPassTranslucent");
-
-        graphicsCommandBuffer->CmdNextSubpass();
-
-        m_objectRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
-            .Render(
-                sceneName,
-                RenderType::GpassTranslucent,
-                renderParams,
-                graphicsCommandBuffer,
-                offscreenRenderPass,
-                framebufferObjs.GetFramebuffer(),
-                viewProjections,
-                std::nullopt
-            );
+        //
+        // Terrain
+        //
+        {
+            CmdBufferSectionLabel innerSectionLabel(m_vulkanObjs->GetCalls(), graphicsCommandBuffer, "Terrain");
+            m_terrainRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
+                .Render(
+                    sceneName,
+                    renderParams,
+                    graphicsCommandBuffer,
+                    offscreenRenderPass,
+                    framebufferObjs.GetFramebuffer(),
+                    viewProjections
+                );
+        }
     }
 
     //
     // Deferred Lighting Subpass
     //
     {
-        CmdBufferSectionLabel sectionLabel(m_vulkanObjs->GetCalls(), graphicsCommandBuffer, "Lighting");
+        CmdBufferSectionLabel sectionLabel(m_vulkanObjs->GetCalls(), graphicsCommandBuffer, "DeferredLighting");
 
         graphicsCommandBuffer->CmdNextSubpass();
 
@@ -835,37 +840,79 @@ void RendererVk::OffscreenRender(const std::string& sceneName,
 
         graphicsCommandBuffer->CmdNextSubpass();
 
-        m_skyBoxRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
-            .Render(
-                renderParams,
-                graphicsCommandBuffer,
-                offscreenRenderPass,
-                framebufferObjs.GetFramebuffer(),
-                viewProjections
-            );
+        //
+        // Debug Triangles
+        //
+        {
+            CmdBufferSectionLabel innerSectionLabel(m_vulkanObjs->GetCalls(), graphicsCommandBuffer, "DebugTriangle");
 
+            m_rawTriangleRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
+                .Render(
+                    renderParams,
+                    graphicsCommandBuffer,
+                    offscreenRenderPass,
+                    framebufferObjs.GetFramebuffer(),
+                    viewProjections,
+                    renderParams.debugTriangles
+                );
+        }
+
+        //
+        // Skybox
+        //
+        {
+            CmdBufferSectionLabel innerSectionLabel(m_vulkanObjs->GetCalls(), graphicsCommandBuffer, "SkyBox");
+
+            m_skyBoxRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
+                .Render(
+                    renderParams,
+                    graphicsCommandBuffer,
+                    offscreenRenderPass,
+                    framebufferObjs.GetFramebuffer(),
+                    viewProjections
+                );
+        }
+
+        //
+        // Translucent Objects
+        //
+        {
+            CmdBufferSectionLabel innerSectionLabel(m_vulkanObjs->GetCalls(), graphicsCommandBuffer, "Translucent");
+
+            m_objectRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
+                .Render(
+                    sceneName,
+                    RenderType::GpassTranslucent,
+                    renderParams,
+                    graphicsCommandBuffer,
+                    offscreenRenderPass,
+                    framebufferObjs.GetFramebuffer(),
+                    viewProjections,
+                    shadowMaps,
+                    std::nullopt
+                );
+        }
+
+
+        //
+        // Sprites
+        //
         // TODO: Figure out what to do with sprite renderers when in VR mode. They're currently getting
         //  multiviewed in the pass they're in and drawn twice onto the screen, in a way that isn't even
         //  good for VR. Works fine in non-VR mode though.
-        m_spriteRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
-            .Render(
-                sceneName,
-                renderParams,
-                graphicsCommandBuffer,
-                offscreenRenderPass,
-                framebufferObjs.GetFramebuffer()
-            );
+        //
+        {
+            CmdBufferSectionLabel innerSectionLabel(m_vulkanObjs->GetCalls(), graphicsCommandBuffer, "Sprite");
 
-        // Render debug triangles
-        m_rawTriangleRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
-            .Render(
-                renderParams,
-                graphicsCommandBuffer,
-                offscreenRenderPass,
-                framebufferObjs.GetFramebuffer(),
-                viewProjections,
-                renderParams.debugTriangles
-            );
+            m_spriteRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
+                .Render(
+                    sceneName,
+                    renderParams,
+                    graphicsCommandBuffer,
+                    offscreenRenderPass,
+                    framebufferObjs.GetFramebuffer()
+                );
+        }
     }
 }
 
@@ -1101,6 +1148,7 @@ bool RendererVk::RefreshShadowMap(const RenderParams& renderParams,
                     shadowRenderPass,
                     shadowFramebuffer->GetFramebuffer(),
                     shadowViewProjections,
+                    {},
                     ObjectRenderer::ShadowRenderData(lightMaxAffectRange)
                 );
 

@@ -32,7 +32,8 @@ namespace Accela::Engine
         private:
 
             void ProcessRenderableModelEntity(const RunState::Ptr& runState,
-                                              RenderableStateComponent& renderableComponent,
+                                              entt::registry& registry,
+                                              entt::entity entity,
                                               ModelRenderableComponent& modelComponent);
 
         private:

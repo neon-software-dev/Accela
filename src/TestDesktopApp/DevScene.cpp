@@ -136,21 +136,21 @@ bool DevScene::LoadResources()
     //
     m_solidRedMaterialId = engine->GetWorldResources()->Materials()->LoadObjectMaterial(
         Engine::CRI("Red"),
-        DefineSolidColorMaterial({1,0,0}),
+        DefineColorMaterial({1,0,0,1}),
         Engine::ResultWhen::Ready).get();
     if (m_solidRedMaterialId == Render::INVALID_ID) { return false; }
 
     m_solidWhiteMaterialId = engine->GetWorldResources()->Materials()->LoadObjectMaterial(
         Engine::CRI("White"),
-        DefineSolidColorMaterial({1,1,1}),
+        DefineColorMaterial({1,1,1,1}),
         Engine::ResultWhen::Ready).get();
     if (m_solidWhiteMaterialId == Render::INVALID_ID) { return false; }
 
     Engine::ObjectMaterialProperties terrainMaterial{};
     terrainMaterial.isAffectedByLighting = true;
-    terrainMaterial.ambientColor = {1,1,1};
-    terrainMaterial.diffuseColor = {1,1,1};
-    terrainMaterial.specularColor = {0.0f, 0.0f, 0.0f};
+    terrainMaterial.ambientColor = {1,1,1,1};
+    terrainMaterial.diffuseColor = {1,1,1,1};
+    terrainMaterial.specularColor = {0.0f, 0.0f, 0.0f, 1.0f};
     terrainMaterial.shininess = 32.0f;
     terrainMaterial.ambientTexture = Engine::PRI("TestDesktopApp", "rolling_hills_bitmap.png");
     terrainMaterial.diffuseTexture = Engine::PRI("TestDesktopApp", "rolling_hills_bitmap.png");
@@ -163,7 +163,7 @@ bool DevScene::LoadResources()
     return true;
 }
 
-Engine::ObjectMaterialProperties DevScene::DefineSolidColorMaterial(const glm::vec3& color)
+Engine::ObjectMaterialProperties DevScene::DefineColorMaterial(const glm::vec4& color)
 {
     Engine::ObjectMaterialProperties solidMaterial{};
     solidMaterial.isAffectedByLighting = true;

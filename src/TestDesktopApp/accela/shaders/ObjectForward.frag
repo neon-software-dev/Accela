@@ -12,10 +12,10 @@
 //
 struct GlobalPayload
 {
-    // General
+// General
     mat4 surfaceTransform;          // Projection Space -> Rotated projection space
 
-    // Lighting
+// Lighting
     uint numLights;
     float ambientLightIntensity;
     vec3 ambientLightColor;
@@ -47,6 +47,17 @@ struct LightPayload
     float coneFovDegrees;
 };
 
+struct DrawPayload
+{
+    uint dataIndex;
+    uint materialIndex;
+};
+
+struct ObjectPayload
+{
+    mat4 modelTransform;
+};
+
 struct MaterialPayload
 {
     bool isAffectedByLighting;
@@ -73,6 +84,13 @@ struct MaterialPayload
     bool hasNormalTexture;
 };
 
+const uint ALPHA_MODE_OPAQUE = 0;
+const uint ALPHA_MODE_MASK = 1;
+const uint ALPHA_MODE_BLEND = 2;
+
+//
+// Internal
+//
 struct FragmentColors
 {
     vec4 ambientColor;
@@ -92,27 +110,25 @@ const uint Max_Light_Count = 16;
 const uint SHADOW_MAP_TYPE_SINGLE = 0;
 const uint SHADOW_MAP_TYPE_CUBE = 1;
 
-CalculatedLight CalculateFragmentLighting(MaterialPayload fragmentMaterial);
+FragmentColors CalculateFragmentColors(MaterialPayload materialPayload);
+FragmentColors ProcessAlphaMode(MaterialPayload materialPayload, FragmentColors fragmentColors);
+vec3 CalculateFragmentModelNormal(MaterialPayload materialPayload);
+
+CalculatedLight CalculateFragmentLighting(MaterialPayload fragmentMaterial, vec3 fragmentNormal_viewSpace);
 float GetFragShadowLevel(LightPayload lightData, vec3 fragPosition_worldSpace);
 float GetLightFragDepth(LightPayload lightData, vec3 fragPosition_worldSpace);
 float GetFragShadowLevel_Single(LightPayload lightData, vec3 fragPosition_worldSpace, float lightToFragDepth);
 float GetFragShadowLevel_Cube(LightPayload lightData, vec3 fragPosition_worldSpace, float lightToFragDepth);
 bool IsPointWithinLightCone(LightPayload light, vec3 point_worldSpace);
 
-float MapRange(float val, float min1, float max1, float min2, float max2)
-{
-    return min2 + (val / (max1 - min1)) * (max2 - min2);
-}
-
 //
 // INPUTS
-// TODO Perf: Can get away with 3 component position+normal attachments rather than 4 component
-layout(input_attachment_index = 0, set = 1, binding = 0) uniform subpassInput i_vertexPosition_worldSpace;
-layout(input_attachment_index = 1, set = 1, binding = 1) uniform subpassInput i_vertexNormal_viewSpace;
-layout(input_attachment_index = 2, set = 1, binding = 2) uniform usubpassInput i_vertexMaterial;
-layout(input_attachment_index = 3, set = 1, binding = 3) uniform subpassInput i_vertexAmbientColor;
-layout(input_attachment_index = 4, set = 1, binding = 4) uniform subpassInput i_vertexDiffuseColor;
-layout(input_attachment_index = 5, set = 1, binding = 5) uniform subpassInput i_vertexSpecularColor;
+//
+layout(location = 0) flat in int i_instanceIndex;
+layout(location = 1) in vec2 i_fragTexCoord;
+layout(location = 2) in vec3 i_vertexNormal_modelSpace;
+layout(location = 3) in vec3 i_vertexPosition_worldSpace;
+layout(location = 4) in mat3 i_tbnNormalTransform;
 
 // Set 0 - Global Data
 layout(set = 0, binding = 0) uniform GlobalPayloadUniform
@@ -133,11 +149,28 @@ layout(set = 0, binding = 2) readonly buffer LightPayloadBuffer
 layout(set = 0, binding = 3) uniform sampler2D i_shadowSampler[Max_Light_Count]; // Samplers for spot lights
 layout(set = 0, binding = 4) uniform samplerCube i_shadowSampler_cubeMap[Max_Light_Count]; // Samplers for point lights
 
+// Set 1 - Object Data
+layout(set = 1, binding = 0) readonly buffer ObjectPayloadBuffer
+{
+    ObjectPayload data[];
+} i_objectData;
+
 // Set 2 - Material Data
 layout(set = 2, binding = 0) readonly buffer MaterialPayloadBuffer
 {
     MaterialPayload data[];
 } i_materialData;
+
+layout(set = 2, binding = 1) uniform sampler2D i_ambientSampler;
+layout(set = 2, binding = 2) uniform sampler2D i_diffuseSampler;
+layout(set = 2, binding = 3) uniform sampler2D i_specularSampler;
+layout(set = 2, binding = 4) uniform sampler2D i_normalSampler;
+
+// Set 3 - Draw Data
+layout(set = 3, binding = 0) readonly buffer DrawPayloadBuffer
+{
+    DrawPayload data[];
+} i_drawData;
 
 //
 // OUTPUTS
@@ -146,21 +179,42 @@ layout(location = 0) out vec4 o_fragColor;
 
 void main()
 {
-    const uint fragmentMaterialIndex = subpassLoad(i_vertexMaterial).r;
-    const MaterialPayload fragmentMaterial = i_materialData.data[fragmentMaterialIndex];
+    const DrawPayload drawPayload = i_drawData.data[i_instanceIndex];
+    const ObjectPayload objectPayload = i_objectData.data[drawPayload.dataIndex];
+    const MaterialPayload materialPayload = i_materialData.data[drawPayload.materialIndex];
 
     //
-    // Fetch the fragment's material colors as output by the gpass
+    // Determine the fragment's colors as reported by the model's material
     //
-    FragmentColors fragmentColors;
-    fragmentColors.ambientColor = subpassLoad(i_vertexAmbientColor).rgba;
-    fragmentColors.diffuseColor = subpassLoad(i_vertexDiffuseColor).rgba;
-    fragmentColors.specularColor = subpassLoad(i_vertexSpecularColor).rgba;
+    FragmentColors fragmentColors = CalculateFragmentColors(materialPayload);
+
+    //
+    // Transform the fragment colors by the material's alpha mode
+    //
+    fragmentColors = ProcessAlphaMode(materialPayload, fragmentColors);
+
+    //
+    // Discard fully transparent fragments.
+    // (0.01f used instead of 0.0f to avoid potential precision issues.)
+    //
+    if (fragmentColors.ambientColor.a <= 0.01f &&
+        fragmentColors.diffuseColor.a <= 0.01f &&
+        fragmentColors.specularColor.a <= 0.01f)
+    {
+        discard;
+    }
+
+    //
+    // Calculate the fragment's view-space normal for lighting to use
+    //
+    const vec3 fragmentNormal_modelSpace = CalculateFragmentModelNormal(materialPayload);
+    const mat3 normalMVTransform = mat3(transpose(inverse(i_viewProjectionData.data[gl_ViewIndex].viewTransform * objectPayload.modelTransform)));
+    const vec3 fragmentNormal_viewSpace = normalize(normalMVTransform * fragmentNormal_modelSpace);
 
     //
     // Calculate the light hitting the fragment
     //
-    const CalculatedLight calculatedLight = CalculateFragmentLighting(fragmentMaterial);
+    const CalculatedLight calculatedLight = CalculateFragmentLighting(materialPayload, fragmentNormal_viewSpace);
 
     //
     // Combine the lighting with the fragment's color
@@ -179,7 +233,88 @@ void main()
     o_fragColor = surfaceColor;
 }
 
-CalculatedLight CalculateFragmentLighting(MaterialPayload fragmentMaterial)
+vec4 TextureOp(vec4 dest, vec4 texture, uint textureOp)
+{
+    if (textureOp == 0)         { return dest * texture; }
+    else if (textureOp == 1)    { return dest + texture; }
+    else if (textureOp == 2)    { return dest - texture; }
+    else if (textureOp == 3)    { return dest / texture; }
+    else if (textureOp == 4)    { return (dest + texture) - (dest * texture); }
+    else if (textureOp == 5)    { return dest + (texture - 0.5f); }
+    else                        { return dest; }
+}
+
+FragmentColors CalculateFragmentColors(MaterialPayload materialPayload)
+{
+    FragmentColors fragColors;
+
+    // Ambient
+    fragColors.ambientColor = materialPayload.ambientColor;
+    if (materialPayload.hasAmbientTexture)
+    {
+        vec4 textureColor = texture(i_ambientSampler, i_fragTexCoord) * materialPayload.ambientTextureBlendFactor;
+        fragColors.ambientColor = TextureOp(fragColors.ambientColor, textureColor, materialPayload.ambientTextureOp);
+    }
+
+    // Diffuse
+    fragColors.diffuseColor = materialPayload.diffuseColor;
+    if (materialPayload.hasDiffuseTexture)
+    {
+        vec4 textureColor = texture(i_diffuseSampler, i_fragTexCoord) * materialPayload.diffuseTextureBlendFactor;
+        fragColors.diffuseColor = TextureOp(fragColors.diffuseColor, textureColor, materialPayload.diffuseTextureOp);
+    }
+
+    // Specular
+    fragColors.specularColor = materialPayload.specularColor;
+    if (materialPayload.hasSpecularTexture)
+    {
+        vec4 textureColor = texture(i_specularSampler, i_fragTexCoord) * materialPayload.specularTextureBlendFactor;
+        fragColors.specularColor = TextureOp(fragColors.specularColor, textureColor, materialPayload.specularTextureOp);
+    }
+
+    return fragColors;
+}
+
+FragmentColors ProcessAlphaMode(MaterialPayload materialPayload, FragmentColors fragmentColors)
+{
+    if (materialPayload.alphaMode == ALPHA_MODE_OPAQUE)
+    {
+        // "The rendered output is fully opaque and any alpha value is ignored."
+        fragmentColors.ambientColor.a = 1.0f;
+        fragmentColors.diffuseColor.a = 1.0f;
+        fragmentColors.specularColor.a = 1.0f;
+    }
+    else if (materialPayload.alphaMode == ALPHA_MODE_MASK)
+    {
+        // "The rendered output is either fully opaque or fully transparent depending on the alpha value and
+        // the specified alpha cutoff value."
+        fragmentColors.ambientColor.a = fragmentColors.ambientColor.a >= materialPayload.alphaCutoff ? 1.0f : 0.0f;
+        fragmentColors.diffuseColor.a = fragmentColors.diffuseColor.a >= materialPayload.alphaCutoff ? 1.0f : 0.0f;
+        fragmentColors.specularColor.a = fragmentColors.specularColor.a >= materialPayload.alphaCutoff ? 1.0f : 0.0f;
+    }
+    else if (materialPayload.alphaMode == ALPHA_MODE_BLEND)
+    {
+        // no-op - use the alphas as specified by the material
+    }
+
+    return fragmentColors;
+}
+
+vec3 CalculateFragmentModelNormal(MaterialPayload materialPayload)
+{
+    vec3 modelNormal = i_vertexNormal_modelSpace;
+
+    if (materialPayload.hasNormalTexture)
+    {
+        // Read the fragment normal from the normal map, and use the tbn matrix to convert it from
+        // tangent space to model space
+        modelNormal = normalize(i_tbnNormalTransform * texture(i_normalSampler, i_fragTexCoord).rgb);
+    }
+
+    return modelNormal;
+}
+
+CalculatedLight CalculateFragmentLighting(MaterialPayload fragmentMaterial, vec3 fragmentNormal_viewSpace)
 {
     const mat4 viewTransform = i_viewProjectionData.data[gl_ViewIndex].viewTransform;
 
@@ -205,7 +340,7 @@ CalculatedLight CalculateFragmentLighting(MaterialPayload fragmentMaterial)
     light.specularLight = vec3(0, 0, 0);
 
     // Get the position of the fragment, in view space
-    const vec3 fragPosition_worldSpace = subpassLoad(i_vertexPosition_worldSpace).rgb;
+    const vec3 fragPosition_worldSpace = i_vertexPosition_worldSpace;
     const vec3 fragPosition_viewSpace = vec3(viewTransform * vec4(fragPosition_worldSpace, 1.0f));
 
     // Position of the camera, in view space
@@ -268,7 +403,7 @@ CalculatedLight CalculateFragmentLighting(MaterialPayload fragmentMaterial)
         //
         // Diffuse Light
         //
-        const vec3 vertexNormal_viewSpace = subpassLoad(i_vertexNormal_viewSpace).rgb;
+        const vec3 vertexNormal_viewSpace = fragmentNormal_viewSpace;
 
         const float diffuseFragHitPercentage = clamp(
             dot(vertexNormal_viewSpace, fragTolightUnit_viewSpace),
@@ -329,10 +464,10 @@ float GetFragShadowLevel(LightPayload lightData, vec3 fragPosition_worldSpace)
     switch (lightData.shadowMapType)
     {
         case SHADOW_MAP_TYPE_SINGLE:
-            return GetFragShadowLevel_Single(lightData, fragPosition_worldSpace, lightToFragDepth);
+        return GetFragShadowLevel_Single(lightData, fragPosition_worldSpace, lightToFragDepth);
 
         case SHADOW_MAP_TYPE_CUBE:
-            return GetFragShadowLevel_Cube(lightData, fragPosition_worldSpace, lightToFragDepth);
+        return GetFragShadowLevel_Cube(lightData, fragPosition_worldSpace, lightToFragDepth);
 
         // Unsupported light type, return no shadow since we don't know how to access its shadow map
         default: {  return 0.0f; }
@@ -363,8 +498,8 @@ float GetFragShadowLevel_Single(LightPayload lightData, vec3 fragPosition_worldS
         for (int y = -sampleSize; y <= sampleSize; ++y)
         {
             const float pcfFragDepth = texture(
-                i_shadowSampler[lightData.shadowMapIndex],
-                shadowSampleCoords + (vec2(x, y) * texelSize)
+            i_shadowSampler[lightData.shadowMapIndex],
+            shadowSampleCoords + (vec2(x, y) * texelSize)
             ).r;
 
             shadow += lightToFragDepth > pcfFragDepth ? 1.0 : 0.0;
@@ -396,11 +531,11 @@ float GetFragShadowLevel_Cube(LightPayload lightData, vec3 fragPosition_worldSpa
     // PCF filter
     const vec3 sampleOffsetDirections[20] = vec3[]
     (
-        vec3(1, 1, 1), vec3(1, -1, 1), vec3(-1, -1, 1), vec3(-1, 1, 1),
-        vec3(1, 1,-1), vec3(1,-1, -1), vec3(-1, -1, -1), vec3(-1, 1, -1),
-        vec3(1, 1, 0), vec3(1,-1, 0), vec3(-1, -1, 0), vec3(-1, 1, 0),
-        vec3(1, 0, 1), vec3(-1, 0, 1), vec3(1, 0, -1), vec3(-1, 0, -1),
-        vec3(0, 1, 1), vec3(0, -1, 1), vec3(0, -1, -1), vec3(0, 1, -1)
+    vec3(1, 1, 1), vec3(1, -1, 1), vec3(-1, -1, 1), vec3(-1, 1, 1),
+    vec3(1, 1,-1), vec3(1,-1, -1), vec3(-1, -1, -1), vec3(-1, 1, -1),
+    vec3(1, 1, 0), vec3(1,-1, 0), vec3(-1, -1, 0), vec3(-1, 1, 0),
+    vec3(1, 0, 1), vec3(-1, 0, 1), vec3(1, 0, -1), vec3(-1, 0, -1),
+    vec3(0, 1, 1), vec3(0, -1, 1), vec3(0, -1, -1), vec3(0, 1, -1)
     );
 
     const int numSamples = 20;
@@ -411,8 +546,8 @@ float GetFragShadowLevel_Cube(LightPayload lightData, vec3 fragPosition_worldSpa
     for (int i = 0; i < numSamples; ++i)
     {
         const float pcfFragDepth = texture(
-            i_shadowSampler_cubeMap[lightData.shadowMapIndex],
-            lightToFrag_worldSpace + sampleOffsetDirections[i] * diskRadius
+        i_shadowSampler_cubeMap[lightData.shadowMapIndex],
+        lightToFrag_worldSpace + sampleOffsetDirections[i] * diskRadius
         ).r;
 
         shadow += lightToFragDepth > pcfFragDepth ? 1.0 : 0.0;

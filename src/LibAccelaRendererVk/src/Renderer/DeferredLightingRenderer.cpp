@@ -191,7 +191,7 @@ std::expected<VulkanPipelinePtr, bool> DeferredLightingRenderer::BindPipeline(Re
         m_pipelines,
         m_programDef,
         renderPass,
-        Offscreen_LightingSubpass_Index,
+        OffscreenRenderPass_DeferredLightingSubpass_Index,
         viewport,
         CullFace::Back,
         PolygonFillMode::Fill,

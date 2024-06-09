@@ -19,9 +19,9 @@ namespace Accela::Render
     {
         alignas(4) uint32_t isAffectedByLighting{0};
 
-        alignas(16) glm::vec3 ambientColor{0};
-        alignas(16) glm::vec3 diffuseColor{0};
-        alignas(16) glm::vec3 specularColor{0};
+        alignas(16) glm::vec4 ambientColor{0};
+        alignas(16) glm::vec4 diffuseColor{0};
+        alignas(16) glm::vec4 specularColor{0};
         alignas(4) uint32_t alphaMode{2};
         alignas(4) float alphaCutoff{1.0f};
         alignas(4) float shininess{0.0f};

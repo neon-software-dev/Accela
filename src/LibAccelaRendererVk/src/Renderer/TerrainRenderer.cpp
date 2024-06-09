@@ -73,7 +73,7 @@ bool TerrainRenderer::Initialize(const RenderSettings& renderSettings)
         return false;
     }
 
-    m_programDef = m_programs->GetProgramDef("Terrain");
+    m_programDef = m_programs->GetProgramDef("TerrainDeferred");
     if (m_programDef == nullptr)
     {
         m_logger->Log(Common::LogLevel::Error, "TerrainRenderer: Terrain program doesn't exist");
@@ -356,7 +356,7 @@ std::expected<VulkanPipelinePtr, bool> TerrainRenderer::GetBatchPipeline(const V
         m_pipelines,
         m_programDef,
         renderPass,
-        Offscreen_GPassOpaqueSubpass_Index,
+        OffscreenRenderPass_OpaqueDeferredSubpass_Index,
         viewport,
         CullFace::Back,
         PolygonFillMode::Fill,

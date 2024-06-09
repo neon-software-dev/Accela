@@ -239,6 +239,22 @@ void MainWindowVM::OnComponentModified(const Engine::Component::Ptr& component)
     emit VM_OnComponentInvalidated(*m_model.entity, component);
 }
 
+void MainWindowVM::OnRemoveComponent(const Engine::Component::Type& type)
+{
+    assert(m_model.entity.has_value());
+
+    // Remove the component from the model
+    std::erase_if((*m_model.entity)->components, [&](const auto& component){
+        return component->GetType() == type;
+    });
+
+    // Remove the component from the scene
+    (void)m_sceneSyncer->RemoveEntityComponent((*m_model.entity)->name, type);
+
+    // Notify that the entity data was invalidated
+    emit VM_OnEntityInvalidated(*m_model.entity);
+}
+
 void MainWindowVM::PLT_ProgressUpdate(unsigned int progress, unsigned int total, const std::string& progressText)
 {
     emit VM_ProgressDialogUpdate(progress, total, progressText);

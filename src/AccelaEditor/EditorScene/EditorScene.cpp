@@ -70,6 +70,8 @@ void EditorScene::ProcessMessage(const Common::Message::Ptr& message)
         ProcessCreateEntityCommand(std::dynamic_pointer_cast<CreateEntityCommand>(message));
     } else if (message->GetTypeIdentifier() == SetEntityComponentCommand::TYPE) {
         ProcessSetEntityComponentCommand(std::dynamic_pointer_cast<SetEntityComponentCommand>(message));
+    } else if (message->GetTypeIdentifier() == RemoveEntityComponentCommand::TYPE) {
+        ProcessRemoveEntityComponentCommand(std::dynamic_pointer_cast<RemoveEntityComponentCommand>(message));
     }
 }
 
@@ -161,6 +163,21 @@ void EditorScene::ProcessSetEntityComponentCommand(const SetEntityComponentComma
 
             Engine::AddOrUpdateComponent(engine->GetWorldState(), cmd->eid, engineComponent);
         }
+        break;
+    }
+
+    cmd->SetResult(true);
+}
+
+void EditorScene::ProcessRemoveEntityComponentCommand(const RemoveEntityComponentCommand::Ptr& cmd)
+{
+    switch (cmd->type)
+    {
+        case Engine::Component::Type::Transform:
+            Engine::RemoveComponent<Engine::TransformComponent>(engine->GetWorldState(), cmd->eid);
+        break;
+        case Engine::Component::Type::ModelRenderable:
+            Engine::RemoveComponent<Engine::ModelRenderableComponent>(engine->GetWorldState(), cmd->eid);
         break;
     }
 

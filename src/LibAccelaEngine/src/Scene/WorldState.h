@@ -173,11 +173,7 @@ namespace Accela::Engine
             void CreateRegistryListeners();
             void CreateSystems();
 
-            void OnSpriteRenderableComponentCreated(entt::registry& registry, entt::entity entity);
-            void OnObjectRenderableComponentCreated(entt::registry& registry, entt::entity entity);
             void OnModelRenderableComponentCreated(entt::registry& registry, entt::entity entity);
-            void OnTerrainRenderableComponentCreated(entt::registry& registry, entt::entity entity);
-            void OnLightComponentCreated(entt::registry& registry, entt::entity entity);
             void OnPhysicsComponentCreated(entt::registry& registry, entt::entity entity);
 
             void OnSpriteRenderableComponentUpdated(entt::registry& registry, entt::entity entity);
@@ -195,8 +191,6 @@ namespace Accela::Engine
             void OnLightComponentDestroyed(entt::registry& registry, entt::entity entity);
             void OnTransformComponentDestroyed(entt::registry& registry, entt::entity entity);
             void OnPhysicsComponentDestroyed(entt::registry& registry, entt::entity entity);
-            void OnLightRenderableStateComponentDestroyed(entt::registry& registry, entt::entity entity);
-            void OnRenderableStateComponentDestroyed(entt::registry& registry, entt::entity entity);
             void OnAudioComponentDestroyed(entt::registry& registry, entt::entity entity);
             void OnPhysicsStateComponentDestroyed(entt::registry& registry, entt::entity entity);
 
@@ -208,6 +202,7 @@ namespace Accela::Engine
             Platform::IWindow::Ptr m_window;
             Render::IRenderer::Ptr m_renderer;
             AudioManagerPtr m_audioManager;
+            // TODO: entt::registry<uint64_t>? (https://github.com/skypjack/entt/issues/197)
             entt::registry m_registry;
             IPhysicsPtr m_physics;
 

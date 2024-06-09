@@ -65,6 +65,7 @@ namespace Accela
 
             void OnCreateComponent(const Engine::Component::Type& type);
             void OnComponentModified(const Engine::Component::Ptr& component);
+            void OnRemoveComponent(const Engine::Component::Type& type);
 
         signals:
 

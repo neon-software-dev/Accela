@@ -8,6 +8,7 @@
 #define TESTDESKTOPAPP_TESTSCENE_H
 
 #include <Accela/Engine/Scene/Scene.h>
+#include <Accela/Engine/Component/ModelRenderableComponent.h>
 #include <Accela/Engine/Physics/PlayerController.h>
 #include <Accela/Engine/Entity/EnginePerfMonitorEntity.h>
 
@@ -40,13 +41,15 @@ namespace Accela
             void ConfigureScene();
             void CreateSceneEntities();
 
-            [[nodiscard]] static Engine::ObjectMaterialProperties DefineSolidColorMaterial(const glm::vec3& color);
+            [[nodiscard]] static Engine::ObjectMaterialProperties DefineColorMaterial(const glm::vec4& color);
 
             /** Add a light at the specified position */
             void CreateLight(const glm::vec3& position);
 
-            /** Add the dancing vampire model at the specified position */
-            void CreateCesiumManEntity(const glm::vec3& position);
+            void CreateModelEntity(const Engine::ResourceIdentifier& modelResource,
+                                   const glm::vec3& position,
+                                   const glm::vec3& scale = {1.0f, 1.0f, 1.0f},
+                                   const std::optional<Engine::ModelAnimationState>& animationState = std::nullopt);
 
             /** Add a floor object at the specified position/orientation with a certain x/z side length */
             void CreateFloorEntity(glm::vec3 position,

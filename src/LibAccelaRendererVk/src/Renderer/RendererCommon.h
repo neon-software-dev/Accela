@@ -25,10 +25,11 @@
 
 namespace Accela::Render
 {
-    static const uint32_t Offscreen_GPassOpaqueSubpass_Index = 0;
-    static const uint32_t Offscreen_GPassTranslucentSubpass_Index = 1;
-    static const uint32_t Offscreen_LightingSubpass_Index = 2;
-    static const uint32_t Offscreen_ForwardSubpass_Index = 3;
+    static const uint32_t OffscreenRenderPass_OpaqueDeferredSubpass_Index = 0;
+    static const uint32_t OffscreenRenderPass_DeferredLightingSubpass_Index = 1;
+    static const uint32_t OffscreenRenderPass_ForwardSubpass_Index = 2;
+
+    static const uint32_t ShadowRenderPass_ShadowSubpass_Index = 0;
 
     enum class RenderType
     {

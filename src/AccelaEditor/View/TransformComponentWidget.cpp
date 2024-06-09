@@ -53,7 +53,7 @@ static inline QDoubleSpinBox* CreateRotationSpinBox()
 {
     auto pDoubleSpinBox = new QDoubleSpinBox();
     pDoubleSpinBox->setValue(0.0f);
-    pDoubleSpinBox->setSingleStep(0.1f);
+    pDoubleSpinBox->setSingleStep(1.0f);
     pDoubleSpinBox->setSuffix(" deg");
     pDoubleSpinBox->setRange(-360.0f, 360.0f);
 
@@ -182,11 +182,19 @@ void TransformComponentWidget::UpdateComponentRotationValue()
         return;
     }
 
-    const glm::vec3 eulerRotation = {
+    glm::vec3 eulerRotation = {
         (float)m_pRotationXSpinBox->value(),
         (float)m_pRotationYSpinBox->value(),
         (float)m_pRotationZSpinBox->value()
     };
+
+    // Wrap degrees around at bounds
+    if (eulerRotation.x <= -360.0f) { eulerRotation.x += 360.0f; }
+    if (eulerRotation.x >= 360.0f) { eulerRotation.x -= 360.0f; }
+    if (eulerRotation.y <= -360.0f) { eulerRotation.y += 360.0f; }
+    if (eulerRotation.y >= 360.0f) { eulerRotation.y -= 360.0f; }
+    if (eulerRotation.z <= -360.0f) { eulerRotation.z += 360.0f; }
+    if (eulerRotation.z >= 360.0f) { eulerRotation.z -= 360.0f; }
 
     (*transformComponent)->eulerRotation = eulerRotation;
     m_mainVM->OnComponentModified(*transformComponent);

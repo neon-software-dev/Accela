@@ -19,9 +19,9 @@ namespace Accela::Engine
     {
         bool isAffectedByLighting{true};
 
-        glm::vec3 ambientColor{0};
-        glm::vec3 diffuseColor{0};
-        glm::vec3 specularColor{0};
+        glm::vec4 ambientColor{0};
+        glm::vec4 diffuseColor{0};
+        glm::vec4 specularColor{0};
         float opacity{1.0f};
         Render::AlphaMode alphaMode{Render::AlphaMode::Opaque};
         float alphaCutoff{1.0f};

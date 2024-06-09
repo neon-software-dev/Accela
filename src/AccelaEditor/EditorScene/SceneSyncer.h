@@ -72,6 +72,11 @@ namespace Accela
              */
             [[nodiscard]] std::future<bool> UpdateEntityComponent(const std::string& entityName, const Engine::Component::Ptr& component) const;
 
+            /**
+             * Async destroy an entity component
+             */
+            [[nodiscard]] std::future<bool> RemoveEntityComponent(const std::string& entityName, const Engine::Component::Type& type) const;
+
         private:
 
             Common::ILogger::Ptr m_logger;

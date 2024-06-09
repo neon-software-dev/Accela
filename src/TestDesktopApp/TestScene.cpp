@@ -67,7 +67,13 @@ void TestScene::CreateSceneEntities()
     CreateLight({0,1,1});
     CreateTerrainEntity(5.0f, {0, -2.2, 0});
     CreateFloorEntity({0,0,0}, 10);
-    CreateCesiumManEntity({0,0.05f,-2});
+
+    CreateModelEntity(
+        Engine::PRI("TestDesktopApp", "CesiumMan.glb"),
+        {0,0,-2},
+        {1.0f, 1.0f, 1.0f},
+        Engine::ModelAnimationState(Engine::ModelAnimationType::Looping, "")
+    );
 }
 
 bool TestScene::LoadResources()
@@ -128,21 +134,21 @@ bool TestScene::LoadResources()
     //
     m_solidRedMaterialId = engine->GetWorldResources()->Materials()->LoadObjectMaterial(
         Engine::CRI("Red"),
-        DefineSolidColorMaterial({1,0,0}),
+        DefineColorMaterial({1,0,0,1}),
         Engine::ResultWhen::Ready).get();
     if (m_solidRedMaterialId == Render::INVALID_ID) { return false; }
 
     m_solidWhiteMaterialId = engine->GetWorldResources()->Materials()->LoadObjectMaterial(
         Engine::CRI("White"),
-        DefineSolidColorMaterial({1,1,1}),
+        DefineColorMaterial({1,1,1,1}),
         Engine::ResultWhen::Ready).get();
     if (m_solidWhiteMaterialId == Render::INVALID_ID) { return false; }
 
     Engine::ObjectMaterialProperties terrainMaterial{};
     terrainMaterial.isAffectedByLighting = true;
-    terrainMaterial.ambientColor = {1,1,1};
-    terrainMaterial.diffuseColor = {1,1,1};
-    terrainMaterial.specularColor = {0.0f, 0.0f, 0.0f};
+    terrainMaterial.ambientColor = {1,1,1,1};
+    terrainMaterial.diffuseColor = {1,1,1,1};
+    terrainMaterial.specularColor = {0.0f, 0.0f, 0.0f, 1.0f};
     terrainMaterial.shininess = 32.0f;
     terrainMaterial.ambientTexture = Engine::PRI("TestDesktopApp", "rolling_hills_bitmap.png");
     terrainMaterial.diffuseTexture = Engine::PRI("TestDesktopApp", "rolling_hills_bitmap.png");
@@ -155,7 +161,7 @@ bool TestScene::LoadResources()
     return true;
 }
 
-Engine::ObjectMaterialProperties TestScene::DefineSolidColorMaterial(const glm::vec3& color)
+Engine::ObjectMaterialProperties TestScene::DefineColorMaterial(const glm::vec4& color)
 {
     Engine::ObjectMaterialProperties solidMaterial{};
     solidMaterial.isAffectedByLighting = true;
@@ -163,6 +169,7 @@ Engine::ObjectMaterialProperties TestScene::DefineSolidColorMaterial(const glm::
     solidMaterial.diffuseColor = color;
     solidMaterial.specularColor = color;
     solidMaterial.shininess = 32.0f;
+    solidMaterial.alphaMode = color.a == 1.0f ? Render::AlphaMode::Opaque : Render::AlphaMode::Blend;
     return solidMaterial;
 }
 
@@ -196,18 +203,22 @@ void TestScene::CreateLight(const glm::vec3& position)
     if (m_lightEid == 0) { m_lightEid = eid; }
 }
 
-void TestScene::CreateCesiumManEntity(const glm::vec3& position)
+void TestScene::CreateModelEntity(const Engine::ResourceIdentifier& modelResource,
+                                  const glm::vec3& position,
+                                  const glm::vec3& scale,
+                                  const std::optional<Engine::ModelAnimationState>& animationState)
 {
     const auto eid = engine->GetWorldState()->CreateEntity();
 
     auto modelRenderableComponent = Engine::ModelRenderableComponent{};
     modelRenderableComponent.sceneName = "default";
-    modelRenderableComponent.modelResource = Engine::PRI("TestDesktopApp", "CesiumMan.glb");
-    modelRenderableComponent.animationState = Engine::ModelAnimationState(Engine::ModelAnimationType::Looping, "");
+    modelRenderableComponent.modelResource = modelResource;
+    modelRenderableComponent.animationState = animationState;
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, modelRenderableComponent);
 
     auto transformComponent = Engine::TransformComponent{};
     transformComponent.SetPosition(position);
+    transformComponent.SetScale(scale);
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, transformComponent);
 }
 

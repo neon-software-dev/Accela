@@ -81,6 +81,8 @@ layout(push_constant) uniform constants
 // OUTPUTS
 //
 layout(location = 0) out vec3 o_vertexPosition_shadowViewSpace;
+layout(location = 1) out int o_instanceIndex;
+layout(location = 2) out vec2 o_fragTexCoord;
 
 void main()
 {
@@ -99,6 +101,8 @@ void main()
     // Output
     //
     o_vertexPosition_shadowViewSpace = vec3(vertexPosition_shadowViewSpace);
+    o_instanceIndex = gl_InstanceIndex;
+    o_fragTexCoord = i_vertexUv;
 
     // Final light-space position of this vertex.
     // Note that global data's view and projection transforms are set for

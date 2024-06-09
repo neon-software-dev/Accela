@@ -21,7 +21,7 @@ ModelAnimatorSystem::ModelAnimatorSystem(Common::ILogger::Ptr logger, IWorldReso
 void ModelAnimatorSystem::Execute(const RunState::Ptr& runState, entt::registry& registry)
 {
     registry.view<RenderableStateComponent, ModelRenderableComponent>()
-        .each([&](const auto&, auto& renderableComponent, auto &modelComponent)
+        .each([&](const auto& entity, const auto&, auto &modelComponent)
           {
               // If the model component has no animation state, no work to do for it
               if (!modelComponent.animationState.has_value())
@@ -29,12 +29,13 @@ void ModelAnimatorSystem::Execute(const RunState::Ptr& runState, entt::registry&
                   return;
               }
 
-              ProcessRenderableModelEntity(runState, renderableComponent, modelComponent);
+              ProcessRenderableModelEntity(runState, registry, entity, modelComponent);
           });
 }
 
 void ModelAnimatorSystem::ProcessRenderableModelEntity(const RunState::Ptr& runState,
-                                                       RenderableStateComponent& renderableComponent,
+                                                       entt::registry& registry,
+                                                       entt::entity entity,
                                                        ModelRenderableComponent& modelComponent)
 {
     //
@@ -83,7 +84,7 @@ void ModelAnimatorSystem::ProcessRenderableModelEntity(const RunState::Ptr& runS
     //
     // Mark the renderable as dirty so it's updated
     //
-    renderableComponent.state = ComponentState::Dirty;
+    registry.patch<RenderableStateComponent>(entity, [](auto& component) { component.state = ComponentState::Dirty; });
 }
 
 }

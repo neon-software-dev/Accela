@@ -42,9 +42,9 @@ struct MaterialPayload
 {
     bool isAffectedByLighting;
 
-    vec3 ambientColor;
-    vec3 diffuseColor;
-    vec3 specularColor;
+    vec4 ambientColor;
+    vec4 diffuseColor;
+    vec4 specularColor;
     uint alphaMode;
     float alphaCutoff;
     float shininess;
@@ -153,6 +153,17 @@ void main()
     fragmentColors = ProcessAlphaMode(materialPayload, fragmentColors);
 
     //
+    // Discard fully transparent fragments.
+    // (0.01f used instead of 0.0f to avoid potential precision issues.)
+    //
+    if (fragmentColors.ambientColor.a <= 0.01f &&
+        fragmentColors.diffuseColor.a <= 0.01f &&
+        fragmentColors.specularColor.a <= 0.01f)
+    {
+        discard;
+    }
+
+    //
     // Calculate the fragment's view-space normal for lighting shader to use
     //
     const vec3 fragmentNormal_modelSpace = CalculateFragmentModelNormal(materialPayload);
@@ -187,7 +198,7 @@ FragmentColors CalculateFragmentColors(MaterialPayload materialPayload)
     FragmentColors fragColors;
 
     // Ambient
-    fragColors.ambientColor = vec4(materialPayload.ambientColor, 1);
+    fragColors.ambientColor = materialPayload.ambientColor;
     if (materialPayload.hasAmbientTexture)
     {
         vec4 textureColor = texture(i_ambientSampler, i_fragTexCoord) * materialPayload.ambientTextureBlendFactor;
@@ -195,7 +206,7 @@ FragmentColors CalculateFragmentColors(MaterialPayload materialPayload)
     }
 
     // Diffuse
-    fragColors.diffuseColor = vec4(materialPayload.diffuseColor, 1);
+    fragColors.diffuseColor = materialPayload.diffuseColor;
     if (materialPayload.hasDiffuseTexture)
     {
         vec4 textureColor = texture(i_diffuseSampler, i_fragTexCoord) * materialPayload.diffuseTextureBlendFactor;
@@ -203,7 +214,7 @@ FragmentColors CalculateFragmentColors(MaterialPayload materialPayload)
     }
 
     // Specular
-    fragColors.specularColor = vec4(materialPayload.specularColor, 1);
+    fragColors.specularColor = materialPayload.specularColor;
     if (materialPayload.hasSpecularTexture)
     {
         vec4 textureColor = texture(i_specularSampler, i_fragTexCoord) * materialPayload.specularTextureBlendFactor;

@@ -17,7 +17,6 @@
 
 #include "../Component/LightRenderableStateComponent.h"
 #include "../Component/PhysicsStateComponent.h"
-#include "../Component/ModelAnimationComponent.h"
 
 #include <Accela/Engine/Camera2D.h>
 #include <Accela/Engine/Camera3D.h>
@@ -64,11 +63,7 @@ void WorldState::AssertEntityValid(EntityId entityId, std::string_view caller) c
 
 void WorldState::CreateRegistryListeners()
 {
-    m_registry.on_construct<SpriteRenderableComponent>().connect<&WorldState::OnSpriteRenderableComponentCreated>(this);
-    m_registry.on_construct<ObjectRenderableComponent>().connect<&WorldState::OnObjectRenderableComponentCreated>(this);
     m_registry.on_construct<ModelRenderableComponent>().connect<&WorldState::OnModelRenderableComponentCreated>(this);
-    m_registry.on_construct<TerrainRenderableComponent>().connect<&WorldState::OnTerrainRenderableComponentCreated>(this);
-    m_registry.on_construct<LightComponent>().connect<&WorldState::OnLightComponentCreated>(this);
     m_registry.on_construct<PhysicsComponent>().connect<&WorldState::OnPhysicsComponentCreated>(this);
 
     m_registry.on_update<SpriteRenderableComponent>().connect<&WorldState::OnSpriteRenderableComponentUpdated>(this);
@@ -86,8 +81,6 @@ void WorldState::CreateRegistryListeners()
     m_registry.on_destroy<LightComponent>().connect<&WorldState::OnLightComponentDestroyed>(this);
     m_registry.on_destroy<TransformComponent>().connect<&WorldState::OnTransformComponentDestroyed>(this);
     m_registry.on_destroy<PhysicsComponent>().connect<&WorldState::OnPhysicsComponentDestroyed>(this);
-    m_registry.on_destroy<LightRenderableStateComponent>().connect<&WorldState::OnLightRenderableStateComponentDestroyed>(this);
-    m_registry.on_destroy<RenderableStateComponent>().connect<&WorldState::OnRenderableStateComponentDestroyed>(this);
     m_registry.on_destroy<AudioComponent>().connect<&WorldState::OnAudioComponentDestroyed>(this);
     m_registry.on_destroy<PhysicsStateComponent>().connect<&WorldState::OnPhysicsStateComponentDestroyed>(this);
 }
@@ -106,6 +99,11 @@ void WorldState::CreateSystems()
     m_systems.push_back(m_audioSystem);
 
     m_systems.push_back(std::make_shared<ModelAnimatorSystem>(m_logger, m_worldResources));
+
+    for (auto& system : m_systems)
+    {
+        system->Initialize(m_registry);
+    }
 }
 
 void WorldState::ExecuteSystems(const RunState::Ptr& runState)
@@ -315,65 +313,13 @@ std::optional<EntityId> WorldState::GetTopSpriteEntityAt(const glm::vec2& virtua
     return allEntities.front();
 }
 
-void WorldState::OnSpriteRenderableComponentCreated(entt::registry& registry, entt::entity entity)
-{
-    const auto& spriteRenderableComponent = m_registry.get<SpriteRenderableComponent>(entity);
-
-    RenderableStateComponent renderableComponent(RenderableStateComponent::Type::Sprite);
-    renderableComponent.state = ComponentState::New;
-    renderableComponent.sceneName = spriteRenderableComponent.sceneName;
-
-    registry.emplace<RenderableStateComponent>(entity, renderableComponent);
-}
-
-void WorldState::OnObjectRenderableComponentCreated(entt::registry& registry, entt::entity entity)
-{
-    const auto& objectRenderableComponent = m_registry.get<ObjectRenderableComponent>(entity);
-
-    RenderableStateComponent renderableComponent(RenderableStateComponent::Type::Object);
-    renderableComponent.state = ComponentState::New;
-    renderableComponent.sceneName = objectRenderableComponent.sceneName;
-
-    registry.emplace<RenderableStateComponent>(entity, renderableComponent);
-}
-
 void WorldState::OnModelRenderableComponentCreated(entt::registry& registry, entt::entity entity)
 {
-    const auto& modelRenderableComponent = m_registry.get<ModelRenderableComponent>(entity);
+    const auto& modelRenderableComponent = registry.get<ModelRenderableComponent>(entity);
 
-    // Models can be rendered and so should have a renderable state component added to the entity to track
-    // its renderable state/data
-    RenderableStateComponent renderableComponent(RenderableStateComponent::Type::Model);
-    renderableComponent.state = ComponentState::New;
-    renderableComponent.sceneName = modelRenderableComponent.sceneName;
-    registry.emplace<RenderableStateComponent>(entity, renderableComponent);
-
-    // Models can be animated and so should have a model animation component added to the entity to track
-    // its animation state/data
-    ModelAnimationComponent modelAnimationComponent{};
-    registry.emplace<ModelAnimationComponent>(entity, modelAnimationComponent);
-}
-
-void WorldState::OnTerrainRenderableComponentCreated(entt::registry& registry, entt::entity entity)
-{
-    const auto& terrainRenderableComponent = m_registry.get<TerrainRenderableComponent>(entity);
-
-    RenderableStateComponent renderableComponent(RenderableStateComponent::Type::Terrain);
-    renderableComponent.state = ComponentState::New;
-    renderableComponent.sceneName = terrainRenderableComponent.sceneName;
-
-    registry.emplace<RenderableStateComponent>(entity, renderableComponent);
-}
-
-void WorldState::OnLightComponentCreated(entt::registry& registry, entt::entity entity)
-{
-    const auto& lightComponent = m_registry.get<LightComponent>(entity);
-
-    LightRenderableStateComponent lightRenderableComponent{};
-    lightRenderableComponent.state = ComponentState::New;
-    lightRenderableComponent.sceneName = lightComponent.sceneName;
-
-    registry.emplace<LightRenderableStateComponent>(entity, lightRenderableComponent);
+    // Attach an additional private model renderable state component to track things like the
+    // current pose being rendered
+    registry.emplace<ModelRenderableStateComponent>(entity, modelRenderableComponent.modelResource);
 }
 
 void WorldState::OnPhysicsComponentCreated(entt::registry& registry, entt::entity entity)
@@ -387,17 +333,9 @@ void WorldState::OnPhysicsComponentCreated(entt::registry& registry, entt::entit
 template <typename T>
 void MarkStateComponentDirty(entt::registry& registry, entt::entity entity)
 {
-    // If the entity doesn't have the component, bail out
     if (!registry.any_of<T>(entity)) { return; }
 
-    // Otherwise, as long as we're not supposed to be newly creating the entity,
-    // mark it as dirty so the renderer sync system will process it and update the
-    // renderer with its latest data
-    T& renderableComponent = registry.get<T>(entity);
-    if (renderableComponent.state != ComponentState::New)
-    {
-        renderableComponent.state = ComponentState::Dirty;
-    }
+    registry.patch<T>(entity, [](auto& component) { component.state = ComponentState::Dirty; });
 }
 
 void WorldState::OnSpriteRenderableComponentUpdated(entt::registry& registry, entt::entity entity)
@@ -461,7 +399,7 @@ void WorldState::OnObjectRenderableComponentDestroyed(entt::registry&, entt::ent
 void WorldState::OnModelRenderableComponentDestroyed(entt::registry&, entt::entity entity)
 {
     RemoveComponent<RenderableStateComponent>((EntityId)entity);
-    RemoveComponent<ModelAnimationComponent>((EntityId)entity);
+    RemoveComponent<ModelRenderableStateComponent>((EntityId)entity);
 }
 
 void WorldState::OnTerrainRenderableComponentDestroyed(entt::registry&, entt::entity entity)
@@ -483,43 +421,6 @@ void WorldState::OnTransformComponentDestroyed(entt::registry&, entt::entity ent
 void WorldState::OnPhysicsComponentDestroyed(entt::registry&, entt::entity entity)
 {
     RemoveComponent<PhysicsStateComponent>((EntityId)entity);
-}
-
-void WorldState::OnLightRenderableStateComponentDestroyed(entt::registry& registry, entt::entity entity)
-{
-    const auto& lightRenderableComponent = registry.get<LightRenderableStateComponent>(entity);
-
-    const auto rendererSyncSystem = std::dynamic_pointer_cast<RendererSyncSystem>(m_rendererSyncSystem);
-
-    rendererSyncSystem->OnLightDestroyed(lightRenderableComponent.sceneName, lightRenderableComponent.lightId);
-}
-
-void WorldState::OnRenderableStateComponentDestroyed(entt::registry& registry, entt::entity entity)
-{
-    RenderableStateComponent& renderableComponent = registry.get<RenderableStateComponent>(entity);
-
-    auto rendererSyncSystem = std::dynamic_pointer_cast<RendererSyncSystem>(m_rendererSyncSystem);
-
-    switch (renderableComponent.type)
-    {
-        case RenderableStateComponent::Type::Sprite:
-            rendererSyncSystem->OnSpriteRenderableDestroyed(renderableComponent.sceneName, renderableComponent.renderableIds[0]);
-        break;
-        case RenderableStateComponent::Type::Object:
-            rendererSyncSystem->OnObjectRenderableDestroyed(renderableComponent.sceneName, renderableComponent.renderableIds[0]);
-        break;
-        case RenderableStateComponent::Type::Model:
-        {
-            for (const auto& renderableId : renderableComponent.renderableIds)
-            {
-                rendererSyncSystem->OnObjectRenderableDestroyed(renderableComponent.sceneName, renderableId.second);
-            }
-        }
-        break;
-        case RenderableStateComponent::Type::Terrain:
-            rendererSyncSystem->OnTerrainRenderableDestroyed(renderableComponent.sceneName, renderableComponent.renderableIds[0]);
-        break;
-    }
 }
 
 void WorldState::OnAudioComponentDestroyed(entt::registry&, entt::entity entity)

@@ -63,7 +63,8 @@ SDLFiles::LoadTexture(const std::vector<std::byte>& data,
 
     if (pSurface == nullptr)
     {
-        m_logger->Log(Common::LogLevel::Error, "LoadTexture: IMG_Load failed, had data format? {}", dataFormatHint.has_value());
+        m_logger->Log(Common::LogLevel::Error,
+          "LoadTexture: IMG_Load failed, had data format? {}, Error: {}", dataFormatHint.has_value(), SDL_GetError());
         return std::unexpected(false);
     }
 

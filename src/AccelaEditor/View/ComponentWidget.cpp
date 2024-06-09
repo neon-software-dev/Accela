@@ -57,7 +57,7 @@ QBoxLayout* ComponentWidget::CreateComponentUI()
 
 void ComponentWidget::UI_OnDeleteActionPressed()
 {
-    // TODO!
+    m_mainVM->OnRemoveComponent(m_componentType);
 }
 
 }

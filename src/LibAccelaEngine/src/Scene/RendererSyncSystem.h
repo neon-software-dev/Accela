@@ -9,10 +9,15 @@
 
 #include "IWorldSystem.h"
 
+#include "../Component/RenderableStateComponent.h"
+#include "../Component/ModelRenderableStateComponent.h"
+
 #include "../Model/ModelPose.h"
 
 #include <Accela/Engine/Scene/IWorldResources.h>
 #include <Accela/Engine/Component/ModelRenderableComponent.h>
+#include <Accela/Engine/Component/SpriteRenderableComponent.h>
+#include <Accela/Engine/Component/TransformComponent.h>
 
 #include <Accela/Render/IRenderer.h>
 #include <Accela/Render/Light.h>
@@ -39,23 +44,45 @@ namespace Accela::Engine
 
             [[nodiscard]] Type GetType() const noexcept override { return Type::RendererSync; };
 
+            void Initialize(entt::registry& registry) override;
             void Execute(const RunState::Ptr& runState, entt::registry& registry) override;
-
-            void OnSpriteRenderableDestroyed(const std::string& sceneName, Render::RenderableId renderableId);
-            void OnObjectRenderableDestroyed(const std::string& sceneName, Render::RenderableId renderableId);
-            void OnTerrainRenderableDestroyed(const std::string& sceneName, Render::RenderableId renderableId);
-            void OnLightDestroyed(const std::string& sceneName, Render::LightId lightId);
 
         private:
 
-            void SyncSpriteRenderables(const RunState::Ptr& runState, entt::registry& registry, Render::WorldUpdate& update);
-            void SyncObjectRenderables(const RunState::Ptr& runState, entt::registry& registry, Render::WorldUpdate& update);
-            void SyncModelRenderables(const RunState::Ptr& runState, entt::registry& registry, Render::WorldUpdate& update);
-            void SyncTerrainRenderables(const RunState::Ptr& runState, entt::registry& registry, Render::WorldUpdate& update);
-            void SyncLights(const RunState::Ptr& runState, entt::registry& registry, Render::WorldUpdate& update);
+            void OnRenderableStateDestroyed(entt::registry& registry, entt::entity entity);
+            void OnLightRenderableStateDestroyed(entt::registry& registry, entt::entity entity);
 
-            [[nodiscard]] std::optional<ModelPose> GetModelPose(const ResourceIdentifier& model,
-                                                                const std::optional<ModelAnimationState>& animationState);
+            void ProcessNewlyCompletedRenderables(const RunState::Ptr& runState, entt::registry& registry, Render::WorldUpdate& update);
+            void ProcessUpdatedRenderables(const RunState::Ptr& runState, entt::registry& registry, Render::WorldUpdate& update);
+            void ProcessRenderablesToDestroy(const RunState::Ptr& runState, entt::registry& registry, Render::WorldUpdate& update);
+
+            void CompleteSpriteRenderable(entt::registry& registry, entt::entity entity, Render::WorldUpdate& update, const glm::vec3& virtualToRenderRatio);
+            void CompleteObjectRenderable(entt::registry& registry, entt::entity entity, Render::WorldUpdate& update);
+            void CompleteModelRenderable(entt::registry& registry, entt::entity entity, Render::WorldUpdate& update);
+            void CompleteLightRenderable(entt::registry& registry, entt::entity entity, Render::WorldUpdate& update);
+
+            [[nodiscard]] static Render::SpriteRenderable GetSpriteRenderable(entt::registry& registry, entt::entity entity, const glm::vec3& virtualToRenderRatio);
+            [[nodiscard]] static Render::ObjectRenderable GetObjectRenderable(entt::registry& registry, entt::entity entity);
+
+            [[nodiscard]] static std::vector<std::pair<std::size_t, Render::ObjectRenderable>> GetModelRenderables(
+                RenderableStateComponent& stateComponent,
+                const ModelRenderableComponent& modelComponent,
+                const ModelRenderableStateComponent& modelStateComponent,
+                const TransformComponent& transformComponent);
+            [[nodiscard]] static Render::ObjectRenderable GetModelRenderable(RenderableStateComponent& stateComponent,
+                                                                             const ModelRenderableComponent& modelComponent,
+                                                                             const TransformComponent& transformComponent,
+                                                                             const MeshPoseData& meshPoseData);
+            [[nodiscard]] static Render::ObjectRenderable GetModelRenderable(RenderableStateComponent& stateComponent,
+                                                                             const ModelRenderableComponent& modelComponent,
+                                                                             const TransformComponent& transformComponent,
+                                                                             const BoneMesh& boneMesh);
+
+            [[nodiscard]] static Render::Light GetLightRenderable(entt::registry& registry, entt::entity entity);
+
+            [[nodiscard]] std::optional<ModelPose> GetModelPose(const ResourceIdentifier& model, const std::optional<ModelAnimationState>& animationState);
+
+            [[nodiscard]] static glm::vec3 GetVirtualToRenderRatio(const RunState::Ptr& runState);
 
         private:
 
@@ -64,10 +91,17 @@ namespace Accela::Engine
             IWorldResources::Ptr m_worldResources;
             Render::IRenderer::Ptr m_renderer;
 
-            std::unordered_map<std::string, std::unordered_set<Render::RenderableId>> m_destroyedSpriteRenderables;
-            std::unordered_map<std::string, std::unordered_set<Render::RenderableId>> m_destroyedObjectRenderables;
-            std::unordered_map<std::string, std::unordered_set<Render::RenderableId>> m_destroyedTerrainRenderables;
-            std::unordered_map<std::string, std::unordered_set<Render::LightId>> m_destroyedLights;
+            entt::observer m_spriteCompletedObserver;
+            entt::observer m_objectCompletedObserver;
+            entt::observer m_modelCompletedObserver;
+            entt::observer m_lightCompletedObserver;
+
+            entt::observer m_renderableStateUpdateObserver;
+            entt::observer m_lightStateUpdateObserver;
+
+            std::unordered_set<Render::RenderableId> m_spriteRenderablesToDestroy;
+            std::unordered_set<Render::RenderableId> m_objectRenderablesToDestroy;
+            std::unordered_set<Render::LightId> m_lightsToDestroy;
     };
 }
 

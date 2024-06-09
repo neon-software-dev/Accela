@@ -62,6 +62,7 @@ namespace Accela
             void ProcessDestroyAllEntitiesCommand(const DestroyAllEntitiesCommand::Ptr& cmd);
             void ProcessCreateEntityCommand(const CreateEntityCommand::Ptr& cmd);
             void ProcessSetEntityComponentCommand(const SetEntityComponentCommand::Ptr& cmd);
+            void ProcessRemoveEntityComponentCommand(const RemoveEntityComponentCommand::Ptr& cmd);
 
         private:
 

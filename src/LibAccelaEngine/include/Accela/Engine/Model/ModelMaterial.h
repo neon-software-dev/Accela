@@ -56,12 +56,12 @@ namespace Accela::Engine
     {
         std::string name;
 
-        glm::vec3 ambientColor{0};
-        glm::vec3 diffuseColor{0};
-        glm::vec3 specularColor{0};
+        glm::vec4 ambientColor{0};
+        glm::vec4 diffuseColor{0};
+        glm::vec4 specularColor{0};
         float opacity{1.0f};
-        std::optional<Render::AlphaMode> alphaMode{Render::AlphaMode::Blend};
-        std::optional<float> alphaCutoff{0.01f};
+        std::optional<Render::AlphaMode> alphaMode;
+        std::optional<float> alphaCutoff;
         float shininess{0.0f};
 
         std::vector<ModelTexture> ambientTextures;

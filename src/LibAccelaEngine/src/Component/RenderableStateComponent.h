@@ -23,18 +23,19 @@ namespace Accela::Engine
         {
             Sprite,
             Object,
-            Model,
-            Terrain
+            Model
         };
 
-        explicit RenderableStateComponent(Type _type)
+        explicit RenderableStateComponent(Type _type, std::string _sceneName)
             : type(_type)
+            , sceneName(std::move(_sceneName))
         { }
 
-        Type type;
-        std::unordered_map<std::size_t, Render::RenderableId> renderableIds;
-        std::string sceneName;
         ComponentState state{ComponentState::New};
+        Type type;
+        std::string sceneName;
+
+        std::unordered_map<std::size_t, Render::RenderableId> renderableIds;
     };
 }
 

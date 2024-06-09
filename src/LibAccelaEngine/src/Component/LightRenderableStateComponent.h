@@ -19,9 +19,14 @@ namespace Accela::Engine
 {
     struct LightRenderableStateComponent
     {
+        LightRenderableStateComponent() = default;
+        explicit LightRenderableStateComponent(std::string _sceneName)
+            : sceneName(std::move(_sceneName))
+        { }
+
+        ComponentState state{ComponentState::New};
         Render::LightId lightId{};
         std::string sceneName;
-        ComponentState state{ComponentState::New};
     };
 }
 

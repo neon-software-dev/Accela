@@ -72,6 +72,7 @@ namespace Accela::Render
                         const VulkanRenderPassPtr& renderPass,
                         const VulkanFramebufferPtr& framebuffer,
                         const std::vector<ViewProjection>& viewProjections,
+                        const std::unordered_map<LightId, TextureId>& shadowMaps,
                         const std::optional<ShadowRenderData>& shadowRenderData);
 
         private:
@@ -156,7 +157,8 @@ namespace Accela::Render
             // Rendering
             //
 
-            void RenderBatch(RenderState& renderState,
+            void RenderBatch(const std::string& sceneName,
+                             RenderState& renderState,
                              RenderMetrics& renderMetrics,
                              const RenderType& renderType,
                              const ObjectRenderBatch& renderBatch,
@@ -165,6 +167,7 @@ namespace Accela::Render
                              const VulkanRenderPassPtr& renderPass,
                              const VulkanFramebufferPtr& framebuffer,
                              const std::vector<ViewProjection>& viewProjections,
+                             const std::unordered_map<LightId, TextureId>& shadowMaps,
                              const std::optional<ShadowRenderData>& shadowRenderData);
 
             //
@@ -186,18 +189,31 @@ namespace Accela::Render
             //
             // DescriptorSet 0
             //
-            [[nodiscard]] bool BindDescriptorSet0(RenderState& renderState,
+            [[nodiscard]] bool BindDescriptorSet0(const std::string& sceneName,
+                                                  RenderState& renderState,
+                                                  const RenderType& renderType,
                                                   const RenderParams& renderParams,
                                                   const VulkanCommandBufferPtr& commandBuffer,
-                                                  const std::vector<ViewProjection>& viewProjections);
+                                                  const std::vector<ViewProjection>& viewProjections,
+                                                  const std::unordered_map<LightId, TextureId>& shadowMaps);
 
             [[nodiscard]] bool BindDescriptorSet0_Global(RenderState& renderState,
                                                          const RenderParams& renderParams,
-                                                         const VulkanDescriptorSetPtr& descriptorSet) const;
+                                                         const VulkanDescriptorSetPtr& descriptorSet,
+                                                         const std::vector<LoadedLight>& lights) const;
 
             [[nodiscard]] bool BindDescriptorSet0_ViewProjection(RenderState& renderState,
                                                                  const std::vector<ViewProjection>& viewProjections,
                                                                  const VulkanDescriptorSetPtr& descriptorSet) const;
+
+            [[nodiscard]] bool BindDescriptorSet0_Lights(const RenderState& renderState,
+                                                         const VulkanDescriptorSetPtr& globalDataDescriptorSet,
+                                                         const std::vector<LoadedLight>& lights,
+                                                         const std::unordered_map<LightId, TextureId>& shadowMaps) const;
+
+            [[nodiscard]] bool BindDescriptorSet0_ShadowMapTextures(const RenderState& renderState,
+                                                                    const VulkanDescriptorSetPtr& globalDataDescriptorSet,
+                                                                    const std::unordered_map<ShadowMapType, std::vector<TextureId>>& shadowMapTextureIds) const;
 
             //
             // DescriptorSet 1

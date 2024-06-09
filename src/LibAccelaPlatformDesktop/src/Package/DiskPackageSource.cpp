@@ -224,7 +224,12 @@ std::expected<std::string, bool> DiskPackageSource::GetTextureFormatHint(const s
         return std::unexpected(false);
     }
 
-    return path.extension();
+    std::string hint = path.extension();
+
+    // Remove leading period from the extension name (.jpg - > jpg)
+    hint = hint.substr(1, hint.size() - 1);
+
+    return hint;
 }
 
 std::expected<std::string, bool>

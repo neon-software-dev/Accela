@@ -626,65 +626,45 @@ bool VulkanObjs::CreateOffscreenRenderPass()
     // Subpass Dependencies
     //
 
-    // Color dependency between GPass Opaque and GPass Translucent subpasses
-    VkSubpassDependency dependency_readGpassOpaqueColorOutput{};
-    dependency_readGpassOpaqueColorOutput.srcSubpass = Offscreen_GPassOpaqueSubpass_Index;
-    dependency_readGpassOpaqueColorOutput.dstSubpass = Offscreen_GPassTranslucentSubpass_Index;
-    dependency_readGpassOpaqueColorOutput.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency_readGpassOpaqueColorOutput.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    dependency_readGpassOpaqueColorOutput.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    dependency_readGpassOpaqueColorOutput.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-    dependency_readGpassOpaqueColorOutput.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+    // Opaque Deferred subpass must finish writing to color attachment before Deferred Lighting subpass can use it
+    VkSubpassDependency dependency_readOpaqueDeferredColorOutput{};
+    dependency_readOpaqueDeferredColorOutput.srcSubpass = OffscreenRenderPass_OpaqueDeferredSubpass_Index;
+    dependency_readOpaqueDeferredColorOutput.dstSubpass = OffscreenRenderPass_DeferredLightingSubpass_Index;
+    dependency_readOpaqueDeferredColorOutput.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency_readOpaqueDeferredColorOutput.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    dependency_readOpaqueDeferredColorOutput.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependency_readOpaqueDeferredColorOutput.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    dependency_readOpaqueDeferredColorOutput.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
-    // Depth dependency between GPass Opaque and GPass Translucent subpasses
-    VkSubpassDependency dependency_readGpassOpaqueDepthOutput{};
-    dependency_readGpassOpaqueDepthOutput.srcSubpass = Offscreen_GPassOpaqueSubpass_Index;
-    dependency_readGpassOpaqueDepthOutput.dstSubpass = Offscreen_GPassTranslucentSubpass_Index;
-    dependency_readGpassOpaqueDepthOutput.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    dependency_readGpassOpaqueDepthOutput.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    dependency_readGpassOpaqueDepthOutput.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-    dependency_readGpassOpaqueDepthOutput.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-    dependency_readGpassOpaqueDepthOutput.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+    // Opaque Deferred subpass must finish writing to depth attachment before Forward subpass can use it
+    VkSubpassDependency dependency_readOpaqueDeferredDepthOutput{};
+    dependency_readOpaqueDeferredDepthOutput.srcSubpass = OffscreenRenderPass_OpaqueDeferredSubpass_Index;
+    dependency_readOpaqueDeferredDepthOutput.dstSubpass = OffscreenRenderPass_ForwardSubpass_Index;
+    dependency_readOpaqueDeferredDepthOutput.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    dependency_readOpaqueDeferredDepthOutput.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    dependency_readOpaqueDeferredDepthOutput.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+    dependency_readOpaqueDeferredDepthOutput.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+    dependency_readOpaqueDeferredDepthOutput.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
-    // Color dependency between GPass Translucent and Lighting subpasses
-    VkSubpassDependency dependency_readGpassTranslucentColorOutput{};
-    dependency_readGpassTranslucentColorOutput.srcSubpass = Offscreen_GPassTranslucentSubpass_Index;
-    dependency_readGpassTranslucentColorOutput.dstSubpass = Offscreen_LightingSubpass_Index;
-    dependency_readGpassTranslucentColorOutput.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency_readGpassTranslucentColorOutput.dstStageMask = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT;
-    dependency_readGpassTranslucentColorOutput.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    dependency_readGpassTranslucentColorOutput.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    dependency_readGpassTranslucentColorOutput.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-    // Depth dependency between GPass Translucent and Forward subpasses
-    VkSubpassDependency dependency_readGpassTranslucentDepthOutput{};
-    dependency_readGpassTranslucentDepthOutput.srcSubpass = Offscreen_GPassTranslucentSubpass_Index;
-    dependency_readGpassTranslucentDepthOutput.dstSubpass = Offscreen_ForwardSubpass_Index;
-    dependency_readGpassTranslucentDepthOutput.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    dependency_readGpassTranslucentDepthOutput.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    dependency_readGpassTranslucentDepthOutput.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-    dependency_readGpassTranslucentDepthOutput.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-    dependency_readGpassTranslucentDepthOutput.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-    // Color dependency between Lighting and Forward subpasses
-    VkSubpassDependency dependency_readLightingColorOutput{};
-    dependency_readLightingColorOutput.srcSubpass = Offscreen_LightingSubpass_Index;
-    dependency_readLightingColorOutput.dstSubpass = Offscreen_ForwardSubpass_Index;
-    dependency_readLightingColorOutput.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency_readLightingColorOutput.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-    dependency_readLightingColorOutput.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    dependency_readLightingColorOutput.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-    dependency_readLightingColorOutput.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+    // Color dependency between Deferred Lighting and Forward subpasses
+    VkSubpassDependency dependency_readDeferredLightingColorOutput{};
+    dependency_readDeferredLightingColorOutput.srcSubpass = OffscreenRenderPass_DeferredLightingSubpass_Index;
+    dependency_readDeferredLightingColorOutput.dstSubpass = OffscreenRenderPass_ForwardSubpass_Index;
+    dependency_readDeferredLightingColorOutput.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency_readDeferredLightingColorOutput.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    dependency_readDeferredLightingColorOutput.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependency_readDeferredLightingColorOutput.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+    dependency_readDeferredLightingColorOutput.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
     // Color dependency between Forward subpass and external (swap chain) render pass
-    VkSubpassDependency dependency_readColorOutput{};
-    dependency_readColorOutput.srcSubpass = Offscreen_ForwardSubpass_Index;
-    dependency_readColorOutput.dstSubpass = VK_SUBPASS_EXTERNAL;
-    dependency_readColorOutput.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency_readColorOutput.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-    dependency_readColorOutput.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    dependency_readColorOutput.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-    dependency_readColorOutput.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+    VkSubpassDependency dependency_readForwardColorOutput{};
+    dependency_readForwardColorOutput.srcSubpass = OffscreenRenderPass_ForwardSubpass_Index;
+    dependency_readForwardColorOutput.dstSubpass = VK_SUBPASS_EXTERNAL;
+    dependency_readForwardColorOutput.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency_readForwardColorOutput.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    dependency_readForwardColorOutput.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependency_readForwardColorOutput.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+    dependency_readForwardColorOutput.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
     //
     // Multiview settings
@@ -717,17 +697,14 @@ bool VulkanObjs::CreateOffscreenRenderPass()
         },
         {
             gSubpass,
-            gSubpass,
             lightingSubpass,
             forwardSubpass
         },
         {
-            dependency_readGpassOpaqueColorOutput,
-            dependency_readGpassOpaqueDepthOutput,
-            dependency_readGpassTranslucentColorOutput,
-            dependency_readGpassTranslucentDepthOutput,
-            dependency_readLightingColorOutput,
-            dependency_readColorOutput
+            dependency_readOpaqueDeferredColorOutput,
+            dependency_readOpaqueDeferredDepthOutput,
+            dependency_readDeferredLightingColorOutput,
+            dependency_readForwardColorOutput
         },
         viewMasks,
         correlationMask,

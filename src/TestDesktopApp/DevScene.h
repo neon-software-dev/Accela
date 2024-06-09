@@ -46,7 +46,7 @@ namespace Accela
             void ConfigureScene();
             void CreateSceneEntities();
 
-            [[nodiscard]] static Engine::ObjectMaterialProperties DefineSolidColorMaterial(const glm::vec3& color);
+            [[nodiscard]] static Engine::ObjectMaterialProperties DefineColorMaterial(const glm::vec4& color);
 
             /** Add a light at the specified position */
             void CreatePointLight(const glm::vec3& position, bool drawEntity);

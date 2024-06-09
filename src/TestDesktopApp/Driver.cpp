@@ -30,7 +30,7 @@ int main()
         1,
         Engine::WindowParams("TestDesktopApp", Render::USize(1920, 1080)),
         Engine::VROutput::None,
-        std::make_unique<DevScene>()
+        std::make_unique<TestScene>()
     );
 
     desktopEngine.Shutdown();

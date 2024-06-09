@@ -35,6 +35,7 @@ namespace Accela::Engine
 
             [[nodiscard]] virtual Type GetType() const noexcept = 0;
 
+            virtual void Initialize(entt::registry& registry) { (void)registry; };
             virtual void Execute(const RunState::Ptr& runState, entt::registry& registry) = 0;
     };
 }

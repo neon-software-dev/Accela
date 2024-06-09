@@ -104,14 +104,6 @@ bool ModelResources::OnLoadModel(const PackageResourceIdentifier& resource, Resu
         return false;
     }
 
-    const auto modelData = (*package)->GetModelData(resource.GetResourceName());
-    if (!modelData)
-    {
-        m_logger->Log(Common::LogLevel::Error,
-          "ModelResources::OnLoadModel: Failed to get model data: {}", resource.GetUniqueName());
-        return false;
-    }
-
     const auto splitFileName = SplitFileName(resource.GetResourceName());
     if (!splitFileName)
     {
@@ -120,7 +112,7 @@ bool ModelResources::OnLoadModel(const PackageResourceIdentifier& resource, Resu
         return false;
     }
 
-    const auto model = m_modelLoader.LoadModel(*modelData, splitFileName->second, resource.GetUniqueName());
+    const auto model = m_modelLoader.LoadModel(resource, *package, splitFileName->second, resource.GetUniqueName());
     if (model == nullptr)
     {
         m_logger->Log(Common::LogLevel::Error,
@@ -282,7 +274,7 @@ bool ModelResources::LoadPackageModelTextures(const PackageResourceIdentifier& r
         if (!textureDataExpect)
         {
             m_logger->Log(Common::LogLevel::Error,
-              "TextureResources::LoadPackageTexture: Failed to convert texture to an image: {}", resource.GetUniqueName());
+              "ModelResources::LoadPackageTexture: Failed to convert texture to an image: {}", resource.GetUniqueName());
             return Render::INVALID_ID;
         }
 
@@ -335,12 +327,10 @@ std::expected<Render::MaterialId, bool> ModelResources::LoadModelMeshMaterial(Re
         objectMaterialProperties.alphaMode = *material.alphaMode;
         objectMaterialProperties.alphaCutoff = *material.alphaCutoff;
     }
-        // Otherwise, use the material's opacity field to determine alpha mode
+    // Otherwise, use the material's opacity field to determine alpha mode
     else
     {
-        const auto opacityInt = static_cast<unsigned int>(material.opacity);
-
-        objectMaterialProperties.alphaMode = opacityInt == 1 ? Render::AlphaMode::Opaque : Render::AlphaMode::Blend;
+        objectMaterialProperties.alphaMode = material.opacity >= 0.99f ? Render::AlphaMode::Opaque : Render::AlphaMode::Blend;
         objectMaterialProperties.alphaCutoff = 0.01f;
     }
 

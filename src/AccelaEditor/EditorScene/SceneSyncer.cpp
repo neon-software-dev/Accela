@@ -193,4 +193,24 @@ std::future<bool> SceneSyncer::UpdateEntityComponent(const std::string& entityNa
     return fut;
 }
 
+std::future<bool> SceneSyncer::RemoveEntityComponent(const std::string& entityName, const Engine::Component::Type& type) const
+{
+    assert(m_accelaWindow.has_value());
+    if (!m_accelaWindow.has_value()) { return Common::ImmediateFuture(false); }
+
+    const auto it = m_entities.find(entityName);
+    if (it == m_entities.cend())
+    {
+        m_logger->Log(Common::LogLevel::Error, "SceneSyncer:RemoveEntityComponent: No such entity: {}", entityName);
+        return Common::ImmediateFuture(false);
+    }
+
+    const auto entityId = it->second;
+
+    const auto cmd = std::make_shared<RemoveEntityComponentCommand>(entityId, type);
+    auto fut = cmd->CreateFuture();
+    (*m_accelaWindow)->EnqueueSceneMessage(cmd);
+    return fut;
+}
+
 }

@@ -13,9 +13,13 @@
 #include <Accela/Common/Timer.h>
 
 #include <assimp/postprocess.h>
-#include <assimp/cimport.h>
+#include <assimp/IOStream.hpp>
+#include <assimp/IOSystem.hpp>
+#include <assimp/Importer.hpp>
+#include <assimp/MemoryIOWrapper.h>
 
 #include <queue>
+#include <filesystem>
 
 namespace Accela::Engine
 {
@@ -25,21 +29,85 @@ static const unsigned int MAX_BONES_PER_VERTEX = 4;
 #define AI_MATKEY_GLTF_ALPHAMODE "$mat.gltf.alphaMode", 0, 0
 #define AI_MATKEY_GLTF_ALPHACUTOFF "$mat.gltf.alphaCutoff", 0, 0
 
+/**
+ * Assimp IOSystem which calls into a PackageSource to fetch model files. Needed
+ * because there could be supplementary files associated with a model (like a .mtl
+ * file) and we need to provide the ability to load them from a package on demand;
+ * we can't just only give Assimp the model data from the main model file.
+ */
+class PackageIOSystem : public Assimp::IOSystem
+{
+    public:
+
+        explicit PackageIOSystem(Platform::PackageSource::Ptr source)
+            : m_source(std::move(source))
+        {
+
+        }
+
+        bool Exists(const char* pFile) const override
+        {
+            return std::ranges::contains(m_source->GetModelResourceNames(), std::string{pFile});
+        }
+
+        Assimp::IOStream* Open(const char* pFile, const char*) override
+        {
+            const auto fileStr = std::string(pFile);
+
+            if (!m_fileContents.contains(fileStr))
+            {
+                std::expected<std::vector<std::byte>, unsigned int> modelData = m_source->GetModelData(pFile);
+                if (!modelData)
+                {
+                    return nullptr;
+                }
+
+                m_fileContents.insert({fileStr, *modelData});
+            }
+
+            const auto& fileBytes = m_fileContents.at(fileStr);
+
+            return new Assimp::MemoryIOStream((const uint8_t*)fileBytes.data(), fileBytes.size(), false);
+        }
+
+        [[nodiscard]] char getOsSeparator() const override
+        {
+            return std::filesystem::path::preferred_separator;
+        }
+
+        void Close(Assimp::IOStream* pFile) override
+        {
+            delete pFile;
+        }
+
+    private:
+
+        Platform::PackageSource::Ptr m_source;
+
+        // Cache of file contents as assimp often calls Open/Close flows a lot of times for the same file
+        std::unordered_map<std::string, std::vector<std::byte>> m_fileContents;
+};
+
 ModelLoader::ModelLoader(Common::ILogger::Ptr logger)
     : m_logger(std::move(logger))
 {
 
 }
 
-Model::Ptr ModelLoader::LoadModel(const std::vector<std::byte>& modelData, const std::string& fileHint, const std::string& tag) const
+Model::Ptr ModelLoader::LoadModel(const ResourceIdentifier& resource,
+                                  const Platform::PackageSource::Ptr& source,
+                                  const std::string& fileHint,
+                                  const std::string& tag) const
 {
     m_logger->Log(Common::LogLevel::Info, "--[Disk Model Load] {}, {} --", tag, fileHint);
 
     Common::Timer loadTimer("LoadModelTime");
 
-    const aiScene *pScene = aiImportFileFromMemory(
-        (char*)modelData.data(),
-        modelData.size(),
+    Assimp::Importer importer;
+    importer.SetIOHandler(new PackageIOSystem(source));
+
+    const aiScene *pScene = importer.ReadFile(
+        resource.GetResourceName(),
         aiProcess_Triangulate |           // Always output triangles instead of arbitrarily sized faces
         //aiProcess_FlipWindingOrder |
         //aiProcess_MakeLeftHanded |
@@ -48,8 +116,7 @@ Model::Ptr ModelLoader::LoadModel(const std::vector<std::byte>& modelData, const
         aiProcess_FlipUVs |                     // Vulkan uses a flipped UV coordinate system
         aiProcess_GenSmoothNormals |            // Generate normals for models that don't have them
         aiProcess_ValidateDataStructure |       // Validate the model
-        aiProcess_CalcTangentSpace,              // Calculate tangent and bitangent vectors for models with normal maps
-        fileHint.c_str()
+        aiProcess_CalcTangentSpace              // Calculate tangent and bitangent vectors for models with normal maps
     );
 
     if (pScene == nullptr || pScene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || pScene->mRootNode == nullptr)
@@ -75,9 +142,6 @@ Model::Ptr ModelLoader::LoadModel(const std::vector<std::byte>& modelData, const
     m_logger->Log(Common::LogLevel::Debug, "{}: Num Nodes With Meshes: {}", tag, model->nodesWithMeshes.size());
     m_logger->Log(Common::LogLevel::Debug, "{}: Num Animations: {}", tag, model->animations.size());
     m_logger->Log(Common::LogLevel::Debug, "{}: loaded in {}ms", tag, loadTime.count());
-
-    // TODO Android: Remove, see above
-    aiReleaseImport(pScene);
 
     return model;
 }
@@ -137,17 +201,17 @@ ModelMaterial ModelLoader::ProcessMaterial(const aiMaterial* pMaterial) const
     ai_real transparencyFactor{1.0f};
     pMaterial->Get(AI_MATKEY_TRANSPARENCYFACTOR, transparencyFactor);
 
-    aiColor3D ambientColor(0.0f, 0.f, 0.f);
+    aiColor4D ambientColor(0.0f, 0.f, 0.f, 0.0f);
     pMaterial->Get(AI_MATKEY_COLOR_AMBIENT, ambientColor);
-    rawMaterial.ambientColor = glm::vec3(ambientColor.r, ambientColor.g, ambientColor.b);
+    rawMaterial.ambientColor = glm::vec4(ambientColor.r, ambientColor.g, ambientColor.b, ambientColor.a);
 
-    aiColor3D diffuseColor(0.f, 0.f, 0.f);
+    aiColor4D diffuseColor(0.f, 0.f, 0.f, 0.0f);
     pMaterial->Get(AI_MATKEY_COLOR_DIFFUSE, diffuseColor);
-    rawMaterial.diffuseColor = glm::vec3(diffuseColor.r, diffuseColor.g, diffuseColor.b);
+    rawMaterial.diffuseColor = glm::vec4(diffuseColor.r, diffuseColor.g, diffuseColor.b, diffuseColor.a);
 
-    aiColor3D specularColor(0.f, 0.f, 0.f);
+    aiColor4D specularColor(0.f, 0.f, 0.f, 0.0f);
     pMaterial->Get(AI_MATKEY_COLOR_SPECULAR, specularColor);
-    rawMaterial.specularColor = glm::vec3(specularColor.r, specularColor.g, specularColor.b);
+    rawMaterial.specularColor = glm::vec4(specularColor.r, specularColor.g, specularColor.b, specularColor.a);
 
     ai_real shininess{0.0f};
     pMaterial->Get(AI_MATKEY_SHININESS, shininess);

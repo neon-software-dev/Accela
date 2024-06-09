@@ -81,6 +81,20 @@ namespace Accela
         Engine::EntityId eid;
         Engine::Component::Ptr component;
     };
+
+    struct RemoveEntityComponentCommand : public Common::ResultMessage<bool>
+    {
+        using Ptr = std::shared_ptr<RemoveEntityComponentCommand>;
+        static constexpr auto TYPE = "RemoveEntityComponentCommand";
+        explicit RemoveEntityComponentCommand(Engine::EntityId _eid, Engine::Component::Type _type)
+            : Common::ResultMessage<bool>(TYPE)
+            , eid(_eid)
+            , type(_type)
+        { }
+
+        Engine::EntityId eid;
+        Engine::Component::Type type;
+    };
 }
 
 #endif //ACCELAEDITOR_EDITORSCENE_MESSAGES_H

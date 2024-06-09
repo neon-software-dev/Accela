@@ -7,6 +7,10 @@
 #ifndef LIBACCELAENGINE_SRC_MODEL_MODELLOADER_H
 #define LIBACCELAENGINE_SRC_MODEL_MODELLOADER_H
 
+#include <Accela/Engine/ResourceIdentifier.h>
+
+#include <Accela/Platform/Package/PackageSource.h>
+
 #include <Accela/Engine/Model/Model.h>
 #include <Accela/Engine/Model/ModelNode.h>
 #include <Accela/Engine/Model/ModelMaterial.h>
@@ -29,7 +33,8 @@ namespace Accela::Engine
 
             explicit ModelLoader(Common::ILogger::Ptr logger);
 
-            [[nodiscard]] Model::Ptr LoadModel(const std::vector<std::byte>& modelData,
+            [[nodiscard]] Model::Ptr LoadModel(const ResourceIdentifier& resource,
+                                               const Platform::PackageSource::Ptr& source,
                                                const std::string& fileHint,
                                                const std::string& tag) const;
 

@@ -18,6 +18,7 @@
 #include "../Mesh/IMeshes.h"
 #include "../Material/IMaterials.h"
 #include "../Texture/ITextures.h"
+#include "../Light/ILights.h"
 
 #include "../Vulkan/VulkanDebug.h"
 #include "../Vulkan/VulkanFramebuffer.h"
@@ -94,6 +95,7 @@ void ObjectRenderer::Render(const std::string& sceneName,
                             const VulkanRenderPassPtr& renderPass,
                             const VulkanFramebufferPtr& framebuffer,
                             const std::vector<ViewProjection>& viewProjections,
+                            const std::unordered_map<LightId, TextureId>& shadowMaps,
                             const std::optional<ShadowRenderData>& shadowRenderData)
 {
     CmdBufferSectionLabel sectionLabel(m_vulkanObjs->GetCalls(), commandBuffer, "ObjectRenderer");
@@ -117,8 +119,8 @@ void ObjectRenderer::Render(const std::string& sceneName,
 
     for (const auto& renderBatch : renderBatches)
     {
-        RenderBatch(renderState, renderMetrics, renderType, renderBatch, renderParams, commandBuffer,
-                    renderPass, framebuffer, viewProjections, shadowRenderData);
+        RenderBatch(sceneName, renderState, renderMetrics, renderType, renderBatch, renderParams, commandBuffer,
+                    renderPass, framebuffer, viewProjections, shadowMaps, shadowRenderData);
     }
 
     //
@@ -362,6 +364,9 @@ ObjectRenderer::ObjectRenderBatch ObjectRenderer::CreateRenderBatch(
     drawBatch.params = drawBatchParams;
     drawBatch.objects.push_back(object);
 
+    // TODO! When running translucent forward pass need to sort objects by
+    //  distance from camera, probably need to have only 1 batch per object?
+
     ObjectRenderBatch renderBatch{};
     renderBatch.key = renderBatchKey;
     renderBatch.params = renderBatchParams;
@@ -380,7 +385,8 @@ std::expected<ProgramDefPtr, bool> ObjectRenderer::GetMeshProgramDef(const Rende
         {
             switch (renderType)
             {
-                case RenderType::GpassOpaque: case RenderType::GpassTranslucent: programDef = m_programs->GetProgramDef("Object"); break;
+                case RenderType::GpassOpaque: programDef = m_programs->GetProgramDef("ObjectDeferred"); break;
+                case RenderType::GpassTranslucent: programDef = m_programs->GetProgramDef("ObjectForward"); break;
                 case RenderType::Shadow: programDef = m_programs->GetProgramDef("ObjectShadow"); break;
             }
         }
@@ -389,7 +395,8 @@ std::expected<ProgramDefPtr, bool> ObjectRenderer::GetMeshProgramDef(const Rende
         {
             switch (renderType)
             {
-                case RenderType::GpassOpaque: case RenderType::GpassTranslucent: programDef = m_programs->GetProgramDef("BoneObject"); break;
+                case RenderType::GpassOpaque: programDef = m_programs->GetProgramDef("BoneObjectDeferred"); break;
+                case RenderType::GpassTranslucent: programDef = m_programs->GetProgramDef("BoneObjectForward"); break;
                 case RenderType::Shadow: programDef = m_programs->GetProgramDef("BoneObjectShadow"); break;
             }
         }
@@ -404,7 +411,8 @@ std::expected<ProgramDefPtr, bool> ObjectRenderer::GetMeshProgramDef(const Rende
     return programDef;
 }
 
-void ObjectRenderer::RenderBatch(RenderState& renderState,
+void ObjectRenderer::RenderBatch(const std::string& sceneName,
+                                 RenderState& renderState,
                                  RenderMetrics& renderMetrics,
                                  const RenderType& renderType,
                                  const ObjectRenderBatch& renderBatch,
@@ -413,6 +421,7 @@ void ObjectRenderer::RenderBatch(RenderState& renderState,
                                  const VulkanRenderPassPtr& renderPass,
                                  const VulkanFramebufferPtr& framebuffer,
                                  const std::vector<ViewProjection>& viewProjections,
+                                 const std::unordered_map<LightId, TextureId>& shadowMaps,
                                  const std::optional<ShadowRenderData>& shadowRenderData)
 {
     //
@@ -444,7 +453,7 @@ void ObjectRenderer::RenderBatch(RenderState& renderState,
     //
     // Bind Descriptor Sets
     //
-    if (!BindDescriptorSet0(renderState, renderParams, commandBuffer, viewProjections)) { return; }
+    if (!BindDescriptorSet0(sceneName, renderState, renderType, renderParams, commandBuffer, viewProjections, shadowMaps)) { return; }
     if (!BindDescriptorSet1(renderState, commandBuffer)) { return; }
     if (!BindDescriptorSet2(renderState, renderBatch, commandBuffer)) { return; }
     if (!BindDescriptorSet3(renderState, renderBatch, commandBuffer)) { return; }
@@ -544,10 +553,13 @@ bool ObjectRenderer::BindPushConstants(RenderState& renderState,
     return true;
 }
 
-bool ObjectRenderer::BindDescriptorSet0(RenderState& renderState,
+bool ObjectRenderer::BindDescriptorSet0(const std::string& sceneName,
+                                        RenderState& renderState,
+                                        const RenderType& renderType,
                                         const RenderParams& renderParams,
                                         const VulkanCommandBufferPtr& commandBuffer,
-                                        const std::vector<ViewProjection>& viewProjections)
+                                        const std::vector<ViewProjection>& viewProjections,
+                                        const std::unordered_map<LightId, TextureId>& shadowMaps)
 {
     //
     // If the set isn't invalidated, nothing to do
@@ -571,8 +583,20 @@ bool ObjectRenderer::BindDescriptorSet0(RenderState& renderState,
     //
     // Update the descriptor set with data
     //
-    if (!BindDescriptorSet0_Global(renderState, renderParams, (*descriptorSet))) { return false; }
+    const auto sceneLights = m_lights->GetSceneLights(sceneName, viewProjections);
+
+    if (!BindDescriptorSet0_Global(renderState, renderParams, (*descriptorSet), sceneLights)) { return false; }
     if (!BindDescriptorSet0_ViewProjection(renderState, viewProjections, (*descriptorSet))) { return false; }
+
+    // Opaque pass gets lighting done in deferred lighting subpass, shadow doesn't do any lighting, only
+    // forward rendering for translucent objects needs light data provided
+    if (renderType == RenderType::GpassTranslucent)
+    {
+        if (!BindDescriptorSet0_Lights(renderState, (*descriptorSet), sceneLights, shadowMaps))
+        {
+            return false;
+        }
+    }
 
     //
     // Bind the descriptor set
@@ -585,7 +609,8 @@ bool ObjectRenderer::BindDescriptorSet0(RenderState& renderState,
 
 bool ObjectRenderer::BindDescriptorSet0_Global(RenderState& renderState,
                                                const RenderParams& renderParams,
-                                               const VulkanDescriptorSetPtr& descriptorSet) const
+                                               const VulkanDescriptorSetPtr& descriptorSet,
+                                               const std::vector<LoadedLight>& lights) const
 {
     //
     // Create a buffer
@@ -604,11 +629,14 @@ bool ObjectRenderer::BindDescriptorSet0_Global(RenderState& renderState,
     }
 
     //
-    // Set Data
+    // Update the global data buffer with the global data
     //
-    const GlobalPayload globalPayload = GetGlobalPayload(renderParams, 0);
+    const GlobalPayload globalPayload = GetGlobalPayload(renderParams, lights.size());
     (*globalDataBuffer)->PushBack(ExecutionContext::CPU(), {globalPayload});
 
+    //
+    // Set Data
+    //
     descriptorSet->WriteBufferBind(
         (*renderState.programDef)->GetBindingDetailsByName("u_globalData"),
         VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
@@ -669,6 +697,192 @@ bool ObjectRenderer::BindDescriptorSet0_ViewProjection(RenderState& renderState,
     // Post-Frame Cleanup
     //
     m_postExecutionOps->Enqueue_Current(BufferDeleteOp(m_buffers, (*viewProjectionDataBuffer)->GetBuffer()->GetBufferId()));
+
+    return true;
+}
+
+// TODO: Combine logic with DeferredLightingRenderer
+bool ObjectRenderer::BindDescriptorSet0_Lights(const RenderState& renderState,
+                                               const VulkanDescriptorSetPtr& globalDataDescriptorSet,
+                                               const std::vector<LoadedLight>& lights,
+                                               const std::unordered_map<LightId, TextureId>& shadowMaps) const
+{
+    //
+    // Create a per-render CPU buffer for holding light data
+    //
+    // (Note that it reserves space for at least one light, so that the buffer creation doesn't fail).
+    //
+    const auto lightDataBuffer = CPUItemBuffer<LightPayload>::Create(
+        m_buffers,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        std::max((std::size_t)1U, lights.size()),
+        std::format("DeferredLightingRenderer-DS0-LightData-{}", m_frameIndex)
+    );
+    if (!lightDataBuffer)
+    {
+        m_logger->Log(Common::LogLevel::Error, "DeferredLightingRenderer::BindDescriptorSet0_Lights: Failed to create light data buffer");
+        return false;
+    }
+
+    //
+    // Calculate light data
+    //
+    const auto defaultLightTextures = std::vector<TextureId>(Max_Light_Count, Render::TextureId(Render::INVALID_ID));
+
+    std::unordered_map<ShadowMapType, std::vector<TextureId>> shadowMapTextureIds {
+        {ShadowMapType::Single, defaultLightTextures},
+        {ShadowMapType::Cube, defaultLightTextures}
+    };
+
+    // TODO Perf: Cull out lights that are a certain distance away from the camera
+    for (unsigned int lightIndex = 0; lightIndex < lights.size(); ++lightIndex)
+    {
+        const LoadedLight& loadedLight = lights[lightIndex];
+        const Light& light = loadedLight.light;
+
+        LightPayload lightPayload{};
+        lightPayload.shadowMapType = static_cast<uint32_t>(loadedLight.shadowMapType);
+        lightPayload.worldPos = light.worldPos;
+        lightPayload.maxAffectRange = GetLightMaxAffectRange(m_renderSettings, light);
+        lightPayload.attenuationMode = static_cast<uint32_t>(light.lightProperties.attenuationMode);
+        lightPayload.diffuseColor = light.lightProperties.diffuseColor;
+        lightPayload.diffuseIntensity = light.lightProperties.diffuseIntensity;
+        lightPayload.specularColor = light.lightProperties.specularColor;
+        lightPayload.specularIntensity = light.lightProperties.specularIntensity;
+        lightPayload.directionUnit = light.lightProperties.directionUnit;
+        lightPayload.coneFovDegrees = light.lightProperties.coneFovDegrees;
+
+        // Single shadow maps need their light-space transform supplied to the lighting shader. Cube
+        // shadow maps don't as we can do the transformation manually.
+        if (loadedLight.shadowMapType == ShadowMapType::Single)
+        {
+            const auto lightViewProjection = GetShadowMapViewProjection(m_renderSettings, loadedLight);
+            assert(lightViewProjection);
+
+            lightPayload.lightTransform = lightViewProjection->GetTransformation();
+        }
+
+        // If the light has a shadow map, update its payload to know about it (from its -1 default),
+        // and record the texture id for texture binding further on
+        const auto lightShadowMapIt = shadowMaps.find(light.lightId);
+        if (lightShadowMapIt != shadowMaps.cend())
+        {
+            shadowMapTextureIds[loadedLight.shadowMapType][lightIndex] = lightShadowMapIt->second;
+            lightPayload.shadowMapIndex = (int)lightIndex;
+        }
+
+        //
+        // Update the light data buffer with the light data
+        //
+        (*lightDataBuffer)->PushBack(ExecutionContext::CPU(), {lightPayload});
+    }
+
+    //
+    // Bind the light data buffer to the global data descriptor set
+    //
+    globalDataDescriptorSet->WriteBufferBind(
+        (*renderState.programDef)->GetBindingDetailsByName("i_lightData"),
+        VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+        (*lightDataBuffer)->GetBuffer()->GetVkBuffer(),
+        0,
+        0
+    );
+
+    //
+    // Bind shadow map textures
+    //
+    if (!BindDescriptorSet0_ShadowMapTextures(renderState, globalDataDescriptorSet, shadowMapTextureIds))
+    {
+        m_logger->Log(Common::LogLevel::Error, "DeferredLightingRenderer::BindDescriptorSet0_Lights: Failed to bind shadow maps");
+        return false;
+    }
+
+    //
+    // Post-frame cleanup
+    //
+    m_postExecutionOps->Enqueue_Current(BufferDeleteOp(m_buffers, (*lightDataBuffer)->GetBuffer()->GetBufferId()));
+
+    return true;
+}
+
+bool ObjectRenderer::BindDescriptorSet0_ShadowMapTextures(const RenderState& renderState,
+                                                          const VulkanDescriptorSetPtr& globalDataDescriptorSet,
+                                                          const std::unordered_map<ShadowMapType, std::vector<TextureId>>& shadowMapTextureIds) const
+{
+    //
+    // Cube shadow map binding details
+    //
+    const auto shadowMapBindingDetails = (*renderState.programDef)->GetBindingDetailsByName("i_shadowSampler");
+    if (!shadowMapBindingDetails)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+                      "DeferredLightingRenderer::BindDescriptorSet0_ShadowMapTextures: No such shadow map binding point exists: i_shadowSampler");
+        return false;
+    }
+
+    const auto shadowMapBindingDetails_Cube = (*renderState.programDef)->GetBindingDetailsByName("i_shadowSampler_cubeMap");
+    if (!shadowMapBindingDetails_Cube)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+                      "DeferredLightingRenderer::BindDescriptorSet0_ShadowMapTextures: No such shadow map binding point exists: i_shadowSampler_cubeMap");
+        return false;
+    }
+
+    //
+    // Missing texture binds
+    //
+    const auto missingTexture = m_textures->GetMissingTexture();
+    const auto missingCubeTexture = m_textures->GetMissingCubeTexture();
+
+    //
+    // Parameters for binding shadow map textures for a particular light type
+    //
+    VulkanDescriptorSetLayout::BindingDetails shadowBindingDetails{};
+    std::string shadowImageViewName;
+    VkImageView missingTextureImageView{VK_NULL_HANDLE};
+    VkSampler missingTextureSampler{VK_NULL_HANDLE};
+
+    for (const auto& typeIt : shadowMapTextureIds)
+    {
+        switch (typeIt.first)
+        {
+            case ShadowMapType::Single:
+            {
+                shadowBindingDetails = *shadowMapBindingDetails;
+                shadowImageViewName = TextureView::DEFAULT;
+                missingTextureImageView = missingTexture.vkImageViews.at(TextureView::DEFAULT);
+                missingTextureSampler = missingTexture.vkSampler;
+            }
+                break;
+
+            case ShadowMapType::Cube:
+            {
+                shadowBindingDetails = *shadowMapBindingDetails_Cube;
+                shadowImageViewName = TextureView::DEFAULT;
+                missingTextureImageView = missingCubeTexture.vkImageViews.at(TextureView::DEFAULT);
+                missingTextureSampler = missingCubeTexture.vkSampler;
+            }
+                break;
+        }
+
+        std::vector<std::pair<VkImageView, VkSampler>> samplerBinds;
+
+        for (const auto& textureId : typeIt.second)
+        {
+            const auto textureOpt = m_textures->GetTexture(textureId);
+
+            if (textureOpt)
+            {
+                samplerBinds.emplace_back(textureOpt->vkImageViews.at(shadowImageViewName), textureOpt->vkSampler);
+            }
+            else
+            {
+                samplerBinds.emplace_back(missingTextureImageView, missingTextureSampler);
+            }
+        }
+
+        globalDataDescriptorSet->WriteCombinedSamplerBind(shadowBindingDetails, samplerBinds);
+    }
 
     return true;
 }
@@ -1124,9 +1338,9 @@ std::expected<VulkanPipelinePtr, bool> ObjectRenderer::GetBatchPipeline(
 
     switch (renderType)
     {
-        case RenderType::GpassOpaque:       subpassIndex = Offscreen_GPassOpaqueSubpass_Index; break;
-        case RenderType::GpassTranslucent:  subpassIndex = Offscreen_GPassTranslucentSubpass_Index; break;
-        case RenderType::Shadow:            subpassIndex = Offscreen_GPassOpaqueSubpass_Index; break;
+        case RenderType::GpassOpaque:       subpassIndex = OffscreenRenderPass_OpaqueDeferredSubpass_Index; break;
+        case RenderType::GpassTranslucent:  subpassIndex = OffscreenRenderPass_ForwardSubpass_Index; break;
+        case RenderType::Shadow:            subpassIndex = ShadowRenderPass_ShadowSubpass_Index; break;
     }
 
     auto fillMode = PolygonFillMode::Fill;
