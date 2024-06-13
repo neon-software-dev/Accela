@@ -237,7 +237,7 @@ std::expected<TextRender, bool> TextureResources::OnRenderText(const std::string
     //
     // Send the texture to the renderer
     //
-    std::future<bool> transferFuture = m_renderer->CreateTexture(texture, textureView, textureSampler, false);
+    std::future<bool> transferFuture = m_renderer->CreateTexture(texture, textureView, textureSampler);
 
     if (resultWhen == ResultWhen::FullyLoaded && !transferFuture.get())
     {
@@ -353,7 +353,14 @@ Render::TextureId TextureResources::LoadTexture(const TextureData& textureData,
     // Create and record the texture
     //
     const auto textureId = m_renderer->GetIds()->textureIds.GetId();
-    const auto texture = ToRenderTexture(textureId, textureData, tag);
+    auto texture = ToRenderTexture(textureId, textureData, tag);
+
+    // TODO!: Client can configure/provide mip levels for the texture
+    if (texture.numLayers == 1)
+    {
+        texture.SetFullMipLevels();
+        texture.numMipLevels = std::min(*texture.numMipLevels, 4U);
+    }
 
     Render::TextureView textureView;
     if (texture.numLayers == 1)
@@ -379,9 +386,7 @@ Render::TextureId TextureResources::LoadTexture(const TextureData& textureData,
     //
     // Send the texture to the renderer
     //
-    const bool generateMipMaps = texture.numLayers == 1;
-
-    std::future<bool> transferFuture = m_renderer->CreateTexture(texture, textureView, textureSampler, generateMipMaps);
+    std::future<bool> transferFuture = m_renderer->CreateTexture(texture, textureView, textureSampler);
 
     if (resultWhen == ResultWhen::FullyLoaded && !transferFuture.get())
     {

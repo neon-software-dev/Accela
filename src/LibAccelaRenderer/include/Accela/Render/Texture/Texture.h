@@ -59,10 +59,20 @@ namespace Accela::Render
             return texture;
         }
 
+        /**
+         * Automatically sets numMipLevels to "full" mip levels - the number of times the size
+         * of the texture can be cut in half
+         */
+        void SetFullMipLevels()
+        {
+            numMipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(pixelSize.w, pixelSize.h)))) + 1;
+        }
+
         TextureId id{INVALID_ID};
         TextureUsage usage{TextureUsage::ImageMaterial};
         USize pixelSize;
         uint32_t numLayers{1};
+        std::optional<unsigned int> numMipLevels;
         std::optional<Common::ImageData::Ptr> data;
         std::string tag;
     };

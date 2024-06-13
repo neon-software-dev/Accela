@@ -117,7 +117,6 @@ bool Textures::CreateTextureEmpty(const Texture& texture, const std::vector<Text
 bool Textures::CreateTextureFilled(const Texture& texture,
                                    const std::vector<TextureView>& textureViews,
                                    const TextureSampler& textureSampler,
-                                   bool generateMipMapsRequested,
                                    std::promise<bool> resultPromise)
 {
     if (!texture.data.has_value())
@@ -139,8 +138,12 @@ bool Textures::CreateTextureFilled(const Texture& texture,
     bool generateMipMaps = false;
     uint32_t mipLevels = 1;
 
+    const bool generateMipMapsRequested = texture.numMipLevels.has_value();
+
     if (generateMipMapsRequested)
     {
+        mipLevels = *texture.numMipLevels;
+
         const auto vkFormat = VulkanFuncs::ImageDataFormatToVkFormat((*texture.data)->GetPixelFormat());
         if (vkFormat)
         {
@@ -155,11 +158,6 @@ bool Textures::CreateTextureFilled(const Texture& texture,
                   "CreateTextureFilled: Asked to generate mipmaps but device or image doesn't support it, ignoring");
             }
         }
-    }
-
-    if (generateMipMaps)
-    {
-        mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texture.pixelSize.w, texture.pixelSize.h)))) + 1;
     }
 
     //
@@ -815,11 +813,11 @@ bool Textures::CreateMissingTexture()
     // we don't need to wait for it to finish
     std::promise<bool> createTexturePromise;
     std::future<bool> createTextureFuture = createTexturePromise.get_future();
-    CreateTextureFilled(missingTexture, {missingTextureView}, textureSampler, false, std::move(createTexturePromise));
+    CreateTextureFilled(missingTexture, {missingTextureView}, textureSampler, std::move(createTexturePromise));
 
     std::promise<bool> createTextureCubePromise;
     std::future<bool> createTextureCubeFuture = createTextureCubePromise.get_future();
-    CreateTextureFilled(missingTextureCube, {missingTextureCubeView}, textureSampler, false, std::move(createTextureCubePromise));
+    CreateTextureFilled(missingTextureCube, {missingTextureCubeView}, textureSampler, std::move(createTextureCubePromise));
 
     m_missingTextureId = missingTextureId;
     m_missingCubeTextureId = missingTextureCubeId;

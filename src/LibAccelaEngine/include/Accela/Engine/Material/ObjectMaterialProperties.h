@@ -26,6 +26,7 @@ namespace Accela::Engine
         Render::AlphaMode alphaMode{Render::AlphaMode::Opaque};
         float alphaCutoff{1.0f};
         float shininess{0.0f};
+        bool twoSided{false};
 
         std::optional<ResourceIdentifier> ambientTexture;
         float ambientTextureBlendFactor{1.0f};

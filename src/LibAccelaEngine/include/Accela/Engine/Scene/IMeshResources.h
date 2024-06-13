@@ -8,10 +8,14 @@
 #define LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_SCENE_IMESHRESOURCES_H
 
 #include <Accela/Engine/ResourceIdentifier.h>
+#include <Accela/Engine/Scene/HeightMapData.h>
 
 #include <Accela/Render/Id.h>
+#include <Accela/Render/Util/Rect.h>
 #include <Accela/Render/Mesh/Mesh.h>
 #include <Accela/Render/Mesh/MeshVertex.h>
+
+#include <Accela/Common/ImageData.h>
 
 #include <memory>
 #include <future>
@@ -105,7 +109,16 @@ namespace Accela::Engine
               *
               * @return The loaded MeshId, or std::nullopt if no such material
               */
-            virtual std::optional<Render::MeshId> GetMeshId(const ResourceIdentifier& resource) const = 0;
+            [[nodiscard]] virtual std::optional<Render::MeshId> GetMeshId(const ResourceIdentifier& resource) const = 0;
+
+            /**
+             * Returns the height map data points associated with a previously loaded height map mesh.
+             *
+             * @param resource Identifies the height map mesh resource
+             *
+             * @return The height map mesh's data, or std::nullopt if no such mesh
+             */
+            [[nodiscard]] virtual std::optional<HeightMapData::Ptr> GetHeightMapData(const ResourceIdentifier& resource) const = 0;
 
             /**
              * Destroy a previously loaded mesh

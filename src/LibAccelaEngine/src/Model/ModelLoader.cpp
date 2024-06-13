@@ -194,6 +194,7 @@ ModelMaterial ModelLoader::ProcessMaterial(const aiMaterial* pMaterial) const
 
     ai_int twoSided{0};
     pMaterial->Get(AI_MATKEY_TWOSIDED, twoSided);
+    rawMaterial.twoSided = twoSided == 1;
 
     ai_int shadingModel{1};
     pMaterial->Get(AI_MATKEY_SHADING_MODEL, shadingModel);

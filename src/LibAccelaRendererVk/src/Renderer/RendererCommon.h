@@ -40,6 +40,7 @@ namespace Accela::Render
 
     enum class CullFace
     {
+        None,
         Front,
         Back
     };

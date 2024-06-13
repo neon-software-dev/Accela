@@ -9,7 +9,6 @@
 
 #include "../ForwardDeclares.h"
 
-#include "HeightMapData.h"
 #include "RegisteredStaticMesh.h"
 
 #include <Accela/Engine/Scene/IMeshResources.h>
@@ -75,6 +74,8 @@ namespace Accela::Engine
 
             std::optional<Render::MeshId> GetMeshId(const ResourceIdentifier& resource) const override;
 
+            [[nodiscard]] std::optional<HeightMapData::Ptr> GetHeightMapData(const ResourceIdentifier& resource) const override;
+
             void DestroyMesh(const ResourceIdentifier& resource) override;
 
             void DestroyAll() override;
@@ -83,7 +84,6 @@ namespace Accela::Engine
             // Internal
             //
             [[nodiscard]] std::optional<RegisteredStaticMesh::Ptr> GetStaticMeshData(const ResourceIdentifier& resource) const;
-            [[nodiscard]] std::optional<HeightMapData::Ptr> GetHeightMapData(const ResourceIdentifier& resource) const;
 
         private:
 

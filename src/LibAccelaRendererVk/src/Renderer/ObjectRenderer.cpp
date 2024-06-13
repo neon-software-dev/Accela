@@ -206,18 +206,32 @@ std::vector<ObjectRenderable> ObjectRenderer::GetObjectsToRender(const std::stri
 
         const auto objectMaterial = std::dynamic_pointer_cast<ObjectMaterial>(loadedMaterial->material);
 
+        // Determine whether the material has translucency. Anything with an alpha mode of Blend is considered translucent.
+        // Anything with an alpha mode of Opaque or Mask is considered non-translucent.
         //
-        // If we're doing an opaque pass and the object doesn't have an opaque material, filter it out
+        // An AlphaMode of Mask is considered non-translucent because in the shaders the fragment's alpha values
+        // will get set to either fully opaque or fully transparent, depending on the mask blending rules, so it's
+        // fine for those materials to go through the opaque flow; it's only materials with actual *translucency*,
+        // not transparency, which need to go into the translucent pass.
         //
-        if (renderType == RenderType::GpassOpaque && objectMaterial->properties.alphaMode != AlphaMode::Opaque)
+        // Note: Just because a material has an AlphaMode of blend doesn't mean it *actually* has translucency; all pixels
+        // in it could have alphas of 1.0, but unless we're going to inspect the pixels we just have to go off the determined
+        // blend mode, even if it's inaccurate. It's better to render stuff that might be translucent but actually isn't
+        // using the translucent pass, than the opposite.
+        const auto materialHasTranslucency = objectMaterial->properties.alphaMode == AlphaMode::Blend;
+
+        //
+        // If we're doing an opaque pass and the object has a translucent material, filter it out.
+        //
+        if (renderType == RenderType::GpassOpaque && materialHasTranslucency)
         {
             return false;
         }
 
         //
-        // If we're doing a translucent pass and the object has an opaque material, filter it out
+        // If we're doing a translucent pass and the object doesn't have a translucent material, filter it out
         //
-        if (renderType == RenderType::GpassTranslucent && objectMaterial->properties.alphaMode == AlphaMode::Opaque)
+        if (renderType == RenderType::GpassTranslucent && !materialHasTranslucency)
         {
             return false;
         }
@@ -1319,7 +1333,17 @@ std::expected<VulkanPipelinePtr, bool> ObjectRenderer::GetBatchPipeline(
 
     switch (renderType)
     {
-        case RenderType::GpassOpaque: case RenderType::GpassTranslucent: cullFace = CullFace::Back; break;
+        case RenderType::GpassOpaque:
+        case RenderType::GpassTranslucent:
+        {
+            cullFace = CullFace::Back;
+
+            if (std::dynamic_pointer_cast<ObjectMaterial>(renderBatch.params.loadedMaterial.material)->properties.twoSided)
+            {
+                cullFace = CullFace::None;
+            }
+        }
+        break;
         case RenderType::Shadow: cullFace = CullFace::Front; break; // Fixes peter-panning effect
     }
 

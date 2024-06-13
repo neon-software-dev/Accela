@@ -12,6 +12,7 @@
 #include <Accela/Engine/Entity/EnginePerfMonitorEntity.h>
 #include <Accela/Engine/Entity/CommandEntryEntity.h>
 #include <Accela/Engine/Component/ModelRenderableComponent.h>
+#include <Accela/Engine/Extra/TreeMeshUtil.h>
 
 #include <Accela/Render/Light.h>
 
@@ -72,6 +73,8 @@ namespace Accela
                                   bool isStatic,
                                   glm::vec3 linearVelocity = glm::vec3(0)) const;
 
+            void CreateTreeEntity(unsigned int id, const glm::vec3& pos, Engine::TreeParams treeParams = {}, Engine::TreeMeshParams meshParams = {});
+
             //
             // Scene Manipulation
             //
@@ -96,7 +99,7 @@ namespace Accela
         private:
 
             bool m_freeFlyCamera{false};
-            float m_cameraTranslationSpeed{0.1f};
+            float m_cameraTranslationSpeed{0.05f};
 
             Engine::EntityId m_lightEid{0};
             Render::TextureId m_skyBoxTextureId{};
@@ -106,6 +109,8 @@ namespace Accela
             Render::MaterialId m_solidRedMaterialId{};
             Render::MaterialId m_solidWhiteMaterialId{};
             Render::MaterialId m_terrainMaterialId{};
+            Render::MaterialId m_barkMaterialId{};
+            Render::MaterialId m_leafMaterialId{};
 
             std::optional<Engine::EnginePerfMonitorEntity::UPtr> m_perfMonitor;
             std::optional<Engine::CommandEntryEntity::UPtr> m_commandEntryEntity;

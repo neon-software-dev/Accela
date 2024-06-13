@@ -44,7 +44,6 @@ namespace Accela::Render
             bool CreateTextureFilled(const Texture& texture,
                                      const std::vector<TextureView>& textureViews,
                                      const TextureSampler& textureSampler,
-                                     bool generateMipMaps,
                                      std::promise<bool> resultPromise) override;
             std::optional<LoadedTexture> GetTexture(TextureId textureId) override;
             LoadedTexture GetMissingTexture() override;

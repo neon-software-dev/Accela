@@ -248,6 +248,19 @@ std::optional<Render::MeshId> MeshResources::GetMeshId(const ResourceIdentifier&
     return it->second;
 }
 
+std::optional<HeightMapData::Ptr> MeshResources::GetHeightMapData(const ResourceIdentifier& resource) const
+{
+    std::lock_guard<std::mutex> heightMapDataLock(m_heightMapDataMutex);
+
+    const auto it = m_heightMapData.find(resource);
+    if (it == m_heightMapData.cend())
+    {
+        return std::nullopt;
+    }
+
+    return it->second;
+}
+
 void MeshResources::DestroyMesh(const ResourceIdentifier& resource)
 {
     m_logger->Log(Common::LogLevel::Info, "MeshResources: Destroying mesh resource: {}", resource.GetUniqueName());
@@ -285,19 +298,6 @@ std::optional<RegisteredStaticMesh::Ptr> MeshResources::GetStaticMeshData(const 
 
     const auto it = m_staticMeshData.find(resource);
     if (it == m_staticMeshData.cend())
-    {
-        return std::nullopt;
-    }
-
-    return it->second;
-}
-
-std::optional<HeightMapData::Ptr> MeshResources::GetHeightMapData(const ResourceIdentifier& resource) const
-{
-    std::lock_guard<std::mutex> heightMapDataLock(m_heightMapDataMutex);
-
-    const auto it = m_heightMapData.find(resource);
-    if (it == m_heightMapData.cend())
     {
         return std::nullopt;
     }

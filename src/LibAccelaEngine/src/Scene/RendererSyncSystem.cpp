@@ -508,6 +508,7 @@ std::optional<ModelPose> RendererSyncSystem::GetModelPose(const ResourceIdentifi
     const auto registeredModelOpt = std::dynamic_pointer_cast<ModelResources>(m_worldResources->Models())->GetLoadedModel(model);
     if (!registeredModelOpt)
     {
+        m_logger->Log(Common::LogLevel::Error, "RendererSyncSystem::GetModelPose: No such model exists: {}", model.GetUniqueName());
         return std::nullopt;
     }
 

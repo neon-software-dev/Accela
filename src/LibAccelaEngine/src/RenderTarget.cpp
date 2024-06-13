@@ -70,7 +70,7 @@ bool RenderTarget::Create(const Render::IRenderer::Ptr& renderer, const Render::
         TextureView::Layer(0, renderLayerCount)
     );
 
-    if (!renderer->CreateTexture(colorAttachmentTexture,colorAttachmentTextureView, attachmentTextureSampler, false).get())
+    if (!renderer->CreateTexture(colorAttachmentTexture,colorAttachmentTextureView, attachmentTextureSampler).get())
     {
         renderer->GetIds()->textureIds.ReturnId(colorAttachment);
         return false;
@@ -91,7 +91,7 @@ bool RenderTarget::Create(const Render::IRenderer::Ptr& renderer, const Render::
 
     const TextureView positionAttachmentTextureView = TextureViewForLayerCount(Render::TextureView::Aspect::ASPECT_COLOR_BIT, renderLayerCount);
 
-    if (!renderer->CreateTexture(positionAttachmentTexture, positionAttachmentTextureView, attachmentTextureSampler, false).get())
+    if (!renderer->CreateTexture(positionAttachmentTexture, positionAttachmentTextureView, attachmentTextureSampler).get())
     {
         renderer->GetIds()->textureIds.ReturnId(positionAttachment);
         return false;
@@ -112,7 +112,7 @@ bool RenderTarget::Create(const Render::IRenderer::Ptr& renderer, const Render::
 
     const TextureView normalAttachmentTextureView = TextureViewForLayerCount(Render::TextureView::Aspect::ASPECT_COLOR_BIT, renderLayerCount);
 
-    if (!renderer->CreateTexture(normalAttachmentTexture, normalAttachmentTextureView, attachmentTextureSampler, false).get())
+    if (!renderer->CreateTexture(normalAttachmentTexture, normalAttachmentTextureView, attachmentTextureSampler).get())
     {
         renderer->GetIds()->textureIds.ReturnId(normalAttachment);
         return false;
@@ -133,7 +133,7 @@ bool RenderTarget::Create(const Render::IRenderer::Ptr& renderer, const Render::
 
     const TextureView materialAttachmentTextureView = TextureViewForLayerCount(Render::TextureView::Aspect::ASPECT_COLOR_BIT, renderLayerCount);
 
-    if (!renderer->CreateTexture(materialAttachmentTexture, materialAttachmentTextureView, attachmentTextureSampler, false).get())
+    if (!renderer->CreateTexture(materialAttachmentTexture, materialAttachmentTextureView, attachmentTextureSampler).get())
     {
         renderer->GetIds()->textureIds.ReturnId(normalAttachment);
         return false;
@@ -154,7 +154,7 @@ bool RenderTarget::Create(const Render::IRenderer::Ptr& renderer, const Render::
 
     const TextureView ambientAttachmentTextureView = TextureViewForLayerCount(Render::TextureView::Aspect::ASPECT_COLOR_BIT, renderLayerCount);
 
-    if (!renderer->CreateTexture(ambientAttachmentTexture, ambientAttachmentTextureView, attachmentTextureSampler, false).get())
+    if (!renderer->CreateTexture(ambientAttachmentTexture, ambientAttachmentTextureView, attachmentTextureSampler).get())
     {
         renderer->GetIds()->textureIds.ReturnId(ambientAttachment);
         return false;
@@ -175,7 +175,7 @@ bool RenderTarget::Create(const Render::IRenderer::Ptr& renderer, const Render::
 
     const TextureView diffuseAttachmentTextureView = TextureViewForLayerCount(Render::TextureView::Aspect::ASPECT_COLOR_BIT, renderLayerCount);
 
-    if (!renderer->CreateTexture(diffuseAttachmentTexture, diffuseAttachmentTextureView, attachmentTextureSampler, false).get())
+    if (!renderer->CreateTexture(diffuseAttachmentTexture, diffuseAttachmentTextureView, attachmentTextureSampler).get())
     {
         renderer->GetIds()->textureIds.ReturnId(diffuseAttachment);
         return false;
@@ -196,7 +196,7 @@ bool RenderTarget::Create(const Render::IRenderer::Ptr& renderer, const Render::
 
     const auto specularAttachmentTextureView  = TextureViewForLayerCount(Render::TextureView::Aspect::ASPECT_COLOR_BIT, renderLayerCount);
 
-    if (!renderer->CreateTexture(specularAttachmentTexture, specularAttachmentTextureView, attachmentTextureSampler, false).get())
+    if (!renderer->CreateTexture(specularAttachmentTexture, specularAttachmentTextureView, attachmentTextureSampler).get())
     {
         renderer->GetIds()->textureIds.ReturnId(specularAttachment);
         return false;
@@ -217,7 +217,7 @@ bool RenderTarget::Create(const Render::IRenderer::Ptr& renderer, const Render::
 
     const auto depthAttachmentTextureView = TextureViewForLayerCount(Render::TextureView::Aspect::ASPECT_DEPTH_BIT, renderLayerCount);
 
-    if (!renderer->CreateTexture(depthAttachmentTexture, depthAttachmentTextureView, attachmentTextureSampler, false).get())
+    if (!renderer->CreateTexture(depthAttachmentTexture, depthAttachmentTextureView, attachmentTextureSampler).get())
     {
         renderer->GetIds()->textureIds.ReturnId(depthAttachment);
         return false;

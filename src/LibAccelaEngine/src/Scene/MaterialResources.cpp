@@ -112,6 +112,7 @@ std::expected<Render::Material::Ptr, bool> MaterialResources::ToRenderMaterial(c
     renderMaterialProperties.alphaMode = properties.alphaMode;
     renderMaterialProperties.alphaCutoff = properties.alphaCutoff;
     renderMaterialProperties.shininess = properties.shininess;
+    renderMaterialProperties.twoSided = properties.twoSided;
     renderMaterialProperties.ambientTextureBlendFactor = properties.ambientTextureBlendFactor;
     renderMaterialProperties.ambientTextureOp = properties.ambientTextureOp;
     renderMaterialProperties.diffuseTextureBlendFactor = properties.diffuseTextureBlendFactor;

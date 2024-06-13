@@ -335,6 +335,7 @@ std::expected<Render::MaterialId, bool> ModelResources::LoadModelMeshMaterial(Re
     }
 
     objectMaterialProperties.shininess = material.shininess;
+    objectMaterialProperties.twoSided = material.twoSided;
 
     // Textures
 
@@ -479,11 +480,20 @@ std::expected<Render::TextureId, bool> ModelResources::LoadModelMaterialTexture(
     //
     // Register the texture and its data as a Texture in the renderer
     //
-    const auto texture = Render::Texture::FromImageData(textureId, Render::TextureUsage::ImageMaterial, 1, *textureData, modelTexture.fileName);
+    auto texture = Render::Texture::FromImageData(textureId, Render::TextureUsage::ImageMaterial, 1, *textureData, modelTexture.fileName);
+
+    // Full/max mip levels
+    texture.SetFullMipLevels();
+
+    // For models, since we have no real input on what level of mipmapping is wanted, let's just generate 4 levels for
+    // a decent balance between having some minimum mipmaping, but nothing too extensive
+    // TODO: Client can provide some sort of parameter which maps texture name -> mip level
+    texture.numMipLevels = std::min(*texture.numMipLevels, 4U);
+
     const auto textureView = Render::TextureView::ViewAs2D(Render::TextureView::DEFAULT, Render::TextureView::Aspect::ASPECT_COLOR_BIT);
     const auto textureSampler = Render::TextureSampler(modelTexture.uvAddressMode);
 
-    auto opFuture = m_renderer->CreateTexture(texture, textureView, textureSampler, true);
+    auto opFuture = m_renderer->CreateTexture(texture, textureView, textureSampler);
 
     if (resultWhen == ResultWhen::FullyLoaded && !opFuture.get())
     {
@@ -537,6 +547,9 @@ std::expected<Render::MeshId, bool> ModelResources::LoadModelMesh(RegisteredMode
         break;
     }
 
+    // TODO Perf: Method to load multiple meshes in one call - doing one by one is too slow for
+    //  something like sponza that has ~400 meshes if waiting for FullyLoaded, with only one
+    //  render thread processing each mesh in sequence.
     auto opFuture = m_renderer->CreateMesh(mesh, Render::MeshUsage::Immutable);
 
     if (resultWhen == ResultWhen::FullyLoaded && !opFuture.get())

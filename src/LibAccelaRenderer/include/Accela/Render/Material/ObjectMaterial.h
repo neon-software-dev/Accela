@@ -47,6 +47,7 @@ namespace Accela::Render
         AlphaMode alphaMode{AlphaMode::Opaque};
         float alphaCutoff{1.0f};
         float shininess{0.0f};
+        bool twoSided{false};
 
         TextureId ambientTextureBind{INVALID_ID};
         float ambientTextureBlendFactor{1.0f};

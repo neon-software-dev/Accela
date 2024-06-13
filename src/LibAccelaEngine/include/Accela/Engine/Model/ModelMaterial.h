@@ -63,6 +63,7 @@ namespace Accela::Engine
         std::optional<Render::AlphaMode> alphaMode;
         std::optional<float> alphaCutoff;
         float shininess{0.0f};
+        bool twoSided{false};
 
         std::vector<ModelTexture> ambientTextures;
         std::vector<ModelTexture> diffuseTextures;

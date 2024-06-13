@@ -94,6 +94,7 @@ project(LibAccelaEngine VERSION 0.0.1 LANGUAGES CXX)
 	file(GLOB AccelaEngine_Include_Headers_Util "include/Accela/Engine/Util/*.h")
 	file(GLOB AccelaEngine_Include_Headers_Material "include/Accela/Engine/Material/*.h")
 	file(GLOB AccelaEngine_Include_Headers_Package "include/Accela/Engine/Package/*.h")
+	file(GLOB AccelaEngine_Include_Headers_Extra "include/Accela/Engine/Extra/*.h")
 
 	file(GLOB AccelaEngine_Sources "src/*.cpp")
 	file(GLOB AccelaEngine_Headers "src/*.h")
@@ -115,6 +116,8 @@ project(LibAccelaEngine VERSION 0.0.1 LANGUAGES CXX)
 	file(GLOB AccelaEngine_Headers_Physics "src/Physics/*.h")
 	file(GLOB AccelaEngine_Sources_Package "src/Package/*.cpp")
 	file(GLOB AccelaEngine_Headers_Package "src/Package/*.h")
+	file(GLOB AccelaEngine_Sources_Extra "src/Extra/*.cpp")
+	file(GLOB AccelaEngine_Headers_Extra "src/Extra/*.h")
 
 add_library(AccelaEngine STATIC
 	${AccelaEngine_Include_Headers}
@@ -128,6 +131,7 @@ add_library(AccelaEngine STATIC
 	${AccelaEngine_Include_Headers_Util}
 	${AccelaEngine_Include_Headers_Material}
 	${AccelaEngine_Include_Headers_Package}
+	${AccelaEngine_Include_Headers_Extra}
 
 	${AccelaEngine_Sources}
 	${AccelaEngine_Headers}
@@ -149,6 +153,8 @@ add_library(AccelaEngine STATIC
 	${AccelaEngine_Headers_Physics}
 	${AccelaEngine_Sources_Package}
 	${AccelaEngine_Headers_Package}
+	${AccelaEngine_Sources_Extra}
+	${AccelaEngine_Headers_Extra}
 )
 
 if (ACCELA_USE_GPU_CUDA)

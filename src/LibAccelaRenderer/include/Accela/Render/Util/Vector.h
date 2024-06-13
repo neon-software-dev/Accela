@@ -12,18 +12,38 @@
 namespace Accela::Render
 {
     /**
-     * Answers whether two *unit* vectors are (sufficiently close to) parallel.
+     * Whether two *unit* vectors are (sufficiently close to) parallel (or anti-parallel). As in,
+     * either pointing directly in the same direction or in exactly opposite directions.
      *
      * Warning: You will get the wrong answers if you don't pass in unit vectors.
+     *
+     * Warning: This returns true for both parallel and anti-parallel. Use the specific methods further
+     * down if you only specifically want to test for one case.
      *
      * @param a Unit vector a
      * @param b Unit vector b
      *
-     * @return Whether the unit vectors are within .01% of parallel
+     * @return Whether the unit vectors are within .01% of parallel (or anti-parallel)
      */
     static inline bool AreUnitVectorsParallel(const glm::vec3& a, const glm::vec3& b)
     {
         return glm::abs(glm::dot(a, b)) > .9999f;
+    }
+
+    /**
+     * Whether two *unit* vectors are (sufficiently close to) directly parallel.
+     */
+    static inline bool AreUnitVectorsSpecificallyParallel(const glm::vec3& a, const glm::vec3& b)
+    {
+        return glm::dot(a, b) > .9999f;
+    }
+
+    /**
+     * Whether two *unit* vectors are (sufficiently close to) directly anti-parallel.
+     */
+    static inline bool AreUnitVectorsSpecificallyAntiParallel(const glm::vec3& a, const glm::vec3& b)
+    {
+        return glm::dot(a, b) < -.9999f;
     }
 
     /**

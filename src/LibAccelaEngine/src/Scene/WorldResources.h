@@ -7,8 +7,6 @@
 #ifndef LIBACCELAENGINE_SRC_SCENE_WORLDRESOURCES_H
 #define LIBACCELAENGINE_SRC_SCENE_WORLDRESOURCES_H
 
-#include "HeightMapData.h"
-
 #include "../ForwardDeclares.h"
 
 #include "../Model/RegisteredModel.h"

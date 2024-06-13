@@ -10,6 +10,7 @@
 
 #include <Accela/Engine/Component/Components.h>
 #include <Accela/Engine/Physics/KinematicPlayerController.h>
+#include <Accela/Engine/Extra/TreeMeshUtil.h>
 
 #include <sstream>
 
@@ -67,15 +68,73 @@ void DevScene::CreateSceneEntities()
     //
 
     //CreateSpotLight({0,1,0}, true);
-    CreatePointLight({0, 5, 2}, true);
-    CreateTerrainEntity(25.0f, {0, 0, 0});
-    CreateFloorEntity({0,3,0}, 20);
-    //CreateModelEntity("dancing_vampire", {0,0,-2}, glm::vec3(1.0f),
-    //                  Engine::ModelAnimationState(Engine::ModelAnimationType::Looping, "Hips"));
-    //CreateModelEntity("AlphaBlendModeTest", {0,0,0});
-    //CreateModelEntity("TextureSettingsTest", {0,3,0}, glm::vec3(0.5f));
-    //CreateModelEntity("CesiumMan", {0,0.1f,-2}, glm::vec3(1.0f),
-    //                  Engine::ModelAnimationState(Engine::ModelAnimationType::Looping, ""));
+    CreatePointLight({0, 2, 2}, true);
+    CreateTerrainEntity(15.0f, {0, -2, 0});
+    CreateFloorEntity({0,0,0}, 150);
+
+    CreateModelEntity(
+        Engine::PRI("TestDesktopApp", "CesiumMan.glb"),
+        {0,0.1f,-2},
+        glm::vec3(1.0f),
+        Engine::ModelAnimationState(Engine::ModelAnimationType::Looping, "")
+    );
+
+    Engine::TreeParams treeParams{};
+    treeParams.maturity = 0.9f;
+    CreateTreeEntity(0, {5,0,-2}, treeParams);
+}
+
+void DevScene::CreateTreeEntity(unsigned int id, const glm::vec3& pos, Engine::TreeParams treeParams, Engine::TreeMeshParams meshParams)
+{
+    Engine::TreeMeshUtil treeMeshGenerator;
+    const auto tree = treeMeshGenerator.GenerateTree(treeParams);
+    const auto meshes = treeMeshGenerator.CreateTreeMesh(meshParams, tree, std::format("Tree-{}", id));
+
+    auto branchesMeshId = engine->GetWorldResources()->Meshes()->LoadStaticMesh(
+        Engine::CRI(std::format("Branches-{}", id)),
+        meshes[0]->vertices,
+        meshes[0]->indices,
+        Render::MeshUsage::Immutable,
+        Engine::ResultWhen::Ready).get();
+    if (branchesMeshId == Render::INVALID_ID) { return; }
+
+    auto leavesMeshId = engine->GetWorldResources()->Meshes()->LoadStaticMesh(
+        Engine::CRI(std::format("Leaves-{}", id)),
+        meshes[1]->vertices,
+        meshes[1]->indices,
+        Render::MeshUsage::Immutable,
+        Engine::ResultWhen::Ready).get();
+    if (leavesMeshId == Render::INVALID_ID) { return; }
+
+    {
+        const auto eid = engine->GetWorldState()->CreateEntity();
+
+        auto transformComponent = Engine::TransformComponent{};
+        transformComponent.SetPosition(pos);
+        transformComponent.SetScale(glm::vec3(1.0f));
+        Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, transformComponent);
+
+        auto objectRenderableComponent = Engine::ObjectRenderableComponent{};
+        objectRenderableComponent.sceneName = "default";
+        objectRenderableComponent.meshId = branchesMeshId;
+        objectRenderableComponent.materialId = m_barkMaterialId;
+        Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, objectRenderableComponent);
+    }
+
+    {
+        const auto eid = engine->GetWorldState()->CreateEntity();
+
+        auto transformComponent = Engine::TransformComponent{};
+        transformComponent.SetPosition(pos);
+        transformComponent.SetScale(glm::vec3(1.0f));
+        Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, transformComponent);
+
+        auto objectRenderableComponent = Engine::ObjectRenderableComponent{};
+        objectRenderableComponent.sceneName = "default";
+        objectRenderableComponent.meshId = leavesMeshId;
+        objectRenderableComponent.materialId = m_leafMaterialId;
+        Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, objectRenderableComponent);
+    }
 }
 
 bool DevScene::LoadResources()
@@ -83,10 +142,15 @@ bool DevScene::LoadResources()
     //
     // Load package resources
     //
-    if (!engine->GetWorldResources()->EnsurePackageResources(Engine::PackageName("TestDesktopApp"), Engine::ResultWhen::FullyLoaded).get())
+    if (!engine->GetWorldResources()->EnsurePackageResources(Engine::PackageName("TestDesktopApp"), Engine::ResultWhen::Ready).get())
     {
         return false;
     }
+
+    //
+    // Fonts
+    //
+    (void)engine->GetWorldResources()->Fonts()->LoadFont(Engine::PRI("TestDesktopApp", FONT_FILE_NAME), 64).get();
 
     //
     // Load custom textures
@@ -146,6 +210,39 @@ bool DevScene::LoadResources()
         Engine::ResultWhen::Ready).get();
     if (m_solidWhiteMaterialId == Render::INVALID_ID) { return false; }
 
+    const glm::vec4 barkColor{ 0.835f, 0.615f, 0.388f, 1.0f};
+
+    Engine::ObjectMaterialProperties barkMaterial{};
+    barkMaterial.isAffectedByLighting = true;
+    barkMaterial.ambientColor = barkColor;
+    barkMaterial.ambientTexture = Engine::PRI("TestDesktopApp", "bark.png");
+    barkMaterial.diffuseColor = barkColor;
+    barkMaterial.diffuseTexture = Engine::PRI("TestDesktopApp", "bark.png");
+    barkMaterial.specularColor = {1,1,1,1};
+    barkMaterial.shininess = 0.0f;
+    m_barkMaterialId = engine->GetWorldResources()->Materials()->LoadObjectMaterial(
+        Engine::CRI("Bark"),
+        barkMaterial,
+        Engine::ResultWhen::Ready).get();
+    if (m_barkMaterialId == Render::INVALID_ID) { return false; }
+
+    Engine::ObjectMaterialProperties leafMaterial{};
+    leafMaterial.isAffectedByLighting = true;
+    leafMaterial.ambientColor = {1,1,1,1};
+    leafMaterial.ambientTexture = Engine::PRI("TestDesktopApp", "ash.png");
+    leafMaterial.diffuseColor = {1,1,1,1};
+    leafMaterial.diffuseTexture = Engine::PRI("TestDesktopApp", "ash.png");
+    leafMaterial.specularColor = {0, 0, 0,0};
+    leafMaterial.shininess = 0.0f;
+    leafMaterial.twoSided = true;
+    leafMaterial.alphaMode = Render::AlphaMode::Mask;
+    leafMaterial.alphaCutoff = 0.9f;
+    m_leafMaterialId = engine->GetWorldResources()->Materials()->LoadObjectMaterial(
+        Engine::CRI("Leaf"),
+        leafMaterial,
+        Engine::ResultWhen::Ready).get();
+    if (m_leafMaterialId == Render::INVALID_ID) { return false; }
+
     Engine::ObjectMaterialProperties terrainMaterial{};
     terrainMaterial.isAffectedByLighting = true;
     terrainMaterial.ambientColor = {1,1,1,1};
@@ -177,7 +274,7 @@ Engine::ObjectMaterialProperties DevScene::DefineColorMaterial(const glm::vec4& 
 void DevScene::CreatePointLight(const glm::vec3& position, bool drawEntity)
 {
     auto lightProperties = Render::LightProperties{};
-    lightProperties.attenuationMode = Render::AttenuationMode::Linear;
+    lightProperties.attenuationMode = Render::AttenuationMode::None;
     lightProperties.diffuseColor = glm::vec3(1,1,1);
     lightProperties.diffuseIntensity = glm::vec3(1,1,1);
     lightProperties.specularColor = glm::vec3(1,1,1);
@@ -191,7 +288,7 @@ void DevScene::CreatePointLight(const glm::vec3& position, bool drawEntity)
 void DevScene::CreateSpotLight(const glm::vec3& position, bool drawEntity)
 {
     auto lightProperties = Render::LightProperties{};
-    lightProperties.attenuationMode = Render::AttenuationMode::Linear;
+    lightProperties.attenuationMode = Render::AttenuationMode::None;
     lightProperties.diffuseColor = glm::vec3(1,1,1);
     lightProperties.diffuseIntensity = glm::vec3(1,1,1);
     lightProperties.specularColor = glm::vec3(1,1,1);
@@ -476,7 +573,7 @@ void DevScene::ShootCubeFromCamera()
     const float shootSpeed = 10.0f; // m/s
     const auto shootVelocity = camera->GetLookUnit() * shootSpeed;
 
-    const float scale = std::uniform_real_distribution<float>(0.1f, 0.4f)(m_rd);
+    const float scale = std::uniform_real_distribution<float>(0.1f, 0.4f)(m_mt);
 
     CreateCubeEntity(camera->GetPosition() + camera->GetLookUnit(),
                      glm::vec3{scale},
@@ -567,9 +664,9 @@ void DevScene::OnNormalKeyEvent(const Platform::KeyEvent& event)
                     for (int z = -sideLength; z < sideLength; z = z + 2)
                     {
                         const glm::vec3 velocity(
-                            std::uniform_real_distribution<float>(-40.0f, 40.0f)(m_rd),
-                            std::uniform_real_distribution<float>(1.0f, 40.0f)(m_rd),
-                            std::uniform_real_distribution<float>(-40.0f, 40.0f)(m_rd)
+                            std::uniform_real_distribution<float>(-40.0f, 40.0f)(m_mt),
+                            std::uniform_real_distribution<float>(1.0f, 40.0f)(m_mt),
+                            std::uniform_real_distribution<float>(-40.0f, 40.0f)(m_mt)
                         );
 
                         CreateCubeEntity({x,y+3,z}, {1,1,1}, false, velocity);

@@ -63,10 +63,9 @@ Ids::Ptr RendererBase::GetIds() const
 
 std::future<bool> RendererBase::CreateTexture(const Texture& texture,
                                               const TextureView& textureView,
-                                              const TextureSampler& textureSampler,
-                                              bool generateMipMaps)
+                                              const TextureSampler& textureSampler)
 {
-    return Submit<RenderTask_CreateTexture>(texture, textureView, textureSampler, generateMipMaps);
+    return Submit<RenderTask_CreateTexture>(texture, textureView, textureSampler);
 }
 
 std::future<bool> RendererBase::DestroyTexture(TextureId textureId)

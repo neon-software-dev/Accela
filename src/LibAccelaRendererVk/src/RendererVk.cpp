@@ -237,12 +237,11 @@ void RendererVk::OnIdle()
 void RendererVk::OnCreateTexture(std::promise<bool> resultPromise,
                                  const Texture& texture,
                                  const TextureView& textureView,
-                                 const TextureSampler& textureSampler,
-                                 bool generateMipMaps)
+                                 const TextureSampler& textureSampler)
 {
     if (texture.data.has_value())
     {
-        m_textures->CreateTextureFilled(texture, {textureView}, textureSampler, generateMipMaps, std::move(resultPromise));
+        m_textures->CreateTextureFilled(texture, {textureView}, textureSampler, std::move(resultPromise));
     }
     else
     {

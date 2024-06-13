@@ -61,8 +61,7 @@ namespace Accela::Render
 
             virtual std::future<bool> CreateTexture(const Texture& texture,
                                                     const TextureView& textureView,
-                                                    const TextureSampler& textureSampler,
-                                                    bool generateMipMaps) = 0;
+                                                    const TextureSampler& textureSampler) = 0;
             virtual std::future<bool> DestroyTexture(TextureId textureId) = 0;
             virtual std::future<bool> CreateMesh(const Mesh::Ptr& mesh, MeshUsage usage) = 0;
             virtual std::future<bool> DestroyMesh(MeshId meshId) = 0;

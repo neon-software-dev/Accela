@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
  
-#include <Accela/Engine/Util/PerlinNoise.h>
+#include <Accela/Engine/Extra/PerlinNoise.h>
 
 #include <random>
 

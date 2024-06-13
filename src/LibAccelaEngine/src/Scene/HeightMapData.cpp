@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
  
-#include "HeightMapData.h"
+#include <Accela/Engine/Scene/HeightMapData.h>
 
 #include <Accela/Render/Mesh/StaticMesh.h>
 
@@ -21,11 +21,11 @@ inline T MapValue(const std::pair<T,T>& a, const std::pair<T, T>& b, const T& va
     return b.first + (((float)(val - a.first) / (float)(a.second - a.first)) * (b.second - b.first));
 }
 
-std::vector<double> GenerateHeightMapDataValues(const Common::ImageData::Ptr& heightMapImage,
-                                                const Render::USize& heightMapDataSize,
-                                                const float& displacementFactor)
+std::vector<float> GenerateHeightMapDataValues(const Common::ImageData::Ptr& heightMapImage,
+                                               const Render::USize& heightMapDataSize,
+                                               const float& displacementFactor)
 {
-    std::vector<double> data;
+    std::vector<float> data;
     data.reserve(heightMapDataSize.w * heightMapDataSize.h);
 
     for (std::size_t y = 0; y < heightMapDataSize.h; ++y)
@@ -42,7 +42,7 @@ std::vector<double> GenerateHeightMapDataValues(const Common::ImageData::Ptr& he
             const std::byte& pixelValue = imagePixelBytes[0]; // Noteworthy, assuming grayscale heightmap, only looking at first byte
 
             data.push_back(
-                (((double)std::to_integer<unsigned char>(pixelValue)) / 255.0f)
+                (((float)std::to_integer<unsigned char>(pixelValue)) / 255.0f)
                 * displacementFactor
             );
         }
@@ -64,8 +64,8 @@ HeightMapData::Ptr GenerateHeightMapData(const Common::ImageData::Ptr& heightMap
     //
     // Determine min/max height map values
     //
-    double minValue = std::numeric_limits<double>::max();
-    double maxValue = std::numeric_limits<double>::min();
+    float minValue = std::numeric_limits<float>::max();
+    float maxValue = -std::numeric_limits<float>::max();
 
     for (const auto& val : heightMapDataValues)
     {

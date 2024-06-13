@@ -164,6 +164,9 @@ bool VulkanPipeline::Create(const PipelineConfig& config)
 
     switch (config.cullFace)
     {
+        case CullFace::None:
+            vkCullModeFlags = VK_CULL_MODE_NONE;
+        break;
         case CullFace::Front:
             vkCullModeFlags = VK_CULL_MODE_FRONT_BIT;
         break;

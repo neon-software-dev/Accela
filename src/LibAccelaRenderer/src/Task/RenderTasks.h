@@ -24,7 +24,7 @@ namespace Accela::Render
     using RenderTask_Initialize = DataRenderTask<RenderTaskType::Initialize, RenderSettings, std::vector<ShaderSpec>>;
     using RenderTask_Shutdown = DataRenderTask<RenderTaskType::Shutdown>;
     using RenderTask_RenderFrame = DataRenderTask<RenderTaskType::RenderFrame, RenderGraph::Ptr>;
-    using RenderTask_CreateTexture = DataRenderTask<RenderTaskType::CreateTexture, Texture, TextureView, TextureSampler, bool>;
+    using RenderTask_CreateTexture = DataRenderTask<RenderTaskType::CreateTexture, Texture, TextureView, TextureSampler>;
     using RenderTask_DestroyTexture = DataRenderTask<RenderTaskType::DestroyTexture, TextureId>;
     using RenderTask_CreateMesh = DataRenderTask<RenderTaskType::CreateMesh, Mesh::Ptr, MeshUsage>;
     using RenderTask_DestroyMesh = DataRenderTask<RenderTaskType::DestroyMesh, MeshId>;

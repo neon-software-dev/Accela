@@ -766,7 +766,7 @@ physx::PxShape* PhysXScene::CreateShape_HeightMap(const ShapeData& shape,
             // Even though physx documentation says it builds the height map from the far/left corner first, and that's the
             // format the height map data is in, only if we build the physx samples from the front/left corner first does
             // it work properly, so that's why the sample height value is inverted:
-            const double& sampleRawValue = heightMapData->data[(heightMapData->dataSize.h - 1 - y) + (x * heightMapData->dataSize.w)];
+            const float& sampleRawValue = heightMapData->data[(heightMapData->dataSize.h - 1 - y) + (x * heightMapData->dataSize.w)];
 
             const physx::PxReal quantizedHeight = physx::PxI16(quantization * ((sampleRawValue - (physx::PxReal)heightMapData->minValue) / deltaHeight));
 
