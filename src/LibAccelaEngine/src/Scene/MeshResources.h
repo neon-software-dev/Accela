@@ -9,9 +9,8 @@
 
 #include "../ForwardDeclares.h"
 
-#include "RegisteredStaticMesh.h"
-
 #include <Accela/Engine/Scene/IMeshResources.h>
+#include <Accela/Engine/Scene/HeightMapData.h>
 
 #include <Accela/Common/Log/ILogger.h>
 #include <Accela/Common/Thread/MessageDrivenThreadPool.h>
@@ -56,8 +55,9 @@ namespace Accela::Engine
                 const CustomResourceIdentifier& resource,
                 const Render::TextureId& heightMapTextureId,
                 const Render::USize& heightMapDataSize,
-                const Render::USize& meshSize_worldSpace,
+                const Render::FSize& meshSize_worldSpace,
                 const float& displacementFactor,
+                const std::optional<float>& uvSpanWorldSize,
                 Render::MeshUsage usage,
                 ResultWhen resultWhen
             ) override;
@@ -66,24 +66,22 @@ namespace Accela::Engine
                 const CustomResourceIdentifier& resource,
                 const Common::ImageData::Ptr& heightMapImage,
                 const Render::USize& heightMapDataSize,
-                const Render::USize& meshSize_worldSpace,
+                const Render::FSize& meshSize_worldSpace,
                 const float& displacementFactor,
+                const std::optional<float>& uvSpanWorldSize,
                 Render::MeshUsage usage,
                 ResultWhen resultWhen
             ) override;
 
             std::optional<Render::MeshId> GetMeshId(const ResourceIdentifier& resource) const override;
 
-            [[nodiscard]] std::optional<HeightMapData::Ptr> GetHeightMapData(const ResourceIdentifier& resource) const override;
+            [[nodiscard]] std::optional<LoadedStaticMesh::Ptr> GetStaticMeshData(const ResourceIdentifier& resource) const override;
+
+            [[nodiscard]] std::optional<LoadedHeightMap> GetHeightMapData(const ResourceIdentifier& resource) const override;
 
             void DestroyMesh(const ResourceIdentifier& resource) override;
 
             void DestroyAll() override;
-
-            //
-            // Internal
-            //
-            [[nodiscard]] std::optional<RegisteredStaticMesh::Ptr> GetStaticMeshData(const ResourceIdentifier& resource) const;
 
         private:
 
@@ -99,8 +97,9 @@ namespace Accela::Engine
                 const CustomResourceIdentifier& resource,
                 const Render::TextureId& heightMapTextureId,
                 const Render::USize& heightMapDataSize,
-                const Render::USize& meshSize_worldSpace,
+                const Render::FSize& meshSize_worldSpace,
                 const float& displacementFactor,
+                const std::optional<float>& uvSpanWorldSize,
                 Render::MeshUsage usage,
                 ResultWhen resultWhen
             );
@@ -109,8 +108,9 @@ namespace Accela::Engine
                 const CustomResourceIdentifier& resource,
                 const Common::ImageData::Ptr& heightMapImage,
                 const Render::USize& heightMapDataSize,
-                const Render::USize& meshSize_worldSpace,
+                const Render::FSize& meshSize_worldSpace,
                 const float& displacementFactor,
+                const std::optional<float>& uvSpanWorldSize,
                 Render::MeshUsage usage,
                 ResultWhen resultWhen
             );
@@ -134,7 +134,7 @@ namespace Accela::Engine
             std::unordered_map<ResourceIdentifier, Render::MeshId> m_meshes; // Ids of all loaded meshes
 
             mutable std::mutex m_staticMeshDataMutex;
-            std::unordered_map<ResourceIdentifier, RegisteredStaticMesh::Ptr> m_staticMeshData; // Data stored for static meshes
+            std::unordered_map<ResourceIdentifier, LoadedStaticMesh::Ptr> m_staticMeshData; // Data stored for static meshes
 
             mutable std::mutex m_heightMapDataMutex;
             std::unordered_map<ResourceIdentifier, HeightMapData::Ptr> m_heightMapData; // Data stored for height map meshes

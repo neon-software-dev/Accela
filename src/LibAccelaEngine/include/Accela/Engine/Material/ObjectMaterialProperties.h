@@ -28,19 +28,19 @@ namespace Accela::Engine
         float shininess{0.0f};
         bool twoSided{false};
 
-        std::optional<ResourceIdentifier> ambientTexture;
+        std::optional<Render::TextureId> ambientTexture;
         float ambientTextureBlendFactor{1.0f};
         Render::TextureOp ambientTextureOp{Render::TextureOp::Multiply};
 
-        std::optional<ResourceIdentifier> diffuseTexture;
+        std::optional<Render::TextureId> diffuseTexture;
         float diffuseTextureBlendFactor{1.0f};
         Render::TextureOp diffuseTextureOp{Render::TextureOp::Multiply};
 
-        std::optional<ResourceIdentifier> specularTexture;
+        std::optional<Render::TextureId> specularTexture;
         float specularTextureBlendFactor{1.0f};
         Render::TextureOp specularTextureOp{Render::TextureOp::Multiply};
 
-        std::optional<ResourceIdentifier> normalTexture;
+        std::optional<Render::TextureId> normalTexture;
     };
 }
 

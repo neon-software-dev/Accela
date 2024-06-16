@@ -50,137 +50,82 @@ TextureResources::TextureResources(Common::ILogger::Ptr logger,
 
 }
 
-std::future<Render::TextureId> TextureResources::LoadTexture(const PackageResourceIdentifier& resource, ResultWhen resultWhen)
+std::future<Render::TextureId> TextureResources::LoadPackageTexture(const PackageResourceIdentifier& resource,
+                                                                    const TextureLoadConfig& loadConfig,
+                                                                    ResultWhen resultWhen)
 {
     auto message = std::make_shared<TextureResultMessage>();
     auto messageFuture = message->CreateFuture();
 
     m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& _message){
         std::dynamic_pointer_cast<TextureResultMessage>(_message)->SetResult(
-            OnLoadTexture(resource, resultWhen)
+            OnLoadPackageTexture(resource, loadConfig, resultWhen)
         );
     });
 
     return messageFuture;
 }
 
-Render::TextureId TextureResources::OnLoadTexture(const PackageResourceIdentifier& resource, ResultWhen resultWhen)
+Render::TextureId TextureResources::OnLoadPackageTexture(const PackageResourceIdentifier& resource,
+                                                         const TextureLoadConfig& loadConfig,
+                                                         ResultWhen resultWhen)
 {
-    return LoadPackageTexture({resource}, resource.GetUniqueName(), resultWhen);
+    return LoadPackageTexture({resource}, loadConfig, resource.GetUniqueName(), resultWhen);
 }
 
-std::future<Render::TextureId> TextureResources::LoadCubeTexture(const std::array<PackageResourceIdentifier, 6>& resources, const std::string& tag, ResultWhen resultWhen)
+std::future<Render::TextureId> TextureResources::LoadPackageCubeTexture(const std::array<PackageResourceIdentifier, 6>& resources,
+                                                                        const TextureLoadConfig& loadConfig,
+                                                                        const std::string& tag,
+                                                                        ResultWhen resultWhen)
 {
     auto message = std::make_shared<TextureResultMessage>();
     auto messageFuture = message->CreateFuture();
 
     m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& _message){
         std::dynamic_pointer_cast<TextureResultMessage>(_message)->SetResult(
-            OnLoadCubeTexture(resources, tag, resultWhen)
+            OnLoadPackageCubeTexture(resources, loadConfig, tag, resultWhen)
         );
     });
 
     return messageFuture;
 }
 
-Render::TextureId TextureResources::OnLoadCubeTexture(const std::array<PackageResourceIdentifier, 6>& resources, const std::string& tag, ResultWhen resultWhen)
+Render::TextureId TextureResources::OnLoadPackageCubeTexture(const std::array<PackageResourceIdentifier, 6>& resources,
+                                                             const TextureLoadConfig& loadConfig,
+                                                             const std::string& tag,
+                                                             ResultWhen resultWhen)
 {
     std::vector<PackageResourceIdentifier> resourcesVec;
     std::ranges::copy(resources, std::back_inserter(resourcesVec));
 
-    return LoadPackageTexture(resourcesVec, tag, resultWhen);
+    return LoadPackageTexture(resourcesVec, loadConfig, tag, resultWhen);
 }
 
-std::future<Render::TextureId> TextureResources::LoadTexture(const CustomResourceIdentifier& resource, const Common::ImageData::Ptr& imageData, ResultWhen resultWhen)
+std::future<Render::TextureId> TextureResources::LoadCustomTexture(const Common::ImageData::Ptr& imageData,
+                                                                   const TextureLoadConfig& loadConfig,
+                                                                   const std::string& tag,
+                                                                   ResultWhen resultWhen)
 {
     auto message = std::make_shared<TextureResultMessage>();
     auto messageFuture = message->CreateFuture();
 
     m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& _message){
         std::dynamic_pointer_cast<TextureResultMessage>(_message)->SetResult(
-            OnLoadTexture(resource, imageData, resultWhen)
+            OnLoadCustomTexture(imageData, loadConfig, tag, resultWhen)
         );
     });
 
     return messageFuture;
 }
 
-Render::TextureId TextureResources::OnLoadTexture(const CustomResourceIdentifier& resource,
-                                                  const Common::ImageData::Ptr& imageData,
-                                                  ResultWhen resultWhen)
+Render::TextureId TextureResources::OnLoadCustomTexture(const Common::ImageData::Ptr& imageData,
+                                                        const TextureLoadConfig& loadConfig,
+                                                        const std::string& tag,
+                                                        ResultWhen resultWhen)
 {
-    return LoadCustomTexture(resource, imageData, resultWhen);
-}
+    m_logger->Log(Common::LogLevel::Info, "TextureResources: Loading custom texture resource: {}", tag);
 
-std::future<bool> TextureResources::LoadAllTextures(const PackageName& packageName, ResultWhen resultWhen)
-{
-    auto message = std::make_shared<Common::BoolResultMessage>();
-    auto messageFuture = message->CreateFuture();
-
-    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& _message){
-        std::dynamic_pointer_cast<Common::BoolResultMessage>(_message)->SetResult(
-            OnLoadAllTextures(packageName, resultWhen)
-        );
-    });
-
-    return messageFuture;
-}
-
-bool TextureResources::OnLoadAllTextures(const PackageName& packageName, ResultWhen resultWhen)
-{
-    m_logger->Log(Common::LogLevel::Info, "TextureResources: Loading all texture resources from package: {}", packageName.name);
-
-    const auto package = m_packages->GetPackageSource(packageName);
-    if (!package)
-    {
-        m_logger->Log(Common::LogLevel::Error,
-          "TextureResources::OnLoadAllTextures: No such package: {}", packageName.name);
-        return false;
-    }
-
-    const auto textureResourceNames = (*package)->GetTextureResourceNames();
-
-    bool allSuccess = true;
-
-    for (const auto& textureResourceName : textureResourceNames)
-    {
-        if (!OnLoadTexture(PRI(packageName, textureResourceName), resultWhen).IsValid())
-        {
-            allSuccess = false;
-        }
-    }
-
-    return allSuccess;
-}
-
-std::future<bool> TextureResources::LoadAllTextures(ResultWhen resultWhen)
-{
-    auto message = std::make_shared<Common::BoolResultMessage>();
-    auto messageFuture = message->CreateFuture();
-
-    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& _message){
-        std::dynamic_pointer_cast<Common::BoolResultMessage>(_message)->SetResult(
-            OnLoadAllTextures(resultWhen)
-        );
-    });
-
-    return messageFuture;
-}
-
-bool TextureResources::OnLoadAllTextures(ResultWhen resultWhen)
-{
-    m_logger->Log(Common::LogLevel::Info, "TextureResources: Loading all textures");
-
-    const auto packages = m_packages->GetAllPackages();
-
-    bool allSuccessful = true;
-
-    for (const auto& package : packages)
-    {
-        allSuccessful = allSuccessful && OnLoadAllTextures(PackageName(package->GetPackageName()), resultWhen);
-    }
-
-    return allSuccessful;
+    return LoadTexture(TextureData(imageData), loadConfig, tag, resultWhen);
 }
 
 std::future<std::expected<TextRender, bool>> TextureResources::RenderText(const std::string& text, const Platform::TextProperties& properties, ResultWhen resultWhen)
@@ -254,20 +199,12 @@ std::expected<TextRender, bool> TextureResources::OnRenderText(const std::string
     return textRender;
 }
 
-Render::TextureId TextureResources::LoadCustomTexture(const CustomResourceIdentifier& resource, const Common::ImageData::Ptr& imageData, ResultWhen resultWhen)
-{
-    m_logger->Log(Common::LogLevel::Info, "TextureResources: Loading custom texture resource: {}", resource.GetUniqueName());
-
-    const auto resourcesHash = GetResourcesHash(std::vector<ResourceIdentifier>{resource});
-
-    return LoadTexture(TextureData(imageData), resourcesHash, resource.GetUniqueName(), resultWhen);
-}
-
-Render::TextureId TextureResources::LoadPackageTexture(const std::vector<PackageResourceIdentifier>& resources, const std::string& tag, ResultWhen resultWhen)
+Render::TextureId TextureResources::LoadPackageTexture(const std::vector<PackageResourceIdentifier>& resources,
+                                                       const TextureLoadConfig& loadConfig,
+                                                       const std::string& tag,
+                                                       ResultWhen resultWhen)
 {
     m_logger->Log(Common::LogLevel::Info, "TextureResources: Loading package texture resource: {}", tag);
-
-    const auto resourcesHash = GetResourcesHash(resources);
 
     //
     // Fetch the package for each resource
@@ -320,46 +257,28 @@ Render::TextureId TextureResources::LoadPackageTexture(const std::vector<Package
     //
     // Create and record the texture
     //
-    return LoadTexture(textureData, resourcesHash, tag, resultWhen);
+    return LoadTexture(textureData, loadConfig, tag, resultWhen);
 }
 
 Render::TextureId TextureResources::LoadTexture(const TextureData& textureData,
-                                                const std::size_t& resourcesHash,
+                                                const TextureLoadConfig& loadConfig,
                                                 const std::string& tag,
                                                 ResultWhen resultWhen)
 {
-    //
-    // Check if the resource is already loaded
-    //
-    {
-        std::lock_guard<std::mutex> resourcesLock(m_resourcesMutex);
-
-        const auto it = m_resourceToTexture.find(resourcesHash);
-        if (it != m_resourceToTexture.cend())
-        {
-            m_logger->Log(Common::LogLevel::Warning,
-              "TextureResources::LoadTexture: Texture already loaded, ignoring: {}", resourcesHash);
-            return true;
-        }
-
-        //
-        // If not, we need to load the resource, so create a record for it
-        // to prevent subsequent calls for the same resource from doing any work
-        //
-        m_resourceToTexture.insert({resourcesHash, Render::TextureId()});
-    }
-
     //
     // Create and record the texture
     //
     const auto textureId = m_renderer->GetIds()->textureIds.GetId();
     auto texture = ToRenderTexture(textureId, textureData, tag);
 
-    // TODO!: Client can configure/provide mip levels for the texture
     if (texture.numLayers == 1)
     {
         texture.SetFullMipLevels();
-        texture.numMipLevels = std::min(*texture.numMipLevels, 4U);
+    }
+
+    if (loadConfig.numMipLevels)
+    {
+        texture.numMipLevels = *loadConfig.numMipLevels;
     }
 
     Render::TextureView textureView;
@@ -374,14 +293,16 @@ Render::TextureId TextureResources::LoadTexture(const TextureData& textureData,
 
     {
         std::lock_guard<std::mutex> texturesLock(m_texturesMutex);
-        std::lock_guard<std::mutex> resourcesLock(m_resourcesMutex);
-
-        m_resourceToTexture[resourcesHash] = textureId;
-        m_textureToResource[textureId] = resourcesHash;
         m_textures.insert({textureId, RegisteredTexture{texture}});
     }
 
-    const auto textureSampler = Render::TextureSampler(Render::CLAMP_ADDRESS_MODE);
+    Render::UVAddressMode uvAddressMode = Render::CLAMP_ADDRESS_MODE;
+    if (loadConfig.uvAddressMode)
+    {
+        uvAddressMode = *loadConfig.uvAddressMode;
+    }
+
+    const auto textureSampler = Render::TextureSampler(uvAddressMode);
 
     //
     // Send the texture to the renderer
@@ -444,36 +365,6 @@ Common::ImageData::Ptr TextureResources::TextureDataToImageData(const TextureDat
         textureData.textureImages[0]->GetPixelFormat());
 }
 
-std::optional<Render::TextureId> TextureResources::GetTextureId(const ResourceIdentifier& resource) const
-{
-    const auto resourceHash = GetResourcesHash(std::vector<ResourceIdentifier>{resource});
-
-    std::lock_guard<std::mutex> resourcesLock(m_resourcesMutex);
-
-    const auto it = m_resourceToTexture.find(resourceHash);
-    if (it == m_resourceToTexture.cend())
-    {
-        return std::nullopt;
-    }
-
-    return it->second;
-}
-
-std::optional<Render::Texture> TextureResources::GetLoadedTextureData(const ResourceIdentifier& resource) const
-{
-    const auto resourceHash = GetResourcesHash(std::vector<ResourceIdentifier>{resource});
-
-    std::lock_guard<std::mutex> resourcesLock(m_resourcesMutex);
-
-    const auto it = m_resourceToTexture.find(resourceHash);
-    if (it == m_resourceToTexture.cend())
-    {
-        return std::nullopt;
-    }
-
-    return GetLoadedTextureData(it->second);
-}
-
 std::optional<Render::Texture> TextureResources::GetLoadedTextureData(const Render::TextureId& textureId) const
 {
     std::lock_guard<std::mutex> texturesLock(m_texturesMutex);
@@ -487,22 +378,10 @@ std::optional<Render::Texture> TextureResources::GetLoadedTextureData(const Rend
     return std::nullopt;
 }
 
-void TextureResources::DestroyTexture(const ResourceIdentifier& resource)
-{
-    const auto textureId = GetTextureId(resource);
-    if (!textureId)
-    {
-        return;
-    }
-
-    DestroyTexture(*textureId);
-}
-
 void TextureResources::DestroyTexture(const Render::TextureId& textureId)
 {
     if (!textureId.IsValid()) { return; }
 
-    std::lock_guard<std::mutex> resourcesLock(m_resourcesMutex);
     std::lock_guard<std::mutex> texturesLock(m_texturesMutex);
 
     const auto it = m_textures.find(textureId);
@@ -512,16 +391,6 @@ void TextureResources::DestroyTexture(const Render::TextureId& textureId)
     }
 
     m_logger->Log(Common::LogLevel::Info, "TextureResources: Destroying texture resource: {}", it->second.texture.tag);
-
-    //
-    // Destroy any resource tracking data
-    //
-    const auto resourcesIt = m_textureToResource.find(textureId);
-    if (resourcesIt != m_textureToResource.cend())
-    {
-        m_resourceToTexture.erase(resourcesIt->second);
-        m_textureToResource.erase(resourcesIt);
-    }
 
     //
     // Destroy any texture data

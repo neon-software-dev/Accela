@@ -65,7 +65,7 @@ Render::MaterialId MaterialResources::OnLoadObjectMaterial(const CustomResourceI
         return *materialId;
     }
 
-    const auto renderMaterial = ToRenderMaterial(resource, properties, resultWhen);
+    const auto renderMaterial = ToRenderMaterial(resource, properties);
     if (!renderMaterial)
     {
         m_logger->Log(Common::LogLevel::Error,
@@ -100,8 +100,7 @@ Render::MaterialId MaterialResources::OnLoadObjectMaterial(const CustomResourceI
 }
 
 std::expected<Render::Material::Ptr, bool> MaterialResources::ToRenderMaterial(const CustomResourceIdentifier& resource,
-                                                                               const ObjectMaterialProperties& properties,
-                                                                               ResultWhen resultWhen) const
+                                                                               const ObjectMaterialProperties& properties) const
 {
     auto renderMaterialProperties = Render::ObjectMaterialProperties{};
     renderMaterialProperties.isAffectedByLighting = properties.isAffectedByLighting;
@@ -120,10 +119,10 @@ std::expected<Render::Material::Ptr, bool> MaterialResources::ToRenderMaterial(c
     renderMaterialProperties.specularTextureBlendFactor = properties.specularTextureBlendFactor;
     renderMaterialProperties.specularTextureOp = properties.specularTextureOp;
 
-    if (!ResolveMaterialTexture(properties.ambientTexture, renderMaterialProperties.ambientTextureBind, resultWhen)) { return std::unexpected(false); }
-    if (!ResolveMaterialTexture(properties.diffuseTexture, renderMaterialProperties.diffuseTextureBind, resultWhen)) { return std::unexpected(false); }
-    if (!ResolveMaterialTexture(properties.specularTexture, renderMaterialProperties.specularTextureBind, resultWhen)) { return std::unexpected(false); }
-    if (!ResolveMaterialTexture(properties.normalTexture, renderMaterialProperties.normalTextureBind, resultWhen)) { return std::unexpected(false); }
+    if (!ResolveMaterialTexture(properties.ambientTexture, renderMaterialProperties.ambientTextureBind)) { return std::unexpected(false); }
+    if (!ResolveMaterialTexture(properties.diffuseTexture, renderMaterialProperties.diffuseTextureBind)) { return std::unexpected(false); }
+    if (!ResolveMaterialTexture(properties.specularTexture, renderMaterialProperties.specularTextureBind)) { return std::unexpected(false); }
+    if (!ResolveMaterialTexture(properties.normalTexture, renderMaterialProperties.normalTextureBind)) { return std::unexpected(false); }
 
     return std::make_shared<Render::ObjectMaterial>(
         m_renderer->GetIds()->materialIds.GetId(),
@@ -132,27 +131,20 @@ std::expected<Render::Material::Ptr, bool> MaterialResources::ToRenderMaterial(c
     );
 }
 
-bool MaterialResources::ResolveMaterialTexture(const std::optional<ResourceIdentifier>& resource,
-                                               Render::TextureId& out,
-                                               ResultWhen resultWhen) const
+bool MaterialResources::ResolveMaterialTexture(const std::optional<Render::TextureId>& textureId,
+                                               Render::TextureId& out) const
 {
     // If there's no resource to resolve, nothing to do
-    if (!resource) { return true; }
+    if (!textureId) { return true; }
 
     // Look up the texture resource and reuse it if it was already previously loaded
-    auto textureId = m_textures->GetTextureId(*resource);
+    auto textureData = m_textures->GetLoadedTextureData(*textureId);
 
-    // If the texture isn't loaded, and the texture resource is a package resource, try to load it
-    if (!textureId && resource->IsPackageResource())
-    {
-        textureId = m_textures->LoadTexture(PackageResourceIdentifier(*resource), resultWhen).get();
-    }
-
-    // If we couldn't either find or load the texture, error out
-    if (!textureId)
+    // If we couldn't find the texture, error out
+    if (!textureData)
     {
         m_logger->Log(Common::LogLevel::Error,
-          "MaterialResources::ToRenderMaterial: Failed to fetch or load texture {}", resource->GetUniqueName());
+          "MaterialResources::ToRenderMaterial: Texture isn't loaded: {}", textureId.value().id);
         return false;
     }
 

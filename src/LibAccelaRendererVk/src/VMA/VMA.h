@@ -31,6 +31,8 @@ namespace Accela::Render
             //
             void DestroyInstance() override;
 
+            [[nodiscard]] std::vector<VmaBudget> GetVmaBudget(unsigned int numPhysicalDeviceMemoryHeaps) const override;
+
             VkResult CreateBuffer(const VkBufferCreateInfo* pBufferCreateInfo,
                                   const VmaAllocationCreateInfo* pAllocationCreateInfo,
                                   VkBuffer* pBuffer,

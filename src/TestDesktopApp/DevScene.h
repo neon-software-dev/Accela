@@ -12,7 +12,8 @@
 #include <Accela/Engine/Entity/EnginePerfMonitorEntity.h>
 #include <Accela/Engine/Entity/CommandEntryEntity.h>
 #include <Accela/Engine/Component/ModelRenderableComponent.h>
-#include <Accela/Engine/Extra/TreeMeshUtil.h>
+#include <Accela/Engine/Extra/StandardTreeGenerator.h>
+#include <Accela/Engine/Extra/TreeMeshCreator.h>
 
 #include <Accela/Render/Light.h>
 
@@ -73,7 +74,9 @@ namespace Accela
                                   bool isStatic,
                                   glm::vec3 linearVelocity = glm::vec3(0)) const;
 
-            void CreateTreeEntity(unsigned int id, const glm::vec3& pos, Engine::TreeParams treeParams = {}, Engine::TreeMeshParams meshParams = {});
+            void CreateTreeEntity(unsigned int id, const glm::vec3& pos, Engine::StandardTreeParams treeParams = {}, Engine::TreeMeshParams meshParams = {});
+
+            void CreateForest(Engine::EntityId terrainEid, unsigned int numTrees);
 
             //
             // Scene Manipulation
@@ -102,7 +105,8 @@ namespace Accela
             float m_cameraTranslationSpeed{0.05f};
 
             Engine::EntityId m_lightEid{0};
-            Render::TextureId m_skyBoxTextureId{};
+            Engine::EntityId m_terrainEid{0};
+            Render::TextureId m_skyBoxTextureId{0};
             Render::MeshId m_cubeMeshId{};
             Render::MeshId m_sphereMeshId{};
             Render::MeshId m_terrainHeightMapMeshId{};

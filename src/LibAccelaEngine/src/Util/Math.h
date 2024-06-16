@@ -17,42 +17,7 @@ namespace Accela::Engine
     /**
      * @return A rotation operation that represents the rotation from a start vector to a dest vector
      */
-    glm::quat RotationBetweenVectors(glm::vec3 start, glm::vec3 dest)
-    {
-        start = normalize(start);
-        dest = normalize(dest);
-
-        glm::vec3 rotationAxis{0};
-
-        // Special case handle anti-parallel vectors, as there's an infinite number of rotation axes
-        if (Render::AreUnitVectorsSpecificallyAntiParallel(start, dest))
-        {
-            // Randomly choose a rotation axis
-            rotationAxis = {0,0,1};
-
-            // Handle the case where the start vector IS the random rotation axis
-            if (Render::AreUnitVectorsSpecificallyParallel(rotationAxis, start))
-            {
-                // Just choose a different rotation axis
-                rotationAxis = {1,0,0};
-            }
-
-            return glm::angleAxis(glm::radians(180.0f), rotationAxis);
-        }
-
-        const float cosTheta = dot(start, dest);
-        rotationAxis = cross(start, dest);
-
-        const float s = std::sqrt((1.0f + cosTheta) * 2.0f);
-        const float iS = 1 / s;
-
-        return glm::quat(
-            s * 0.5f,
-            rotationAxis.x * iS,
-            rotationAxis.y * iS,
-            rotationAxis.z * iS
-        );
-    }
+    [[nodiscard]] glm::quat RotationBetweenVectors(glm::vec3 start, glm::vec3 dest);
 
     /**
      * @return if any components of the provided data are nan or inf
@@ -73,6 +38,13 @@ namespace Accela::Engine
         }
 
         return false;
+    }
+
+    // Maps a value X in the range of [A1...A2] into the range [B1...B2]
+    template<typename T>
+    inline T MapValue(const std::pair<T,T>& a, const std::pair<T, T>& b, const T& val)
+    {
+        return b.first + (((float)(val - a.first) / (float)(a.second - a.first)) * (b.second - b.first));
     }
 }
 

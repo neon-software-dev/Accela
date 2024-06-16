@@ -208,6 +208,22 @@ std::optional<uint32_t> VulkanPhysicalDevice::GetPresentQueueFamilyIndex(const V
     return std::nullopt;
 }
 
+VkSampleCountFlagBits VulkanPhysicalDevice::GetMaxUsableSampleCount() const
+{
+    const VkSampleCountFlags counts =
+        m_vkPhysicalDeviceProperties.limits.framebufferColorSampleCounts &
+        m_vkPhysicalDeviceProperties.limits.framebufferDepthSampleCounts;
+
+    if (counts & VK_SAMPLE_COUNT_64_BIT) { return VK_SAMPLE_COUNT_64_BIT; }
+    if (counts & VK_SAMPLE_COUNT_32_BIT) { return VK_SAMPLE_COUNT_32_BIT; }
+    if (counts & VK_SAMPLE_COUNT_16_BIT) { return VK_SAMPLE_COUNT_16_BIT; }
+    if (counts & VK_SAMPLE_COUNT_8_BIT) { return VK_SAMPLE_COUNT_8_BIT; }
+    if (counts & VK_SAMPLE_COUNT_4_BIT) { return VK_SAMPLE_COUNT_4_BIT; }
+    if (counts & VK_SAMPLE_COUNT_2_BIT) { return VK_SAMPLE_COUNT_2_BIT; }
+
+    return VK_SAMPLE_COUNT_1_BIT;
+}
+
 bool VulkanPhysicalDevice::SupportsExtension(const std::string& extensionName) const
 {
     return std::any_of(m_vkExtensionProperties.begin(), m_vkExtensionProperties.end(), [&](const auto& extension) {

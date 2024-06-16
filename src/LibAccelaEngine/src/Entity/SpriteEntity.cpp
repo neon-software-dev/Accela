@@ -87,19 +87,6 @@ void SpriteEntity::SetTextureById(Render::TextureId textureId)
     if (dirty && CanSyncSpriteComponent()) { SyncSpriteComponent(); }
 }
 
-bool SpriteEntity::SetTextureByResource(const ResourceIdentifier& resource)
-{
-    const auto textureIdOpt = m_engine->GetWorldResources()->Textures()->GetTextureId(resource);
-    if (!textureIdOpt)
-    {
-        return false;
-    }
-
-    SetTextureById(textureIdOpt.value());
-
-    return true;
-}
-
 std::optional<Render::URect> SpriteEntity::GetSourcePixelRect() const noexcept
 {
     if (!m_params) { return std::nullopt; }

@@ -15,6 +15,7 @@
 #include <vector>
 #include <memory>
 #include <string>
+#include <optional>
 
 namespace Accela::Engine
 {
@@ -29,17 +30,18 @@ namespace Accela::Engine
         float minValue{0.0f};
         float maxValue{0.0f};
 
-        Render::USize meshSize_worldSpace;
+        Render::FSize meshSize_worldSpace;
     };
 
     [[nodiscard]] HeightMapData::Ptr GenerateHeightMapData(const Common::ImageData::Ptr& heightMapImage,
                                                            const Render::USize& heightMapDataSize,
-                                                           const Render::USize& meshSize_worldSpace,
+                                                           const Render::FSize& meshSize_worldSpace,
                                                            const float& displacementFactor);
 
     [[nodiscard]] Render::Mesh::Ptr GenerateHeightMapMesh(const Render::MeshId& id,
                                                           const HeightMapData& heightMapData,
-                                                          const Render::USize& meshSize_worldSpace,
+                                                          const Render::FSize& meshSize_worldSpace,
+                                                          const std::optional<float>& uvSpanWorldSize,
                                                           const std::string& tag);
 }
 

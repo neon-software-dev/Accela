@@ -77,7 +77,6 @@ namespace Accela::Engine
 
             [[nodiscard]] std::optional<Render::TextureId> GetTextureId() const noexcept;
             void SetTextureById(Render::TextureId textureId);
-            [[nodiscard]] bool SetTextureByResource(const ResourceIdentifier& resource);
 
             [[nodiscard]] std::optional<Render::URect> GetSourcePixelRect() const noexcept;
             void SetSourcePixelRect(const Render::URect& srcPixelRect);

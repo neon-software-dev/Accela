@@ -8,7 +8,8 @@
 #define LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_SCENE_IMESHRESOURCES_H
 
 #include <Accela/Engine/ResourceIdentifier.h>
-#include <Accela/Engine/Scene/HeightMapData.h>
+#include <Accela/Engine/Scene/LoadedStaticMesh.h>
+#include <Accela/Engine/Scene/LoadedHeightMap.h>
 
 #include <Accela/Render/Id.h>
 #include <Accela/Render/Util/Rect.h>
@@ -64,6 +65,8 @@ namespace Accela::Engine
              * @param heightMapDataSize The number of data points, width x height, that should be pulled from the height map
              * @param meshSize_worldSpace The world-space size of the mesh that will be created
              * @param displacementFactor Constant multiplier against texture values to determine height displacement of vertices
+             * @param uvSpanWorldSize Optional world size which should contain an entire UV range. If not set, defaults to UVs cleanly
+             *  spanning the entire mesh in a normal [0,0]->[1,1] range.
              * @param usage Usage pattern for the mesh
              * @param resultWhen At which point of the load the returned future should be signaled
              *
@@ -73,8 +76,9 @@ namespace Accela::Engine
                 const CustomResourceIdentifier& resource,
                 const Render::TextureId& heightMapTextureId,
                 const Render::USize& heightMapDataSize,
-                const Render::USize& meshSize_worldSpace,
+                const Render::FSize& meshSize_worldSpace,
                 const float& displacementFactor,
+                const std::optional<float>& uvSpanWorldSize,
                 Render::MeshUsage usage,
                 ResultWhen resultWhen
             ) = 0;
@@ -87,6 +91,8 @@ namespace Accela::Engine
              * @param heightMapDataSize The number of data points, width x height, that should be pulled from the height map
              * @param meshSize_worldSpace The world-space size of the mesh that will be created
              * @param displacementFactor Constant multiplier against texture values to determine height displacement of vertices
+             * @param uvSpanWorldSize Optional world size which should contain an entire UV range. If not set, defaults to UVs cleanly
+             *  spanning the entire mesh in a normal [0,0]->[1,1] range.
              * @param usage Usage pattern for the mesh
              * @param resultWhen At which point of the load the returned future should be signaled
              *
@@ -96,8 +102,9 @@ namespace Accela::Engine
                 const CustomResourceIdentifier& resource,
                 const Common::ImageData::Ptr& heightMapImage,
                 const Render::USize& heightMapDataSize,
-                const Render::USize& meshSize_worldSpace,
+                const Render::FSize& meshSize_worldSpace,
                 const float& displacementFactor,
+                const std::optional<float>& uvSpanWorldSize,
                 Render::MeshUsage usage,
                 ResultWhen resultWhen
             ) = 0;
@@ -112,13 +119,22 @@ namespace Accela::Engine
             [[nodiscard]] virtual std::optional<Render::MeshId> GetMeshId(const ResourceIdentifier& resource) const = 0;
 
             /**
-             * Returns the height map data points associated with a previously loaded height map mesh.
+             * Returns the static mesh data associated with a previously loaded resource
+             *
+             * @param resource Identifies the mesh resource
+             *
+             * @return The static mesh's data, or std::nullopt if no such mesh
+             */
+            [[nodiscard]] virtual std::optional<LoadedStaticMesh::Ptr> GetStaticMeshData(const ResourceIdentifier& resource) const = 0;
+
+            /**
+             * Returns the mesh and data size associated with a previously loaded height map mesh.
              *
              * @param resource Identifies the height map mesh resource
              *
              * @return The height map mesh's data, or std::nullopt if no such mesh
              */
-            [[nodiscard]] virtual std::optional<HeightMapData::Ptr> GetHeightMapData(const ResourceIdentifier& resource) const = 0;
+            [[nodiscard]] virtual std::optional<LoadedHeightMap> GetHeightMapData(const ResourceIdentifier& resource) const = 0;
 
             /**
              * Destroy a previously loaded mesh

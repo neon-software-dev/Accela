@@ -64,6 +64,13 @@ std::expected<BufferPtr, Buffers::BufferCreateError> Buffers::CreateBuffer(
     const std::size_t& byteSize,
     const std::string& tag)
 {
+    if (byteSize == 0)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "Buffers::CreateBuffer: Tried to create a zero-sized buffer for: {}", tag);
+        return std::unexpected(IBuffers::BufferCreateError::ZeroSizeBuffer);
+    }
+
     //
     // Create a VMA allocation for the buffer
     //
@@ -78,6 +85,11 @@ std::expected<BufferPtr, Buffers::BufferCreateError> Buffers::CreateBuffer(
     BufferAllocation bufferAllocation{};
     bufferAllocation.vkBufferUsageFlags = vkUsageFlags;
     bufferAllocation.vmaMemoryUsage = vmaMemoryUsage;
+
+    // TODO!
+    /* budget = m_vulkanObjs->GetVMA()->GetVmaBudget();
+    m_logger->Log(Common::LogLevel::Error, "Making buffer, size: {}, usage: {}, available: {}",
+                  bufferInfo.size, budget.usage, budget.budget);*/
 
     auto result = m_vulkanObjs->GetVMA()->CreateBuffer(
         &bufferInfo,

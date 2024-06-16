@@ -60,8 +60,9 @@ std::future<Render::MeshId> MeshResources::LoadStaticMesh(const CustomResourceId
 std::future<Render::MeshId> MeshResources::LoadHeightMapMesh(const CustomResourceIdentifier& resource,
                                                              const Render::TextureId& heightMapTextureId,
                                                              const Render::USize& heightMapDataSize,
-                                                             const Render::USize& meshSize_worldSpace,
+                                                             const Render::FSize& meshSize_worldSpace,
                                                              const float& displacementFactor,
+                                                             const std::optional<float>& uvSpanWorldSize,
                                                              Render::MeshUsage usage,
                                                              ResultWhen resultWhen)
 {
@@ -70,7 +71,7 @@ std::future<Render::MeshId> MeshResources::LoadHeightMapMesh(const CustomResourc
 
     m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& _message){
         std::dynamic_pointer_cast<MeshResultMessage>(_message)->SetResult(
-            OnLoadHeightMapMesh(resource, heightMapTextureId, heightMapDataSize, meshSize_worldSpace, displacementFactor, usage, resultWhen)
+            OnLoadHeightMapMesh(resource, heightMapTextureId, heightMapDataSize, meshSize_worldSpace, displacementFactor, uvSpanWorldSize, usage, resultWhen)
         );
     });
 
@@ -80,8 +81,9 @@ std::future<Render::MeshId> MeshResources::LoadHeightMapMesh(const CustomResourc
 std::future<Render::MeshId> MeshResources::LoadHeightMapMesh(const CustomResourceIdentifier& resource,
                                                              const Common::ImageData::Ptr& heightMapImage,
                                                              const Render::USize& heightMapDataSize,
-                                                             const Render::USize& meshSize_worldSpace,
+                                                             const Render::FSize& meshSize_worldSpace,
                                                              const float& displacementFactor,
+                                                             const std::optional<float>& uvSpanWorldSize,
                                                              Render::MeshUsage usage,
                                                              ResultWhen resultWhen)
 {
@@ -90,7 +92,7 @@ std::future<Render::MeshId> MeshResources::LoadHeightMapMesh(const CustomResourc
 
     m_threadPool->PostMessage(message, [=, this](const Common::Message::Ptr& _message) {
         std::dynamic_pointer_cast<MeshResultMessage>(_message)->SetResult(
-            OnLoadHeightMapMesh(resource, heightMapImage, heightMapDataSize, meshSize_worldSpace, displacementFactor, usage, resultWhen)
+            OnLoadHeightMapMesh(resource, heightMapImage, heightMapDataSize, meshSize_worldSpace, displacementFactor, uvSpanWorldSize, usage, resultWhen)
         );
     });
 
@@ -115,7 +117,7 @@ Render::MeshId MeshResources::OnLoadStaticMesh(const CustomResourceIdentifier& r
     // Record the mesh's data before moving on with the mesh loading process
     {
         std::lock_guard<std::mutex> dataLock(m_staticMeshDataMutex);
-        m_staticMeshData.insert({resource, std::make_shared<RegisteredStaticMesh>(vertices, indices)});
+        m_staticMeshData.insert({resource, std::make_shared<LoadedStaticMesh>(vertices, indices)});
     }
 
     return LoadMesh(resource, mesh, usage, resultWhen);
@@ -124,8 +126,9 @@ Render::MeshId MeshResources::OnLoadStaticMesh(const CustomResourceIdentifier& r
 Render::MeshId MeshResources::OnLoadHeightMapMesh(const CustomResourceIdentifier& resource,
                                                   const Render::TextureId& heightMapTextureId,
                                                   const Render::USize& heightMapDataSize,
-                                                  const Render::USize& meshSize_worldSpace,
+                                                  const Render::FSize& meshSize_worldSpace,
                                                   const float& displacementFactor,
+                                                  const std::optional<float>& uvSpanWorldSize,
                                                   Render::MeshUsage usage,
                                                   ResultWhen resultWhen)
 {
@@ -158,6 +161,7 @@ Render::MeshId MeshResources::OnLoadHeightMapMesh(const CustomResourceIdentifier
         heightMapDataSize,
         meshSize_worldSpace,
         displacementFactor,
+        uvSpanWorldSize,
         usage,
         resultWhen
     );
@@ -166,8 +170,9 @@ Render::MeshId MeshResources::OnLoadHeightMapMesh(const CustomResourceIdentifier
 Render::MeshId MeshResources::OnLoadHeightMapMesh(const CustomResourceIdentifier& resource,
                                                   const Common::ImageData::Ptr& heightMapImage,
                                                   const Render::USize& heightMapDataSize,
-                                                  const Render::USize& meshSize_worldSpace,
+                                                  const Render::FSize& meshSize_worldSpace,
                                                   const float& displacementFactor,
+                                                  const std::optional<float>& uvSpanWorldSize,
                                                   Render::MeshUsage usage,
                                                   ResultWhen resultWhen)
 {
@@ -179,15 +184,19 @@ Render::MeshId MeshResources::OnLoadHeightMapMesh(const CustomResourceIdentifier
     //
     // Transform the height map data points into a mesh
     //
-    const auto heightMapMesh = GenerateHeightMapMesh(
+    const auto heightMapMesh = std::dynamic_pointer_cast<Render::StaticMesh>(GenerateHeightMapMesh(
         m_renderer->GetIds()->meshIds.GetId(),
         *heightMapData,
         meshSize_worldSpace,
+        uvSpanWorldSize,
         resource.GetUniqueName()
-    );
+    ));
 
     // Record the height map's data before moving on with the mesh loading process
     {
+        std::lock_guard<std::mutex> dataLock(m_staticMeshDataMutex);
+        m_staticMeshData.insert({resource, std::make_shared<LoadedStaticMesh>(heightMapMesh->vertices, heightMapMesh->indices)});
+
         std::lock_guard<std::mutex> meshesLock(m_heightMapDataMutex);
         m_heightMapData.insert({resource, heightMapData});
     }
@@ -248,17 +257,28 @@ std::optional<Render::MeshId> MeshResources::GetMeshId(const ResourceIdentifier&
     return it->second;
 }
 
-std::optional<HeightMapData::Ptr> MeshResources::GetHeightMapData(const ResourceIdentifier& resource) const
+std::optional<LoadedHeightMap> MeshResources::GetHeightMapData(const ResourceIdentifier& resource) const
 {
+    LoadedHeightMap loadedHeightMap{};
+
     std::lock_guard<std::mutex> heightMapDataLock(m_heightMapDataMutex);
 
     const auto it = m_heightMapData.find(resource);
     if (it == m_heightMapData.cend())
     {
+        m_logger->Log(Common::LogLevel::Error,
+          "MeshResources::GetHeightMapData: No such height map data for resource: {}", resource.GetUniqueName());
         return std::nullopt;
     }
 
-    return it->second;
+    loadedHeightMap.dataWidth = it->second->dataSize.w;
+    loadedHeightMap.dataHeight = it->second->dataSize.h;
+    loadedHeightMap.minValue = it->second->minValue;
+    loadedHeightMap.maxValue = it->second->maxValue;
+    loadedHeightMap.worldWidth = it->second->meshSize_worldSpace.w;
+    loadedHeightMap.worldHeight = it->second->meshSize_worldSpace.h;
+
+    return loadedHeightMap;
 }
 
 void MeshResources::DestroyMesh(const ResourceIdentifier& resource)
@@ -292,7 +312,7 @@ void MeshResources::DestroyAll()
     }
 }
 
-std::optional<RegisteredStaticMesh::Ptr> MeshResources::GetStaticMeshData(const ResourceIdentifier& resource) const
+std::optional<LoadedStaticMesh::Ptr> MeshResources::GetStaticMeshData(const ResourceIdentifier& resource) const
 {
     std::lock_guard<std::mutex> dataLock(m_staticMeshDataMutex);
 

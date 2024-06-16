@@ -4,29 +4,27 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
  
-#include <Accela/Engine/Extra/TreeMeshUtil.h>
+#include <Accela/Engine/Extra/StandardTreeGenerator.h>
 
 #include "../Util/Math.h"
 
 #include <glm/gtc/quaternion.hpp>
 
-#include <numbers>
-#include <format>
-#include <queue>
-
 namespace Accela::Engine
 {
 
-TreeMeshUtil::TreeMeshUtil(const std::mt19937::result_type& seed)
+StandardTreeGenerator::StandardTreeGenerator(const std::mt19937::result_type& seed)
     : m_mt(seed)
 {
 
 }
 
-TreeMeshUtil::Branch TreeMeshUtil::GenerateTree(const TreeParams& params)
+Tree StandardTreeGenerator::GenerateTree(const StandardTreeParams& params)
 {
+    Tree tree{};
+
     // Create the root/trunk branch
-    auto trunk = CreateBranch(
+    tree.root = CreateBranch(
         params,
         {0,0,0},
         {0,1,0},
@@ -36,17 +34,17 @@ TreeMeshUtil::Branch TreeMeshUtil::GenerateTree(const TreeParams& params)
     );
 
     // Recursively create sub-branches as needed
-    CreateBranches(trunk, params, 1);
+    CreateBranches(tree.root, params, 1);
 
-    return trunk;
+    return tree;
 }
 
-TreeMeshUtil::Branch TreeMeshUtil::CreateBranch(const TreeParams& params,
-                                                const glm::vec3& origin,
-                                                const glm::vec3& orientationUnit,
-                                                float startRadius,
-                                                float branchLength,
-                                                unsigned int level)
+Branch StandardTreeGenerator::CreateBranch(const StandardTreeParams& params,
+                                           const glm::vec3& origin,
+                                           const glm::vec3& orientationUnit,
+                                           float startRadius,
+                                           float branchLength,
+                                           unsigned int level)
 {
     Branch branch{};
     branch.origin = origin;
@@ -63,18 +61,18 @@ TreeMeshUtil::Branch TreeMeshUtil::CreateBranch(const TreeParams& params,
     return branch;
 }
 
-std::vector<TreeMeshUtil::BranchSegment> TreeMeshUtil::GenerateBranchSegments(const TreeParams& params,
-                                                                              const glm::vec3& origin,
-                                                                              const glm::vec3& orientationUnit,
-                                                                              float startRadius,
-                                                                              float branchLength,
-                                                                              unsigned int level)
+std::vector<BranchSegment> StandardTreeGenerator::GenerateBranchSegments(const StandardTreeParams& params,
+                                                                         const glm::vec3& origin,
+                                                                         const glm::vec3& orientationUnit,
+                                                                         float startRadius,
+                                                                         float branchLength,
+                                                                         unsigned int level)
 {
     std::vector<BranchSegment> segments(params.branch_numSegments);
 
     const bool isTrunkBranch = level == 0;
-    const float segmentLength = branchLength / params.branch_numSegments;
-    const float taperFactor = 1.0f - ((1.0f - params.branch_taperPercent) / segments.size());
+    const float segmentLength = branchLength / (float)params.branch_numSegments;
+    const float taperFactor = 1.0f - ((1.0f - params.branch_taperPercent) / (float)segments.size());
 
     glm::vec3 segmentOrigin = origin;
     glm::vec3 segmentOrientationUnit = orientationUnit;
@@ -172,7 +170,7 @@ std::vector<TreeMeshUtil::BranchSegment> TreeMeshUtil::GenerateBranchSegments(co
     return segments;
 }
 
-void TreeMeshUtil::CreateBranches(Branch& parentBranch, const TreeParams& params, unsigned int level)
+void StandardTreeGenerator::CreateBranches(Branch& parentBranch, const StandardTreeParams& params, unsigned int level)
 {
     // Bail out if we've hit max recursion depth
     if (level > params.branch_numLevels)
@@ -185,7 +183,7 @@ void TreeMeshUtil::CreateBranches(Branch& parentBranch, const TreeParams& params
     // Determine how many children to create off of the parent branch
     const auto minChildren = isLeafLevel ? params.branch_minLeafChildren : params.branch_minBranchChildren;
     const auto maxChildren = isLeafLevel ? params.branch_maxLeafChildren : params.branch_maxBranchChildren;
-    const auto numChildren = std::round(Rand(0.0f, 1.0f) * (maxChildren - minChildren)) + minChildren;
+    const auto numChildren = (unsigned int)(std::round(Rand(0.0f, 1.0f) * (float)(maxChildren - minChildren)) + (float)minChildren);
 
     // Create children (whether branches or leaves)
     for (unsigned int childIndex = 0; childIndex < numChildren; ++childIndex)
@@ -208,7 +206,7 @@ void TreeMeshUtil::CreateBranches(Branch& parentBranch, const TreeParams& params
             childOrientationUnit = lastSegment.orientationUnit;
             childStartRadius = lastSegment.endRadius;
         }
-        // Otherwise, the child can sprout from wherever on the parent branch is allowed
+            // Otherwise, the child can sprout from wherever on the parent branch is allowed
         else
         {
             //
@@ -239,16 +237,16 @@ void TreeMeshUtil::CreateBranches(Branch& parentBranch, const TreeParams& params
             const float sweepAngle = std::min(params.branch_sweepAngle, (float)std::numbers::pi);
 
             // Factor used to mix between fully parallel and fully anti-parallel with the parent orientation
-            float sweepAngleFactor = Rand(0.0f, sweepAngle / std::numbers::pi);
+            float sweepAngleFactor = Rand(0.0f, sweepAngle / (float)std::numbers::pi);
 
             // Enforce a minimum sweep factor of .2 (~12 degrees) to prevent child branches from being too aligned
             // with their parent
             sweepAngleFactor = std::max(0.2f, sweepAngleFactor);
 
             // Rotation that would keep the child orientation the same as the parent segment's
-            glm::quat parentRot = glm::identity<glm::quat>();
+            auto parentRot = glm::identity<glm::quat>();
             // Rotation that would make the child orientation completely opposite the parent segment's
-            glm::quat antiParentRot = RotationBetweenVectors(splitSegment.orientationUnit, -splitSegment.orientationUnit);
+            auto antiParentRot = RotationBetweenVectors(splitSegment.orientationUnit, -splitSegment.orientationUnit);
             // Mix between the two extremes
             const glm::quat rotationOutwardsFromParent = glm::mix(parentRot, antiParentRot, sweepAngleFactor);
 
@@ -279,7 +277,7 @@ void TreeMeshUtil::CreateBranches(Branch& parentBranch, const TreeParams& params
                 parentBranch.childLeaves.push_back(CreateLeaf(params, childOrigin, childOrientationUnit, true));
             }
         }
-        // Otherwise, create a child branch
+            // Otherwise, create a child branch
         else
         {
             unsigned int branchIndex = parentBranch.childBranches.size();
@@ -302,7 +300,7 @@ void TreeMeshUtil::CreateBranches(Branch& parentBranch, const TreeParams& params
     }
 }
 
-std::pair<float, unsigned int> TreeMeshUtil::ChooseBranchSplitPoint(const TreeParams& params, const TreeMeshUtil::Branch& branch)
+std::pair<float, unsigned int> StandardTreeGenerator::ChooseBranchSplitPoint(const StandardTreeParams& params, const Branch& branch)
 {
     // Determine the length along the branch to split a child off
     const float splitFactor = Rand(params.branch_splitStartPercent, params.branch_splitEndPercent);
@@ -325,13 +323,13 @@ std::pair<float, unsigned int> TreeMeshUtil::ChooseBranchSplitPoint(const TreePa
 
     // Shouldn't ever be the case
     assert(false);
-    return std::pair<float, unsigned int>(0.0f, 0);
+    return {0.0f, 0};
 }
 
-TreeMeshUtil::Leaf TreeMeshUtil::CreateLeaf(const TreeParams& params,
-                                            const glm::vec3& origin,
-                                            const glm::vec3& orientationUnit,
-                                            bool rotate90)
+Leaf StandardTreeGenerator::CreateLeaf(const StandardTreeParams& params,
+                                       const glm::vec3& origin,
+                                       const glm::vec3& orientationUnit,
+                                       bool rotate90)
 {
     Leaf leaf{};
     leaf.origin = origin;
@@ -355,224 +353,9 @@ TreeMeshUtil::Leaf TreeMeshUtil::CreateLeaf(const TreeParams& params,
     return leaf;
 }
 
-float TreeMeshUtil::Rand(float min, float max)
+float StandardTreeGenerator::Rand(float min, float max)
 {
     return std::uniform_real_distribution<float>(min, max)(m_mt);
-}
-
-//
-
-std::array<std::shared_ptr<Render::StaticMesh>, 2> TreeMeshUtil::CreateTreeMesh(const TreeMeshParams& params,
-                                                                                const Branch& tree,
-                                                                                const std::string& tag)
-{
-    const auto branchesMesh = std::make_shared<Render::StaticMesh>(Render::INVALID_ID, std::format("Branches-{}", tag));
-    const auto leavesMesh = std::make_shared<Render::StaticMesh>(Render::INVALID_ID, std::format("Leaves-{}", tag));
-
-    //
-    // DFS iterate over the tree and append geometry for all branches and leaves we encounter
-    //
-    std::queue<Branch> toProcess;
-    toProcess.push(tree);
-
-    while (!toProcess.empty())
-    {
-        const auto branch = toProcess.front();
-        toProcess.pop();
-
-        // Append geometry for the branch
-        AppendBranchGeometry(params, branch, branchesMesh);
-
-        for (const auto& childLeaf : branch.childLeaves)
-        {
-            AppendLeafGeometry(childLeaf, leavesMesh);
-        }
-
-        // Push the branch's children into the queue for processing
-        for (const auto& childBranch : branch.childBranches)
-        {
-            toProcess.push(childBranch);
-        }
-    }
-
-    return {branchesMesh, leavesMesh};
-}
-
-void TreeMeshUtil::AppendBranchGeometry(const TreeMeshParams& params, const Branch& branch, const std::shared_ptr<Render::StaticMesh>& mesh)
-{
-    if (branch.segments.empty()) { return; }
-
-    // GenerateSegmentVertices appends an additional vertex the same as the starting vertex (but with
-    // a different uv) to close out each segment loop, so there's always truly one more vertex per segment.
-    const unsigned int trueSegmentNumVertices = params.numVerticesPerSegment + 1;
-
-    //
-    // Create Branch Vertices
-    //
-    const std::size_t branchRootVerticesStartIndex = mesh->vertices.size();
-
-    // Special-case create the initial/root segment vertices
-    const auto& firstSegment = branch.segments.at(0);
-
-    const auto rootVertices = GenerateSegmentVertices(
-        params,
-        firstSegment.origin,
-        firstSegment.orientationUnit,
-        firstSegment.startRadius,
-        0.0f,
-        true
-    );
-
-    std::ranges::copy(rootVertices, std::back_inserter(mesh->vertices));
-
-    // Create vertices for the end/back of each branch segment
-    const std::size_t branchSegmentVerticesStartIndex = mesh->vertices.size();
-
-    for (unsigned int segmentIndex = 0; segmentIndex < branch.segments.size(); ++segmentIndex)
-    {
-        const auto& segment = branch.segments[segmentIndex];
-
-        const bool isFirstOrLastSegment = segmentIndex == 0 || segmentIndex == branch.segments.size() - 1;
-
-        const float texV = (float)(segmentIndex + 1) / (float)branch.segments.size();
-
-        const auto segmentVertices = GenerateSegmentVertices(
-            params,
-            segment.origin + (segment.orientationUnit * segment.length),
-            segment.orientationUnit,
-            segment.endRadius,
-            texV,
-            isFirstOrLastSegment
-        );
-
-        std::ranges::copy(segmentVertices, std::back_inserter(mesh->vertices));
-    }
-
-    //
-    // Create Branch Indices
-    //
-    for (unsigned int segmentIndex = 0; segmentIndex < branch.segments.size(); ++segmentIndex)
-    {
-        const std::size_t vertexDataOffset = branchSegmentVerticesStartIndex + (segmentIndex * trueSegmentNumVertices);
-
-        for (unsigned int vertexIndex = 0; vertexIndex < params.numVerticesPerSegment; ++vertexIndex)
-        {
-            // Special case handle indices for triangles which link downwards into the special case
-            // initial/root segment vertices we added above
-            if (segmentIndex == 0)
-            {
-                mesh->indices.push_back(vertexDataOffset + vertexIndex);
-                mesh->indices.push_back(vertexDataOffset + vertexIndex + 1);
-                mesh->indices.push_back(branchRootVerticesStartIndex + vertexIndex);
-
-                mesh->indices.push_back(branchRootVerticesStartIndex + vertexIndex);
-                mesh->indices.push_back(vertexDataOffset + vertexIndex + 1);
-                mesh->indices.push_back(branchRootVerticesStartIndex + vertexIndex + 1);
-            }
-            else
-            {
-                mesh->indices.push_back(vertexDataOffset + vertexIndex);
-                mesh->indices.push_back(vertexDataOffset + vertexIndex + 1);
-                mesh->indices.push_back(vertexDataOffset + vertexIndex - trueSegmentNumVertices);
-
-                mesh->indices.push_back(vertexDataOffset + vertexIndex - trueSegmentNumVertices);
-                mesh->indices.push_back(vertexDataOffset + vertexIndex + 1);
-                mesh->indices.push_back(vertexDataOffset + vertexIndex - trueSegmentNumVertices + 1);
-            }
-        }
-    }
-}
-
-std::vector<Render::MeshVertex> TreeMeshUtil::GenerateSegmentVertices(const TreeMeshParams& params,
-                                                                      const glm::vec3& origin,
-                                                                      const glm::vec3& orientationUnit,
-                                                                      float radius,
-                                                                      float texV,
-                                                                      bool isFirstOrLastSegment)
-{
-    const unsigned int trueSegmentNumVertices = params.numVerticesPerSegment + 1;
-
-    std::vector<Render::MeshVertex> results;
-    results.reserve(trueSegmentNumVertices);
-
-    for (unsigned int vertexIndex = 0; vertexIndex < params.numVerticesPerSegment; ++vertexIndex)
-    {
-        float vertexAngleRads = ((2.0f * std::numbers::pi) / params.numVerticesPerSegment) * vertexIndex;
-
-        // Randomize the angle a bit to make triangles between segments more irregular. Don't do this on
-        // the first or last segment so that branches that continue an existing branch line up correctly.
-        if (!isFirstOrLastSegment)
-        {
-            vertexAngleRads += Rand(-params.vertexAngleRandomizationPercent, params.vertexAngleRandomizationPercent);
-        }
-
-        const float posX = glm::cos(vertexAngleRads);
-        const float posZ = glm::sin(vertexAngleRads);
-
-        const auto rotation = RotationBetweenVectors({0,1,0}, orientationUnit);
-
-        const auto vertexPosition = (rotation * glm::vec3(posX * radius, 0, posZ * radius)) + origin;
-        const auto vertexNormal = glm::normalize(rotation * glm::vec3(posX, 0, posZ));
-        const auto vertexUv = glm::vec2((float)vertexIndex / (float)params.numVerticesPerSegment, texV);
-
-        results.emplace_back(vertexPosition, vertexNormal, vertexUv);
-    }
-
-    // Duplicate the first vertex to close the loop with flush UVs
-    auto finalVertex = results.at(0);
-    finalVertex.uv = {1.0f, texV};
-    results.push_back(finalVertex);
-
-    return results;
-}
-
-void TreeMeshUtil::AppendLeafGeometry(const Leaf& leaf, const std::shared_ptr<Render::StaticMesh>& mesh)
-{
-    const std::size_t vertexDataStartPosition = mesh->vertices.size();
-
-    const float halfLeafWidth = leaf.width / 2.0f;
-    const float halfLeafLength = leaf.height / 2.0f;
-
-    auto positions = std::vector<glm::vec3> {
-        {-halfLeafWidth, halfLeafLength, 0},
-        {-halfLeafWidth, -halfLeafLength,0},
-        {halfLeafWidth, -halfLeafLength,0},
-        {halfLeafWidth, halfLeafLength,0}
-    };
-
-    const auto rotation = RotationBetweenVectors({0,1,0}, leaf.orientationUnit);
-
-    for (auto& pos : positions)
-    {
-        pos = rotation * pos;
-        pos += leaf.origin;
-        pos += (leaf.orientationUnit * halfLeafLength);
-    }
-
-    const auto normal = rotation * glm::vec3(0,1,0);
-    std::vector<glm::vec3> normals = { normal, normal, normal, normal };
-
-    std::vector<glm::vec2> uvs = {
-        {0, 0},
-        {0, 1},
-        {1, 1},
-        {1, 0},
-    };
-
-    // Create leaf vertices
-    for (unsigned int x = 0; x < positions.size(); ++x)
-    {
-        mesh->vertices.emplace_back(positions[x], normals[x], uvs[x]);
-    }
-
-    // Create leaf indices
-    mesh->indices.push_back(vertexDataStartPosition);
-    mesh->indices.push_back(vertexDataStartPosition + 1);
-    mesh->indices.push_back(vertexDataStartPosition + 2);
-
-    mesh->indices.push_back(vertexDataStartPosition);
-    mesh->indices.push_back(vertexDataStartPosition + 2);
-    mesh->indices.push_back(vertexDataStartPosition + 3);
 }
 
 }

@@ -6,6 +6,8 @@
  
 #include "VMA.h"
 
+#include <vector>
+
 namespace Accela::Render
 {
 
@@ -35,6 +37,13 @@ std::optional<IVMAPtr> VMA::CreateInstance(const Common::ILogger::Ptr& logger,
     }
 
     return std::make_shared<VMA>(vmaAllocator);
+}
+
+std::vector<VmaBudget> VMA::GetVmaBudget(unsigned int numPhysicalDeviceMemoryHeaps) const
+{
+    std::vector<VmaBudget> vmaBudget(numPhysicalDeviceMemoryHeaps, VmaBudget{});
+    vmaGetHeapBudgets(m_vma, vmaBudget.data());
+    return vmaBudget;
 }
 
 VkResult VMA::CreateBuffer(const VkBufferCreateInfo *pBufferCreateInfo,

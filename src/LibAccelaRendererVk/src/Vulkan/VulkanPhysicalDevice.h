@@ -90,6 +90,8 @@ namespace Accela::Render
 
             [[nodiscard]] static VkFormat GetDepthBufferFormat() noexcept { return VK_FORMAT_D32_SFLOAT; }
 
+            [[nodiscard]] VkSampleCountFlagBits GetMaxUsableSampleCount() const;
+
         private:
 
             [[nodiscard]] bool SupportsExtension(const std::string& extensionName) const;

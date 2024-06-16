@@ -70,7 +70,7 @@ void TestScene::CreateSceneEntities()
 
     CreateModelEntity(
         Engine::PRI("TestDesktopApp", "CesiumMan.glb"),
-        {0,0,-2},
+        {-3,0,0},
         {1.0f, 1.0f, 1.0f},
         Engine::ModelAnimationState(Engine::ModelAnimationType::Looping, "")
     );
@@ -87,7 +87,7 @@ bool TestScene::LoadResources()
     }
 
     //
-    // Load custom textures
+    // Load textures
     //
     const std::array<Engine::PackageResourceIdentifier, 6> skyBoxResources = {
         Engine::PRI("TestDesktopApp", "skybox_right.jpg"),
@@ -97,8 +97,22 @@ bool TestScene::LoadResources()
         Engine::PRI("TestDesktopApp", "skybox_front.jpg"),
         Engine::PRI("TestDesktopApp", "skybox_back.jpg"),
     };
-    m_skyBoxTextureId = engine->GetWorldResources()->Textures()->LoadCubeTexture(skyBoxResources, "skybox", Engine::ResultWhen::Ready).get();
+    m_skyBoxTextureId = engine->GetWorldResources()->Textures()->LoadPackageCubeTexture(skyBoxResources, {}, "skybox", Engine::ResultWhen::Ready).get();
     if (m_skyBoxTextureId == Render::INVALID_ID) { return false; }
+
+    const auto heightMapTextureId = engine->GetWorldResources()->Textures()->LoadPackageTexture(
+        Engine::PRI("TestDesktopApp", "rolling_hills_heightmap.png"),
+        { .numMipLevels = 1 },
+        Engine::ResultWhen::Ready
+    ).get();
+    if (heightMapTextureId == Render::INVALID_ID) { return false; }
+
+    const auto terrainTextureId = engine->GetWorldResources()->Textures()->LoadPackageTexture(
+        Engine::PRI("TestDesktopApp", "rolling_hills_bitmap.png"),
+        { .numMipLevels = 1 },
+        Engine::ResultWhen::Ready
+    ).get();
+    if (terrainTextureId == Render::INVALID_ID) { return false; }
 
     //
     // Load custom meshes
@@ -121,10 +135,11 @@ bool TestScene::LoadResources()
 
     m_terrainHeightMapMeshId = engine->GetWorldResources()->Meshes()->LoadHeightMapMesh(
         Engine::CRI("TerrainHeightMap"),
-        *engine->GetWorldResources()->Textures()->GetTextureId(Engine::PRI("TestDesktopApp", "rolling_hills_heightmap.png")),
+        heightMapTextureId,
         Render::USize(40,40), // How many data points to create from the height map image
-        Render::USize(10,10), // World-space x/z size of the resulting terrain mesh
+        Render::FSize(10.0f,10.0f), // World-space x/z size of the resulting terrain mesh
         20.0f, // Constant that's multiplied against height map height values
+        std::nullopt,
         Render::MeshUsage::Immutable,
         Engine::ResultWhen::Ready).get();
     if (m_terrainHeightMapMeshId == Render::INVALID_ID) { return false; }
@@ -150,8 +165,8 @@ bool TestScene::LoadResources()
     terrainMaterial.diffuseColor = {1,1,1,1};
     terrainMaterial.specularColor = {0.0f, 0.0f, 0.0f, 1.0f};
     terrainMaterial.shininess = 32.0f;
-    terrainMaterial.ambientTexture = Engine::PRI("TestDesktopApp", "rolling_hills_bitmap.png");
-    terrainMaterial.diffuseTexture = Engine::PRI("TestDesktopApp", "rolling_hills_bitmap.png");
+    terrainMaterial.ambientTexture = terrainTextureId;
+    terrainMaterial.diffuseTexture = terrainTextureId;
     m_terrainMaterialId = engine->GetWorldResources()->Materials()->LoadObjectMaterial(
         Engine::CRI("Terrain"),
         terrainMaterial,
@@ -267,7 +282,7 @@ void TestScene::CreateTerrainEntity(const float& scale, const glm::vec3& positio
     Engine::PhysicsComponent physicsComponent = Engine::PhysicsComponent::StaticBody(Engine::DEFAULT_PHYSICS_SCENE,
         {Engine::PhysicsShape(
         Engine::PhysicsMaterial(),
-        Engine::Bounds_HeightMap(Engine::CRI("TerrainHeightMap")))}
+        Engine::Bounds_StaticMesh(Engine::CRI("TerrainHeightMap"), false))}
     );
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, physicsComponent);
 }

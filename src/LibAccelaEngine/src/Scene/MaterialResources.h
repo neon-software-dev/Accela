@@ -55,12 +55,10 @@ namespace Accela::Engine
 
             [[nodiscard]] std::expected<Render::Material::Ptr, bool> ToRenderMaterial(
                 const CustomResourceIdentifier& resource,
-                const ObjectMaterialProperties& properties,
-                ResultWhen resultWhen) const;
+                const ObjectMaterialProperties& properties) const;
 
-            [[nodiscard]] bool ResolveMaterialTexture(const std::optional<ResourceIdentifier>& resource,
-                                                      Render::TextureId& out,
-                                                      ResultWhen resultWhen) const;
+            [[nodiscard]] bool ResolveMaterialTexture(const std::optional<Render::TextureId>& textureId,
+                                                      Render::TextureId& out) const;
 
         private:
 

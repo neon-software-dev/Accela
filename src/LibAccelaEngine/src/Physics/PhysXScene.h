@@ -178,11 +178,6 @@ namespace Accela::Engine
                                                                  physx::PxMaterial* pMaterial,
                                                                  glm::vec3& localPositionAdjustment);
 
-            [[nodiscard]] physx::PxShape* CreateShape_HeightMap(const ShapeData& shape,
-                                                                physx::PxMaterial* pMaterial,
-                                                                glm::vec3& localPositionAdjustment,
-                                                                glm::quat& localOrientationAdjustment);
-
             [[nodiscard]] static inline physx::PxRigidBody* GetAsRigidBody(const physx::PxRigidActor* pRigidActor);
             [[nodiscard]] static inline physx::PxRigidDynamic* GetAsRigidDynamic(const physx::PxRigidActor* pRigidActor);
 

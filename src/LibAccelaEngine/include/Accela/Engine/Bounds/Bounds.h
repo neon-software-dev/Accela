@@ -11,7 +11,6 @@
 #include <Accela/Engine/Bounds/Bounds_Sphere.h>
 #include <Accela/Engine/Bounds/Bounds_Capsule.h>
 #include <Accela/Engine/Bounds/Bounds_StaticMesh.h>
-#include <Accela/Engine/Bounds/Bounds_HeightMap.h>
 
 #include <variant>
 
@@ -21,8 +20,7 @@ namespace Accela::Engine
         Bounds_AABB,
         Bounds_Sphere,
         Bounds_Capsule,
-        Bounds_StaticMesh,
-        Bounds_HeightMap
+        Bounds_StaticMesh
     >;
 }
 

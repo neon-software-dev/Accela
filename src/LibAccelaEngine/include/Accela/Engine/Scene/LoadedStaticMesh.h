@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
  
-#ifndef LIBACCELAENGINE_SRC_SCENE_REGISTEREDSTATICMESH_H
-#define LIBACCELAENGINE_SRC_SCENE_REGISTEREDSTATICMESH_H
+#ifndef LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_SCENE_LOADEDSTATICMESH_H
+#define LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_SCENE_LOADEDSTATICMESH_H
 
 #include <Accela/Render/Mesh/MeshVertex.h>
 
@@ -15,11 +15,11 @@
 
 namespace Accela::Engine
 {
-    struct RegisteredStaticMesh
+    struct LoadedStaticMesh
     {
-        using Ptr = std::shared_ptr<RegisteredStaticMesh>;
+        using Ptr = std::shared_ptr<LoadedStaticMesh>;
 
-        RegisteredStaticMesh(std::vector<Render::MeshVertex> _vertices, std::vector<uint32_t> _indices)
+        LoadedStaticMesh(std::vector<Render::MeshVertex> _vertices, std::vector<uint32_t> _indices)
             : vertices(std::move(_vertices))
             , indices(std::move(_indices))
         { }
@@ -29,4 +29,4 @@ namespace Accela::Engine
     };
 }
 
-#endif //LIBACCELAENGINE_SRC_SCENE_REGISTEREDSTATICMESH_H
+#endif //LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_SCENE_LOADEDSTATICMESH_H

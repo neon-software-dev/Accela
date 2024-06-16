@@ -10,7 +10,7 @@
 
 #include <Accela/Engine/Component/Components.h>
 #include <Accela/Engine/Physics/KinematicPlayerController.h>
-#include <Accela/Engine/Extra/TreeMeshUtil.h>
+#include <Accela/Engine/Util/HeightMapUtil.h>
 
 #include <sstream>
 
@@ -69,72 +69,19 @@ void DevScene::CreateSceneEntities()
 
     //CreateSpotLight({0,1,0}, true);
     CreatePointLight({0, 2, 2}, true);
-    CreateTerrainEntity(15.0f, {0, -2, 0});
-    CreateFloorEntity({0,0,0}, 150);
+    CreateTerrainEntity(10.0f, {0, 0, 0});
+    //CreateFloorEntity({0,0,0}, 150);
 
-    CreateModelEntity(
+    /*CreateModelEntity(
         Engine::PRI("TestDesktopApp", "CesiumMan.glb"),
         {0,0.1f,-2},
         glm::vec3(1.0f),
         Engine::ModelAnimationState(Engine::ModelAnimationType::Looping, "")
-    );
+    );*/
 
-    Engine::TreeParams treeParams{};
-    treeParams.maturity = 0.9f;
-    CreateTreeEntity(0, {5,0,-2}, treeParams);
-}
+    CreateTreeEntity(0, {5,0,-2});
 
-void DevScene::CreateTreeEntity(unsigned int id, const glm::vec3& pos, Engine::TreeParams treeParams, Engine::TreeMeshParams meshParams)
-{
-    Engine::TreeMeshUtil treeMeshGenerator;
-    const auto tree = treeMeshGenerator.GenerateTree(treeParams);
-    const auto meshes = treeMeshGenerator.CreateTreeMesh(meshParams, tree, std::format("Tree-{}", id));
-
-    auto branchesMeshId = engine->GetWorldResources()->Meshes()->LoadStaticMesh(
-        Engine::CRI(std::format("Branches-{}", id)),
-        meshes[0]->vertices,
-        meshes[0]->indices,
-        Render::MeshUsage::Immutable,
-        Engine::ResultWhen::Ready).get();
-    if (branchesMeshId == Render::INVALID_ID) { return; }
-
-    auto leavesMeshId = engine->GetWorldResources()->Meshes()->LoadStaticMesh(
-        Engine::CRI(std::format("Leaves-{}", id)),
-        meshes[1]->vertices,
-        meshes[1]->indices,
-        Render::MeshUsage::Immutable,
-        Engine::ResultWhen::Ready).get();
-    if (leavesMeshId == Render::INVALID_ID) { return; }
-
-    {
-        const auto eid = engine->GetWorldState()->CreateEntity();
-
-        auto transformComponent = Engine::TransformComponent{};
-        transformComponent.SetPosition(pos);
-        transformComponent.SetScale(glm::vec3(1.0f));
-        Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, transformComponent);
-
-        auto objectRenderableComponent = Engine::ObjectRenderableComponent{};
-        objectRenderableComponent.sceneName = "default";
-        objectRenderableComponent.meshId = branchesMeshId;
-        objectRenderableComponent.materialId = m_barkMaterialId;
-        Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, objectRenderableComponent);
-    }
-
-    {
-        const auto eid = engine->GetWorldState()->CreateEntity();
-
-        auto transformComponent = Engine::TransformComponent{};
-        transformComponent.SetPosition(pos);
-        transformComponent.SetScale(glm::vec3(1.0f));
-        Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, transformComponent);
-
-        auto objectRenderableComponent = Engine::ObjectRenderableComponent{};
-        objectRenderableComponent.sceneName = "default";
-        objectRenderableComponent.meshId = leavesMeshId;
-        objectRenderableComponent.materialId = m_leafMaterialId;
-        Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, objectRenderableComponent);
-    }
+    //CreateForest(m_terrainEid, 100);
 }
 
 bool DevScene::LoadResources()
@@ -153,7 +100,7 @@ bool DevScene::LoadResources()
     (void)engine->GetWorldResources()->Fonts()->LoadFont(Engine::PRI("TestDesktopApp", FONT_FILE_NAME), 64).get();
 
     //
-    // Load custom textures
+    // Load textures
     //
     const std::array<Engine::PackageResourceIdentifier, 6> skyBoxResources = {
         Engine::PRI("TestDesktopApp", "skybox_right.jpg"),
@@ -163,8 +110,38 @@ bool DevScene::LoadResources()
         Engine::PRI("TestDesktopApp", "skybox_front.jpg"),
         Engine::PRI("TestDesktopApp", "skybox_back.jpg"),
     };
-    m_skyBoxTextureId = engine->GetWorldResources()->Textures()->LoadCubeTexture(skyBoxResources, "skybox", Engine::ResultWhen::Ready).get();
+    m_skyBoxTextureId = engine->GetWorldResources()->Textures()->LoadPackageCubeTexture(skyBoxResources, {}, "skybox", Engine::ResultWhen::Ready).get();
     if (m_skyBoxTextureId == Render::INVALID_ID) { return false; }
+
+    const auto heightMapTextureId = engine->GetWorldResources()->Textures()->LoadPackageTexture(
+        Engine::PRI("TestDesktopApp", "rolling_hills_heightmap.png"),
+        { .numMipLevels = 1 },
+        Engine::ResultWhen::Ready
+    ).get();
+    if (heightMapTextureId == Render::INVALID_ID) { return false; }
+
+    const auto forestFloorTextureId = engine->GetWorldResources()->Textures()->LoadPackageTexture(
+        Engine::PRI("TestDesktopApp", "forest_ground.jpg"),
+        Engine::TextureLoadConfig {
+            .uvAddressMode = Render::WRAP_ADDRESS_MODE
+        },
+        Engine::ResultWhen::Ready
+    ).get();
+    if (forestFloorTextureId == Render::INVALID_ID) { return false; }
+
+    const auto barkTextureId = engine->GetWorldResources()->Textures()->LoadPackageTexture(
+        Engine::PRI("TestDesktopApp", "bark.png"),
+        { },
+        Engine::ResultWhen::Ready
+    ).get();
+    if (barkTextureId == Render::INVALID_ID) { return false; }
+
+    const auto ashTextureId = engine->GetWorldResources()->Textures()->LoadPackageTexture(
+        Engine::PRI("TestDesktopApp", "ash.png"),
+        { .numMipLevels = 4 },
+        Engine::ResultWhen::Ready
+    ).get();
+    if (ashTextureId == Render::INVALID_ID) { return false; }
 
     //
     // Load custom meshes
@@ -187,10 +164,11 @@ bool DevScene::LoadResources()
 
     m_terrainHeightMapMeshId = engine->GetWorldResources()->Meshes()->LoadHeightMapMesh(
         Engine::CRI("TerrainHeightMap"),
-        *engine->GetWorldResources()->Textures()->GetTextureId(Engine::PRI("TestDesktopApp", "rolling_hills_heightmap.png")),
+        heightMapTextureId,
         Render::USize(40,40), // How many data points to create from the height map image
-        Render::USize(10,10), // World-space x/z size of the resulting terrain mesh
+        Render::FSize(10.0f,10.0f), // World-space x/z size of the resulting terrain mesh
         20.0f, // Constant that's multiplied against height map height values
+        1.0f, // Repeat the material texture every 1 unit in world space
         Render::MeshUsage::Immutable,
         Engine::ResultWhen::Ready).get();
     if (m_terrainHeightMapMeshId == Render::INVALID_ID) { return false; }
@@ -215,9 +193,9 @@ bool DevScene::LoadResources()
     Engine::ObjectMaterialProperties barkMaterial{};
     barkMaterial.isAffectedByLighting = true;
     barkMaterial.ambientColor = barkColor;
-    barkMaterial.ambientTexture = Engine::PRI("TestDesktopApp", "bark.png");
+    barkMaterial.ambientTexture = barkTextureId;
     barkMaterial.diffuseColor = barkColor;
-    barkMaterial.diffuseTexture = Engine::PRI("TestDesktopApp", "bark.png");
+    barkMaterial.diffuseTexture = barkTextureId;
     barkMaterial.specularColor = {1,1,1,1};
     barkMaterial.shininess = 0.0f;
     m_barkMaterialId = engine->GetWorldResources()->Materials()->LoadObjectMaterial(
@@ -229,9 +207,9 @@ bool DevScene::LoadResources()
     Engine::ObjectMaterialProperties leafMaterial{};
     leafMaterial.isAffectedByLighting = true;
     leafMaterial.ambientColor = {1,1,1,1};
-    leafMaterial.ambientTexture = Engine::PRI("TestDesktopApp", "ash.png");
+    leafMaterial.ambientTexture = ashTextureId;
     leafMaterial.diffuseColor = {1,1,1,1};
-    leafMaterial.diffuseTexture = Engine::PRI("TestDesktopApp", "ash.png");
+    leafMaterial.diffuseTexture = ashTextureId;
     leafMaterial.specularColor = {0, 0, 0,0};
     leafMaterial.shininess = 0.0f;
     leafMaterial.twoSided = true;
@@ -249,8 +227,8 @@ bool DevScene::LoadResources()
     terrainMaterial.diffuseColor = {1,1,1,1};
     terrainMaterial.specularColor = {0.0f, 0.0f, 0.0f, 1.0f};
     terrainMaterial.shininess = 32.0f;
-    terrainMaterial.ambientTexture = Engine::PRI("TestDesktopApp", "rolling_hills_bitmap.png");
-    terrainMaterial.diffuseTexture = Engine::PRI("TestDesktopApp", "rolling_hills_bitmap.png");
+    terrainMaterial.ambientTexture = forestFloorTextureId;
+    terrainMaterial.diffuseTexture = forestFloorTextureId;
     m_terrainMaterialId = engine->GetWorldResources()->Materials()->LoadObjectMaterial(
         Engine::CRI("Terrain"),
         terrainMaterial,
@@ -386,9 +364,11 @@ void DevScene::CreateTerrainEntity(const float& scale, const glm::vec3& position
 
     Engine::PhysicsComponent physicsComponent = Engine::PhysicsComponent::StaticBody(Engine::DEFAULT_PHYSICS_SCENE,
         {Engine::PhysicsShape(Engine::PhysicsMaterial(),
-        Engine::Bounds_HeightMap(Engine::CRI("TerrainHeightMap")))}
+        Engine::Bounds_StaticMesh(Engine::CRI("TerrainHeightMap"), false))}
     );
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, physicsComponent);
+
+    m_terrainEid = eid;
 }
 
 void DevScene::CreateCubeEntity(glm::vec3 position,
@@ -431,6 +411,101 @@ void DevScene::CreateCubeEntity(glm::vec3 position,
     physicsComponent->linearDamping = 0.4f;
     physicsComponent->angularDamping = 0.4f;
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, *physicsComponent);
+}
+
+void DevScene::CreateTreeEntity(unsigned int id, const glm::vec3& pos, Engine::StandardTreeParams treeParams, Engine::TreeMeshParams meshParams)
+{
+    const auto tree = Engine::StandardTreeGenerator().GenerateTree(treeParams);
+
+    const auto treeMeshParams = Engine::TreeMeshCreator::QualityBasedMeshParams(10.0f);
+    const auto treeMesh = Engine::TreeMeshCreator().CreateTreeMesh(treeMeshParams, tree, std::format("Tree-{}", id));
+
+    const auto branchesMeshRI = Engine::CRI(std::format("Branches-{}", id));
+
+    auto branchesMeshId = engine->GetWorldResources()->Meshes()->LoadStaticMesh(
+        branchesMeshRI,
+        treeMesh.branchesMesh->vertices,
+        treeMesh.branchesMesh->indices,
+        Render::MeshUsage::Immutable,
+        Engine::ResultWhen::Ready).get();
+    if (branchesMeshId == Render::INVALID_ID) { return; }
+
+    auto leavesMeshId = engine->GetWorldResources()->Meshes()->LoadStaticMesh(
+        Engine::CRI(std::format("Leaves-{}", id)),
+        treeMesh.leavesMesh->vertices,
+        treeMesh.leavesMesh->indices,
+        Render::MeshUsage::Immutable,
+        Engine::ResultWhen::Ready).get();
+    if (leavesMeshId == Render::INVALID_ID) { return; }
+
+    {
+        const auto eid = engine->GetWorldState()->CreateEntity();
+
+        auto transformComponent = Engine::TransformComponent{};
+        transformComponent.SetPosition(pos);
+        transformComponent.SetScale(glm::vec3(1.0f));
+        Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, transformComponent);
+
+        auto objectRenderableComponent = Engine::ObjectRenderableComponent{};
+        objectRenderableComponent.sceneName = "default";
+        objectRenderableComponent.meshId = branchesMeshId;
+        objectRenderableComponent.materialId = m_barkMaterialId;
+        Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, objectRenderableComponent);
+
+        Engine::PhysicsComponent physicsComponent = Engine::PhysicsComponent::StaticBody(
+            Engine::DEFAULT_PHYSICS_SCENE,
+            {Engine::PhysicsShape(
+                Engine::PhysicsMaterial(),
+                Engine::Bounds_StaticMesh(
+                    branchesMeshRI,
+                    true,
+                    Engine::Bounds_StaticMesh::MeshSlice{
+                        .verticesStartIndex = treeMesh.trunkVerticesStartIndex,
+                        .verticesCount = treeMesh.trunkVerticesCount,
+                        .indicesStartIndex = treeMesh.trunkIndicesStartIndex,
+                        .indicesCount = treeMesh.trunkIndicesCount
+                    }
+                ))}
+        );
+        Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, physicsComponent);
+    }
+
+    {
+        const auto eid = engine->GetWorldState()->CreateEntity();
+
+        auto transformComponent = Engine::TransformComponent{};
+        transformComponent.SetPosition(pos);
+        transformComponent.SetScale(glm::vec3(1.0f));
+        Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, transformComponent);
+
+        auto objectRenderableComponent = Engine::ObjectRenderableComponent{};
+        objectRenderableComponent.sceneName = "default";
+        objectRenderableComponent.meshId = leavesMeshId;
+        objectRenderableComponent.materialId = m_leafMaterialId;
+        Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, objectRenderableComponent);
+    }
+}
+
+void DevScene::CreateForest(Engine::EntityId terrainEid, unsigned int numTrees)
+{
+    const auto terrainTransform = Engine::GetComponent<Engine::TransformComponent>(engine->GetWorldState(), terrainEid).value();
+
+    const auto heightMapMesh = engine->GetWorldResources()->Meshes()->GetStaticMeshData(Engine::CRI("TerrainHeightMap")).value();
+    const auto heightMapData = engine->GetWorldResources()->Meshes()->GetHeightMapData(Engine::CRI("TerrainHeightMap")).value();
+
+    for (unsigned int x = 0; x < numTrees; ++x)
+    {
+        const float halfWidthBounds = heightMapData.worldWidth / 2.0f;
+        const float halfHeightBounds = heightMapData.worldHeight / 2.0f;
+
+        const float xPos = std::uniform_real_distribution<float>(-halfWidthBounds, halfWidthBounds)(m_mt);
+        const float zPos = std::uniform_real_distribution<float>(-halfHeightBounds, halfHeightBounds)(m_mt);
+        const float yPos = Engine::QueryLoadedHeightMap(heightMapMesh, heightMapData, {xPos, zPos})->pointHeight_modelSpace;
+
+        const glm::vec3 treePosition = (glm::vec3{xPos, yPos, zPos} * terrainTransform.GetScale()) + terrainTransform.GetPosition();
+
+        CreateTreeEntity(x, treePosition);
+    }
 }
 
 void DevScene::OnSimulationStep(unsigned int timeStep)

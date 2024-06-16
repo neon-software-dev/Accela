@@ -28,6 +28,7 @@ namespace Accela::Render
 
             enum class BufferCreateError
             {
+                ZeroSizeBuffer,
                 AllocationFailed
             };
 

@@ -556,10 +556,6 @@ physx::PxShape* PhysXScene::CreateShape(const ShapeData& shape, physx::PxMateria
     {
         pShape = CreateShape_StaticMesh(shape, pMaterial, localPositionAdjustment);
     }
-    else if (std::holds_alternative<Bounds_HeightMap>(shape.bounds))
-    {
-        pShape = CreateShape_HeightMap(shape, pMaterial, localPositionAdjustment, localOrientationAdjustment);
-    }
 
     if (pShape == nullptr)
     {
@@ -661,24 +657,56 @@ physx::PxShape* PhysXScene::CreateShape_StaticMesh(const ShapeData& shape,
         return nullptr;
     }
 
-    std::vector<physx::PxVec3> pxVertices;
-    pxVertices.reserve((*staticMeshDataOpt)->vertices.size());
-    for (const auto& vertex : (*staticMeshDataOpt)->vertices)
+    std::size_t verticesStartIndex = 0;
+    std::size_t verticesCount = (*staticMeshDataOpt)->vertices.size();
+    std::size_t indicesStartIndex = 0;
+    std::size_t indicesCount = (*staticMeshDataOpt)->indices.size();
+
+    if (boundsStaticMesh.meshSlice)
     {
-        pxVertices.push_back(ToPhysX(vertex.position));
+        verticesStartIndex = (*boundsStaticMesh.meshSlice).verticesStartIndex;
+        verticesCount = (*boundsStaticMesh.meshSlice).verticesCount;
+        indicesStartIndex = (*boundsStaticMesh.meshSlice).indicesStartIndex;
+        indicesCount = (*boundsStaticMesh.meshSlice).indicesCount;
+    }
+
+    std::vector<physx::PxVec3> pxVertices;
+    pxVertices.reserve(verticesCount);
+
+    for (std::size_t x = verticesStartIndex; x < verticesStartIndex + verticesCount; ++x)
+    {
+        pxVertices.push_back(ToPhysX((*staticMeshDataOpt)->vertices.at(x).position));
     }
 
     std::vector<physx::PxU32> pxIndices;
-    pxIndices.reserve((*staticMeshDataOpt)->indices.size());
-    for (const auto& index : (*staticMeshDataOpt)->indices)
+    pxIndices.reserve(indicesCount);
+
+    for (std::size_t x = indicesStartIndex; x < indicesStartIndex + indicesCount; ++x)
     {
-        pxIndices.push_back(index);
+        // Note the subtraction to offset indices back to zero
+        pxIndices.push_back((*staticMeshDataOpt)->indices.at(x) - indicesStartIndex);
     }
 
     physx::PxTolerancesScale scale{};
     physx::PxCookingParams params(scale);
-    params.meshPreprocessParams |= physx::PxMeshPreprocessingFlag::eDISABLE_CLEAN_MESH;
-    params.meshPreprocessParams |= physx::PxMeshPreprocessingFlag::eDISABLE_ACTIVE_EDGES_PRECOMPUTE;
+
+    if (boundsStaticMesh.meshCanContainDuplicateVertices)
+    {
+        // If the mesh can contain duplicate vertices, enable mesh welding, as apparently
+        // PhysX doesn't like meshes with duplicate vertices
+        params.meshPreprocessParams |= physx::PxMeshPreprocessingFlag::eWELD_VERTICES;
+
+        // PhysX internally uses this value for some of its welding, so seems like a good choice
+        params.meshWeldTolerance = 0.001f;
+    }
+    else
+    {
+        // Otherwise, we can set this flag to tell PhysX the mesh is clean and doesn't
+        // need to have vertices welded, speeding things up
+        params.meshPreprocessParams |= physx::PxMeshPreprocessingFlag::eDISABLE_CLEAN_MESH;
+    }
+
+    //params.meshPreprocessParams |= physx::PxMeshPreprocessingFlag::eDISABLE_ACTIVE_EDGES_PRECOMPUTE;
 
     physx::PxTriangleMeshDesc meshDesc;
     meshDesc.points.count           = pxVertices.size();
@@ -689,13 +717,15 @@ physx::PxShape* PhysXScene::CreateShape_StaticMesh(const ShapeData& shape,
     meshDesc.triangles.stride       = 3 * sizeof(physx::PxU32);
     meshDesc.triangles.data         = pxIndices.data();
 
-    if (Common::BuildInfo::IsDebugBuild())
+    // Only validate meshes without duplicate vertices or else the validation fails even though we're
+    // explicitly configuring mesh welding ..
+    if (Common::BuildInfo::IsDebugBuild() && !boundsStaticMesh.meshCanContainDuplicateVertices)
     {
         const bool meshValidationResult = PxValidateTriangleMesh(params, meshDesc);
         if (!meshValidationResult)
         {
-            m_logger->Log(Common::LogLevel::Error, "PhysXScene::CreateShape_StaticMesh: Mesh failed validation");
-            return nullptr;
+            m_logger->Log(Common::LogLevel::Warning,
+              "PhysXScene::CreateShape_StaticMesh: Mesh failed validation: {}", boundsStaticMesh.resource.GetUniqueName());
         }
     }
 
@@ -712,106 +742,6 @@ physx::PxShape* PhysXScene::CreateShape_StaticMesh(const ShapeData& shape,
 
     return m_pPhysics->createShape(
         physx::PxTriangleMeshGeometry(pTriangleMesh, ToPhysX(shape.scale)),
-        *pMaterial,
-        true,
-        GetShapeFlags(shape.usage)
-    );
-}
-
-physx::PxShape* PhysXScene::CreateShape_HeightMap(const ShapeData& shape,
-                                                  physx::PxMaterial* pMaterial,
-                                                  glm::vec3& localPositionAdjustment,
-                                                  glm::quat& localOrientationAdjustment)
-{
-    const auto boundsHeightMap = std::get<Bounds_HeightMap>(shape.bounds);
-
-    const auto heightMapDataOpt = std::dynamic_pointer_cast<MeshResources>(m_worldResources->Meshes())
-        ->GetHeightMapData(boundsHeightMap.resource);
-    if (!heightMapDataOpt)
-    {
-        m_logger->Log(Common::LogLevel::Error,
-          "PhysXScene::CreateShape_StaticMesh: No such height map mesh found, id: {}", boundsHeightMap.resource.GetUniqueName());
-        return nullptr;
-    }
-
-    const auto& heightMapData = *heightMapDataOpt;
-
-    // How to scale the height map data points to mesh model coordinates
-    const glm::vec3 scaleToMeshSize(
-        (float)heightMapData->meshSize_worldSpace.w / ((float)heightMapData->dataSize.w - 1),
-        1.0f,
-        (float)heightMapData->meshSize_worldSpace.h / ((float)heightMapData->dataSize.h - 1)
-    );
-
-    // Scale the data points to model points, then scale by the model's object scale
-    const glm::vec3 colliderScale = shape.scale * scaleToMeshSize;
-
-    ////////////////////////
-
-    // https://nvidia-omniverse.github.io/PhysX/physx/5.3.1/docs/Geometry.html#quantizing-heightfield-samples
-    physx::PxReal pxMinHeightFieldYScale{0.0f};
-    { using namespace physx; pxMinHeightFieldYScale = PX_MIN_HEIGHTFIELD_Y_SCALE; }
-
-    const physx::PxReal deltaHeight = (physx::PxReal)heightMapData->maxValue - (physx::PxReal)heightMapData->minValue;
-    const auto quantization = (physx::PxReal)0x7fff;
-    const physx::PxReal heightScale = physx::PxMax(deltaHeight / quantization, pxMinHeightFieldYScale);
-
-    std::vector<physx::PxHeightFieldSample> heightFieldSamples;
-    heightFieldSamples.reserve((int)heightMapData->dataSize.w * (int)heightMapData->dataSize.h);
-
-    for (unsigned int x = 0; x < heightMapData->dataSize.w; ++x)
-    {
-        for (unsigned int y = 0; y < heightMapData->dataSize.h; ++y)
-        {
-            // Even though physx documentation says it builds the height map from the far/left corner first, and that's the
-            // format the height map data is in, only if we build the physx samples from the front/left corner first does
-            // it work properly, so that's why the sample height value is inverted:
-            const float& sampleRawValue = heightMapData->data[(heightMapData->dataSize.h - 1 - y) + (x * heightMapData->dataSize.w)];
-
-            const physx::PxReal quantizedHeight = physx::PxI16(quantization * ((sampleRawValue - (physx::PxReal)heightMapData->minValue) / deltaHeight));
-
-            physx::PxHeightFieldSample sample{};
-            sample.height = (physx::PxI16)quantizedHeight;
-            sample.materialIndex0 = 0;
-            sample.materialIndex1 = 0;
-            sample.clearTessFlag();
-
-            heightFieldSamples.push_back(sample);
-        }
-    }
-
-    physx::PxHeightFieldDesc hfDesc;
-    hfDesc.format             = physx::PxHeightFieldFormat::eS16_TM;
-    hfDesc.nbColumns          = (int)heightMapData->dataSize.w;
-    hfDesc.nbRows             = (int)heightMapData->dataSize.h;
-    hfDesc.samples.data       = heightFieldSamples.data();
-    hfDesc.samples.stride     = sizeof(physx::PxHeightFieldSample);
-
-    physx::PxHeightField* pHeightField = PxCreateHeightField(hfDesc,m_pPhysics->getPhysicsInsertionCallback());
-
-    physx::PxHeightFieldGeometry heightFieldGeometry(
-        pHeightField,
-        physx::PxMeshGeometryFlags(),
-        deltaHeight != 0.0f ? heightScale : 1.0f,
-        colliderScale.x,
-        colliderScale.z
-    );
-
-    // PhysX creates the shape rotated 90 degrees the wrong way, correct for this
-    localOrientationAdjustment = glm::angleAxis(glm::radians(-90.0f), glm::vec3{0,1,0});
-
-    // PhysX aligns height maps with the back-left corner the origin, but we want the center of the height map
-    // to be the origin, so offset it by half its height/width to adjust it. Note that after the orientation change
-    // from above, we need to translate it differently, as the rotation is around that back-left corner, shifting the
-    // height map from in front of and to the right of 0,0 to being in front of and to the left of 0,0.
-    localPositionAdjustment = shape.scale * glm::vec3{
-        ((float)heightMapData->meshSize_worldSpace.w / 2.0f),
-        heightMapData->minValue, // Adjust upwards by minValue so that minValue points are at minValue height above 0
-        -((float)heightMapData->meshSize_worldSpace.h / 2.0f),
-    };
-
-    return m_pPhysics->createShape(
-        heightFieldGeometry,
         *pMaterial,
         true,
         GetShapeFlags(shape.usage)

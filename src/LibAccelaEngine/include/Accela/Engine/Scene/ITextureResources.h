@@ -15,6 +15,7 @@
 #include <Accela/Platform/Text/TextProperties.h>
 
 #include <Accela/Render/Texture/Texture.h>
+#include <Accela/Render/Texture/TextureSampler.h>
 #include <Accela/Render/Id.h>
 
 #include <Accela/Common/ImageData.h>
@@ -28,6 +29,12 @@
 
 namespace Accela::Engine
 {
+    struct TextureLoadConfig
+    {
+        std::optional<unsigned int> numMipLevels;
+        std::optional<Render::UVAddressMode> uvAddressMode;
+    };
+
     /**
      * Encapsulates texture resource operations
      */
@@ -49,8 +56,9 @@ namespace Accela::Engine
             *
             * @return A future containing the TextureId of the loaded texture, or INVALID_ID on error
             */
-            [[nodiscard]] virtual std::future<Render::TextureId> LoadTexture(
+            [[nodiscard]] virtual std::future<Render::TextureId> LoadPackageTexture(
                 const PackageResourceIdentifier& resource,
+                const TextureLoadConfig& loadConfig,
                 ResultWhen resultWhen) = 0;
 
             /**
@@ -62,43 +70,25 @@ namespace Accela::Engine
             *
             * @return A future containing the TextureId of the loaded texture, or INVALID_ID on error
             */
-            [[nodiscard]] virtual std::future<Render::TextureId> LoadCubeTexture(
+            [[nodiscard]] virtual std::future<Render::TextureId> LoadPackageCubeTexture(
                 const std::array<PackageResourceIdentifier, 6>& resources,
+                const TextureLoadConfig& loadConfig,
                 const std::string& tag,
                 ResultWhen resultWhen) = 0;
 
             /**
             * Loads a custom texture resource.
             *
-            * @param resource Identifies the texture
             * @param imageData The texture data to be loaded
             * @param resultWhen At which point of the load the returned future should be signaled
             *
             * @return A future containing the TextureId of the loaded texture, or INVALID_ID on error
             */
-            [[nodiscard]] virtual std::future<Render::TextureId> LoadTexture(
-                const CustomResourceIdentifier& resource,
+            [[nodiscard]] virtual std::future<Render::TextureId> LoadCustomTexture(
                 const Common::ImageData::Ptr& imageData,
+                const TextureLoadConfig& loadConfig,
+                const std::string& tag,
                 ResultWhen resultWhen) = 0;
-
-            /**
-             * Loads all texture resources from the specified package
-             *
-             * @param packageName Identifies the package
-             * @param resultWhen At which point of the load the returned future should be signaled
-             *
-             * @return A future containing whether all textures loaded successfully
-             */
-            [[nodiscard]] virtual std::future<bool> LoadAllTextures(const PackageName& packageName, ResultWhen resultWhen) = 0;
-
-            /**
-             * Loads all texture resources across all registered packages.
-             *
-             * @param resultWhen At which point of the load the returned future should be signaled
-             *
-             * @return A future containing whether all textures loaded successfully
-             */
-            [[nodiscard]] virtual std::future<bool> LoadAllTextures(ResultWhen resultWhen) = 0;
 
             /**
              * Asynchronously renders text and loads it into a texture.
@@ -114,24 +104,6 @@ namespace Accela::Engine
                                                                                           ResultWhen resultWhen) = 0;
 
             /**
-             * Returns the TextureId of a previously loaded texture.
-             *
-             * @param resource Identifies the texture
-             *
-             * @return The TextureId, or std::nullopt if no such texture exists
-             */
-            [[nodiscard]] virtual std::optional<Render::TextureId> GetTextureId(const ResourceIdentifier& resource) const = 0;
-
-            /**
-             * Retrieves texture data about a previously loaded texture.
-             *
-             * @param resource Identifies the texture
-             *
-             * @return The texture's details, or std::nullopt if no such texture
-             */
-            [[nodiscard]] virtual std::optional<Render::Texture> GetLoadedTextureData(const ResourceIdentifier& resource) const = 0;
-
-            /**
              * Retrieves texture data about a previously loaded texture.
              *
              * @param textureId Identifies the texture
@@ -139,13 +111,6 @@ namespace Accela::Engine
              * @return The texture's details, or std::nullopt if no such texture
              */
             [[nodiscard]] virtual std::optional<Render::Texture> GetLoadedTextureData(const Render::TextureId& textureId) const = 0;
-
-            /**
-             * Destroy a previously loaded texture resource
-             *
-             * @param resource Identifies the texture
-             */
-            virtual void DestroyTexture(const ResourceIdentifier& resource) = 0;
 
             /**
              * Destroy a previously loaded texture resource

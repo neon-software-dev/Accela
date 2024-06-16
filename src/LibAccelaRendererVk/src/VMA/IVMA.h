@@ -11,6 +11,8 @@
 
 #include <vulkan/vulkan.h>
 
+#include <vector>
+
 namespace Accela::Render
 {
     /**
@@ -23,6 +25,9 @@ namespace Accela::Render
             virtual ~IVMA() = default;
 
             virtual void DestroyInstance() = 0;
+
+            // Can get num heaps from physical device's VkPhysicalDeviceMemoryProperties
+            [[nodiscard]] virtual std::vector<VmaBudget> GetVmaBudget(unsigned int numPhysicalDeviceMemoryHeaps) const = 0;
 
             virtual VkResult CreateBuffer(const VkBufferCreateInfo* pBufferCreateInfo,
                                           const VmaAllocationCreateInfo* pAllocationCreateInfo,

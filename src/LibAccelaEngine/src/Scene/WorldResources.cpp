@@ -112,12 +112,6 @@ bool WorldResources::OnEnsurePackageResources(const PackageName& packageName, Re
           "WorldResources::OnOpenAndLoadPackage: Failed to load all fonts for package: {}", packageName.name);
     }
 
-    if (!m_textures->LoadAllTextures(packageName, resultWhen).get())
-    {
-        m_logger->Log(Common::LogLevel::Error,
-          "WorldResources::OnOpenAndLoadPackage: Failed to load all textures for package: {}", packageName.name);
-    }
-
     // TODO: When packages contain meshes
     /*if (!m_meshes->LoadAllMeshes(packageName, resultWhen).get())
     {
