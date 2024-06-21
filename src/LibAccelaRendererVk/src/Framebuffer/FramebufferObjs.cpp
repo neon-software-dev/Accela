@@ -192,13 +192,13 @@ void FramebufferObjs::Destroy()
     m_ownsAttachments = false;
 }
 
-std::optional<std::vector<std::pair<LoadedTexture, std::string>>> FramebufferObjs::GetAttachmentTextureViews() const
+std::optional<std::vector<std::pair<LoadedTexture, std::string>>> FramebufferObjs::GetAttachmentTextures() const
 {
     std::vector<std::pair<LoadedTexture, std::string>> results;
 
     for (unsigned int x = 0; x < m_attachmentTextureViews.size(); ++x)
     {
-        const auto textureView = GetAttachmentTextureView(x);
+        const auto textureView = GetAttachmentTexture(x);
         if (!textureView)
         {
             return std::nullopt;
@@ -210,7 +210,7 @@ std::optional<std::vector<std::pair<LoadedTexture, std::string>>> FramebufferObj
     return results;
 }
 
-std::optional<std::pair<LoadedTexture, std::string>> FramebufferObjs::GetAttachmentTextureView(uint8_t attachmentIndex) const
+std::optional<std::pair<LoadedTexture, std::string>> FramebufferObjs::GetAttachmentTexture(uint8_t attachmentIndex) const
 {
     if (attachmentIndex >= m_attachmentTextureViews.size())
     {
@@ -223,7 +223,7 @@ std::optional<std::pair<LoadedTexture, std::string>> FramebufferObjs::GetAttachm
     if (!loadedTexture)
     {
         m_logger->Log(Common::LogLevel::Error,
-          "GetAttachmentTextureView: No such texture exits: {}", attachmentTextureView.first.id);
+          "GetAttachmentTexture: No such texture exits: {}", attachmentTextureView.first.id);
         return std::nullopt;
     }
 

@@ -93,14 +93,14 @@ std::future<bool> RendererBase::DestroyMaterial(MaterialId materialId)
     return Submit<RenderTask_DestroyMaterial>(materialId);
 }
 
-std::future<bool> RendererBase::CreateFrameBuffer(FrameBufferId frameBufferId, const std::vector<TextureId>& attachmentTextures)
+std::future<bool> RendererBase::CreateRenderTarget(RenderTargetId renderTargetId, const std::string& tag)
 {
-    return Submit<RenderTask_CreateFrameBuffer>(frameBufferId, attachmentTextures);
+    return Submit<RenderTask_CreateRenderTarget>(renderTargetId, tag);
 }
 
-std::future<bool> RendererBase::DestroyFrameBuffer(FrameBufferId frameBufferId)
+std::future<bool> RendererBase::DestroyRenderTarget(RenderTargetId renderTargetId)
 {
-    return Submit<RenderTask_DestroyFrameBuffer>(frameBufferId);
+    return Submit<RenderTask_DestroyRenderTarget>(renderTargetId);
 }
 
 std::future<bool> RendererBase::UpdateWorld(const WorldUpdate& update)
@@ -178,11 +178,11 @@ void RendererBase::OnTaskMessageReceived(const RenderTaskMessage::Ptr& msg)
         case RenderTaskType::DestroyMaterial:
             FulfillDirect<RenderTask_DestroyMaterial>(msg, std::bind_front(&RendererBase::OnDestroyMaterial, this));
         break;
-        case RenderTaskType::CreateFrameBuffer:
-            FulfillDirect<RenderTask_CreateFrameBuffer>(msg, std::bind_front(&RendererBase::OnCreateFrameBuffer, this));
+        case RenderTaskType::CreateRenderTarget:
+            FulfillDirect<RenderTask_CreateRenderTarget>(msg, std::bind_front(&RendererBase::OnCreateRenderTarget, this));
         break;
-        case RenderTaskType::DestroyFrameBuffer:
-            FulfillDirect<RenderTask_DestroyFrameBuffer>(msg, std::bind_front(&RendererBase::OnDestroyFrameBuffer, this));
+        case RenderTaskType::DestroyRenderTarget:
+            FulfillDirect<RenderTask_DestroyRenderTarget>(msg, std::bind_front(&RendererBase::OnDestroyRenderTarget, this));
         break;
         case RenderTaskType::WorldUpdate:
             FulfillDirect<RenderTask_WorldUpdate>(msg, std::bind_front(&RendererBase::OnWorldUpdate, this));

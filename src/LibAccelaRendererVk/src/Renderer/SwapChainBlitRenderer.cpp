@@ -169,7 +169,7 @@ void SwapChainBlitRenderer::Render(const VulkanCommandBufferPtr& commandBuffer,
 
     const auto viewport = Viewport(0, 0, swapChainFramebuffer->GetSize()->w, swapChainFramebuffer->GetSize()->h);
 
-    const auto pipeline = GetPipeline(
+    const auto pipeline = GetGraphicsPipeline(
         m_logger,
         m_vulkanObjs,
         m_shaders,

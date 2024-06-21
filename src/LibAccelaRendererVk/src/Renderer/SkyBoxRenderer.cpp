@@ -112,40 +112,40 @@ bool SkyBoxRenderer::CreateSkyBoxMesh()
         meshId,
         std::vector<MeshVertex>{
             // Back
-            {glm::vec3(-1.0f, -1.0f, -1.0f), glm::vec3(0,0,-1), glm::vec2(1,1)},
-            {glm::vec3(1.0f, -1.0f, -1.0f), glm::vec3(0,0,-1), glm::vec2(0,1)},
-            {glm::vec3(1.0f,  1.0f, -1.0f), glm::vec3(0,0,-1), glm::vec2(0,0)},
-            {glm::vec3(-1.0f,  1.0f, -1.0f), glm::vec3(0,0,-1), glm::vec2(1,0)},
+            {glm::vec3(-1.0f, -1.0f, -1.0f), glm::vec3(0), glm::vec2(0)},
+            {glm::vec3(1.0f, -1.0f, -1.0f), glm::vec3(0), glm::vec2(0)},
+            {glm::vec3(1.0f,  1.0f, -1.0f), glm::vec3(0), glm::vec2(0)},
+            {glm::vec3(-1.0f,  1.0f, -1.0f), glm::vec3(0), glm::vec2(0)},
 
             // Front
-            {glm::vec3(1.0f, -1.0f, 1.0f), glm::vec3(0,0,1), glm::vec2(1,1)},
-            {glm::vec3(-1.0f, -1.0f, 1.0f), glm::vec3(0,0,1), glm::vec2(0,1)},
-            {glm::vec3(-1.0f,  1.0f, 1.0f), glm::vec3(0,0,1), glm::vec2(0,0)},
-            {glm::vec3(1.0f,  1.0f, 1.0f), glm::vec3(0,0,1), glm::vec2(1,0)},
+            {glm::vec3(1.0f, -1.0f, 1.0f), glm::vec3(0), glm::vec2(0)},
+            {glm::vec3(-1.0f, -1.0f, 1.0f), glm::vec3(0), glm::vec2(0)},
+            {glm::vec3(-1.0f,  1.0f, 1.0f), glm::vec3(0), glm::vec2(0)},
+            {glm::vec3(1.0f,  1.0f, 1.0f), glm::vec3(0), glm::vec2(0)},
 
             // Left
-            {glm::vec3(-1.0f, -1.0f, 1.0f), glm::vec3(-1,0,0), glm::vec2(1,1)},
-            {glm::vec3(-1.0f, -1.0f, -1.0f), glm::vec3(-1,0,0), glm::vec2(0,1)},
-            {glm::vec3(-1.0f,  1.0f, -1.0f), glm::vec3(-1,0,0), glm::vec2(0,0)},
-            {glm::vec3(-1.0f,  1.0f, 1.0f), glm::vec3(-1,0,0), glm::vec2(1,0)},
+            {glm::vec3(-1.0f, -1.0f, 1.0f), glm::vec3(0), glm::vec2(0)},
+            {glm::vec3(-1.0f, -1.0f, -1.0f), glm::vec3(0), glm::vec2(0)},
+            {glm::vec3(-1.0f,  1.0f, -1.0f), glm::vec3(0), glm::vec2(0)},
+            {glm::vec3(-1.0f,  1.0f, 1.0f), glm::vec3(0), glm::vec2(0)},
 
             // Right
-            {glm::vec3(1.0f, -1.0f, -1.0f), glm::vec3(1,0,0), glm::vec2(1,1)},
-            {glm::vec3(1.0f, -1.0f, 1.0f), glm::vec3(1,0,0), glm::vec2(0,1)},
-            {glm::vec3(1.0f,  1.0f, 1.0f), glm::vec3(1,0,0), glm::vec2(0,0)},
-            {glm::vec3(1.0f,  1.0f, -1.0f), glm::vec3(1,0,0), glm::vec2(1,0)},
+            {glm::vec3(1.0f, -1.0f, -1.0f), glm::vec3(0), glm::vec2(0)},
+            {glm::vec3(1.0f, -1.0f, 1.0f), glm::vec3(0), glm::vec2(0)},
+            {glm::vec3(1.0f,  1.0f, 1.0f), glm::vec3(0), glm::vec2(0)},
+            {glm::vec3(1.0f,  1.0f, -1.0f), glm::vec3(0), glm::vec2(0)},
 
             // Top
-            {glm::vec3(-1.0f, 1.0f, -1.0f), glm::vec3(0,1,0), glm::vec2(0,0)},
-            {glm::vec3(1.0f, 1.0f, -1.0f), glm::vec3(0,1,0), glm::vec2(1,0)},
-            {glm::vec3(1.0f,  1.0f, 1.0f), glm::vec3(0,1,0), glm::vec2(1,1)},
-            {glm::vec3(-1.0f,  1.0f, 1.0f), glm::vec3(0,1,0), glm::vec2(0,1)},
+            {glm::vec3(-1.0f, 1.0f, -1.0f), glm::vec3(0), glm::vec2(0)},
+            {glm::vec3(1.0f, 1.0f, -1.0f), glm::vec3(0), glm::vec2(0)},
+            {glm::vec3(1.0f,  1.0f, 1.0f), glm::vec3(0), glm::vec2(0)},
+            {glm::vec3(-1.0f,  1.0f, 1.0f), glm::vec3(0), glm::vec2(0)},
 
             // Bottom
-            {glm::vec3(-1.0f, -1.0f, 1.0f), glm::vec3(0,-1,0), glm::vec2(0,0)},
-            {glm::vec3(1.0f, -1.0f, 1.0f), glm::vec3(0,-1,0), glm::vec2(1,0)},
-            {glm::vec3(1.0f,  -1.0f, -1.0f), glm::vec3(0,-1,0), glm::vec2(1,1)},
-            {glm::vec3(-1.0f,  -1.0f, -1.0f), glm::vec3(0,-1,0), glm::vec2(0,1)}
+            {glm::vec3(-1.0f, -1.0f, 1.0f), glm::vec3(0), glm::vec2(0)},
+            {glm::vec3(1.0f, -1.0f, 1.0f), glm::vec3(0), glm::vec2(0)},
+            {glm::vec3(1.0f,  -1.0f, -1.0f), glm::vec3(0), glm::vec2(0)},
+            {glm::vec3(-1.0f,  -1.0f, -1.0f), glm::vec3(0), glm::vec2(0)}
         },
         std::vector<uint32_t>{
             0, 1, 2, 0, 2, 3,           // Front
@@ -192,14 +192,14 @@ void SkyBoxRenderer::Render(const RenderParams& renderParams,
     //
     const auto viewport = Viewport(0, 0, framebuffer->GetSize()->w, framebuffer->GetSize()->h);
 
-    auto pipeline = GetPipeline(
+    auto pipeline = GetGraphicsPipeline(
         m_logger,
         m_vulkanObjs,
         m_shaders,
         m_pipelines,
         m_programDef,
         renderPass,
-        OffscreenRenderPass_ForwardSubpass_Index,
+        GPassRenderPass_SubPass_ForwardLightingObjects,
         viewport,
         CullFace::Back,
         PolygonFillMode::Fill,

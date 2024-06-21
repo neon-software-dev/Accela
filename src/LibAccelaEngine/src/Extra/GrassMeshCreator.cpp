@@ -30,7 +30,7 @@ GrassMesh GrassMeshCreator::CreateGrassMesh(const GrassMeshParams& params, const
     (void)params;
 
     GrassMesh grassMesh{};
-    grassMesh.mesh = std::make_shared<Render::StaticMesh>(Render::INVALID_ID, std::format("Grass-{}", tag));
+    grassMesh.mesh = std::make_shared<Render::StaticMesh>(Render::MeshId::Invalid(), std::format("Grass-{}", tag));
 
     for (const auto& tuft : clump.tufts)
     {

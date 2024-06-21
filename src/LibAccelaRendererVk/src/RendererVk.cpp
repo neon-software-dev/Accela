@@ -21,6 +21,8 @@
 #include "Renderables/Renderables.h"
 #include "Material/Materials.h"
 #include "Light/Lights.h"
+#include "RenderTarget/RenderTargets.h"
+#include "Renderer/PostProcessingEffects.h"
 
 #include "Vulkan/VulkanDebug.h"
 #include "Vulkan/VulkanSwapChain.h"
@@ -37,6 +39,8 @@
 
 #include <Accela/Common/Timer.h>
 #include <Accela/Common/BuildInfo.h>
+
+#include <glm/gtc/color_space.hpp>
 
 #include <format>
 #include <algorithm>
@@ -63,6 +67,7 @@ RendererVk::RendererVk(std::string appName,
     , m_framebuffers(std::make_shared<Framebuffers>(m_logger, m_ids, m_vulkanObjs, m_textures, m_postExecutionOps))
     , m_materials(std::make_shared<Materials>(m_logger, m_metrics, m_vulkanObjs, m_postExecutionOps, m_ids, m_textures, m_buffers))
     , m_lights(std::make_shared<Lights>(m_logger, m_metrics, m_vulkanObjs, m_framebuffers, m_ids))
+    , m_renderTargets(std::make_shared<RenderTargets>(m_logger, m_vulkanObjs, m_framebuffers, m_textures, m_ids))
     , m_renderables(std::make_shared<Renderables>(m_logger, m_ids, m_postExecutionOps, m_textures, m_buffers, m_meshes, m_lights))
     , m_frames(m_logger, m_ids, m_vulkanObjs, m_textures)
     , m_swapChainRenderers(m_logger, m_metrics, m_ids, m_postExecutionOps, m_vulkanObjs, m_programs, m_shaders, m_pipelines, m_buffers, m_materials, m_textures, m_meshes, m_lights, m_renderables)
@@ -72,6 +77,7 @@ RendererVk::RendererVk(std::string appName,
     , m_skyBoxRenderers(m_logger, m_metrics, m_ids, m_postExecutionOps, m_vulkanObjs, m_programs, m_shaders, m_pipelines, m_buffers, m_materials, m_textures, m_meshes, m_lights, m_renderables)
     , m_differedLightingRenderers(m_logger, m_metrics, m_ids, m_postExecutionOps, m_vulkanObjs, m_programs, m_shaders, m_pipelines, m_buffers, m_materials, m_textures, m_meshes, m_lights, m_renderables)
     , m_rawTriangleRenderers(m_logger, m_metrics, m_ids, m_postExecutionOps, m_vulkanObjs, m_programs, m_shaders, m_pipelines, m_buffers, m_materials, m_textures, m_meshes, m_lights, m_renderables)
+    , m_postProcessingRenderers(m_logger, m_metrics, m_ids, m_postExecutionOps, m_vulkanObjs, m_programs, m_shaders, m_pipelines, m_buffers, m_materials, m_textures, m_meshes, m_lights, m_renderables)
 { }
 
 bool RendererVk::OnInitialize(const RenderSettings& renderSettings, const std::vector<ShaderSpec>& shaders)
@@ -97,6 +103,7 @@ bool RendererVk::OnInitialize(const RenderSettings& renderSettings, const std::v
     if (!m_skyBoxRenderers.Initialize(renderSettings)) { return false; }
     if (!m_differedLightingRenderers.Initialize(renderSettings)) { return false; }
     if (!m_rawTriangleRenderers.Initialize(renderSettings)) { return false; }
+    if (!m_postProcessingRenderers.Initialize(renderSettings)) { return false; }
 
     return true;
 }
@@ -111,6 +118,7 @@ bool RendererVk::OnShutdown()
 
     m_postExecutionOps->Destroy();
 
+    m_postProcessingRenderers.Destroy();
     m_rawTriangleRenderers.Destroy();
     m_differedLightingRenderers.Destroy();
     m_skyBoxRenderers.Destroy();
@@ -121,6 +129,7 @@ bool RendererVk::OnShutdown()
     m_frames.Destroy();
     m_renderables->Destroy();
 
+    m_renderTargets->Destroy();
     m_lights->Destroy();
     m_materials->Destroy();
     m_framebuffers->Destroy();
@@ -223,6 +232,18 @@ bool RendererVk::CreatePrograms()
         return false;
     }
 
+    if (!m_programs->CreateProgram("ToneMapping", {"ToneMapping.comp.spv"}))
+    {
+        m_logger->Log(Common::LogLevel::Error, "CreatePrograms: Failed to create ToneMapping program");
+        return false;
+    }
+
+    if (!m_programs->CreateProgram("GammaCorrection", {"GammaCorrection.comp.spv"}))
+    {
+        m_logger->Log(Common::LogLevel::Error, "CreatePrograms: Failed to create GammaCorrection program");
+        return false;
+    }
+
     return true;
 }
 
@@ -279,61 +300,14 @@ bool RendererVk::OnDestroyMaterial(MaterialId materialId)
     return true;
 }
 
-bool RendererVk::OnCreateFrameBuffer(FrameBufferId frameBufferId, const std::vector<TextureId>& attachmentTextures)
+bool RendererVk::OnCreateRenderTarget(RenderTargetId renderTargetId, const std::string& tag)
 {
-    if (attachmentTextures.empty())
-    {
-        m_logger->Log(Common::LogLevel::Error, "OnCreateFrameBuffer: No textures provided");
-        return false;
-    }
-
-    std::stringstream ss;
-    bool first = true;
-
-    USize attachmentSize{};
-
-    std::vector<std::pair<TextureId, std::string>> attachmentTextureViews;
-
-    for (const auto& textureId : attachmentTextures)
-    {
-        if (!first) { ss << "-"; }
-
-        const auto loadedTexture = m_textures->GetTexture(textureId);
-        if (!loadedTexture)
-        {
-            m_logger->Log(Common::LogLevel::Error, "OnCreateFrameBuffer: No such texture exists: {}", textureId.id);
-            return false;
-        }
-
-        if (!first)
-        {
-            if (attachmentSize != loadedTexture->pixelSize)
-            {
-                m_logger->Log(Common::LogLevel::Error, "OnCreateFrameBuffer: Attachments have mismatched sizes");
-                return false;
-            }
-        }
-
-        ss << textureId.id;
-        attachmentSize = loadedTexture->pixelSize;
-        first = false;
-
-        attachmentTextureViews.emplace_back(textureId, TextureView::DEFAULT);
-    }
-
-    return m_framebuffers->CreateFramebuffer(
-        frameBufferId,
-        m_vulkanObjs->GetOffscreenRenderPass(),
-        attachmentTextureViews,
-        attachmentSize,
-        1,
-        std::format("ClientCreated-{}", ss.str())
-    );
+    return m_renderTargets->CreateRenderTarget(renderTargetId, tag);
 }
 
-bool RendererVk::OnDestroyFrameBuffer(FrameBufferId frameBufferId)
+bool RendererVk::OnDestroyRenderTarget(RenderTargetId renderTargetId)
 {
-    m_framebuffers->DestroyFramebuffer(frameBufferId, false);
+    m_renderTargets->DestroyRenderTarget(renderTargetId, false);
     return true;
 }
 
@@ -368,7 +342,7 @@ bool RendererVk::OnRenderFrame(RenderGraph::Ptr renderGraph)
     auto& currentFrame = m_frames.GetCurrentFrame();
     auto framePipelineFence = currentFrame.GetPipelineFence();
     auto graphicsCommandPool = currentFrame.GetGraphicsCommandPool();
-    auto graphicsCommandBuffer = currentFrame.GetGraphicsCommandBuffer();
+    auto renderCommandBuffer = currentFrame.GetRenderCommandBuffer();
 
     //
     // Initialize frame state
@@ -388,9 +362,11 @@ bool RendererVk::OnRenderFrame(RenderGraph::Ptr renderGraph)
     m_skyBoxRenderers.GetRendererForFrame(currentFrame.GetFrameIndex()).OnFrameSynced();
     m_differedLightingRenderers.GetRendererForFrame(currentFrame.GetFrameIndex()).OnFrameSynced();
     m_rawTriangleRenderers.GetRendererForFrame(currentFrame.GetFrameIndex()).OnFrameSynced();
+    m_postProcessingRenderers.GetRendererForFrame(currentFrame.GetFrameIndex()).OnFrameSynced();
 
-    // Reset the graphics command buffer, to prepare for recording new commands
-    graphicsCommandPool->ResetCommandBuffer(graphicsCommandBuffer, false);
+    // Reset the frame's command buffers, to prepare for recording new commands
+    graphicsCommandPool->ResetCommandBuffer(renderCommandBuffer, false);
+    graphicsCommandPool->ResetCommandBuffer(currentFrame.GetSwapChainBlitCommandBuffer(), false);
 
     ////////////////////////////////////
     // Query the VR headset for input, if needed
@@ -402,10 +378,10 @@ bool RendererVk::OnRenderFrame(RenderGraph::Ptr renderGraph)
     }
 
     ////////////////////////////////////
-    // Start recording graphics commands
+    // Start recording render commands
     ////////////////////////////////////
 
-    graphicsCommandBuffer->Begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+    renderCommandBuffer->Begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
     //
     // DFS process the render graph, fulfilling its tasks
@@ -447,17 +423,17 @@ bool RendererVk::RenderGraphFunc_RenderScene(const RenderGraphNode::Ptr& node)
     //
     const auto renderSceneNode = std::static_pointer_cast<RenderGraphNode_RenderScene>(node);
     const auto sceneName = std::get<std::string>(renderSceneNode->data);
-    const auto frameBufferId = std::get<FrameBufferId>(renderSceneNode->data);
+    const auto renderTargetId = std::get<RenderTargetId>(renderSceneNode->data);
     const auto renderParams = std::get<RenderParams>(renderSceneNode->data);
 
     auto& currentFrame = m_frames.GetCurrentFrame();
-    auto graphicsCommandBuffer = currentFrame.GetGraphicsCommandBuffer();
+    auto renderCommandBuffer = currentFrame.GetRenderCommandBuffer();
 
-    const auto framebufferObjs = m_framebuffers->GetFramebufferObjs(frameBufferId);
-    if (!framebufferObjs)
+    const auto renderTarget = m_renderTargets->GetRenderTarget(renderTargetId);
+    if (!renderTarget)
     {
         m_logger->Log(Common::LogLevel::Error,
-          "RenderGraphFunc_RenderScene: No such framebuffer exists: {}", frameBufferId.id);
+          "RenderGraphFunc_RenderScene: No such render target exists: {}", renderTargetId.id);
         return false;
     }
 
@@ -508,15 +484,11 @@ bool RendererVk::RenderGraphFunc_RenderScene(const RenderGraphNode::Ptr& node)
     m_metrics->SetCounterValue(Renderer_Scene_Lights_Count, renderLights.size());
 
     //
-    // Shadow Passes
+    // Shadow Pass Renders
     //
 
     // Run shadow passes to render any shadow maps which are invalidated
-    RefreshShadowMapsAsNeeded(renderParams, graphicsCommandBuffer, viewProjections);
-
-    //
-    // Offscreen Render
-    //
+    RefreshShadowMapsAsNeeded(renderParams, renderCommandBuffer, viewProjections);
 
     // Create a mapping of light -> shadow map texture
     std::unordered_map<LightId, TextureId> shadowMaps;
@@ -526,94 +498,242 @@ bool RendererVk::RenderGraphFunc_RenderScene(const RenderGraphNode::Ptr& node)
         if (!renderLight.light.castsShadows || !renderLight.shadowFrameBufferId) { continue; }
 
         const auto shadowFramebuffer = m_framebuffers->GetFramebufferObjs(*renderLight.shadowFrameBufferId);
-        const auto shadowTextureId = shadowFramebuffer->GetAttachmentTextureView(0)->first.textureId;
+        const auto shadowTextureId = shadowFramebuffer->GetAttachmentTexture(0)->first.textureId;
 
         shadowMaps.insert({renderLight.light.lightId, shadowTextureId});
     }
 
     m_metrics->SetCounterValue(Renderer_Scene_Shadow_Map_Count, shadowMaps.size());
 
-    {
-        CmdBufferSectionLabel sectionLabel(m_vulkanObjs->GetCalls(), graphicsCommandBuffer, "OffscreenRender");
+    //
+    // Scene Render
+    //
 
-        if (!StartRenderPass(m_vulkanObjs->GetOffscreenRenderPass(), (*framebufferObjs).GetFramebuffer(), graphicsCommandBuffer)) { return false; }
-            OffscreenRender(sceneName, *framebufferObjs, renderParams, viewProjections, shadowMaps);
-        EndRenderPass(graphicsCommandBuffer);
-    }
+    RunSceneRender(sceneName, *renderTarget, renderParams, viewProjections, shadowMaps);
 
     return true;
+}
+
+void RendererVk::RunSceneRender(const std::string& sceneName,
+                                const RenderTarget& renderTarget,
+                                const RenderParams& renderParams,
+                                const std::vector<ViewProjection>& viewProjections,
+                                const std::unordered_map<LightId, TextureId>& shadowMaps)
+{
+    //
+    // Setup
+    //
+    auto& currentFrame = m_frames.GetCurrentFrame();
+    const auto commandBuffer = currentFrame.GetRenderCommandBuffer();
+    const auto gPassRenderPass = m_vulkanObjs->GetGPassRenderPass();
+    const auto blitRenderPass = m_vulkanObjs->GetBlitRenderPass();
+    const auto renderSettings = m_vulkanObjs->GetRenderSettings();
+
+    const auto gPassFramebufferObjs = m_framebuffers->GetFramebufferObjs(renderTarget.gPassFramebuffer);
+    if (!gPassFramebufferObjs)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "RunSceneRender: No such gpass framebuffer exists: {}", renderTarget.gPassFramebuffer.id);
+        return;
+    }
+
+    const auto blitFramebufferObjs = m_framebuffers->GetFramebufferObjs(renderTarget.blitFramebuffer);
+    if (!blitFramebufferObjs)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "RunSceneRender: No such blit framebuffer exists: {}", renderTarget.blitFramebuffer.id);
+        return;
+    }
+
+    const auto gPassColorAttachment = gPassFramebufferObjs->GetAttachmentTexture(Offscreen_Attachment_Color);
+    const auto gPassColorTexture = *m_textures->GetTexture((*gPassColorAttachment).first.textureId);
+
+    const auto gPassDepthAttachment = gPassFramebufferObjs->GetAttachmentTexture(Offscreen_Attachment_Depth);
+    const auto gPassDepthTexture = *m_textures->GetTexture((*gPassDepthAttachment).first.textureId);
+
+    ////////////////////
+    // GPass Render Pass
+    ////////////////////
+
+    StartRenderPass(gPassRenderPass, gPassFramebufferObjs->GetFramebuffer(), commandBuffer);
+        RenderObjects(sceneName, *gPassFramebufferObjs, renderParams, viewProjections, shadowMaps);
+    EndRenderPass(commandBuffer);
+
+    //////////////////////////
+    // Tone-Mapping
+    //////////////////////////
+
+    // GPass pass must have finished writing to the color texture before tone-mapping can use it
+    InsertPipelineBarrier_Image(
+        m_vulkanObjs->GetCalls(),
+        commandBuffer,
+        gPassColorTexture.allocation.vkImage,
+        Layers(0, gPassColorTexture.numLayers),
+        Levels(0, 1),
+        VK_IMAGE_ASPECT_COLOR_BIT,
+        BarrierPoint(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT),
+        BarrierPoint(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT),
+        ImageTransition(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL)
+    );
+
+    if (renderSettings.hdr)
+    {
+        RunPostProcessing(gPassColorTexture, ToneMappingEffect(m_vulkanObjs->GetRenderSettings()));
+    }
+
+    ///////////////////
+    // Blit Render Pass
+    ///////////////////
+
+    // Tone-mapping must have finished writing to color texture before blit pass can write to it
+    InsertPipelineBarrier_Image(
+        m_vulkanObjs->GetCalls(),
+        commandBuffer,
+        gPassColorTexture.allocation.vkImage,
+        Layers(0, gPassColorTexture.numLayers),
+        Levels(0, 1),
+        VK_IMAGE_ASPECT_COLOR_BIT,
+        BarrierPoint(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT),
+        BarrierPoint(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT),
+        ImageTransition(VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+    );
+
+    // GPass pass must have finished writing to the depth texture before blit pass can use it
+    InsertPipelineBarrier_Image(
+        m_vulkanObjs->GetCalls(),
+        commandBuffer,
+        gPassDepthTexture.allocation.vkImage,
+        Layers(0, 1),
+        Levels(0, 1),
+        VK_IMAGE_ASPECT_DEPTH_BIT,
+        BarrierPoint(VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT),
+        BarrierPoint(VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT),
+        ImageTransition(VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
+    );
+
+    StartRenderPass(blitRenderPass, blitFramebufferObjs->GetFramebuffer(), commandBuffer);
+        RenderBlit(sceneName, *blitFramebufferObjs, renderParams);
+    EndRenderPass(commandBuffer);
+
+    //////////////////////////
+    // Gamma Correction
+    //////////////////////////
+
+    // Blit pass must have finished writing to the color texture before gamma correction can use it
+    InsertPipelineBarrier_Image(
+        m_vulkanObjs->GetCalls(),
+        commandBuffer,
+        gPassColorTexture.allocation.vkImage,
+        Layers(0, gPassColorTexture.numLayers),
+        Levels(0, 1),
+        VK_IMAGE_ASPECT_COLOR_BIT,
+        BarrierPoint(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT),
+        BarrierPoint(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT),
+        ImageTransition(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL)
+    );
+
+    RunPostProcessing(gPassColorTexture, GammaCorrectionEffect(m_vulkanObjs->GetRenderSettings()));
 }
 
 bool RendererVk::RenderGraphFunc_Present(const uint32_t& swapChainImageIndex, const RenderGraphNode::Ptr& node)
 {
     //
-    // Gather Data
+    // Setup
     //
     VulkanFuncs vulkanFuncs(m_logger, m_vulkanObjs);
 
     auto& currentFrame = m_frames.GetCurrentFrame();
     auto framePipelineFence = currentFrame.GetPipelineFence();
-    auto graphicsCommandBuffer = currentFrame.GetGraphicsCommandBuffer();
-    const auto swapChainRenderPass = m_vulkanObjs->GetSwapChainRenderPass();
+    auto renderCommandBuffer = currentFrame.GetRenderCommandBuffer();
+    auto swapChainBlitCommandBuffer = currentFrame.GetSwapChainBlitCommandBuffer();
+
+    const auto swapChainBlitRenderPass = m_vulkanObjs->GetSwapChainBlitRenderPass();
     const auto swapChainFrameBuffer = m_vulkanObjs->GetSwapChainFrameBuffer(swapChainImageIndex);
 
     const auto presentToScreenNode = std::static_pointer_cast<RenderGraphNode_Present>(node);
-    const auto screenTextureId = std::get<TextureId>(presentToScreenNode->data);
+    const auto renderTargetId = std::get<RenderTargetId>(presentToScreenNode->data);
     const auto presentConfig = std::get<PresentConfig>(presentToScreenNode->data);
 
-    const auto screenColorTexture = m_textures->GetTexture(screenTextureId);
-    if (!screenColorTexture)
+    const auto renderTarget = m_renderTargets->GetRenderTarget(renderTargetId);
+    if (!renderTarget)
     {
         m_logger->Log(Common::LogLevel::Error,
-          "RenderGraphFunc_PresentTexture: No such screen color texture exists: {}", screenTextureId.id);
+          "RenderGraphFunc_PresentTexture: No such render target exists: {}", renderTargetId.id);
         return false;
     }
 
-    ////////////////////////////////////////////////////
-    // Run the SwapChainBlitRenderer to blit the texture to be presented
-    // to the SwapChain framebuffer
-    ////////////////////////////////////////////////////
-
+    const auto gPassFramebufferObjs = m_framebuffers->GetFramebufferObjs(renderTarget->gPassFramebuffer);
+    if (!gPassFramebufferObjs)
     {
-        CmdBufferSectionLabel sectionLabel(m_vulkanObjs->GetCalls(), graphicsCommandBuffer, "SwapChainBlit");
-
-        std::vector<VkClearValue> swapChainClearValues(1);
-        swapChainClearValues[0].color = {{presentConfig.clearColor.r, presentConfig.clearColor.g, presentConfig.clearColor.b, 1.0f}};
-
-        graphicsCommandBuffer->CmdBeginRenderPass(
-            swapChainRenderPass,
-            swapChainFrameBuffer,
-            VK_SUBPASS_CONTENTS_INLINE,
-            swapChainClearValues
-        );
-
-        m_swapChainRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
-            .Render(
-                graphicsCommandBuffer,
-                swapChainRenderPass,
-                swapChainFrameBuffer,
-                *screenColorTexture
-            );
-
-        graphicsCommandBuffer->CmdEndRenderPass();
+        m_logger->Log(Common::LogLevel::Error,
+          "RenderGraphFunc_PresentTexture: No such gpass framebuffer exists: {}", renderTarget->gPassFramebuffer.id);
+        return false;
     }
 
+    const auto presentColorTexture =
+        gPassFramebufferObjs->GetAttachmentTexture(Offscreen_Attachment_Color)->first;
+
     ////////////////////////////////////////////////////
-    // If outputting to a headset, add pipeline barriers to transition the
-    // eye textures to VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL so that VR can
-    // transfer from it, after the swap chain renderer has finished its work.
+    // Finish the Render work command buffer and submit it
     ////////////////////////////////////////////////////
 
+    renderCommandBuffer->End();
+
+    vulkanFuncs.QueueSubmit(
+        std::format("FrameRender-{}", currentFrame.GetFrameIndex()),
+        m_vulkanObjs->GetDevice()->GetVkGraphicsQueue(),
+        {renderCommandBuffer->GetVkCommandBuffer()},
+        WaitOn::None(),
+        SignalOn({
+             currentFrame.GetRenderFinishedSemaphore()
+         }),
+        VK_NULL_HANDLE
+    );
+
+    ////////////////////////////////////////////////////////////
+    // Record and Submit the SwapChainBlit work
+    ////////////////////////////////////////////////////////////
+
+    swapChainBlitCommandBuffer->Begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+    // Blit pass must have finished writing to the color texture before swap chain pass can read from it
+    InsertPipelineBarrier_Image(
+        m_vulkanObjs->GetCalls(),
+        swapChainBlitCommandBuffer,
+        presentColorTexture.allocation.vkImage,
+        Layers(0, presentColorTexture.numLayers),
+        Levels(0, 1),
+        VK_IMAGE_ASPECT_COLOR_BIT,
+        BarrierPoint(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT),
+        BarrierPoint(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT),
+        ImageTransition(VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+    );
+
+    ////////////////////////////
+    // SwapChainBlit Render Pass
+    ////////////////////////////
+
+    // Convert the linearly-specified clear color to SRGB space as gamma correction was already done before this
+    const auto swapChainBlitClearColor =
+        glm::convertLinearToSRGB(presentConfig.clearColor, m_vulkanObjs->GetRenderSettings().gamma);
+
+    StartRenderPass(swapChainBlitRenderPass, swapChainFrameBuffer, swapChainBlitCommandBuffer, swapChainBlitClearColor);
+        RunSwapChainBlitPass(swapChainFrameBuffer, presentColorTexture);
+    EndRenderPass(swapChainBlitCommandBuffer);
+
+    // If outputting to a headset, add a pipeline barrier to wait for the swap chain blit
+    // work to finish reading from the color output before then transitioning it to
+    // VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL so that VR can transfer from it.
     if (m_vulkanObjs->GetRenderSettings().presentToHeadset)
     {
         InsertPipelineBarrier_Image(
             m_vulkanObjs->GetCalls(),
-            graphicsCommandBuffer,
-            screenColorTexture->allocation.vkImage,
-            Layers(0, 2),
+            swapChainBlitCommandBuffer,
+            presentColorTexture.allocation.vkImage,
+            Layers(0, presentColorTexture.numLayers),
             Levels(0, 1),
             VK_IMAGE_ASPECT_COLOR_BIT,
-            // Swap chain fragment shader must finish sampling from the image texture
+            // SwapChainBlit fragment shader must finish sampling from the image texture
             BarrierPoint(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT),
             // Before VR starts transferring from it
             BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT),
@@ -622,26 +742,20 @@ bool RendererVk::RenderGraphFunc_Present(const uint32_t& swapChainImageIndex, co
         );
     }
 
-    ////////////////////////////////////////////////////
-    // Finish recording graphics commands for this frame
-    ////////////////////////////////////////////////////
-
-    graphicsCommandBuffer->End();
-
-    /////////////////////////////////////////////////////
-    // Submit the graphics commands to the graphics queue
-    /////////////////////////////////////////////////////
+    swapChainBlitCommandBuffer->End();
 
     vulkanFuncs.QueueSubmit(
-        std::format("FrameRender-{}", currentFrame.GetFrameIndex()),
+        std::format("FrameSwapChainBlit-{}", currentFrame.GetFrameIndex()),
         m_vulkanObjs->GetDevice()->GetVkGraphicsQueue(),
-        {graphicsCommandBuffer->GetVkCommandBuffer()},
+        {swapChainBlitCommandBuffer->GetVkCommandBuffer()},
         WaitOn({
+           // Post Effects work must be done before we can read from it
+           {currentFrame.GetRenderFinishedSemaphore(), VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT},
            // Swap chain image must be available before we can write to it
            {currentFrame.GetImageAvailableSemaphore(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT}
         }),
         SignalOn({
-             currentFrame.GetRenderFinishedSemaphore()
+             currentFrame.GetSwapChainBlitFinishedSemaphore()
         }),
         // This fence tracks the work submitted for this frame
         framePipelineFence
@@ -658,11 +772,11 @@ bool RendererVk::RenderGraphFunc_Present(const uint32_t& swapChainImageIndex, co
         eyeRenderData.vkPhysicalDevice = m_vulkanObjs->GetPhysicalDevice()->GetVkPhysicalDevice();
         eyeRenderData.vkDevice = m_vulkanObjs->GetDevice()->GetVkDevice();
         eyeRenderData.vkQueue = m_vulkanObjs->GetDevice()->GetVkGraphicsQueue();
-        eyeRenderData.vkImage = screenColorTexture->allocation.vkImage;
+        eyeRenderData.vkImage = presentColorTexture.allocation.vkImage;
         eyeRenderData.queueFamilyIndex = m_vulkanObjs->GetPhysicalDevice()->GetGraphicsQueueFamilyIndex().value();
-        eyeRenderData.width = screenColorTexture->pixelSize.w;
-        eyeRenderData.height = screenColorTexture->pixelSize.h;
-        eyeRenderData.format = VK_FORMAT_R8G8B8A8_SRGB; // TODO: Get from texture
+        eyeRenderData.width = presentColorTexture.pixelSize.w;
+        eyeRenderData.height = presentColorTexture.pixelSize.h;
+        eyeRenderData.format = presentColorTexture.vkFormat;
         eyeRenderData.sampleCount = 0;
 
         m_vulkanObjs->GetContext()->VR_SubmitEyeRender(Eye::Left, eyeRenderData);
@@ -676,7 +790,7 @@ bool RendererVk::RenderGraphFunc_Present(const uint32_t& swapChainImageIndex, co
     std::vector<VkSwapchainKHR> swapChains = {m_vulkanObjs->GetSwapChain()->GetVkSwapchainKHR()};
 
     // Present must wait until submitted render graphics commands have finished
-    VkSemaphore presentWaitSemaphores[] = {currentFrame.GetRenderFinishedSemaphore()};
+    VkSemaphore presentWaitSemaphores[] = {currentFrame.GetSwapChainBlitFinishedSemaphore()};
 
     VkPresentInfoKHR presentInfo{};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -702,9 +816,210 @@ bool RendererVk::RenderGraphFunc_Present(const uint32_t& swapChainImageIndex, co
     return true;
 }
 
+void RendererVk::RenderObjects(const std::string& sceneName,
+                               const FramebufferObjs& framebufferObjs,
+                               const RenderParams& renderParams,
+                               const std::vector<ViewProjection>& viewProjections,
+                               const std::unordered_map<LightId, TextureId>& shadowMaps)
+{
+    auto& currentFrame = m_frames.GetCurrentFrame();
+    const auto commandBuffer = currentFrame.GetRenderCommandBuffer();
+    const auto renderPass = m_vulkanObjs->GetGPassRenderPass();
+
+    //
+    // Deferred Lighting Objects SubPass
+    //
+    {
+        CmdBufferSectionLabel sectionLabel(m_vulkanObjs->GetCalls(), commandBuffer, "DeferredRender");
+
+        // Objects
+        {
+            CmdBufferSectionLabel innerSectionLabel(m_vulkanObjs->GetCalls(), commandBuffer, "Objects");
+
+            m_objectRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
+                .Render(
+                    sceneName,
+                    RenderType::GpassDeferred,
+                    renderParams,
+                    commandBuffer,
+                    renderPass,
+                    framebufferObjs.GetFramebuffer(),
+                    viewProjections,
+                    shadowMaps,
+                    std::nullopt
+                );
+        }
+
+        // Terrain
+        {
+            CmdBufferSectionLabel innerSectionLabel(m_vulkanObjs->GetCalls(), commandBuffer, "Terrain");
+            m_terrainRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
+                .Render(
+                    sceneName,
+                    renderParams,
+                    commandBuffer,
+                    renderPass,
+                    framebufferObjs.GetFramebuffer(),
+                    viewProjections
+                );
+        }
+    }
+
+    //
+    // Deferred Lighting Subpass
+    //
+    {
+        CmdBufferSectionLabel sectionLabel(m_vulkanObjs->GetCalls(), commandBuffer, "DeferredLighting");
+
+        commandBuffer->CmdNextSubpass();
+
+        m_differedLightingRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
+            .Render(
+                sceneName,
+                Material::Type::Object,
+                renderParams,
+                commandBuffer,
+                renderPass,
+                framebufferObjs.GetFramebuffer(),
+                viewProjections,
+                shadowMaps
+            );
+    }
+
+    //
+    // Forward Lighting Objects Subpass
+    //
+    {
+        CmdBufferSectionLabel sectionLabel(m_vulkanObjs->GetCalls(), commandBuffer, "ForwardRender");
+
+        commandBuffer->CmdNextSubpass();
+
+        // Debug Triangles
+        {
+            CmdBufferSectionLabel innerSectionLabel(m_vulkanObjs->GetCalls(), commandBuffer, "Triangle");
+
+            m_rawTriangleRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
+                .Render(
+                    renderParams,
+                    commandBuffer,
+                    renderPass,
+                    framebufferObjs.GetFramebuffer(),
+                    viewProjections,
+                    renderParams.debugTriangles
+                );
+        }
+
+        // Skybox
+        {
+            CmdBufferSectionLabel innerSectionLabel(m_vulkanObjs->GetCalls(), commandBuffer, "SkyBox");
+
+            m_skyBoxRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
+                .Render(
+                    renderParams,
+                    commandBuffer,
+                    renderPass,
+                    framebufferObjs.GetFramebuffer(),
+                    viewProjections
+                );
+        }
+
+        // Forward Objects
+        {
+            CmdBufferSectionLabel innerSectionLabel(m_vulkanObjs->GetCalls(), commandBuffer, "Objects");
+
+            m_objectRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
+                .Render(
+                    sceneName,
+                    RenderType::GpassForward,
+                    renderParams,
+                    commandBuffer,
+                    renderPass,
+                    framebufferObjs.GetFramebuffer(),
+                    viewProjections,
+                    shadowMaps,
+                    std::nullopt
+                );
+        }
+    }
+}
+
+void RendererVk::RunPostProcessing(const LoadedTexture& texture, const PostProcessEffect& effect)
+{
+    auto& currentFrame = m_frames.GetCurrentFrame();
+    const auto commandBuffer = currentFrame.GetRenderCommandBuffer();
+
+    CmdBufferSectionLabel sectionLabel(m_vulkanObjs->GetCalls(), commandBuffer, effect.tag);
+
+    m_postProcessingRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
+        .Render(commandBuffer, texture, effect);
+
+    // Effect must finish writing to the texture before any subsequent effect can use it
+    InsertPipelineBarrier_Image(
+        m_vulkanObjs->GetCalls(),
+        commandBuffer,
+        texture.allocation.vkImage,
+        Layers(0, texture.numLayers),
+        Levels(0, 1),
+        VK_IMAGE_ASPECT_COLOR_BIT,
+        BarrierPoint(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT),
+        BarrierPoint(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT),
+        ImageTransition(VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL)
+    );
+}
+
+void RendererVk::RenderBlit(const std::string& sceneName,
+                            const FramebufferObjs& framebufferObjs,
+                            const RenderParams& renderParams)
+{
+    auto& currentFrame = m_frames.GetCurrentFrame();
+    const auto commandBuffer = currentFrame.GetRenderCommandBuffer();
+    const auto renderPass = m_vulkanObjs->GetBlitRenderPass();
+
+    {
+        CmdBufferSectionLabel sectionLabel(m_vulkanObjs->GetCalls(), commandBuffer, "Blit");
+
+        // Sprites
+        {
+            CmdBufferSectionLabel innerSectionLabel(m_vulkanObjs->GetCalls(), commandBuffer, "Sprite");
+
+            m_spriteRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
+                .Render(
+                    sceneName,
+                    renderParams,
+                    commandBuffer,
+                    renderPass,
+                    framebufferObjs.GetFramebuffer()
+                );
+        }
+    }
+}
+
+void RendererVk::RunSwapChainBlitPass(const VulkanFramebufferPtr& framebuffer, const LoadedTexture& texture)
+{
+    auto& currentFrame = m_frames.GetCurrentFrame();
+    const auto commandBuffer = currentFrame.GetSwapChainBlitCommandBuffer();
+    const auto renderPass = m_vulkanObjs->GetSwapChainBlitRenderPass();
+
+    //
+    // Blit Render SubPass
+    //
+    {
+        CmdBufferSectionLabel sectionLabel(m_vulkanObjs->GetCalls(), commandBuffer, "SwapChainBlit");
+
+        m_swapChainRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
+            .Render(
+                commandBuffer,
+                renderPass,
+                framebuffer,
+                texture
+            );
+    }
+}
+
 bool RendererVk::StartRenderPass(const VulkanRenderPassPtr& renderPass,
                                  const VulkanFramebufferPtr& framebuffer,
-                                 const VulkanCommandBufferPtr& commandBuffer)
+                                 const VulkanCommandBufferPtr& commandBuffer,
+                                 const glm::vec4& colorClearColor)
 {
     //
     // Start Render Pass
@@ -726,7 +1041,7 @@ bool RendererVk::StartRenderPass(const VulkanRenderPassPtr& renderPass,
         switch (attachments[x].type)
         {
             case VulkanRenderPass::AttachmentType::Color:
-                clearValues[x].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
+                clearValues[x].color = {{colorClearColor.r, colorClearColor.g, colorClearColor.b, colorClearColor.a}};
             break;
             case VulkanRenderPass::AttachmentType::Depth:
                 clearValues[x].depthStencil.depth = 1.0f;
@@ -748,171 +1063,6 @@ bool RendererVk::StartRenderPass(const VulkanRenderPassPtr& renderPass,
 void RendererVk::EndRenderPass(const VulkanCommandBufferPtr& commandBuffer)
 {
     commandBuffer->CmdEndRenderPass();
-}
-
-void RendererVk::OffscreenRender(const std::string& sceneName,
-                                 const FramebufferObjs& framebufferObjs,
-                                 const RenderParams& renderParams,
-                                 const std::vector<ViewProjection>& viewProjections,
-                                 const std::unordered_map<LightId, TextureId>& shadowMaps)
-{
-    //
-    // Gather Data
-    //
-    auto& currentFrame = m_frames.GetCurrentFrame();
-    auto graphicsCommandBuffer = currentFrame.GetGraphicsCommandBuffer();
-    const auto offscreenRenderPass = m_vulkanObjs->GetOffscreenRenderPass();
-
-    //
-    // Opaque Deferred Subpass
-    //
-    {
-        CmdBufferSectionLabel sectionLabel(m_vulkanObjs->GetCalls(), graphicsCommandBuffer, "Deferred");
-
-        //
-        // Opaque Objects
-        //
-        {
-            CmdBufferSectionLabel innerSectionLabel(m_vulkanObjs->GetCalls(), graphicsCommandBuffer, "ObjectOpaque");
-
-            m_objectRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
-                .Render(
-                    sceneName,
-                    RenderType::GpassOpaque,
-                    renderParams,
-                    graphicsCommandBuffer,
-                    offscreenRenderPass,
-                    framebufferObjs.GetFramebuffer(),
-                    viewProjections,
-                    shadowMaps,
-                    std::nullopt
-                );
-        }
-
-        //
-        // Terrain
-        //
-        {
-            CmdBufferSectionLabel innerSectionLabel(m_vulkanObjs->GetCalls(), graphicsCommandBuffer, "Terrain");
-            m_terrainRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
-                .Render(
-                    sceneName,
-                    renderParams,
-                    graphicsCommandBuffer,
-                    offscreenRenderPass,
-                    framebufferObjs.GetFramebuffer(),
-                    viewProjections
-                );
-        }
-    }
-
-    //
-    // Deferred Lighting Subpass
-    //
-    {
-        CmdBufferSectionLabel sectionLabel(m_vulkanObjs->GetCalls(), graphicsCommandBuffer, "DeferredLighting");
-
-        graphicsCommandBuffer->CmdNextSubpass();
-
-        // TODO: If we ever support more material types then we need separate deferred lighting flows for each
-        //  material type, as the material index used as an input is specific to a material type's data buffer
-        //  Output two values: (mat type, mat index) from object frag instead? and run lighting x times, ignoring
-        //  mat types that are wrong?
-        m_differedLightingRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
-            .Render(
-                sceneName,
-                Material::Type::Object,
-                renderParams,
-                graphicsCommandBuffer,
-                offscreenRenderPass,
-                framebufferObjs.GetFramebuffer(),
-                viewProjections,
-                shadowMaps
-            );
-    }
-
-    //
-    // Forward Subpass
-    //
-    {
-        CmdBufferSectionLabel sectionLabel(m_vulkanObjs->GetCalls(), graphicsCommandBuffer, "Forward");
-
-        graphicsCommandBuffer->CmdNextSubpass();
-
-        //
-        // Debug Triangles
-        //
-        {
-            CmdBufferSectionLabel innerSectionLabel(m_vulkanObjs->GetCalls(), graphicsCommandBuffer, "DebugTriangle");
-
-            m_rawTriangleRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
-                .Render(
-                    renderParams,
-                    graphicsCommandBuffer,
-                    offscreenRenderPass,
-                    framebufferObjs.GetFramebuffer(),
-                    viewProjections,
-                    renderParams.debugTriangles
-                );
-        }
-
-        //
-        // Skybox
-        //
-        {
-            CmdBufferSectionLabel innerSectionLabel(m_vulkanObjs->GetCalls(), graphicsCommandBuffer, "SkyBox");
-
-            m_skyBoxRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
-                .Render(
-                    renderParams,
-                    graphicsCommandBuffer,
-                    offscreenRenderPass,
-                    framebufferObjs.GetFramebuffer(),
-                    viewProjections
-                );
-        }
-
-        //
-        // Translucent Objects
-        //
-        {
-            CmdBufferSectionLabel innerSectionLabel(m_vulkanObjs->GetCalls(), graphicsCommandBuffer, "Translucent");
-
-            m_objectRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
-                .Render(
-                    sceneName,
-                    RenderType::GpassTranslucent,
-                    renderParams,
-                    graphicsCommandBuffer,
-                    offscreenRenderPass,
-                    framebufferObjs.GetFramebuffer(),
-                    viewProjections,
-                    shadowMaps,
-                    std::nullopt
-                );
-        }
-
-
-        //
-        // Sprites
-        //
-        // TODO: Figure out what to do with sprite renderers when in VR mode. They're currently getting
-        //  multiviewed in the pass they're in and drawn twice onto the screen, in a way that isn't even
-        //  good for VR. Works fine in non-VR mode though.
-        //
-        {
-            CmdBufferSectionLabel innerSectionLabel(m_vulkanObjs->GetCalls(), graphicsCommandBuffer, "Sprite");
-
-            m_spriteRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
-                .Render(
-                    sceneName,
-                    renderParams,
-                    graphicsCommandBuffer,
-                    offscreenRenderPass,
-                    framebufferObjs.GetFramebuffer()
-                );
-        }
-    }
 }
 
 bool RendererVk::OnWorldUpdate(const WorldUpdate& update)
@@ -968,21 +1118,23 @@ bool RendererVk::OnChangeRenderSettings(const RenderSettings& renderSettings)
 
     m_vulkanObjs->WaitForDeviceIdle();
 
-    bool successful = true;
+    bool allSuccessful = true;
 
-    if (!m_postExecutionOps->OnRenderSettingsChanged(renderSettings)) { successful = false; }
-    if (!m_vulkanObjs->OnRenderSettingsChanged(renderSettings)) { successful = false; }
-    if (!m_frames.OnRenderSettingsChanged(renderSettings)) { successful = false; }
-    if (!m_swapChainRenderers.OnRenderSettingsChanged(renderSettings)) { successful = false; }
-    if (!m_spriteRenderers.OnRenderSettingsChanged(renderSettings)) { successful = false; }
-    if (!m_objectRenderers.OnRenderSettingsChanged(renderSettings)) { successful = false; }
-    if (!m_terrainRenderers.OnRenderSettingsChanged(renderSettings)) { successful = false; }
-    if (!m_skyBoxRenderers.OnRenderSettingsChanged(renderSettings)) { successful = false; }
-    if (!m_differedLightingRenderers.OnRenderSettingsChanged(renderSettings)) { successful = false; }
-    if (!m_rawTriangleRenderers.OnRenderSettingsChanged(renderSettings)) { successful = false; }
-    if (!m_lights->OnRenderSettingsChanged(renderSettings)) { successful = false; }
+    if (!m_postExecutionOps->OnRenderSettingsChanged(renderSettings)) { allSuccessful = false; }
+    if (!m_vulkanObjs->OnRenderSettingsChanged(renderSettings)) { allSuccessful = false; }
+    if (!m_frames.OnRenderSettingsChanged(renderSettings)) { allSuccessful = false; }
+    if (!m_swapChainRenderers.OnRenderSettingsChanged(renderSettings)) { allSuccessful = false; }
+    if (!m_spriteRenderers.OnRenderSettingsChanged(renderSettings)) { allSuccessful = false; }
+    if (!m_objectRenderers.OnRenderSettingsChanged(renderSettings)) { allSuccessful = false; }
+    if (!m_terrainRenderers.OnRenderSettingsChanged(renderSettings)) { allSuccessful = false; }
+    if (!m_skyBoxRenderers.OnRenderSettingsChanged(renderSettings)) { allSuccessful = false; }
+    if (!m_differedLightingRenderers.OnRenderSettingsChanged(renderSettings)) { allSuccessful = false; }
+    if (!m_rawTriangleRenderers.OnRenderSettingsChanged(renderSettings)) { allSuccessful = false; }
+    if (!m_postProcessingRenderers.OnRenderSettingsChanged(renderSettings)) { allSuccessful = false; }
+    if (!m_lights->OnRenderSettingsChanged(renderSettings)) { allSuccessful = false; }
+    if (!m_renderTargets->OnRenderSettingsChanged(renderSettings)) { allSuccessful = false; }
 
-    return successful;
+    return allSuccessful;
 }
 
 void RendererVk::RefreshShadowMapsAsNeeded(const RenderParams& renderParams,
@@ -1048,7 +1200,7 @@ bool RendererVk::RefreshShadowMap(const RenderParams& renderParams,
     const auto shadowFramebufferId = *loadedLight.shadowFrameBufferId;
     const auto shadowFramebuffer = m_framebuffers->GetFramebufferObjs(shadowFramebufferId);
 
-    if (!shadowFramebuffer || shadowFramebuffer->GetAttachmentTextureViews()->size() != 1)
+    if (!shadowFramebuffer || shadowFramebuffer->GetAttachmentTextures()->size() != 1)
     {
         m_logger->Log(Common::LogLevel::Error,
           "RendererVk::RefreshShadowMap: Shadow framebuffer doesn't exist or wrong attachment count, light id: {}, fb id: {}",
@@ -1056,7 +1208,7 @@ bool RendererVk::RefreshShadowMap(const RenderParams& renderParams,
         return false;
     }
 
-    const auto shadowMapTexture = shadowFramebuffer->GetAttachmentTextureViews()->at(0).first;
+    const auto shadowMapTexture = shadowFramebuffer->GetAttachmentTextures()->at(0).first;
 
     const float lightMaxAffectRange = GetLightMaxAffectRange(m_vulkanObjs->GetRenderSettings(), loadedLight.light);
 

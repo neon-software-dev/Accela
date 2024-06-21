@@ -30,8 +30,8 @@ namespace Accela::Render
     using RenderTask_DestroyMesh = DataRenderTask<RenderTaskType::DestroyMesh, MeshId>;
     using RenderTask_CreateMaterial = DataRenderTask<RenderTaskType::CreateMaterial, Material::Ptr>;
     using RenderTask_DestroyMaterial = DataRenderTask<RenderTaskType::DestroyMaterial, MaterialId>;
-    using RenderTask_CreateFrameBuffer = DataRenderTask<RenderTaskType::CreateFrameBuffer, FrameBufferId, std::vector<TextureId>>;
-    using RenderTask_DestroyFrameBuffer = DataRenderTask<RenderTaskType::DestroyFrameBuffer, FrameBufferId>;
+    using RenderTask_CreateRenderTarget = DataRenderTask<RenderTaskType::CreateRenderTarget, RenderTargetId, std::string>;
+    using RenderTask_DestroyRenderTarget = DataRenderTask<RenderTaskType::DestroyRenderTarget, RenderTargetId>;
     using RenderTask_WorldUpdate = DataRenderTask<RenderTaskType::WorldUpdate, WorldUpdate>;
     using RenderTask_SurfaceChanged = DataRenderTask<RenderTaskType::SurfaceChanged>;
     using RenderTask_ChangeRenderSettings = DataRenderTask<RenderTaskType::ChangeRenderSettings, RenderSettings>;

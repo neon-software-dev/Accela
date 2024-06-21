@@ -18,7 +18,7 @@ ProgramDef::ProgramDef(std::string programName,
                        std::vector<std::string> shaderNames,
                        std::vector<VulkanDescriptorSetLayoutPtr> descriptorSetLayouts,
                        std::vector<VkVertexInputAttributeDescription> vertexInputAttributeDescriptions,
-                       const VkVertexInputBindingDescription& vertexInputBindingDescription)
+                       std::optional<VkVertexInputBindingDescription> vertexInputBindingDescription)
     : m_programName(std::move(programName))
     , m_shaderNames(std::move(shaderNames))
     , m_descriptorSetLayouts(std::move(descriptorSetLayouts))

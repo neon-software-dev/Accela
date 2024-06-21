@@ -152,14 +152,14 @@ void SpriteRenderer::Render(const std::string& sceneName,
     //
     const auto viewport = Viewport(0, 0, framebuffer->GetSize()->w, framebuffer->GetSize()->h);
 
-    const auto pipeline = GetPipeline(
+    const auto pipeline = GetGraphicsPipeline(
         m_logger,
         m_vulkanObjs,
         m_shaders,
         m_pipelines,
         m_programDef,
         renderPass,
-        OffscreenRenderPass_ForwardSubpass_Index,
+        BlitRenderPass_SubPass_Blit,
         viewport,
         CullFace::Back,
         PolygonFillMode::Fill,

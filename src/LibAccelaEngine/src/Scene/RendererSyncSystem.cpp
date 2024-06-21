@@ -313,17 +313,17 @@ void RendererSyncSystem::ProcessUpdatedRenderables(const RunState::Ptr& runState
 void RendererSyncSystem::ProcessRenderablesToDestroy(const RunState::Ptr&, entt::registry&, Render::WorldUpdate& update)
 {
     std::ranges::transform(m_spriteRenderablesToDestroy, std::back_inserter(update.toDeleteSpriteIds), [](const auto& renderableId){
-        return renderableId.id;
+        return Render::SpriteId(renderableId.id);
     });
     m_spriteRenderablesToDestroy.clear();
 
     std::ranges::transform(m_objectRenderablesToDestroy, std::back_inserter(update.toDeleteObjectIds), [](const auto& renderableId){
-        return renderableId.id;
+        return Render::ObjectId(renderableId.id);
     });
     m_objectRenderablesToDestroy.clear();
 
     std::ranges::transform(m_lightsToDestroy, std::back_inserter(update.toDeleteLightIds), [](const auto& renderableId){
-        return renderableId.id;
+        return Render::LightId(renderableId.id);
     });
     m_lightsToDestroy.clear();
 }

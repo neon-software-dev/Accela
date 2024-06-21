@@ -27,20 +27,39 @@ namespace Accela::Render
             VulkanPipeline(Common::ILogger::Ptr logger, IVulkanCallsPtr vk, IShadersPtr shaders, VulkanDevicePtr device);
 
             /**
-             * Create this vulkan pipeline
+             * Create this vulkan pipeline as a graphics pipeline
              *
-             * @param config The pipeline configuration to use
+             * @param config The graphics pipeline configuration to use
              *
              * @return Whether the pipeline was created successfully
              */
-            bool Create(const PipelineConfig& config);
+            bool Create(const GraphicsPipelineConfig& config);
+
+            /**
+            * Create this vulkan pipeline as a compute pipeline
+            *
+            * @param config The compute pipeline configuration to use
+            *
+            * @return Whether the pipeline was created successfully
+            */
+            bool Create(const ComputePipelineConfig& config);
 
             /**
              * Destroys this pipeline
              */
             void Destroy();
 
-            [[nodiscard]] std::size_t GetConfigHash() const noexcept { return m_config.GetUniqueKey(); }
+            /**
+             * @return The type of pipeline (graphics/compute)
+             */
+            [[nodiscard]] PipelineType GetPipelineType() const noexcept { return m_type; }
+
+            [[nodiscard]] VkPipelineBindPoint GetPipelineBindPoint() const noexcept;
+
+            /**
+             * @return Unique key associated with this pipeline/config
+             */
+            [[nodiscard]] std::size_t GetConfigHash() const noexcept { return m_uniqueKey; }
 
             /**
              * @return The VkPipeline object associated with this pipeline
@@ -59,7 +78,8 @@ namespace Accela::Render
             IShadersPtr m_shaders;
             VulkanDevicePtr m_device;
 
-            PipelineConfig m_config{};
+            PipelineType m_type{PipelineType::Graphics};
+            std::size_t m_uniqueKey{0};
             VkPipelineLayout m_vkPipelineLayout{VK_NULL_HANDLE};
             VkPipeline m_vkPipeline{VK_NULL_HANDLE};
     };

@@ -4,12 +4,12 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
  
-#include "RenderState.h"
+#include "BindState.h"
 
 namespace Accela::Render
 {
 
-void RenderState::OnPipelineBound(const ProgramDefPtr& _programDef, const VulkanPipelinePtr& _pipeline)
+void BindState::OnPipelineBound(const ProgramDefPtr& _programDef, const VulkanPipelinePtr& _pipeline)
 {
     programDef = _programDef;
     pipeline = _pipeline;
@@ -20,17 +20,17 @@ void RenderState::OnPipelineBound(const ProgramDefPtr& _programDef, const Vulkan
     set3Invalidated = true;
 }
 
-void RenderState::OnVertexBufferBound(const BufferPtr& buffer)
+void BindState::OnVertexBufferBound(const BufferPtr& buffer)
 {
     vertexBuffer = buffer;
 }
 
-void RenderState::OnIndexBufferBound(const BufferPtr& buffer)
+void BindState::OnIndexBufferBound(const BufferPtr& buffer)
 {
     indexBuffer = buffer;
 }
 
-void RenderState::OnSet0Bound()
+void BindState::OnSet0Bound()
 {
     set0Invalidated = false;
     set1Invalidated = true;
@@ -38,20 +38,20 @@ void RenderState::OnSet0Bound()
     set3Invalidated = true;
 }
 
-void RenderState::OnSet1Bound()
+void BindState::OnSet1Bound()
 {
     set1Invalidated = false;
     set2Invalidated = true;
     set3Invalidated = true;
 }
 
-void RenderState::OnSet2Bound()
+void BindState::OnSet2Bound()
 {
     set2Invalidated = false;
     set3Invalidated = true;
 }
 
-void RenderState::OnSet3Bound()
+void BindState::OnSet3Bound()
 {
     set3Invalidated = false;
 }

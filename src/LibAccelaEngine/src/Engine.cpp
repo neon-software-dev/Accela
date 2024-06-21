@@ -101,11 +101,15 @@ bool Engine::InitializeRun(const RunState::Ptr& runState)
     }
 
     //
-    // Configure an offscreen framebuffer for the scene to be rendered into
+    // Configure a render target for the scene to be rendered into
     //
-    if (!m_renderTarget.Create(m_renderer, worldState->GetRenderSettings()))
+    m_renderTargetId = m_renderer->GetIds()->renderTargetIds.GetId();
+
+    if (!m_renderer->CreateRenderTarget(m_renderTargetId, "Offscreen").get())
     {
         m_logger->Log(Common::LogLevel::Fatal, "AccelaEngine: Failed to create render target");
+        m_renderer->GetIds()->renderTargetIds.ReturnId(m_renderTargetId);
+        m_renderTargetId = {};
         return false;
     }
 
@@ -126,8 +130,9 @@ void Engine::DestroyRun()
     m_logger->Log(Common::LogLevel::Info, "AccelaEngine: Destroying the engine run");
 
     m_audioManager->Shutdown();
-    m_renderTarget.Destroy(m_renderer);
     m_renderer->Shutdown();
+
+    m_renderTargetId = {};
 }
 
 void Engine::RunLoop(const EngineRuntime::Ptr& runtime, const RunState::Ptr& runState)
@@ -262,16 +267,6 @@ void Engine::ReceiveRenderSettingsChange(const EngineRuntime::Ptr& runtime, cons
 
     // Tell the renderer to change its render settings
     m_renderer->ChangeRenderSettings(*renderSettingsOpt);
-
-    // Create a new framebuffer+textures at the render resolution for offscreen rendering (also destroys
-    // any previous framebuffer+textures)
-    if (!m_renderTarget.Create(m_renderer, *renderSettingsOpt))
-    {
-        m_logger->Log(Common::LogLevel::Fatal,
-          "Engine::ProcessRenderSettingsChange: Failed to create left eye offscreen framebuffer");
-        runState->keepRunning = false;
-        return;
-    }
 
     // As the virtual -> render space sprite transform depends on the render resolution, we need to invalidate
     // all sprite renderables when render settings change. RendererSyncSystem will update all sprite renderables
@@ -484,8 +479,8 @@ void Engine::RenderFrame(const RunState::Ptr& runState)
     RenderGraph::Ptr renderGraph = std::make_unique<RenderGraph>();
 
     renderGraph
-        ->StartWith<RenderGraphNode_RenderScene>(scene, m_renderTarget.frameBuffer, renderParams)
-        ->AndThen<RenderGraphNode_Present>(m_renderTarget.colorAttachment, presentConfig);
+        ->StartWith<RenderGraphNode_RenderScene>(scene, m_renderTargetId, renderParams)
+        ->AndThen<RenderGraphNode_Present>(m_renderTargetId, presentConfig);
 
     runState->previousFrameRenderedFuture = m_renderer->RenderFrame(renderGraph);
 }

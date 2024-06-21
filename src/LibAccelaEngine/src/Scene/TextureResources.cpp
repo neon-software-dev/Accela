@@ -7,6 +7,8 @@
 #include "TextureResources.h"
 #include "PackageResources.h"
 
+#include "../Texture/TextureUtil.h"
+
 #include <Accela/Render/IRenderer.h>
 
 #include <Accela/Platform/Text/IText.h>
@@ -169,7 +171,15 @@ std::expected<TextRender, bool> TextureResources::OnRenderText(const std::string
     // Create and record the texture
     //
     const auto textureId = m_renderer->GetIds()->textureIds.GetId();
-    const auto texture = Render::Texture::FromImageData(textureId, Render::TextureUsage::ImageMaterial, 1, renderedTextExpect->imageData, tag);
+    const auto texture = Render::Texture::FromImageData(
+        textureId,
+        {Render::TextureUsage::Sampled},
+        PixelFormatToTextureFormat(renderedTextExpect->imageData->GetPixelFormat()),
+        1,
+        false,
+        renderedTextExpect->imageData,
+        tag
+    );
     const auto textureView = Render::TextureView::ViewAs2D(Render::TextureView::DEFAULT, Render::TextureView::Aspect::ASPECT_COLOR_BIT);
     const auto textureSampler = Render::TextureSampler(Render::CLAMP_ADDRESS_MODE);
 
@@ -218,7 +228,7 @@ Render::TextureId TextureResources::LoadPackageTexture(const std::vector<Package
         {
             m_logger->Log(Common::LogLevel::Error,
               "TextureResources::LoadPackageTexture: No such package: {}", resource.GetPackageName()->name);
-            return false;
+            return Render::TextureId::Invalid();
         }
 
         packages.push_back(*package);
@@ -240,7 +250,7 @@ Render::TextureId TextureResources::LoadPackageTexture(const std::vector<Package
         {
             m_logger->Log(Common::LogLevel::Error,
               "TextureResources::LoadPackageTexture: Failed to read texture: {}", resources.at(x).GetUniqueName());
-            return Render::INVALID_ID;
+            return Render::TextureId::Invalid();
         }
 
         const auto textureDataExpect = m_files->LoadTexture(*textureBytesExpect, *textureDataFormatHint);
@@ -248,7 +258,7 @@ Render::TextureId TextureResources::LoadPackageTexture(const std::vector<Package
         {
             m_logger->Log(Common::LogLevel::Error,
                 "TextureResources::LoadPackageTexture: Failed to convert texture to an image: {}", resources.at(x).GetUniqueName());
-            return Render::INVALID_ID;
+            return Render::TextureId::Invalid();
         }
 
         textureData.textureImages.push_back(*textureDataExpect);
@@ -314,7 +324,7 @@ Render::TextureId TextureResources::LoadTexture(const TextureData& textureData,
         m_logger->Log(Common::LogLevel::Error,
           "TextureResources::LoadTexture: Renderer failed to create texture: {}", tag);
         DestroyTexture(textureId);
-        return Render::INVALID_ID;
+        return Render::TextureId::Invalid();
     }
 
     return textureId;
@@ -324,13 +334,17 @@ Render::Texture TextureResources::ToRenderTexture(Render::TextureId textureId, c
 {
     const auto imageData = TextureDataToImageData(textureData);
 
-    Render::TextureUsage textureUsage = Render::TextureUsage::ImageMaterial;
-    if (imageData->GetNumLayers() == 6)
-    {
-        textureUsage = Render::TextureUsage::ImageCubeMaterial;
-    }
+    const bool cubicTexture = imageData->GetNumLayers() == 6;
 
-    return Render::Texture::FromImageData(textureId, textureUsage, imageData->GetNumLayers(), imageData, tag);
+    return Render::Texture::FromImageData(
+        textureId,
+        { Render::TextureUsage::Sampled },
+        PixelFormatToTextureFormat(imageData->GetPixelFormat()),
+        imageData->GetNumLayers(),
+        cubicTexture,
+        imageData,
+        tag
+    );
 }
 
 Common::ImageData::Ptr TextureResources::TextureDataToImageData(const TextureData& textureData)

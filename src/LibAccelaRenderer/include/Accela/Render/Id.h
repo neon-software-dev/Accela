@@ -20,7 +20,7 @@ namespace Accela::Render
     {
         IdClass() = default;
 
-        IdClass(IdType _id) : id(_id) {}
+        explicit IdClass(IdType _id) : id(_id) {}
 
         [[nodiscard]] bool IsValid() const noexcept { return id != INVALID_ID; }
 
@@ -36,7 +36,11 @@ namespace Accela::Render
 #define DEFINE_ID_TYPE(ID_TYPE) \
 namespace Accela::Render \
 { \
-    struct ID_TYPE : public IdClass{ using IdClass::IdClass;  }; \
+    struct ID_TYPE : public IdClass \
+    { \
+        using IdClass::IdClass; \
+        [[nodiscard]] static ID_TYPE Invalid() noexcept { return ID_TYPE{INVALID_ID}; } \
+    }; \
 } \
 template<> \
 struct std::hash<Accela::Render::ID_TYPE> \
@@ -53,5 +57,6 @@ DEFINE_ID_TYPE(ObjectId)
 DEFINE_ID_TYPE(TerrainId)
 DEFINE_ID_TYPE(MaterialId)
 DEFINE_ID_TYPE(LightId)
+DEFINE_ID_TYPE(RenderTargetId)
 
 #endif //LIBACCELARENDERER_INCLUDE_ACCELA_RENDER_ID_H

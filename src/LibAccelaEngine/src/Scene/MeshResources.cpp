@@ -142,14 +142,14 @@ Render::MeshId MeshResources::OnLoadHeightMapMesh(const CustomResourceIdentifier
     {
         m_logger->Log(Common::LogLevel::Error,
           "OnLoadHeightMapMesh: No such texture is registered, id: {}", heightMapTextureId.id);
-        return {Render::INVALID_ID};
+        return Render::MeshId::Invalid();
     }
 
     if (!heightMapTextureOpt->data.has_value())
     {
         m_logger->Log(Common::LogLevel::Error,
           "OnLoadHeightMapMesh: Texture has no image data, not a valid height map, id: {}", heightMapTextureId.id);
-        return {Render::INVALID_ID};
+        return Render::MeshId::Invalid();
     }
 
     //
@@ -231,7 +231,7 @@ Render::MeshId MeshResources::LoadMesh(const CustomResourceIdentifier& resource,
         m_meshes.erase(resource);
         m_heightMapData.erase(resource); // May or may not exist
 
-        return {Render::INVALID_ID};
+        return Render::MeshId::Invalid();
     }
 
     //

@@ -53,14 +53,14 @@ VulkanDevicePtr VulkanObjs::GetDevice() const noexcept { return m_device; }
 IVMAPtr VulkanObjs::GetVMA() const noexcept { return m_vma; }
 VulkanCommandPoolPtr VulkanObjs::GetTransferCommandPool() const noexcept { return m_transferCommandPool; }
 VulkanSwapChainPtr VulkanObjs::GetSwapChain() const noexcept { return m_swapChain; }
-VulkanRenderPassPtr VulkanObjs::GetSwapChainRenderPass() const noexcept { return m_swapChainRenderPass; }
 VulkanFramebufferPtr VulkanObjs::GetSwapChainFrameBuffer(const uint32_t& imageIndex) const noexcept { return m_swapChainFrameBuffers[imageIndex]; }
-VulkanRenderPassPtr VulkanObjs::GetOffscreenRenderPass() const noexcept { return m_offscreenRenderPass; }
+VulkanRenderPassPtr VulkanObjs::GetGPassRenderPass() const noexcept { return m_gPassRenderPass; }
+VulkanRenderPassPtr VulkanObjs::GetBlitRenderPass() const noexcept { return m_blitRenderPass; }
+VulkanRenderPassPtr VulkanObjs::GetSwapChainBlitRenderPass() const noexcept { return m_swapChainBlitRenderPass; }
 VulkanRenderPassPtr VulkanObjs::GetShadow2DRenderPass() const noexcept { return m_shadow2DRenderPass; }
 VulkanRenderPassPtr VulkanObjs::GetShadowCubeRenderPass() const noexcept { return m_shadowCubeRenderPass; }
 
-bool VulkanObjs::Initialize(bool enableValidationLayers,
-                            const RenderSettings& renderSettings)
+bool VulkanObjs::Initialize(bool enableValidationLayers, const RenderSettings& renderSettings)
 {
     m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Initializing Vulkan objects");
 
@@ -102,15 +102,15 @@ bool VulkanObjs::Initialize(bool enableValidationLayers,
         return false;
     }
 
-    if (!CreateSwapChain(renderSettings.presentMode))
+    if (!CreateSwapChain())
     {
         m_logger->Log(Common::LogLevel::Error, "VulkanObjs: Failed to initialize Vulkan swap chain");
         return false;
     }
 
-    if (!CreateSwapChainRenderPass())
+    if (!CreateSwapChainBlitRenderPass())
     {
-        m_logger->Log(Common::LogLevel::Error, "VulkanObjs: Failed to create swap chain render pass");
+        m_logger->Log(Common::LogLevel::Error, "VulkanObjs: Failed to create swap chain blit render pass");
         return false;
     }
 
@@ -120,9 +120,15 @@ bool VulkanObjs::Initialize(bool enableValidationLayers,
         return false;
     }
 
-    if (!CreateOffscreenRenderPass())
+    if (!CreateGPassRenderPass())
     {
-        m_logger->Log(Common::LogLevel::Error, "VulkanObjs: Failed to create offscreen render pass");
+        m_logger->Log(Common::LogLevel::Error, "VulkanObjs: Failed to create gpass render pass");
+        return false;
+    }
+
+    if (!CreateBlitRenderPass())
+    {
+        m_logger->Log(Common::LogLevel::Error, "VulkanObjs: Failed to create blit render pass");
         return false;
     }
 
@@ -147,9 +153,10 @@ void VulkanObjs::Destroy()
 
     DestroyShadowCubeRenderPass();
     DestroyShadow2DRenderPass();
-    DestroyOffscreenRenderPass();
+    DestroyBlitRenderPass();
+    DestroyGPassRenderPass();
     DestroySwapChainFrameBuffers();
-    DestroySwapChainRenderPass();
+    DestroySwapChainBlitRenderPass();
     DestroySwapChain();
     DestroyVMA();
     DestroyLogicalDevice();
@@ -354,7 +361,7 @@ void VulkanObjs::DestroyVMA()
     }
 }
 
-bool VulkanObjs::CreateSwapChain(PresentMode presentMode)
+bool VulkanObjs::CreateSwapChain()
 {
     m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Creating Vulkan swap chain");
 
@@ -366,7 +373,7 @@ bool VulkanObjs::CreateSwapChain(PresentMode presentMode)
 
     auto swapChain = std::make_shared<VulkanSwapChain>(m_logger, m_vulkanCalls, m_vma, m_physicalDevice, m_device);
 
-    if (!swapChain->Create(m_surface, previousSwapChain, presentMode))
+    if (!swapChain->Create(m_surface, previousSwapChain, m_renderSettings->presentMode))
     {
         m_logger->Log(Common::LogLevel::Fatal, "CreateSwapChain: Failed to create swap chain");
         return false;
@@ -391,67 +398,25 @@ void VulkanObjs::DestroySwapChain()
     }
 }
 
-bool VulkanObjs::CreateSwapChainRenderPass()
+bool VulkanObjs::CreateGPassRenderPass()
 {
-    m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Creating swap chain render pass");
-
-    VulkanRenderPass::Attachment colorAttachment(VulkanRenderPass::AttachmentType::Color);
-    colorAttachment.description.format = m_swapChain->GetConfig()->surfaceFormat.format;
-    colorAttachment.description.samples = VK_SAMPLE_COUNT_1_BIT;
-    colorAttachment.description.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    colorAttachment.description.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    colorAttachment.description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    colorAttachment.description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    colorAttachment.description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    colorAttachment.description.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-    VulkanRenderPass::Subpass blitPass{};
-
-    VkAttachmentReference vkColorAttachmentReference{};
-    vkColorAttachmentReference.attachment = 0;
-    vkColorAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    blitPass.colorAttachmentRefs.push_back(vkColorAttachmentReference);
-
-    m_swapChainRenderPass = std::make_shared<VulkanRenderPass>(m_logger, m_vulkanCalls, m_physicalDevice, m_device);
-    if (!m_swapChainRenderPass->Create({colorAttachment}, {blitPass}, {}, std::nullopt, std::nullopt, "SwapChain"))
-    {
-        m_logger->Log(Common::LogLevel::Fatal, "CreateSwapChainRenderPass: Failed to create the swap chain render pass");
-        return false;
-    }
-
-    return true;
-}
-
-void VulkanObjs::DestroySwapChainRenderPass()
-{
-    if (m_swapChainRenderPass != nullptr)
-    {
-        m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Destroying swap chain render pass");
-        m_swapChainRenderPass->Destroy();
-        m_swapChainRenderPass = nullptr;
-    }
-}
-
-bool VulkanObjs::CreateOffscreenRenderPass()
-{
-    m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Creating offscreen render pass");
+    m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Creating gpass render pass");
 
     //
     // Framebuffer attachments
     //
-
     VulkanRenderPass::Attachment colorAttachment(VulkanRenderPass::AttachmentType::Color);
-    colorAttachment.description.format = VK_FORMAT_R8G8B8A8_SRGB;
+    colorAttachment.description.format = VK_FORMAT_R32G32B32A32_SFLOAT;
     colorAttachment.description.samples = VK_SAMPLE_COUNT_1_BIT;
     colorAttachment.description.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.description.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     colorAttachment.description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     colorAttachment.description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     colorAttachment.description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    colorAttachment.description.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    colorAttachment.description.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
     VulkanRenderPass::Attachment positionAttachment(VulkanRenderPass::AttachmentType::Color);
-    positionAttachment.description.format = VK_FORMAT_R16G16B16A16_SFLOAT;
+    positionAttachment.description.format = VK_FORMAT_R32G32B32A32_SFLOAT;
     positionAttachment.description.samples = VK_SAMPLE_COUNT_1_BIT;
     positionAttachment.description.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     positionAttachment.description.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -461,7 +426,7 @@ bool VulkanObjs::CreateOffscreenRenderPass()
     positionAttachment.description.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VulkanRenderPass::Attachment normalAttachment(VulkanRenderPass::AttachmentType::Color);
-    normalAttachment.description.format = VK_FORMAT_R16G16B16A16_SFLOAT;
+    normalAttachment.description.format = VK_FORMAT_R32G32B32A32_SFLOAT;
     normalAttachment.description.samples = VK_SAMPLE_COUNT_1_BIT;
     normalAttachment.description.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     normalAttachment.description.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -514,157 +479,93 @@ bool VulkanObjs::CreateOffscreenRenderPass()
     depthAttachment.description.format = m_physicalDevice->GetDepthBufferFormat();
     depthAttachment.description.samples = VK_SAMPLE_COUNT_1_BIT;
     depthAttachment.description.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachment.description.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    depthAttachment.description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    depthAttachment.description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    depthAttachment.description.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    depthAttachment.description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
     depthAttachment.description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     depthAttachment.description.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
     //
-    // GPass Subpass
+    // Deferred Lighting Objects Subpass
     //
-    VkAttachmentReference vkGpassColorAttachmentReference{};
-    vkGpassColorAttachmentReference.attachment = 0;
-    vkGpassColorAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    VulkanRenderPass::Subpass deferredLightingObjectsSubpass{};
 
-    VkAttachmentReference vkGpassPositionAttachmentReference{};
-    vkGpassPositionAttachmentReference.attachment = 1;
-    vkGpassPositionAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    deferredLightingObjectsSubpass.colorAttachmentRefs = {
+        {.attachment = Offscreen_Attachment_Color,    .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
+        {.attachment = Offscreen_Attachment_Position, .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
+        {.attachment = Offscreen_Attachment_Normal,   .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
+        {.attachment = Offscreen_Attachment_Material, .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
+        {.attachment = Offscreen_Attachment_Ambient,  .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
+        {.attachment = Offscreen_Attachment_Diffuse,  .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
+        {.attachment = Offscreen_Attachment_Specular, .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
+    };
 
-    VkAttachmentReference vkGpassNormalAttachmentReference{};
-    vkGpassNormalAttachmentReference.attachment = 2;
-    vkGpassNormalAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-    VkAttachmentReference vkGpassMaterialAttachmentReference{};
-    vkGpassMaterialAttachmentReference.attachment = 3;
-    vkGpassMaterialAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-    VkAttachmentReference vkGpassAmbientAttachmentReference{};
-    vkGpassAmbientAttachmentReference.attachment = 4;
-    vkGpassAmbientAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-    VkAttachmentReference vkGpassDiffuseAttachmentReference{};
-    vkGpassDiffuseAttachmentReference.attachment = 5;
-    vkGpassDiffuseAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-    VkAttachmentReference vkGpassSpecularAttachmentReference{};
-    vkGpassSpecularAttachmentReference.attachment = 6;
-    vkGpassSpecularAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-    VkAttachmentReference vkGpassDepthAttachmentReference{};
-    vkGpassDepthAttachmentReference.attachment = 7;
-    vkGpassDepthAttachmentReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-    VulkanRenderPass::Subpass gSubpass{};
-    gSubpass.colorAttachmentRefs.push_back(vkGpassColorAttachmentReference);
-    gSubpass.colorAttachmentRefs.push_back(vkGpassPositionAttachmentReference);
-    gSubpass.colorAttachmentRefs.push_back(vkGpassNormalAttachmentReference);
-    gSubpass.colorAttachmentRefs.push_back(vkGpassMaterialAttachmentReference);
-    gSubpass.colorAttachmentRefs.push_back(vkGpassAmbientAttachmentReference);
-    gSubpass.colorAttachmentRefs.push_back(vkGpassDiffuseAttachmentReference);
-    gSubpass.colorAttachmentRefs.push_back(vkGpassSpecularAttachmentReference);
-    gSubpass.depthAttachmentRef = vkGpassDepthAttachmentReference;
+    deferredLightingObjectsSubpass.depthAttachmentRef =
+        {.attachment = Offscreen_Attachment_Depth, .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
 
     //
     // Deferred Lighting Subpass
     //
+    VulkanRenderPass::Subpass deferredLightingSubpass{};
 
-    VkAttachmentReference vkLightingColorAttachmentReference{};
-    vkLightingColorAttachmentReference.attachment = 0;
-    vkLightingColorAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    deferredLightingSubpass.colorAttachmentRefs = {
+        {.attachment = Offscreen_Attachment_Color,    .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
+    };
 
-    VkAttachmentReference vkLightingPositionAttachmentReference{};
-    vkLightingPositionAttachmentReference.attachment = 1;
-    vkLightingPositionAttachmentReference.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkAttachmentReference vkLightingNormalAttachmentReference{};
-    vkLightingNormalAttachmentReference.attachment = 2;
-    vkLightingNormalAttachmentReference.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkAttachmentReference vkLightingMaterialAttachmentReference{};
-    vkLightingMaterialAttachmentReference.attachment = 3;
-    vkLightingMaterialAttachmentReference.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkAttachmentReference vkLightingAmbientAttachmentReference{};
-    vkLightingAmbientAttachmentReference.attachment = 4;
-    vkLightingAmbientAttachmentReference.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkAttachmentReference vkLightingDiffuseAttachmentReference{};
-    vkLightingDiffuseAttachmentReference.attachment = 5;
-    vkLightingDiffuseAttachmentReference.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VkAttachmentReference vkLightingSpecularAttachmentReference{};
-    vkLightingSpecularAttachmentReference.attachment = 6;
-    vkLightingSpecularAttachmentReference.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    VulkanRenderPass::Subpass lightingSubpass{};
-    lightingSubpass.colorAttachmentRefs.push_back(vkLightingColorAttachmentReference);
-    lightingSubpass.inputAttachmentRefs.push_back(vkLightingPositionAttachmentReference);
-    lightingSubpass.inputAttachmentRefs.push_back(vkLightingNormalAttachmentReference);
-    lightingSubpass.inputAttachmentRefs.push_back(vkLightingMaterialAttachmentReference);
-    lightingSubpass.inputAttachmentRefs.push_back(vkLightingAmbientAttachmentReference);
-    lightingSubpass.inputAttachmentRefs.push_back(vkLightingDiffuseAttachmentReference);
-    lightingSubpass.inputAttachmentRefs.push_back(vkLightingSpecularAttachmentReference);
+    deferredLightingSubpass.inputAttachmentRefs = {
+        {.attachment = Offscreen_Attachment_Position, .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+        {.attachment = Offscreen_Attachment_Normal,   .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+        {.attachment = Offscreen_Attachment_Material, .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+        {.attachment = Offscreen_Attachment_Ambient,  .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+        {.attachment = Offscreen_Attachment_Diffuse,  .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+        {.attachment = Offscreen_Attachment_Specular, .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}
+    };
 
     //
-    // Forward Subpass
+    // Forward Lighting Objects Subpass
     //
+    VulkanRenderPass::Subpass forwardLightingObjectsSubpass{};
 
-    VkAttachmentReference vkForwardColorAttachmentReference{};
-    vkForwardColorAttachmentReference.attachment = 0;
-    vkForwardColorAttachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    forwardLightingObjectsSubpass.colorAttachmentRefs = {
+        {.attachment = Offscreen_Attachment_Color,    .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
+    };
 
-    VkAttachmentReference vkForwardDepthAttachmentReference{};
-    vkForwardDepthAttachmentReference.attachment = 7;
-    vkForwardDepthAttachmentReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-    VulkanRenderPass::Subpass forwardSubpass{};
-    forwardSubpass.colorAttachmentRefs.push_back(vkForwardColorAttachmentReference);
-    forwardSubpass.depthAttachmentRef = vkForwardDepthAttachmentReference;
+    forwardLightingObjectsSubpass.depthAttachmentRef =
+        {.attachment = Offscreen_Attachment_Depth,    .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
 
     //
-    // Subpass Dependencies
+    // SubPass Dependencies
     //
 
-    // Opaque Deferred subpass must finish writing to color attachment before Deferred Lighting subpass can use it
-    VkSubpassDependency dependency_readOpaqueDeferredColorOutput{};
-    dependency_readOpaqueDeferredColorOutput.srcSubpass = OffscreenRenderPass_OpaqueDeferredSubpass_Index;
-    dependency_readOpaqueDeferredColorOutput.dstSubpass = OffscreenRenderPass_DeferredLightingSubpass_Index;
-    dependency_readOpaqueDeferredColorOutput.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency_readOpaqueDeferredColorOutput.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-    dependency_readOpaqueDeferredColorOutput.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    dependency_readOpaqueDeferredColorOutput.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    dependency_readOpaqueDeferredColorOutput.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+    // Deferred Lighting Objects must have finished writing object data before Deferred Lighting Render can read it
+    VkSubpassDependency dep0{};
+    dep0.srcSubpass = GPassRenderPass_SubPass_DeferredLightingObjects;
+    dep0.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dep0.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dep0.dstSubpass = GPassRenderPass_SubPass_DeferredLightingRender;
+    dep0.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    dep0.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    dep0.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
-    // Opaque Deferred subpass must finish writing to depth attachment before Forward subpass can use it
-    VkSubpassDependency dependency_readOpaqueDeferredDepthOutput{};
-    dependency_readOpaqueDeferredDepthOutput.srcSubpass = OffscreenRenderPass_OpaqueDeferredSubpass_Index;
-    dependency_readOpaqueDeferredDepthOutput.dstSubpass = OffscreenRenderPass_ForwardSubpass_Index;
-    dependency_readOpaqueDeferredDepthOutput.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    dependency_readOpaqueDeferredDepthOutput.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    dependency_readOpaqueDeferredDepthOutput.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-    dependency_readOpaqueDeferredDepthOutput.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-    dependency_readOpaqueDeferredDepthOutput.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+    // Deferred Lighting Objects must have finished writing depth data before Forward Lighting can use it
+    VkSubpassDependency dep1{};
+    dep1.srcSubpass = GPassRenderPass_SubPass_DeferredLightingObjects;
+    dep1.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    dep1.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    dep1.dstSubpass = GPassRenderPass_SubPass_ForwardLightingObjects;
+    dep1.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    dep1.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+    dep1.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
-    // Color dependency between Deferred Lighting and Forward subpasses
-    VkSubpassDependency dependency_readDeferredLightingColorOutput{};
-    dependency_readDeferredLightingColorOutput.srcSubpass = OffscreenRenderPass_DeferredLightingSubpass_Index;
-    dependency_readDeferredLightingColorOutput.dstSubpass = OffscreenRenderPass_ForwardSubpass_Index;
-    dependency_readDeferredLightingColorOutput.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency_readDeferredLightingColorOutput.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-    dependency_readDeferredLightingColorOutput.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    dependency_readDeferredLightingColorOutput.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-    dependency_readDeferredLightingColorOutput.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-    // Color dependency between Forward subpass and external (swap chain) render pass
-    VkSubpassDependency dependency_readForwardColorOutput{};
-    dependency_readForwardColorOutput.srcSubpass = OffscreenRenderPass_ForwardSubpass_Index;
-    dependency_readForwardColorOutput.dstSubpass = VK_SUBPASS_EXTERNAL;
-    dependency_readForwardColorOutput.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency_readForwardColorOutput.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-    dependency_readForwardColorOutput.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    dependency_readForwardColorOutput.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-    dependency_readForwardColorOutput.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+    // Deferred Lighting Render must have finished writing color data before Forward Lighting Objects can write to it
+    VkSubpassDependency dep2{};
+    dep2.srcSubpass = GPassRenderPass_SubPass_DeferredLightingRender;
+    dep2.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dep2.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dep2.dstSubpass = GPassRenderPass_SubPass_ForwardLightingObjects;
+    dep2.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dep2.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dep2.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
     //
     // Multiview settings
@@ -683,8 +584,8 @@ bool VulkanObjs::CreateOffscreenRenderPass()
     //
     // Create the render pass
     //
-    m_offscreenRenderPass = std::make_shared<VulkanRenderPass>(m_logger, m_vulkanCalls, m_physicalDevice, m_device);
-    if (!m_offscreenRenderPass->Create(
+    m_gPassRenderPass = std::make_shared<VulkanRenderPass>(m_logger, m_vulkanCalls, m_physicalDevice, m_device);
+    if (!m_gPassRenderPass->Create(
         {
             colorAttachment,
             positionAttachment,
@@ -696,16 +597,11 @@ bool VulkanObjs::CreateOffscreenRenderPass()
             depthAttachment
         },
         {
-            gSubpass,
-            lightingSubpass,
-            forwardSubpass
+            deferredLightingObjectsSubpass,
+            deferredLightingSubpass,
+            forwardLightingObjectsSubpass
         },
-        {
-            dependency_readOpaqueDeferredColorOutput,
-            dependency_readOpaqueDeferredDepthOutput,
-            dependency_readDeferredLightingColorOutput,
-            dependency_readForwardColorOutput
-        },
+        { dep0, dep1, dep2 },
         viewMasks,
         correlationMask,
         "Offscreen"))
@@ -717,13 +613,140 @@ bool VulkanObjs::CreateOffscreenRenderPass()
     return true;
 }
 
-void VulkanObjs::DestroyOffscreenRenderPass()
+void VulkanObjs::DestroyGPassRenderPass()
 {
-    if (m_offscreenRenderPass != nullptr)
+    if (m_gPassRenderPass != nullptr)
     {
-        m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Destroying offscreen render pass");
-        m_offscreenRenderPass->Destroy();
-        m_offscreenRenderPass = nullptr;
+        m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Destroying gpass render pass");
+        m_gPassRenderPass->Destroy();
+        m_gPassRenderPass = nullptr;
+    }
+}
+
+bool VulkanObjs::CreateBlitRenderPass()
+{
+    m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Creating blit render pass");
+
+    //
+    // Framebuffer attachments
+    //
+    VulkanRenderPass::Attachment colorAttachment(VulkanRenderPass::AttachmentType::Color);
+    colorAttachment.description.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    colorAttachment.description.samples = VK_SAMPLE_COUNT_1_BIT;
+    colorAttachment.description.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    colorAttachment.description.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colorAttachment.description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    colorAttachment.description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    colorAttachment.description.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    colorAttachment.description.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VulkanRenderPass::Attachment depthAttachment(VulkanRenderPass::AttachmentType::Depth);
+    depthAttachment.description.format = m_physicalDevice->GetDepthBufferFormat();
+    depthAttachment.description.samples = VK_SAMPLE_COUNT_1_BIT;
+    depthAttachment.description.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    depthAttachment.description.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    depthAttachment.description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    depthAttachment.description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
+    depthAttachment.description.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    depthAttachment.description.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    //
+    // Blit Subpass
+    //
+    VulkanRenderPass::Subpass blitSubpass{};
+
+    blitSubpass.colorAttachmentRefs = {
+        {.attachment = Blit_Attachment_Color,    .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
+    };
+
+    blitSubpass.depthAttachmentRef =
+        {.attachment = Blit_Attachment_Depth,    .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
+
+    //
+    // Multiview settings
+    //
+    std::optional<std::vector<uint32_t>> viewMasks;
+    std::optional<uint32_t> correlationMask;
+
+    // If we're presenting to a headset the render pass should use multiview to render each eye in each draw call
+    if (m_renderSettings->presentToHeadset)
+    {
+        // If in VR mode, the offscreen subpasses are multiviewed for rendering twice, once for each eye
+        viewMasks = {0b00000011, 0b00000011, 0b00000011};
+        correlationMask = 0b00000011;
+    }
+
+    //
+    // Create the render pass
+    //
+    m_blitRenderPass = std::make_shared<VulkanRenderPass>(m_logger, m_vulkanCalls, m_physicalDevice, m_device);
+    if (!m_blitRenderPass->Create(
+        {
+            colorAttachment,
+            depthAttachment
+        },
+        {
+            blitSubpass
+        },
+        { },
+        viewMasks,
+        correlationMask,
+        "Blit"))
+    {
+        m_logger->Log(Common::LogLevel::Fatal, "CreateBlitRenderPass: Failed to create the offscreen render pass");
+        return false;
+    }
+
+    return true;
+}
+
+void VulkanObjs::DestroyBlitRenderPass()
+{
+    if (m_blitRenderPass != nullptr)
+    {
+        m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Destroying blit render pass");
+        m_blitRenderPass->Destroy();
+        m_blitRenderPass = nullptr;
+    }
+}
+
+bool VulkanObjs::CreateSwapChainBlitRenderPass()
+{
+    m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Creating swap chain blit render pass");
+
+    VulkanRenderPass::Attachment colorAttachment(VulkanRenderPass::AttachmentType::Color);
+    colorAttachment.description.format = m_swapChain->GetConfig()->surfaceFormat.format;
+    colorAttachment.description.samples = VK_SAMPLE_COUNT_1_BIT;
+    colorAttachment.description.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorAttachment.description.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colorAttachment.description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    colorAttachment.description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    colorAttachment.description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    colorAttachment.description.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+    VulkanRenderPass::Subpass swapChainBlitPass{};
+
+    swapChainBlitPass.colorAttachmentRefs = {
+        {.attachment = 0, .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
+    };
+
+    m_swapChainBlitRenderPass = std::make_shared<VulkanRenderPass>(m_logger, m_vulkanCalls, m_physicalDevice, m_device);
+    if (!m_swapChainBlitRenderPass->Create({colorAttachment}, {swapChainBlitPass}, {}, std::nullopt, std::nullopt, "SwapChainBlit"))
+    {
+        m_logger->Log(Common::LogLevel::Fatal, "CreateBlitRenderPass: Failed to create the swap chain blit render pass");
+        return false;
+    }
+
+    return true;
+}
+
+void VulkanObjs::DestroySwapChainBlitRenderPass()
+{
+    if (m_swapChainBlitRenderPass != nullptr)
+    {
+        m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Destroying swap chain blit render pass");
+        m_swapChainBlitRenderPass->Destroy();
+        m_swapChainBlitRenderPass = nullptr;
     }
 }
 
@@ -836,7 +859,7 @@ bool VulkanObjs::CreateSwapChainFrameBuffers()
     {
         auto framebuffer = std::make_shared<VulkanFramebuffer>(m_logger, m_vulkanCalls, m_device);
         if (!framebuffer->Create(
-            m_swapChainRenderPass,
+            m_swapChainBlitRenderPass,
             {vkImageView},
             swapChainExtent,
             1,
@@ -878,24 +901,22 @@ bool VulkanObjs::OnSurfaceInvalidated()
     if (!m_renderSettings) { return false; }
 
     //
-    // Create a new swap chain for the surface. (Note that it internally
-    // destroys the old one as needed)
+    // Create a new swap chain for the surface. (Note that it internally destroys the old one as needed)
     //
-    if (!CreateSwapChain(m_renderSettings->presentMode))
+    if (!CreateSwapChain())
     {
         m_logger->Log(Common::LogLevel::Info, "OnSurfaceInvalidated: Failed to create swap chain");
         return false;
     }
 
     //
-    // Destroy and then re-create the render pass for the swap chain, as the
-    // format/details of the swap chain might have changed
+    // Destroy and then re-create the swap chain blit render, as the format/details of the swap chain might have changed
     //
-    DestroySwapChainRenderPass();
+    DestroySwapChainBlitRenderPass();
 
-    if (!CreateSwapChainRenderPass())
+    if (!CreateSwapChainBlitRenderPass())
     {
-        m_logger->Log(Common::LogLevel::Info, "OnSurfaceInvalidated: Failed to create swap chain render pass");
+        m_logger->Log(Common::LogLevel::Info, "OnSurfaceInvalidated: Failed to create swap chain blit render pass");
         return false;
     }
 

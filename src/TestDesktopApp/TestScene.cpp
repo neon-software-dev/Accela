@@ -39,7 +39,7 @@ void TestScene::ConfigureScene()
     engine->SyncAudioListenerToWorldCamera(Engine::DEFAULT_SCENE, true);
 
     // Configure ambient lighting levels
-    engine->GetWorldState()->SetAmbientLighting(Engine::DEFAULT_SCENE, 0.1f, glm::vec3(1));
+    engine->GetWorldState()->SetAmbientLighting(Engine::DEFAULT_SCENE, 0.02f, glm::vec3(1));
 
     // Display a skybox
     engine->GetWorldState()->SetSkyBox(Engine::DEFAULT_SCENE, m_skyBoxTextureId);
@@ -98,21 +98,21 @@ bool TestScene::LoadResources()
         Engine::PRI("TestDesktopApp", "skybox_back.jpg"),
     };
     m_skyBoxTextureId = engine->GetWorldResources()->Textures()->LoadPackageCubeTexture(skyBoxResources, {}, "skybox", Engine::ResultWhen::Ready).get();
-    if (m_skyBoxTextureId == Render::INVALID_ID) { return false; }
+    if (!m_skyBoxTextureId.IsValid()) { return false; }
 
     const auto heightMapTextureId = engine->GetWorldResources()->Textures()->LoadPackageTexture(
         Engine::PRI("TestDesktopApp", "rolling_hills_heightmap.png"),
         { .numMipLevels = 1 },
         Engine::ResultWhen::Ready
     ).get();
-    if (heightMapTextureId == Render::INVALID_ID) { return false; }
+    if (!heightMapTextureId.IsValid()) { return false; }
 
     const auto terrainTextureId = engine->GetWorldResources()->Textures()->LoadPackageTexture(
         Engine::PRI("TestDesktopApp", "rolling_hills_bitmap.png"),
         { .numMipLevels = 1 },
         Engine::ResultWhen::Ready
     ).get();
-    if (terrainTextureId == Render::INVALID_ID) { return false; }
+    if (!terrainTextureId.IsValid()) { return false; }
 
     //
     // Load custom meshes
@@ -123,7 +123,7 @@ bool TestScene::LoadResources()
         CubeIndices,
         Render::MeshUsage::Immutable,
         Engine::ResultWhen::Ready).get();
-    if (m_cubeMeshId == Render::INVALID_ID) { return false; }
+    if (!m_cubeMeshId.IsValid()) { return false; }
 
     m_sphereMeshId = engine->GetWorldResources()->Meshes()->LoadStaticMesh(
         Engine::CRI("Sphere"),
@@ -131,7 +131,7 @@ bool TestScene::LoadResources()
         CreateSphereMeshIndices(),
         Render::MeshUsage::Immutable,
         Engine::ResultWhen::Ready).get();
-    if (m_sphereMeshId == Render::INVALID_ID) { return false; }
+    if (!m_sphereMeshId.IsValid()) { return false; }
 
     m_terrainHeightMapMeshId = engine->GetWorldResources()->Meshes()->LoadHeightMapMesh(
         Engine::CRI("TerrainHeightMap"),
@@ -142,7 +142,7 @@ bool TestScene::LoadResources()
         std::nullopt,
         Render::MeshUsage::Immutable,
         Engine::ResultWhen::Ready).get();
-    if (m_terrainHeightMapMeshId == Render::INVALID_ID) { return false; }
+    if (!m_terrainHeightMapMeshId.IsValid()) { return false; }
 
     //
     // Load custom materials
@@ -151,13 +151,13 @@ bool TestScene::LoadResources()
         Engine::CRI("Red"),
         DefineColorMaterial({1,0,0,1}),
         Engine::ResultWhen::Ready).get();
-    if (m_solidRedMaterialId == Render::INVALID_ID) { return false; }
+    if (!m_solidRedMaterialId.IsValid()) { return false; }
 
     m_solidWhiteMaterialId = engine->GetWorldResources()->Materials()->LoadObjectMaterial(
         Engine::CRI("White"),
         DefineColorMaterial({1,1,1,1}),
         Engine::ResultWhen::Ready).get();
-    if (m_solidWhiteMaterialId == Render::INVALID_ID) { return false; }
+    if (!m_solidWhiteMaterialId.IsValid()) { return false; }
 
     Engine::ObjectMaterialProperties terrainMaterial{};
     terrainMaterial.isAffectedByLighting = true;
@@ -171,7 +171,7 @@ bool TestScene::LoadResources()
         Engine::CRI("Terrain"),
         terrainMaterial,
         Engine::ResultWhen::Ready).get();
-    if (m_terrainMaterialId == Render::INVALID_ID) { return false; }
+    if (!m_terrainMaterialId.IsValid()) { return false; }
 
     return true;
 }

@@ -8,7 +8,7 @@
 #define LIBACCELARENDERERVK_SRC_RENDERER_TERRAINRENDERER_H
 
 #include "Renderer.h"
-#include "RenderState.h"
+#include "BindState.h"
 
 #include "../Mesh/LoadedMesh.h"
 #include "../Material/LoadedMaterial.h"
@@ -96,7 +96,7 @@ namespace Accela::Render
 
             [[nodiscard]] std::expected<TerrainBatch, bool> CreateTerrainBatch(const TerrainRenderable& terrainRenderable) const;
 
-            void RenderBatch(RenderState& renderState,
+            void RenderBatch(BindState& bindState,
                              const TerrainBatch& terrainBatch,
                              const RenderParams& renderParams,
                              const VulkanCommandBufferPtr& commandBuffer,
@@ -104,7 +104,7 @@ namespace Accela::Render
                              const VulkanFramebufferPtr& framebuffer,
                              const std::vector<ViewProjection>& viewProjections);
 
-            [[nodiscard]] bool BindPipeline(RenderState& renderState,
+            [[nodiscard]] bool BindPipeline(BindState& bindState,
                                             const VulkanCommandBufferPtr& commandBuffer,
                                             const VulkanRenderPassPtr& renderPass,
                                             const VulkanFramebufferPtr& framebuffer);
@@ -116,50 +116,50 @@ namespace Accela::Render
             //
             // Descriptor Set 0 - Global Data
             //
-            [[nodiscard]] bool BindDescriptorSet0(RenderState& renderState,
+            [[nodiscard]] bool BindDescriptorSet0(BindState& bindState,
                                                   const RenderParams& renderParams,
                                                   const VulkanCommandBufferPtr& commandBuffer,
                                                   const std::vector<ViewProjection>& viewProjections) const;
 
-            [[nodiscard]] bool BindDescriptorSet0_Global(const RenderState& renderState,
+            [[nodiscard]] bool BindDescriptorSet0_Global(const BindState& bindState,
                                                          const RenderParams& renderParams,
                                                          const VulkanDescriptorSetPtr& globalDataDescriptorSet) const;
 
-            [[nodiscard]] bool BindDescriptorSet0_ViewProjection(const RenderState& renderState,
+            [[nodiscard]] bool BindDescriptorSet0_ViewProjection(const BindState& bindState,
                                                                  const VulkanDescriptorSetPtr& globalDataDescriptorSet,
                                                                  const std::vector<ViewProjection>& viewProjections) const;
 
             //
             // Descriptor Set 1 - Renderer Data
             //
-            [[nodiscard]] bool BindDescriptorSet1(RenderState& renderState,
+            [[nodiscard]] bool BindDescriptorSet1(BindState& bindState,
                                                   const VulkanCommandBufferPtr& commandBuffer) const;
 
             //
             // Descriptor Set 2 - Material Data
             //
-            [[nodiscard]] bool BindDescriptorSet2(RenderState& renderState,
+            [[nodiscard]] bool BindDescriptorSet2(BindState& bindState,
                                                   const TerrainBatch& terrainBatch,
                                                   const VulkanCommandBufferPtr& commandBuffer) const;
 
             //
             // Descriptor Set 3 - Draw Data
             //
-            [[nodiscard]] bool BindDescriptorSet3(RenderState& renderState,
+            [[nodiscard]] bool BindDescriptorSet3(BindState& bindState,
                                                   const TerrainBatch& terrainBatch,
                                                   const VulkanCommandBufferPtr& commandBuffer) const;
-            [[nodiscard]] bool BindDescriptorSet3_DrawData(RenderState& renderState,
+            [[nodiscard]] bool BindDescriptorSet3_DrawData(BindState& bindState,
                                                            const TerrainBatch& terrainBatch,
                                                            const VulkanDescriptorSetPtr& drawDescriptorSet) const;
 
             //
             // Vertex/Index buffers
             //
-            static void BindVertexBuffer(RenderState& renderState,
+            static void BindVertexBuffer(BindState& bindState,
                                          const VulkanCommandBufferPtr& commandBuffer,
                                          const BufferPtr& vertexBuffer);
 
-            static void BindIndexBuffer(RenderState& renderState,
+            static void BindIndexBuffer(BindState& bindState,
                                         const VulkanCommandBufferPtr& commandBuffer,
                                         const BufferPtr& indexBuffer);
 

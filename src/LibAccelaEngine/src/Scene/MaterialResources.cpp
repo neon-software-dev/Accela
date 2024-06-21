@@ -70,7 +70,7 @@ Render::MaterialId MaterialResources::OnLoadObjectMaterial(const CustomResourceI
     {
         m_logger->Log(Common::LogLevel::Error,
           "MaterialResources::OnLoadObjectMaterial: Failed to create render material: {}", resource.GetUniqueName());
-        return Render::INVALID_ID;
+        return Render::MaterialId::Invalid();
     }
 
     //
@@ -86,7 +86,7 @@ Render::MaterialId MaterialResources::OnLoadObjectMaterial(const CustomResourceI
         m_renderer->GetIds()->materialIds.ReturnId((*renderMaterial)->materialId);
         m_materials.erase(resource);
 
-        return {Render::INVALID_ID};
+        return Render::MaterialId::Invalid();
     }
 
     //

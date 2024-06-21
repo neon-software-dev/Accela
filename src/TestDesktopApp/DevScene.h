@@ -102,7 +102,7 @@ namespace Accela
         private:
 
             bool m_freeFlyCamera{false};
-            float m_cameraTranslationSpeed{0.05f};
+            float m_cameraTranslationSpeed{0.20f};
 
             Engine::EntityId m_lightEid{0};
             Engine::EntityId m_terrainEid{0};

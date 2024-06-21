@@ -40,14 +40,19 @@ namespace Accela::Render
             [[nodiscard]] VkDevice GetVkDevice() const noexcept{ return m_vkDevice; }
 
             /**
-             * @return The device's graphics VkQueue
+             * @return A graphics-capable queue
              */
             [[nodiscard]] VkQueue GetVkGraphicsQueue() const noexcept { return m_vkGraphicsQueue; }
 
             /**
-             * @return The device's presentation VkQueue
+             * @return A presentation-capable queue
              */
             [[nodiscard]] VkQueue GetVkPresentQueue() const noexcept { return m_vkPresentQueue; }
+
+            /**
+            * @return A compute-capable queue. (May or may not be the same queue as GetVkGraphicsQueue())
+            */
+            [[nodiscard]] VkQueue GetVkComputeQueue() const noexcept { return m_vkComputeQueue; }
 
             /**
              * Destroy the device + queues
@@ -63,6 +68,7 @@ namespace Accela::Render
             VkDevice m_vkDevice{VK_NULL_HANDLE};
             VkQueue m_vkGraphicsQueue{VK_NULL_HANDLE};
             VkQueue m_vkPresentQueue{VK_NULL_HANDLE};
+            VkQueue m_vkComputeQueue{VK_NULL_HANDLE};
     };
 }
 

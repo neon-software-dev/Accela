@@ -54,19 +54,34 @@ bool FrameState::Initialize(const RenderSettings&)
     }
 
     //
-    // Graphics Command Buffer
+    // Render Command Buffer
     //
-    const auto graphicsCommandBufferOpt = m_graphicsCommandPool->AllocateCommandBuffer(
+    const auto renderCommandBufferOpt = m_graphicsCommandPool->AllocateCommandBuffer(
         VulkanCommandPool::CommandBufferType::Primary,
-        std::format("Graphics-Frame{}", m_frameIndex)
+        std::format("Render-Frame{}", m_frameIndex)
     );
-    if (!graphicsCommandBufferOpt)
+    if (!renderCommandBufferOpt)
     {
         m_logger->Log(Common::LogLevel::Fatal,
-          "FrameState: Failed to create graphics command buffer for frame: {}", m_frameIndex);
+          "FrameState: Failed to create render command buffer for frame: {}", m_frameIndex);
         return false;
     }
-    m_graphicsCommandBuffer = graphicsCommandBufferOpt.value();
+    m_renderCommandBuffer = renderCommandBufferOpt.value();
+
+    //
+    // Swap Chain Blit Command Buffer
+    //
+    const auto swapChainBlitCommandBufferOpt = m_graphicsCommandPool->AllocateCommandBuffer(
+        VulkanCommandPool::CommandBufferType::Primary,
+        std::format("SwapChainBlit-Frame{}", m_frameIndex)
+    );
+    if (!swapChainBlitCommandBufferOpt)
+    {
+        m_logger->Log(Common::LogLevel::Fatal,
+          "FrameState: Failed to create swap chain blit command buffer for frame: {}", m_frameIndex);
+        return false;
+    }
+    m_swapChainBlitCommandBuffer = swapChainBlitCommandBufferOpt.value();
 
     //
     // Image Available Semaphore
@@ -102,7 +117,24 @@ bool FrameState::Initialize(const RenderSettings&)
         m_vulkanObjs->GetDevice(),
         VK_OBJECT_TYPE_SEMAPHORE,
         (uint64_t)m_renderFinishedSemaphore,
-        std::format("Semaphore-RenderAvailable-Frame{}", m_frameIndex)
+        std::format("Semaphore-RenderFinished-Frame{}", m_frameIndex)
+    );
+
+    //
+    // Swap Chain Blit Finished Semaphore
+    //
+    m_vulkanObjs->GetCalls()->vkCreateSemaphore(
+        m_vulkanObjs->GetDevice()->GetVkDevice(),
+        &semaphoreInfo,
+        nullptr,
+        &m_swapChainBlitFinishedSemaphore
+    );
+    SetDebugName(
+        m_vulkanObjs->GetCalls(),
+        m_vulkanObjs->GetDevice(),
+        VK_OBJECT_TYPE_SEMAPHORE,
+        (uint64_t)m_swapChainBlitFinishedSemaphore,
+        std::format("Semaphore-SwapChainBlitFinished-Frame{}", m_frameIndex)
     );
 
     //
@@ -165,6 +197,22 @@ void FrameState::Destroy()
         m_renderFinishedSemaphore = VK_NULL_HANDLE;
     }
 
+    if (m_swapChainBlitFinishedSemaphore != VK_NULL_HANDLE)
+    {
+        RemoveDebugName(
+            m_vulkanObjs->GetCalls(),
+            m_vulkanObjs->GetDevice(),
+            VK_OBJECT_TYPE_SEMAPHORE,
+            (uint64_t)m_swapChainBlitFinishedSemaphore
+        );
+        m_vulkanObjs->GetCalls()->vkDestroySemaphore(
+            m_vulkanObjs->GetDevice()->GetVkDevice(),
+            m_swapChainBlitFinishedSemaphore,
+            nullptr
+        );
+        m_swapChainBlitFinishedSemaphore = VK_NULL_HANDLE;
+    }
+
     if (m_imageAvailableSemaphore != VK_NULL_HANDLE)
     {
         RemoveDebugName(
@@ -181,10 +229,16 @@ void FrameState::Destroy()
         m_imageAvailableSemaphore = VK_NULL_HANDLE;
     }
 
-    if (m_graphicsCommandBuffer != nullptr)
+    if (m_renderCommandBuffer != nullptr)
     {
-        m_graphicsCommandPool->FreeCommandBuffer(m_graphicsCommandBuffer);
-        m_graphicsCommandBuffer = nullptr;
+        m_graphicsCommandPool->FreeCommandBuffer(m_renderCommandBuffer);
+        m_renderCommandBuffer = nullptr;
+    }
+
+    if (m_swapChainBlitCommandBuffer != nullptr)
+    {
+        m_graphicsCommandPool->FreeCommandBuffer(m_swapChainBlitCommandBuffer);
+        m_swapChainBlitCommandBuffer = nullptr;
     }
 
     if (m_graphicsCommandPool != nullptr)

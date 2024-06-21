@@ -29,6 +29,7 @@
 #include <format>
 #include <cstddef>
 #include <array>
+#include <algorithm>
 
 namespace Accela::Render
 {
@@ -142,9 +143,16 @@ bool Textures::CreateTextureFilled(const Texture& texture,
 
     if (generateMipMapsRequested)
     {
+        if (!texture.format)
+        {
+            m_logger->Log(Common::LogLevel::Error,
+              "CreateTextureFilled: Mipmaps requested for texture with no format provided: {}", texture.id.id);
+            return false;
+        }
+
         mipLevels = *texture.numMipLevels;
 
-        const auto vkFormat = VulkanFuncs::ImageDataFormatToVkFormat((*texture.data)->GetPixelFormat());
+        const auto vkFormat = VulkanFuncs::TextureFormatToVkFormat(*texture.format);
         if (vkFormat)
         {
             const bool deviceSupportsMipMaps = DoesDeviceSupportMipMapGeneration(*vkFormat);
@@ -211,7 +219,7 @@ std::expected<LoadedTexture, bool> Textures::CreateTextureObjects(const Texture&
     const auto vkFormat = GetTextureImageFormat(texture);
     if (!vkFormat)
     {
-        m_logger->Log(Common::LogLevel::Error, "CreateTextureObjects: Unable to determine texture image format");
+        m_logger->Log(Common::LogLevel::Error, "CreateTextureObjects: Failed to determine image format");
         return std::unexpected(false);
     }
 
@@ -271,30 +279,32 @@ bool Textures::CreateTextureImage(LoadedTexture& loadedTexture, const Texture& t
     //
     VkImageUsageFlags vkImageUsageFlags{0};
 
-    switch (texture.usage)
+    for (const auto usage : texture.usages)
     {
-        case TextureUsage::ImageMaterial:
-        case TextureUsage::ImageCubeMaterial:
-            vkImageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT;
-        break;
-        case TextureUsage::ColorAttachment:
-            vkImageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT |
-                                VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
-                                VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-                                VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
-        break;
-        case TextureUsage::InputAttachment_RGBA16_SFLOAT:
-        case TextureUsage::InputAttachment_R32_UINT:
-            vkImageUsageFlags = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
-                                VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
-        break;
-        case TextureUsage::DepthAttachment:
-        case TextureUsage::DepthCubeAttachment:
-            vkImageUsageFlags = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
-                                VK_IMAGE_USAGE_SAMPLED_BIT;
-        break;
+        switch (usage)
+        {
+            case TextureUsage::Sampled:
+                vkImageUsageFlags = vkImageUsageFlags | VK_IMAGE_USAGE_SAMPLED_BIT;
+            break;
+            case TextureUsage::InputAttachment:
+                vkImageUsageFlags = vkImageUsageFlags | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+            break;
+            case TextureUsage::ColorAttachment:
+                vkImageUsageFlags = vkImageUsageFlags | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+            break;
+            case TextureUsage::DepthStencilAttachment:
+                vkImageUsageFlags = vkImageUsageFlags | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+            break;
+            case TextureUsage::TransferSource:
+                vkImageUsageFlags = vkImageUsageFlags | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+            break;
+            case TextureUsage::Storage:
+                vkImageUsageFlags = vkImageUsageFlags | VK_IMAGE_USAGE_STORAGE_BIT;
+            break;
+        }
     }
 
+    // TODO: Not all textures need to have data transferred to them
     vkImageUsageFlags |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
     // If we're generating mipmaps, mark the image as a transfer source as
@@ -309,9 +319,15 @@ bool Textures::CreateTextureImage(LoadedTexture& loadedTexture, const Texture& t
     //
     VkImageCreateFlags vkImageCreateFlags{0};
 
-    if (texture.usage == TextureUsage::ImageCubeMaterial ||
-        texture.usage == TextureUsage::DepthCubeAttachment)
+    if (texture.cubicTexture)
     {
+        if (texture.numLayers != 6)
+        {
+            m_logger->Log(Common::LogLevel::Error,
+              "CreateTextureImage: Specified as cubic texture but doesn't have six layers: {}", texture.id.id);
+            return false;
+        }
+
         vkImageCreateFlags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
     }
 
@@ -516,40 +532,25 @@ void Textures::DestroyTextureObjects(const LoadedTexture& texture) const
 
 std::expected<VkFormat, bool> Textures::GetTextureImageFormat(const Texture& texture)
 {
-    std::optional<VkFormat> vkFormat;
-
-    if (texture.data.has_value())
+    // We provide texture format for depth-usage textures, from device capabilities
+    if (std::ranges::contains(texture.usages, TextureUsage::DepthStencilAttachment))
     {
-        vkFormat = VulkanFuncs::ImageDataFormatToVkFormat((*texture.data)->GetPixelFormat());
+        return m_vulkanObjs->GetPhysicalDevice()->GetDepthBufferFormat();
     }
 
-    if (!vkFormat)
+    // Otherwise, get the format as specified by the texture itself
+    if (!texture.format.has_value())
     {
-        switch (texture.usage)
-        {
-            case TextureUsage::ColorAttachment:
-                vkFormat = VK_FORMAT_R8G8B8A8_SRGB;
-            break;
-            case TextureUsage::DepthAttachment:
-            case TextureUsage::DepthCubeAttachment:
-                vkFormat = m_vulkanObjs->GetPhysicalDevice()->GetDepthBufferFormat();
-            break;
-            case TextureUsage::InputAttachment_RGBA16_SFLOAT:
-                vkFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
-            break;
-            case TextureUsage::InputAttachment_R32_UINT:
-                vkFormat = VK_FORMAT_R32_UINT;
-            break;
-            case TextureUsage::ImageMaterial:
-            case TextureUsage::ImageCubeMaterial:
-                assert(false);
-            break;
-        }
+        m_logger->Log(Common::LogLevel::Error,
+          "Textures::GetTextureImageFormat: Non-depth texture doesn't have a format provided: {}", texture.tag);
+        return std::unexpected(false);
     }
 
-    if (!vkFormat)
+    const auto vkFormat = VulkanFuncs::TextureFormatToVkFormat(*texture.format);
+    if (!vkFormat.has_value())
     {
-        m_logger->Log(Common::LogLevel::Error, "GetTextureImageFormat: Unsupported texture format");
+        m_logger->Log(Common::LogLevel::Error,
+          "Textures::GetTextureImageFormat: Non-depth texture has an unsupported format: {}", texture.tag);
         return std::unexpected(false);
     }
 
@@ -781,7 +782,15 @@ bool Textures::CreateMissingTexture()
     );
 
     const auto missingTextureId = m_ids->textureIds.GetId();
-    const auto missingTexture = Texture::FromImageData(missingTextureId, TextureUsage::ImageMaterial, 1, missingTextureImage, "Missing");
+    const auto missingTexture = Texture::FromImageData(
+        missingTextureId,
+        {TextureUsage::Sampled},
+        TextureFormat::R8G8B8A8_SRGB,
+        1,
+        false,
+        missingTextureImage,
+        "Missing"
+    );
     const auto missingTextureView = TextureView::ViewAs2D(TextureView::DEFAULT, TextureView::Aspect::ASPECT_COLOR_BIT);
 
     //
@@ -804,7 +813,15 @@ bool Textures::CreateMissingTexture()
     );
 
     const auto missingTextureCubeId = m_ids->textureIds.GetId();
-    const auto missingTextureCube = Texture::FromImageData(missingTextureCubeId, TextureUsage::ImageCubeMaterial, 6, missingTextureCubeImage, "MissingCube");
+    const auto missingTextureCube = Texture::FromImageData(
+        missingTextureCubeId,
+        {TextureUsage::Sampled},
+        TextureFormat::R8G8B8A8_SRGB,
+        6,
+        true,
+        missingTextureCubeImage,
+        "MissingCube"
+    );
     const auto missingTextureCubeView = TextureView::ViewAsCube(TextureView::DEFAULT, TextureView::Aspect::ASPECT_COLOR_BIT);
 
     const auto textureSampler = TextureSampler(WRAP_ADDRESS_MODE);

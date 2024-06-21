@@ -24,7 +24,7 @@ VulkanPipeline::VulkanPipeline(Common::ILogger::Ptr logger, IVulkanCallsPtr vk, 
 
 }
 
-bool VulkanPipeline::Create(const PipelineConfig& config)
+bool VulkanPipeline::Create(const GraphicsPipelineConfig& config)
 {
     //
     // Configure shader stages
@@ -376,7 +376,97 @@ bool VulkanPipeline::Create(const PipelineConfig& config)
         return false;
     }
 
-    m_config = config;
+    m_type = PipelineType::Graphics;
+    m_uniqueKey = config.GetUniqueKey();
+
+    return true;
+}
+
+bool VulkanPipeline::Create(const ComputePipelineConfig& config)
+{
+    //
+    // Configure shader stages
+    //
+    std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
+
+    if (config.computeShaderFileName.empty())
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "Pipeline creation failure: Compute shader name is empty: {}", config.computeShaderFileName);
+        return false;
+    }
+
+    const auto shaderModuleOpt = m_shaders->GetShaderModule(config.computeShaderFileName);
+    if (!shaderModuleOpt)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "Pipeline creation failure: No such shader module: {}", config.computeShaderFileName);
+        return false;
+    }
+
+    VkPipelineShaderStageCreateInfo shaderStageInfo{};
+    shaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    shaderStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    shaderStageInfo.module = (*shaderModuleOpt)->GetVkShaderModule();
+    shaderStageInfo.pName = "main";
+
+    shaderStages.push_back(shaderStageInfo);
+
+    //
+    // Configure pipeline layout - vertex inputs, push constants, descriptor sets
+    //
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.setLayoutCount = 0; // Optional
+    pipelineLayoutInfo.pSetLayouts = nullptr; // Optional
+
+    // Push constants
+    if (config.vkPushConstantRanges.has_value())
+    {
+        pipelineLayoutInfo.pushConstantRangeCount = config.vkPushConstantRanges->size();
+        pipelineLayoutInfo.pPushConstantRanges = config.vkPushConstantRanges->data();
+    }
+    else
+    {
+        pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
+        pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
+    }
+
+    // Descriptor sets
+    if (config.vkDescriptorSetLayouts.has_value())
+    {
+        pipelineLayoutInfo.setLayoutCount = config.vkDescriptorSetLayouts->size();
+        pipelineLayoutInfo.pSetLayouts = config.vkDescriptorSetLayouts->data();
+    }
+
+    auto result = m_vk->vkCreatePipelineLayout(m_device->GetVkDevice(), &pipelineLayoutInfo, nullptr, &m_vkPipelineLayout);
+    if (result != VK_SUCCESS)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "Pipeline creation failure: vkCreatePipelineLayout failed, result code: {}", (uint32_t)result);
+        return false;
+    }
+
+    //
+    // Create the pipeline
+    //
+    VkComputePipelineCreateInfo pipelineInfo{};
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    pipelineInfo.layout = m_vkPipelineLayout;
+    pipelineInfo.stage = shaderStages[0];
+    pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
+    pipelineInfo.basePipelineIndex = -1; // Optional
+
+    result = m_vk->vkCreateComputePipelines(m_device->GetVkDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_vkPipeline);
+    if (result != VK_SUCCESS)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "vkCreateComputePipelines call failure, result code: {}", (uint32_t)result);
+        return false;
+    }
+
+    m_type = PipelineType::Compute;
+    m_uniqueKey = config.GetUniqueKey();
 
     return true;
 }
@@ -394,6 +484,18 @@ void VulkanPipeline::Destroy()
         m_vk->vkDestroyPipelineLayout(m_device->GetVkDevice(), m_vkPipelineLayout, nullptr);
         m_vkPipelineLayout = VK_NULL_HANDLE;
     }
+}
+
+VkPipelineBindPoint VulkanPipeline::GetPipelineBindPoint() const noexcept
+{
+    switch (m_type)
+    {
+        case PipelineType::Graphics: return VK_PIPELINE_BIND_POINT_GRAPHICS;
+        case PipelineType::Compute: return VK_PIPELINE_BIND_POINT_COMPUTE;
+    }
+
+    assert(false);
+    return VK_PIPELINE_BIND_POINT_GRAPHICS;
 }
 
 }

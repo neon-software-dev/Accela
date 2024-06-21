@@ -106,7 +106,6 @@ float MapRange(float val, float min1, float max1, float min2, float max2)
 
 //
 // INPUTS
-// TODO Perf: Can get away with 3 component position+normal attachments rather than 4 component
 layout(input_attachment_index = 0, set = 1, binding = 0) uniform subpassInput i_vertexPosition_worldSpace;
 layout(input_attachment_index = 1, set = 1, binding = 1) uniform subpassInput i_vertexNormal_viewSpace;
 layout(input_attachment_index = 2, set = 1, binding = 2) uniform usubpassInput i_vertexMaterial;
@@ -138,6 +137,11 @@ layout(set = 2, binding = 0) readonly buffer MaterialPayloadBuffer
 {
     MaterialPayload data[];
 } i_materialData;
+
+layout(push_constant) uniform constants
+{
+    bool hdr;
+} PushConstants;
 
 //
 // OUTPUTS
@@ -172,9 +176,12 @@ void main()
     vec4 surfaceColor = ambientColor + diffuseColor + specularColor;
 
     //
-    // Clamp the brighest color between pure dark and pure bright
+    // If not doing HDR, clamp the brighest color between pure dark and pure bright
     //
-    surfaceColor = clamp(surfaceColor, vec4(0, 0, 0, 0), vec4(1, 1, 1, 1));
+    if (!PushConstants.hdr)
+    {
+        surfaceColor = clamp(surfaceColor, vec4(0, 0, 0, 0), vec4(1, 1, 1, 1));
+    }
 
     o_fragColor = surfaceColor;
 }
@@ -310,10 +317,13 @@ CalculatedLight CalculateFragmentLighting(MaterialPayload fragmentMaterial)
         }
     }
 
-    // Clamp RGB values to full intensity if there's too much light
-    light.ambientLight = clamp(light.ambientLight, vec3(0, 0, 0), vec3(1, 1, 1));
-    light.diffuseLight = clamp(light.diffuseLight, vec3(0, 0, 0), vec3(1, 1, 1));
-    light.specularLight = clamp(light.specularLight, vec3(0, 0, 0), vec3(1, 1, 1));
+    // If not in HDR mode, Clamp RGB values to full intensity if there's too much light
+    if (!PushConstants.hdr)
+    {
+        light.ambientLight = clamp(light.ambientLight, vec3(0, 0, 0), vec3(1, 1, 1));
+        light.diffuseLight = clamp(light.diffuseLight, vec3(0, 0, 0), vec3(1, 1, 1));
+        light.specularLight = clamp(light.specularLight, vec3(0, 0, 0), vec3(1, 1, 1));
+    }
 
     return light;
 }
@@ -379,21 +389,9 @@ float GetFragShadowLevel_Cube(LightPayload lightData, vec3 fragPosition_worldSpa
     // Vector from the light to the fragment, used when sampling the light's shadow cube map
     vec3 lightToFrag_worldSpace = fragPosition_worldSpace - lightData.worldPos;
 
-    // Correct for cube map coordinate system and sampling rules differing from our internal coordinate system
-    const float xAbs = abs(lightToFrag_worldSpace.x);
-    const float yAbs = abs(lightToFrag_worldSpace.y);
-    const float zAbs = abs(lightToFrag_worldSpace.z);
+    // Convert to cube-map left-handed coordinate system with swapped z-axis
+    lightToFrag_worldSpace.z *= -1.0f;
 
-    if (zAbs >= xAbs && zAbs >= yAbs)
-    {
-        lightToFrag_worldSpace.x = -lightToFrag_worldSpace.x;
-    }
-    else
-    {
-        lightToFrag_worldSpace.z = -lightToFrag_worldSpace.z;
-    }
-
-    // PCF filter
     const vec3 sampleOffsetDirections[20] = vec3[]
     (
         vec3(1, 1, 1), vec3(1, -1, 1), vec3(-1, -1, 1), vec3(-1, 1, 1),

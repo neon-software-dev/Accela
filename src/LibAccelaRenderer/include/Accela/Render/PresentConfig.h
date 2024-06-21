@@ -17,8 +17,8 @@ namespace Accela::Render
     struct PresentConfig
     {
         // The color the window should be cleared to before a texture is blitted
-        // to it for display. Note that this is different than the clear color that's
-        // used when scenes are rendered.
+        // to it for display. Note that this is different from the clear color
+        // that's used when scenes are rendered.
         glm::vec4 clearColor{0,0,0,1};
     };
 }

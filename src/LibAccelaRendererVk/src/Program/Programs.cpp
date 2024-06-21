@@ -66,20 +66,24 @@ bool Programs::CreateProgram(const std::string& programName, const std::vector<s
         return false;
     }
 
+    // May be empty/null for compute programs
+    std::vector<VkVertexInputAttributeDescription> vertexInputAttributeDescriptions;
+    std::optional<VkVertexInputBindingDescription> vertexInputBindingDescription;
+
     const auto vertexInputDescriptions = GenerateVertexInputDescriptions(*shaderModulesOpt);
-    if (!vertexInputDescriptions.has_value())
+    if (vertexInputDescriptions.has_value())
     {
-        m_logger->Log(Common::LogLevel::Error,
-          "CreateProgram: Unable to process program as input descriptions couldn't be created: {}", programName);
-        return false;
+        vertexInputAttributeDescriptions = vertexInputDescriptions->first;
+        vertexInputBindingDescription = vertexInputDescriptions->second;
     }
 
     const auto programDef = std::make_shared<ProgramDef>(
         programName,
         shaders,
         *descriptorSetLayoutsOpt,
-        vertexInputDescriptions->first,
-        vertexInputDescriptions->second);
+        vertexInputAttributeDescriptions,
+        vertexInputBindingDescription
+    );
 
     m_programDefs.insert(std::make_pair(programName, programDef));
 

@@ -42,7 +42,7 @@ void DevScene::ConfigureScene()
     engine->SyncAudioListenerToWorldCamera(Engine::DEFAULT_SCENE, true);
 
     // Configure ambient lighting levels
-    engine->GetWorldState()->SetAmbientLighting(Engine::DEFAULT_SCENE, 0.1f, glm::vec3(1));
+    engine->GetWorldState()->SetAmbientLighting(Engine::DEFAULT_SCENE, 0.02f, glm::vec3(1));
 
     // Display a skybox
     engine->GetWorldState()->SetSkyBox(Engine::DEFAULT_SCENE, m_skyBoxTextureId);
@@ -81,7 +81,7 @@ void DevScene::CreateSceneEntities()
 
     CreateTreeEntity(0, {5,0,-2});
 
-    //CreateForest(m_terrainEid, 100);
+    CreateForest(m_terrainEid, 100);
 }
 
 bool DevScene::LoadResources()
@@ -111,14 +111,14 @@ bool DevScene::LoadResources()
         Engine::PRI("TestDesktopApp", "skybox_back.jpg"),
     };
     m_skyBoxTextureId = engine->GetWorldResources()->Textures()->LoadPackageCubeTexture(skyBoxResources, {}, "skybox", Engine::ResultWhen::Ready).get();
-    if (m_skyBoxTextureId == Render::INVALID_ID) { return false; }
+    if (!m_skyBoxTextureId.IsValid()) { return false; }
 
     const auto heightMapTextureId = engine->GetWorldResources()->Textures()->LoadPackageTexture(
         Engine::PRI("TestDesktopApp", "rolling_hills_heightmap.png"),
         { .numMipLevels = 1 },
         Engine::ResultWhen::Ready
     ).get();
-    if (heightMapTextureId == Render::INVALID_ID) { return false; }
+    if (!heightMapTextureId.IsValid()) { return false; }
 
     const auto forestFloorTextureId = engine->GetWorldResources()->Textures()->LoadPackageTexture(
         Engine::PRI("TestDesktopApp", "forest_ground.jpg"),
@@ -127,21 +127,21 @@ bool DevScene::LoadResources()
         },
         Engine::ResultWhen::Ready
     ).get();
-    if (forestFloorTextureId == Render::INVALID_ID) { return false; }
+    if (!forestFloorTextureId.IsValid()) { return false; }
 
     const auto barkTextureId = engine->GetWorldResources()->Textures()->LoadPackageTexture(
         Engine::PRI("TestDesktopApp", "bark.png"),
         { },
         Engine::ResultWhen::Ready
     ).get();
-    if (barkTextureId == Render::INVALID_ID) { return false; }
+    if (!barkTextureId.IsValid()) { return false; }
 
     const auto ashTextureId = engine->GetWorldResources()->Textures()->LoadPackageTexture(
         Engine::PRI("TestDesktopApp", "ash.png"),
         { .numMipLevels = 4 },
         Engine::ResultWhen::Ready
     ).get();
-    if (ashTextureId == Render::INVALID_ID) { return false; }
+    if (!ashTextureId.IsValid()) { return false; }
 
     //
     // Load custom meshes
@@ -152,7 +152,7 @@ bool DevScene::LoadResources()
         CubeIndices,
         Render::MeshUsage::Immutable,
         Engine::ResultWhen::Ready).get();
-    if (m_cubeMeshId == Render::INVALID_ID) { return false; }
+    if (!m_cubeMeshId.IsValid()) { return false; }
 
     m_sphereMeshId = engine->GetWorldResources()->Meshes()->LoadStaticMesh(
         Engine::CRI("Sphere"),
@@ -160,7 +160,7 @@ bool DevScene::LoadResources()
         CreateSphereMeshIndices(),
         Render::MeshUsage::Immutable,
         Engine::ResultWhen::Ready).get();
-    if (m_sphereMeshId == Render::INVALID_ID) { return false; }
+    if (!m_sphereMeshId.IsValid()) { return false; }
 
     m_terrainHeightMapMeshId = engine->GetWorldResources()->Meshes()->LoadHeightMapMesh(
         Engine::CRI("TerrainHeightMap"),
@@ -171,7 +171,7 @@ bool DevScene::LoadResources()
         1.0f, // Repeat the material texture every 1 unit in world space
         Render::MeshUsage::Immutable,
         Engine::ResultWhen::Ready).get();
-    if (m_terrainHeightMapMeshId == Render::INVALID_ID) { return false; }
+    if (!m_terrainHeightMapMeshId.IsValid()) { return false; }
 
     //
     // Load custom materials
@@ -180,13 +180,13 @@ bool DevScene::LoadResources()
         Engine::CRI("Red"),
         DefineColorMaterial({1,0,0,1}),
         Engine::ResultWhen::Ready).get();
-    if (m_solidRedMaterialId == Render::INVALID_ID) { return false; }
+    if (!m_solidRedMaterialId.IsValid()) { return false; }
 
     m_solidWhiteMaterialId = engine->GetWorldResources()->Materials()->LoadObjectMaterial(
         Engine::CRI("White"),
         DefineColorMaterial({1,1,1,1}),
         Engine::ResultWhen::Ready).get();
-    if (m_solidWhiteMaterialId == Render::INVALID_ID) { return false; }
+    if (!m_solidWhiteMaterialId.IsValid()) { return false; }
 
     const glm::vec4 barkColor{ 0.835f, 0.615f, 0.388f, 1.0f};
 
@@ -202,7 +202,7 @@ bool DevScene::LoadResources()
         Engine::CRI("Bark"),
         barkMaterial,
         Engine::ResultWhen::Ready).get();
-    if (m_barkMaterialId == Render::INVALID_ID) { return false; }
+    if (!m_barkMaterialId.IsValid()) { return false; }
 
     Engine::ObjectMaterialProperties leafMaterial{};
     leafMaterial.isAffectedByLighting = true;
@@ -219,7 +219,7 @@ bool DevScene::LoadResources()
         Engine::CRI("Leaf"),
         leafMaterial,
         Engine::ResultWhen::Ready).get();
-    if (m_leafMaterialId == Render::INVALID_ID) { return false; }
+    if (!m_leafMaterialId.IsValid()) { return false; }
 
     Engine::ObjectMaterialProperties terrainMaterial{};
     terrainMaterial.isAffectedByLighting = true;
@@ -233,7 +233,7 @@ bool DevScene::LoadResources()
         Engine::CRI("Terrain"),
         terrainMaterial,
         Engine::ResultWhen::Ready).get();
-    if (m_terrainMaterialId == Render::INVALID_ID) { return false; }
+    if (!m_terrainMaterialId.IsValid()) { return false; }
 
     return true;
 }
@@ -252,7 +252,7 @@ Engine::ObjectMaterialProperties DevScene::DefineColorMaterial(const glm::vec4& 
 void DevScene::CreatePointLight(const glm::vec3& position, bool drawEntity)
 {
     auto lightProperties = Render::LightProperties{};
-    lightProperties.attenuationMode = Render::AttenuationMode::None;
+    lightProperties.attenuationMode = Render::AttenuationMode::Linear;
     lightProperties.diffuseColor = glm::vec3(1,1,1);
     lightProperties.diffuseIntensity = glm::vec3(1,1,1);
     lightProperties.specularColor = glm::vec3(1,1,1);
@@ -266,7 +266,7 @@ void DevScene::CreatePointLight(const glm::vec3& position, bool drawEntity)
 void DevScene::CreateSpotLight(const glm::vec3& position, bool drawEntity)
 {
     auto lightProperties = Render::LightProperties{};
-    lightProperties.attenuationMode = Render::AttenuationMode::None;
+    lightProperties.attenuationMode = Render::AttenuationMode::Linear;
     lightProperties.diffuseColor = glm::vec3(1,1,1);
     lightProperties.diffuseIntensity = glm::vec3(1,1,1);
     lightProperties.specularColor = glm::vec3(1,1,1);
@@ -428,7 +428,7 @@ void DevScene::CreateTreeEntity(unsigned int id, const glm::vec3& pos, Engine::S
         treeMesh.branchesMesh->indices,
         Render::MeshUsage::Immutable,
         Engine::ResultWhen::Ready).get();
-    if (branchesMeshId == Render::INVALID_ID) { return; }
+    if (!branchesMeshId.IsValid()) { return; }
 
     auto leavesMeshId = engine->GetWorldResources()->Meshes()->LoadStaticMesh(
         Engine::CRI(std::format("Leaves-{}", id)),
@@ -436,7 +436,7 @@ void DevScene::CreateTreeEntity(unsigned int id, const glm::vec3& pos, Engine::S
         treeMesh.leavesMesh->indices,
         Render::MeshUsage::Immutable,
         Engine::ResultWhen::Ready).get();
-    if (leavesMeshId == Render::INVALID_ID) { return; }
+    if (!leavesMeshId.IsValid()) { return; }
 
     {
         const auto eid = engine->GetWorldState()->CreateEntity();
@@ -873,6 +873,25 @@ void DevScene::HandleSetCommand(const std::vector<std::string>& tokens)
         if (tokens.size() != 3) { return; }
         if (v == "0") { renderSettings.objectsWireframe = false; }
         if (v == "1") { renderSettings.objectsWireframe = true; }
+        engine->SetRenderSettings(renderSettings);
+    }
+    else if (k == "rs.hdr")
+    {
+        if (tokens.size() != 3) { return; }
+        if (v == "0") { renderSettings.hdr = false; }
+        if (v == "1") { renderSettings.hdr = true; }
+        engine->SetRenderSettings(renderSettings);
+    }
+    else if (k == "rs.exposure")
+    {
+        if (tokens.size() != 3) { return; }
+        renderSettings.exposure = std::stof(v);
+        engine->SetRenderSettings(renderSettings);
+    }
+    else if (k == "rs.gamma")
+    {
+        if (tokens.size() != 3) { return; }
+        renderSettings.gamma = std::stof(v);
         engine->SetRenderSettings(renderSettings);
     }
 }

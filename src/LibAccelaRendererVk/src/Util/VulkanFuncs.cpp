@@ -33,14 +33,18 @@ VulkanFuncs::VulkanFuncs(Common::ILogger::Ptr logger,
 
 }
 
-std::optional<VkFormat> VulkanFuncs::ImageDataFormatToVkFormat(const Common::ImageData::PixelFormat& format)
+std::optional<VkFormat> VulkanFuncs::TextureFormatToVkFormat(const Accela::Render::TextureFormat& textureFormat)
 {
-    switch (format)
+    switch (textureFormat)
     {
-        case Common::ImageData::PixelFormat::RGB24: return VK_FORMAT_R8G8B8_SRGB;
-        case Common::ImageData::PixelFormat::RGBA32: return VK_FORMAT_R8G8B8A8_SRGB;
-        default: return std::nullopt;
+        case TextureFormat::R32_UINT: return VK_FORMAT_R32_UINT;
+        case TextureFormat::R8G8B8_SRGB: return VK_FORMAT_R8G8B8_SRGB;
+        case TextureFormat::R8G8B8A8_SRGB: return VK_FORMAT_R8G8B8A8_SRGB;
+        case TextureFormat::R32G32B32A32_SFLOAT: return VK_FORMAT_R32G32B32A32_SFLOAT;
     }
+
+    assert(false);
+    return std::nullopt;
 }
 
 VkFormatProperties VulkanFuncs::GetVkFormatProperties(const VkFormat& vkFormat) const

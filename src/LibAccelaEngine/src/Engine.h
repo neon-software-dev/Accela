@@ -11,7 +11,6 @@
 #include "KeyboardState.h"
 #include "EngineRuntime.h"
 #include "RunState.h"
-#include "RenderTarget.h"
 
 #include <Accela/Engine/IEngine.h>
 
@@ -73,7 +72,7 @@ namespace Accela::Engine
             std::shared_ptr<Render::IRenderer> m_renderer;
             AudioManagerPtr m_audioManager;
 
-            RenderTarget m_renderTarget;
+            Render::RenderTargetId m_renderTargetId;
     };
 }
 

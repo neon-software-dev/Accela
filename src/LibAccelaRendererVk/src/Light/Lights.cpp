@@ -334,14 +334,28 @@ std::expected<FrameBufferId, bool> Lights::CreateShadowFramebuffer(const Light& 
     {
         case ShadowMapType::Single:
         {
-            texture = Texture::Empty(INVALID_ID, TextureUsage::DepthAttachment, shadowFramebufferSize, 1, std::format("ShadowDepth-{}", tag));
+            texture = Texture::EmptyDepth(
+                Render::TextureId::Invalid(),
+                {TextureUsage::DepthStencilAttachment, TextureUsage::Sampled},
+                shadowFramebufferSize,
+                1,
+                false,
+                std::format("ShadowDepth-{}", tag)
+            );
             textureView = TextureView::ViewAs2D(TextureView::DEFAULT, TextureView::Aspect::ASPECT_DEPTH_BIT);
             renderPass = m_vulkanObjs->GetShadow2DRenderPass();
         }
         break;
         case ShadowMapType::Cube:
         {
-            texture = Texture::Empty(INVALID_ID, TextureUsage::DepthCubeAttachment, shadowFramebufferSize, 6, std::format("ShadowDepthCube-{}", tag));
+            texture = Texture::EmptyDepth(
+                Render::TextureId::Invalid(),
+                {TextureUsage::DepthStencilAttachment, TextureUsage::Sampled},
+                shadowFramebufferSize,
+                6,
+                true,
+                std::format("ShadowDepthCube-{}", tag)
+            );
             textureView = TextureView::ViewAsCube(TextureView::DEFAULT, TextureView::Aspect::ASPECT_DEPTH_BIT);
             renderPass = m_vulkanObjs->GetShadowCubeRenderPass();
         }

@@ -23,8 +23,8 @@ namespace Accela::Render
         DestroyMesh,            // Destroy a mesh
         CreateMaterial,         // Register a material
         DestroyMaterial,        // Destroy a material
-        CreateFrameBuffer,      // Create a framebuffer
-        DestroyFrameBuffer,     // Destroy a framebuffer
+        CreateRenderTarget,     // Create a render target
+        DestroyRenderTarget,    // Destroy a render target
         WorldUpdate,            // Update the state of the world
         SurfaceChanged,         // Handle window/surface change
         ChangeRenderSettings    // Apply new render settings

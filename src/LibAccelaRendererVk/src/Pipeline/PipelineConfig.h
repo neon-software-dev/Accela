@@ -21,6 +21,12 @@
 
 namespace Accela::Render
 {
+    enum class PipelineType
+    {
+        Graphics,
+        Compute
+    };
+
     enum class PrimitiveTopology
     {
         TriangleList,
@@ -50,11 +56,11 @@ namespace Accela::Render
     };
 
     /**
-     * Contains the details needed to build a pipeline.
+     * Contains the details needed to build a graphics pipeline.
      *
      * Warning: Any changes made to this struct require a matching change in GetUniqueKey() func below.
      */
-    struct PipelineConfig
+    struct GraphicsPipelineConfig
     {
         // Set this if a pipeline should have a different key than an otherwise identical config
         std::optional<std::size_t> tag{std::nullopt};
@@ -187,6 +193,60 @@ namespace Accela::Render
 
             ss << "[PrimitiveRestart]" << static_cast<unsigned int>(primitiveRestartEnable);
             ss << "[PrimitiveTopology] " << static_cast<unsigned int>(primitiveTopology);
+
+            const std::string keyStr = ss.str();
+            return std::hash<std::string>{}(keyStr);
+        }
+    };
+
+    /**
+     * Contains the details needed to build a compute pipeline.
+     *
+     * Warning: Any changes made to this struct require a matching change in GetUniqueKey() func below.
+     */
+    struct ComputePipelineConfig
+    {
+        // Set this if a pipeline should have a different key than an otherwise identical config
+        std::optional<std::size_t> tag{std::nullopt};
+
+        //
+        // Shader Configuration
+        //
+        std::string computeShaderFileName;
+
+        //
+        // Pipeline layout configuration
+        //
+        std::optional<std::vector<VkPushConstantRange>> vkPushConstantRanges;
+        std::optional<std::vector<VkDescriptorSetLayout>> vkDescriptorSetLayouts;
+
+        [[nodiscard]] size_t GetUniqueKey() const
+        {
+            std::stringstream ss;
+
+            if (tag.has_value())
+            {
+                ss << "[Tag]" << *tag;
+            }
+
+            ss << "[ComputeShader]" << computeShaderFileName;
+
+            if (vkPushConstantRanges.has_value())
+            {
+                for (unsigned int x = 0; x < vkPushConstantRanges->size(); ++x)
+                {
+                    ss << "[PUSH" << x << "] " << (*vkPushConstantRanges)[x].offset << "," <<
+                       (*vkPushConstantRanges)[x].size << "," << (*vkPushConstantRanges)[x].stageFlags;
+                }
+            }
+
+            if (vkDescriptorSetLayouts.has_value())
+            {
+                for (unsigned int x = 0; x < vkDescriptorSetLayouts->size(); ++x)
+                {
+                    ss << "[Layout " << x << "]" << (*vkDescriptorSetLayouts)[x];
+                }
+            }
 
             const std::string keyStr = ss.str();
             return std::hash<std::string>{}(keyStr);

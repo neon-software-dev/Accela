@@ -86,11 +86,6 @@ std::expected<BufferPtr, Buffers::BufferCreateError> Buffers::CreateBuffer(
     bufferAllocation.vkBufferUsageFlags = vkUsageFlags;
     bufferAllocation.vmaMemoryUsage = vmaMemoryUsage;
 
-    // TODO!
-    /* budget = m_vulkanObjs->GetVMA()->GetVmaBudget();
-    m_logger->Log(Common::LogLevel::Error, "Making buffer, size: {}, usage: {}, available: {}",
-                  bufferInfo.size, budget.usage, budget.budget);*/
-
     auto result = m_vulkanObjs->GetVMA()->CreateBuffer(
         &bufferInfo,
         &vmaAllocCreateInfo,

@@ -33,9 +33,11 @@ namespace Accela::Render
 
             [[nodiscard]] uint8_t GetFrameIndex() const noexcept { return m_frameIndex; }
             [[nodiscard]] VulkanCommandPoolPtr GetGraphicsCommandPool() const noexcept { return m_graphicsCommandPool; }
-            [[nodiscard]] VulkanCommandBufferPtr GetGraphicsCommandBuffer() const noexcept { return m_graphicsCommandBuffer; }
+            [[nodiscard]] VulkanCommandBufferPtr GetRenderCommandBuffer() const noexcept { return m_renderCommandBuffer; }
+            [[nodiscard]] VulkanCommandBufferPtr GetSwapChainBlitCommandBuffer() const noexcept { return m_swapChainBlitCommandBuffer; }
             [[nodiscard]] VkSemaphore GetImageAvailableSemaphore() const noexcept { return m_imageAvailableSemaphore; }
             [[nodiscard]] VkSemaphore GetRenderFinishedSemaphore() const noexcept { return m_renderFinishedSemaphore; }
+            [[nodiscard]] VkSemaphore GetSwapChainBlitFinishedSemaphore() const noexcept { return m_swapChainBlitFinishedSemaphore; }
             [[nodiscard]] VkFence GetPipelineFence() const noexcept { return m_pipelineFence; }
 
         private:
@@ -48,12 +50,18 @@ namespace Accela::Render
             uint8_t m_frameIndex;
 
             VulkanCommandPoolPtr m_graphicsCommandPool;
-            VulkanCommandBufferPtr m_graphicsCommandBuffer;
+
+            // Holds commands to render a frame
+            VulkanCommandBufferPtr m_renderCommandBuffer;
+            // Holds commands to blit a rendered frame to the swap chain
+            VulkanCommandBufferPtr m_swapChainBlitCommandBuffer;
 
             // Semaphore triggered when the frame's swap chain image is ready to be rendered to
             VkSemaphore m_imageAvailableSemaphore{VK_NULL_HANDLE};
             // Semaphore triggered when the frame's render work has finished
             VkSemaphore m_renderFinishedSemaphore{VK_NULL_HANDLE};
+            // Semaphore triggered when the swap chain blit work has finished
+            VkSemaphore m_swapChainBlitFinishedSemaphore{VK_NULL_HANDLE};
             // Fence triggered when the pipeline has finished this frame's work
             VkFence m_pipelineFence{VK_NULL_HANDLE};
     };

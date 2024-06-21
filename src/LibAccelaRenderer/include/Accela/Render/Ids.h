@@ -28,6 +28,7 @@ namespace Accela::Render
         IdSource<TerrainId> terrainIds;
         IdSource<MaterialId> materialIds;
         IdSource<LightId> lightIds;
+        IdSource<RenderTargetId> renderTargetIds;
 
         void Reset()
         {
@@ -39,6 +40,7 @@ namespace Accela::Render
             terrainIds.Reset();
             materialIds.Reset();
             lightIds.Reset();
+            renderTargetIds.Reset();
         }
     };
 }

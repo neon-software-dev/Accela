@@ -153,6 +153,15 @@ bool VulkanPhysicalDevice::IsDeviceSuitable(const VulkanSurfacePtr& surface) con
         return false;
     }
 
+    // Need at least 16x16 x/y local work group component limits for post-processing shaders
+    if (m_vkPhysicalDeviceProperties.limits.maxComputeWorkGroupSize[0] < 16 ||
+        m_vkPhysicalDeviceProperties.limits.maxComputeWorkGroupSize[1] < 16)
+    {
+        m_logger->Log(Common::LogLevel::Info,
+          "Rejecting device due to compute work group size limit: {}", m_vkPhysicalDeviceProperties.deviceName);
+        return false;
+    }
+
     return true;
 }
 
@@ -183,7 +192,33 @@ std::optional<uint32_t> VulkanPhysicalDevice::GetGraphicsQueueFamilyIndex() cons
 {
     for (uint32_t x = 0; x < m_vkQueueFamilyProperties.size(); ++x)
     {
-        if (m_vkQueueFamilyProperties[x].queueFlags & VK_QUEUE_GRAPHICS_BIT)
+        if ((m_vkQueueFamilyProperties[x].queueFlags & VK_QUEUE_GRAPHICS_BIT) &&
+            (m_vkQueueFamilyProperties[x].queueFlags & VK_QUEUE_TRANSFER_BIT))
+        {
+            return x;
+        }
+    }
+
+    return std::nullopt;
+}
+
+std::optional<uint32_t> VulkanPhysicalDevice::GetComputeQueueFamilyIndex() const
+{
+    // First pass - look for any queue with compute but no graphics; prefer to
+    // use a queue that's dedicated to compute/transfer
+    for (uint32_t x = 0; x < m_vkQueueFamilyProperties.size(); ++x)
+    {
+        if ((m_vkQueueFamilyProperties[x].queueFlags & VK_QUEUE_COMPUTE_BIT) &&
+            ((m_vkQueueFamilyProperties[x].queueFlags & VK_QUEUE_GRAPHICS_BIT) == 0))
+        {
+            return x;
+        }
+    }
+
+    // Second pass - settle for any compute queue
+    for (uint32_t x = 0; x < m_vkQueueFamilyProperties.size(); ++x)
+    {
+        if (m_vkQueueFamilyProperties[x].queueFlags & VK_QUEUE_COMPUTE_BIT)
         {
             return x;
         }

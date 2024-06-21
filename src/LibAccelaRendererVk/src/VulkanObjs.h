@@ -56,9 +56,10 @@ namespace Accela::Render
             [[nodiscard]] IVMAPtr GetVMA() const noexcept;
             [[nodiscard]] VulkanCommandPoolPtr GetTransferCommandPool() const noexcept;
             [[nodiscard]] VulkanSwapChainPtr GetSwapChain() const noexcept;
-            [[nodiscard]] VulkanRenderPassPtr GetSwapChainRenderPass() const noexcept;
             [[nodiscard]] VulkanFramebufferPtr GetSwapChainFrameBuffer(const uint32_t& imageIndex) const noexcept;
-            [[nodiscard]] VulkanRenderPassPtr GetOffscreenRenderPass() const noexcept;
+            [[nodiscard]] VulkanRenderPassPtr GetGPassRenderPass() const noexcept;
+            [[nodiscard]] VulkanRenderPassPtr GetBlitRenderPass() const noexcept;
+            [[nodiscard]] VulkanRenderPassPtr GetSwapChainBlitRenderPass() const noexcept;
             [[nodiscard]] VulkanRenderPassPtr GetShadow2DRenderPass() const noexcept;
             [[nodiscard]] VulkanRenderPassPtr GetShadowCubeRenderPass() const noexcept;
 
@@ -79,13 +80,15 @@ namespace Accela::Render
             bool InitVMA();
             void DestroyVMA();
 
-            bool CreateSwapChain(PresentMode presentMode);
+            bool CreateSwapChain();
             void DestroySwapChain();
 
-            bool CreateSwapChainRenderPass();
-            void DestroySwapChainRenderPass();
-            bool CreateOffscreenRenderPass();
-            void DestroyOffscreenRenderPass();
+            bool CreateGPassRenderPass();
+            void DestroyGPassRenderPass();
+            bool CreateBlitRenderPass();
+            void DestroyBlitRenderPass();
+            bool CreateSwapChainBlitRenderPass();
+            void DestroySwapChainBlitRenderPass();
             bool CreateShadow2DRenderPass();
             void DestroyShadow2DRenderPass();
             bool CreateShadowCubeRenderPass();
@@ -119,12 +122,13 @@ namespace Accela::Render
             VulkanCommandPoolPtr m_transferCommandPool;
 
             VulkanSwapChainPtr m_swapChain;
-            VulkanRenderPassPtr m_swapChainRenderPass;
-            VulkanRenderPassPtr m_shadow2DRenderPass;
-            VulkanRenderPassPtr m_shadowCubeRenderPass;
             std::vector<VulkanFramebufferPtr> m_swapChainFrameBuffers;
 
-            VulkanRenderPassPtr m_offscreenRenderPass;
+            VulkanRenderPassPtr m_gPassRenderPass;
+            VulkanRenderPassPtr m_blitRenderPass;
+            VulkanRenderPassPtr m_swapChainBlitRenderPass;
+            VulkanRenderPassPtr m_shadow2DRenderPass;
+            VulkanRenderPassPtr m_shadowCubeRenderPass;
     };
 }
 

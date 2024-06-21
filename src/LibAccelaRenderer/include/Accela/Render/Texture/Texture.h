@@ -21,13 +21,20 @@ namespace Accela::Render
 {
     enum class TextureUsage
     {
-        ImageMaterial,
-        ImageCubeMaterial,
+        Sampled,
+        InputAttachment,
         ColorAttachment,
-        DepthAttachment,
-        DepthCubeAttachment,
-        InputAttachment_RGBA16_SFLOAT,
-        InputAttachment_R32_UINT
+        DepthStencilAttachment,
+        TransferSource,
+        Storage
+    };
+
+    enum class TextureFormat
+    {
+        R32_UINT,           // 4 byte unsigned int
+        R8G8B8_SRGB,        // RGB stored as single byte SRGB
+        R8G8B8A8_SRGB,      // RGBA stored as single byte SRGB
+        R32G32B32A32_SFLOAT // RGBA stored as 4 byte signed floats
     };
 
     /**
@@ -35,25 +42,59 @@ namespace Accela::Render
      */
     struct Texture
     {
-        static Texture Empty(TextureId id, TextureUsage usage, const USize& pixelSize, const uint32_t& numLayers, const std::string& tag)
+        static Texture Empty(TextureId id,
+                             const std::vector<TextureUsage>& usages,
+                             TextureFormat format,
+                             const USize& pixelSize,
+                             const uint32_t& numLayers,
+                             bool cubicTexture,
+                             const std::string& tag)
         {
             Texture texture{};
             texture.id = id;
-            texture.usage = usage;
+            texture.usages = usages;
+            texture.format = format;
             texture.pixelSize = pixelSize;
             texture.numLayers = numLayers;
+            texture.cubicTexture = cubicTexture;
             texture.data = std::nullopt;
             texture.tag = tag;
             return texture;
         }
 
-        static Texture FromImageData(TextureId id, TextureUsage usage, const uint32_t& numLayers, const Common::ImageData::Ptr& data, const std::string& tag)
+        static Texture EmptyDepth(TextureId id,
+                                  const std::vector<TextureUsage>& usages,
+                                  const USize& pixelSize,
+                                  const uint32_t& numLayers,
+                                  bool cubicTexture,
+                                  const std::string& tag)
         {
             Texture texture{};
             texture.id = id;
-            texture.usage = usage;
+            texture.usages = usages;
+            texture.pixelSize = pixelSize;
+            texture.numLayers = numLayers;
+            texture.cubicTexture = cubicTexture;
+            texture.data = std::nullopt;
+            texture.tag = tag;
+            return texture;
+        }
+
+        static Texture FromImageData(TextureId id,
+                                     const std::vector<TextureUsage>& usages,
+                                     TextureFormat format,
+                                     const uint32_t& numLayers,
+                                     bool cubicTexture,
+                                     const Common::ImageData::Ptr& data,
+                                     const std::string& tag)
+        {
+            Texture texture{};
+            texture.id = id;
+            texture.usages = usages;
+            texture.format = format;
             texture.pixelSize = USize(data->GetPixelWidth(), data->GetPixelHeight());
             texture.numLayers = numLayers;
+            texture.cubicTexture = cubicTexture;
             texture.data = data;
             texture.tag = tag;
             return texture;
@@ -69,9 +110,11 @@ namespace Accela::Render
         }
 
         TextureId id{INVALID_ID};
-        TextureUsage usage{TextureUsage::ImageMaterial};
+        std::vector<TextureUsage> usages;
+        std::optional<TextureFormat> format; // Left unset for depth textures, as the renderer internally determines depth format
         USize pixelSize;
         uint32_t numLayers{1};
+        bool cubicTexture{false};
         std::optional<unsigned int> numMipLevels;
         std::optional<Common::ImageData::Ptr> data;
         std::string tag;

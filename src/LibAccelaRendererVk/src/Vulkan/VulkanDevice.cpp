@@ -29,16 +29,17 @@ VulkanDevice::VulkanDevice(Common::ILogger::Ptr logger, IVulkanCallsPtr vulkanCa
 bool VulkanDevice::Create(const VulkanPhysicalDevicePtr& physicalDevice, const VulkanSurfacePtr& surface)
 {
     // From checks in VulkanPhysicalDevice we're guaranteed that the provided physical device
-    // has support for a graphics queue, a present queue, and the swap chain extension.
+    // has support for graphics, present, and compute queues, and the swap chain extension.
     const uint32_t graphicsQueueFamilyIndex = physicalDevice->GetGraphicsQueueFamilyIndex().value();
     const uint32_t presentQueueFamilyIndex = physicalDevice->GetPresentQueueFamilyIndex(surface).value();
+    const uint32_t computeQueueFamilyIndex = physicalDevice->GetComputeQueueFamilyIndex().value();
 
-    const std::set<uint32_t> uniqueQueueFamilies = {graphicsQueueFamilyIndex, presentQueueFamilyIndex};
+    std::set<uint32_t> uniqueQueueFamilyIndices =  {graphicsQueueFamilyIndex, presentQueueFamilyIndex, computeQueueFamilyIndex};
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 
-    const float queuePriority = 1.0f;
-    for (const uint32_t& queueFamilyIndex : uniqueQueueFamilies)
+    const float queuePriority = 1.0f; // TODO Perf: Tweak?
+    for (const uint32_t& queueFamilyIndex : uniqueQueueFamilyIndices)
     {
         VkDeviceQueueCreateInfo queueCreateInfo{};
         queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
@@ -113,6 +114,7 @@ bool VulkanDevice::Create(const VulkanPhysicalDevicePtr& physicalDevice, const V
     //
     m_vulkanCalls->vkGetDeviceQueue(m_vkDevice, graphicsQueueFamilyIndex, 0, &m_vkGraphicsQueue);
     m_vulkanCalls->vkGetDeviceQueue(m_vkDevice, presentQueueFamilyIndex, 0, &m_vkPresentQueue);
+    m_vulkanCalls->vkGetDeviceQueue(m_vkDevice, computeQueueFamilyIndex, 0, &m_vkComputeQueue);
 
     return true;
 }
@@ -129,6 +131,7 @@ void VulkanDevice::Destroy() noexcept
     m_vkDevice = VK_NULL_HANDLE;
     m_vkGraphicsQueue = VK_NULL_HANDLE;
     m_vkPresentQueue = VK_NULL_HANDLE;
+    m_vkComputeQueue = VK_NULL_HANDLE;
 }
 
 }

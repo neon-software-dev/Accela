@@ -79,6 +79,9 @@ namespace Accela::Render
             [[nodiscard]] std::vector<Subpass> GetSubpasses() const { return m_subpasses; }
             [[nodiscard]] bool HasDepthAttachment() const;
 
+            [[nodiscard]] std::vector<VkImageLayout> GetAttachmentInitialLayouts() const;
+            [[nodiscard]] std::vector<VkImageLayout> GetAttachmentFinalLayouts() const;
+
             void Destroy();
 
         private:

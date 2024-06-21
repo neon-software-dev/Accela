@@ -26,6 +26,7 @@ namespace Accela::Engine
         if (fileName.ends_with(".frag.spv")) return Render::ShaderType::Fragment;
         if (fileName.ends_with(".tesc.spv")) return Render::ShaderType::TESC;
         if (fileName.ends_with(".tese.spv")) return Render::ShaderType::TESE;
+        if (fileName.ends_with(".comp.spv")) return Render::ShaderType::Compute;
 
         return std::nullopt;
     }

@@ -26,10 +26,16 @@ namespace Accela::Render
             virtual ~IPipelineFactory() = default;
 
             /**
-             * @return The pipeline, or nullptr on pipeline creation error
+             * @return The graphics pipeline, or nullptr on pipeline creation error
              */
             [[nodiscard]] virtual std::expected<VulkanPipelinePtr, bool> GetPipeline(const VulkanDevicePtr& device,
-                                                                                    const PipelineConfig& config) = 0;
+                                                                                    const GraphicsPipelineConfig& config) = 0;
+
+            /**
+             * @return The compute pipeline, or nullptr on pipeline creation error
+             */
+            [[nodiscard]] virtual std::expected<VulkanPipelinePtr, bool> GetPipeline(const VulkanDevicePtr& device,
+                                                                                     const ComputePipelineConfig& config) = 0;
 
             virtual void DestroyPipeline(const std::size_t& pipelineKey) = 0;
 

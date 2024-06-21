@@ -197,8 +197,9 @@ glm::mat4 GetShadowMapCubeViewTransform(const LoadedLight& loadedLight, const Cu
         case CubeFace::Left:        lookUnit = {-1,0,0}; break;
         case CubeFace::Up:          lookUnit = {0,1,0}; break;
         case CubeFace::Down:        lookUnit = {0,-1,0}; break;
-        case CubeFace::Back:        lookUnit = {0,0,1}; break;
-        case CubeFace::Forward:     lookUnit = {0,0,-1}; break;
+        // Note that we're reversing z-axis to match OpenGl/Vulkan's left-handed cubemap coordinate system
+        case CubeFace::Back:        lookUnit = {0,0,-1}; break;
+        case CubeFace::Forward:     lookUnit = {0,0,1}; break;
     }
 
     const auto upUnit =

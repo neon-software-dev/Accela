@@ -20,7 +20,7 @@
 namespace Accela::Render
 {
 
-std::expected<VulkanPipelinePtr, bool> GetPipeline(
+std::expected<VulkanPipelinePtr, bool> GetGraphicsPipeline(
     const Common::ILogger::Ptr& logger,
     const VulkanObjsPtr& vulkanObjs,
     const IShadersPtr& shaders,
@@ -41,7 +41,7 @@ std::expected<VulkanPipelinePtr, bool> GetPipeline(
     const auto subpasses = renderPass->GetSubpasses();
     if (subpasses.size() < subpassIndex)
     {
-        logger->Log(Common::LogLevel::Error, "GetPipeline: Invalid subpass index");
+        logger->Log(Common::LogLevel::Error, "GetGraphicsPipeline: Invalid subpass index");
         return std::unexpected(false);
     }
 
@@ -50,7 +50,7 @@ std::expected<VulkanPipelinePtr, bool> GetPipeline(
     //
     // General configuration
     //
-    PipelineConfig pipelineConfig;
+    GraphicsPipelineConfig pipelineConfig{};
     pipelineConfig.subpassIndex = subpassIndex;
     pipelineConfig.viewport = viewport;
     pipelineConfig.vkRenderPass = renderPass->GetVkRenderPass();
@@ -64,7 +64,7 @@ std::expected<VulkanPipelinePtr, bool> GetPipeline(
 
         if (attachmentIndex >= renderPassAttachments.size())
         {
-            logger->Log(Common::LogLevel::Error, "GetPipeline: Color attachment ref index out of bounds");
+            logger->Log(Common::LogLevel::Error, "GetGraphicsPipeline: Color attachment ref index out of bounds");
             return std::unexpected(false);
         }
 
@@ -104,31 +104,42 @@ std::expected<VulkanPipelinePtr, bool> GetPipeline(
         const auto shaderModuleOpt = shaders->GetShaderModule(shaderName);
         if (!shaderModuleOpt)
         {
-            logger->Log(Common::LogLevel::Error, "GetPipeline: Failed to find shader: {}", shaderName);
-            return nullptr;
+            logger->Log(Common::LogLevel::Error, "GetGraphicsPipeline: Failed to find shader: {}", shaderName);
+            return std::unexpected(false);
         }
 
         switch ((*shaderModuleOpt)->GetShaderSpec()->shaderType)
         {
             case ShaderType::Vertex:
                 pipelineConfig.vertShaderFileName = shaderName;
-                break;
+            break;
             case ShaderType::Fragment:
                 pipelineConfig.fragShaderFileName = shaderName;
-                break;
+            break;
             case ShaderType::TESC:
                 pipelineConfig.tescShaderFileName = shaderName;
-                break;
+            break;
             case ShaderType::TESE:
                 pipelineConfig.teseShaderFileName = shaderName;
-                break;
+            break;
+            case ShaderType::Compute:
+            {
+                logger->Log(Common::LogLevel::Error, "GetGraphicsPipeline: Compute shader provided: {}", shaderName);
+                return std::unexpected(false);
+            }
         }
     }
 
     //
     // Pipeline Bindings
     //
-    pipelineConfig.vkVertexInputBindingDescriptions.push_back(programDef->GetVertexInputBindingDescription());
+    if (!programDef->GetVertexInputBindingDescription().has_value())
+    {
+        logger->Log(Common::LogLevel::Error, "GetGraphicsPipeline: Program doesn't have vertex input binding description: {}", programDef->GetProgramName());
+        return std::unexpected(false);
+    }
+
+    pipelineConfig.vkVertexInputBindingDescriptions.push_back(*programDef->GetVertexInputBindingDescription());
 
     //
     // Vertex Input Attributes
@@ -167,6 +178,102 @@ std::expected<VulkanPipelinePtr, bool> GetPipeline(
         pipelineConfig.primitiveTopology = PrimitiveTopology::PatchList;
     }
 
+    const auto programVkDescriptorSetLayouts = programDef->GetVkDescriptorSetLayouts();
+    pipelineConfig.vkDescriptorSetLayouts = programVkDescriptorSetLayouts;
+
+    //
+    // Delete the old pipeline, if different
+    //
+    // TODO: Verify that this is no longer needed and add metrics around number of created pipelines
+    (void)oldPipelineHash;
+    /*if (oldPipelineHash.has_value() && pipelineConfig.GetUniqueKey() != oldPipelineHash.value())
+    {
+        pipelines->DestroyPipeline(*oldPipelineHash);
+    }*/
+
+    //
+    // Create/Get the pipeline
+    //
+    auto pipeline = pipelines->GetPipeline(vulkanObjs->GetDevice(), pipelineConfig);
+    if (pipeline == nullptr)
+    {
+        logger->Log(Common::LogLevel::Error, "GetGraphicsPipeline: Failed to create or retrieve rendering pipeline");
+        return std::unexpected(false);
+    }
+
+    return pipeline;
+}
+
+std::expected<VulkanPipelinePtr, bool> GetComputePipeline(
+    const Common::ILogger::Ptr& logger,
+    const VulkanObjsPtr& vulkanObjs,
+    const IShadersPtr& shaders,
+    const IPipelineFactoryPtr& pipelines,
+    const ProgramDefPtr& programDef,
+    const std::optional<std::vector<PushConstantRange>>& pushConstantRanges,
+    const std::optional<std::size_t>& tag,
+    const std::optional<std::size_t>& oldPipelineHash)
+{
+    auto vulkanFuncs = VulkanFuncs(logger, vulkanObjs);
+
+    //
+    // General configuration
+    //
+    ComputePipelineConfig pipelineConfig{};
+
+    if (tag.has_value())
+    {
+        pipelineConfig.tag = *tag;
+    }
+
+    //
+    // Shader configuration
+    //
+    const auto programShaderNames = programDef->GetShaderNames();
+    if (programShaderNames.size() != 1)
+    {
+        logger->Log(Common::LogLevel::Error,
+            "GetComputePipeline: Compute program requires exactly 1 shader: {}", programDef->GetProgramName());
+        return std::unexpected(false);
+    }
+
+    const auto& shaderName = programShaderNames.at(0);
+
+    const auto shaderModuleOpt = shaders->GetShaderModule(shaderName);
+    if (!shaderModuleOpt)
+    {
+        logger->Log(Common::LogLevel::Error, "GetComputePipeline: Failed to find shader: {}", shaderName);
+        return std::unexpected(false);
+    }
+
+    if ((*shaderModuleOpt)->GetShaderSpec()->shaderType != ShaderType::Compute)
+    {
+        logger->Log(Common::LogLevel::Error, "GetComputePipeline: Program has a non-compute shader: {}", shaderName);
+        return std::unexpected(false);
+    }
+
+    pipelineConfig.computeShaderFileName = shaderName;
+
+    //
+    // Pipeline layout configuration
+    //
+    if (pushConstantRanges)
+    {
+        std::vector<VkPushConstantRange> vkPushConstantRanges;
+
+        for (const auto& pushConstantRange : *pushConstantRanges)
+        {
+            VkPushConstantRange vkPushConstantRange{};
+            vkPushConstantRange.stageFlags = pushConstantRange.vkShaderStageFlagBits;
+            vkPushConstantRange.offset = pushConstantRange.offset;
+            vkPushConstantRange.size = pushConstantRange.size;
+
+            vkPushConstantRanges.push_back(vkPushConstantRange);
+        }
+
+        pipelineConfig.vkPushConstantRanges = vkPushConstantRanges;
+    }
+
     //
     // Pipeline layout configuration
     //
@@ -189,7 +296,7 @@ std::expected<VulkanPipelinePtr, bool> GetPipeline(
     auto pipeline = pipelines->GetPipeline(vulkanObjs->GetDevice(), pipelineConfig);
     if (pipeline == nullptr)
     {
-        logger->Log(Common::LogLevel::Error, "Failed to create or retrieve rendering pipeline");
+        logger->Log(Common::LogLevel::Error, "GetComputePipeline: Failed to create or retrieve rendering pipeline");
         return std::unexpected(false);
     }
 

@@ -25,7 +25,7 @@
 
 namespace Accela::Render
 {
-    std::expected<VulkanPipelinePtr, bool> GetPipeline(
+    [[nodiscard]] std::expected<VulkanPipelinePtr, bool> GetGraphicsPipeline(
         const Common::ILogger::Ptr& logger,
         const VulkanObjsPtr& vulkanObjs,
         const IShadersPtr& shaders,
@@ -37,6 +37,17 @@ namespace Accela::Render
         const CullFace& cullFace = CullFace::Back,
         const PolygonFillMode& polygonFillMode = PolygonFillMode::Fill,
         const DepthBias& depthBias = DepthBias::Disabled,
+        const std::optional<std::vector<PushConstantRange>>& pushConstantRanges = std::nullopt,
+        const std::optional<std::size_t>& tag = std::nullopt,
+        const std::optional<std::size_t>& oldPipelineHash = std::nullopt
+    );
+
+    [[nodiscard]] std::expected<VulkanPipelinePtr, bool> GetComputePipeline(
+        const Common::ILogger::Ptr& logger,
+        const VulkanObjsPtr& vulkanObjs,
+        const IShadersPtr& shaders,
+        const IPipelineFactoryPtr& pipelines,
+        const ProgramDefPtr& programDef,
         const std::optional<std::vector<PushConstantRange>>& pushConstantRanges = std::nullopt,
         const std::optional<std::size_t>& tag = std::nullopt,
         const std::optional<std::size_t>& oldPipelineHash = std::nullopt

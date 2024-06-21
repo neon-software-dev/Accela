@@ -86,13 +86,13 @@ namespace Accela::Render
 
     struct BarrierPoint
     {
-        BarrierPoint(VkPipelineStageFlags _stage, VkAccessFlagBits _access)
+        BarrierPoint(VkPipelineStageFlags _stage, VkAccessFlags _access)
             : stage(_stage)
             , access(_access)
         { }
 
         VkPipelineStageFlags stage;
-        VkAccessFlagBits access;
+        VkAccessFlags access;
     };
 
     struct ImageTransition

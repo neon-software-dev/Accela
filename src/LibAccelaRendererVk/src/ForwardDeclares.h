@@ -44,6 +44,7 @@ namespace Accela::Render
     class IRenderables; using IRenderablesPtr = std::shared_ptr<IRenderables>;
     class IMaterials; using IMaterialsPtr = std::shared_ptr<IMaterials>;
     class ILights; using ILightsPtr = std::shared_ptr<ILights>;
+    class IRenderTargets; using IRenderTargetsPtr = std::shared_ptr<IRenderTargets>;
 }
 
 #endif //LIBACCELARENDERERVK_SRC_FORWARDDECLARES_H

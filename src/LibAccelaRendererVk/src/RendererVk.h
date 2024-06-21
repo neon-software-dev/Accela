@@ -18,6 +18,9 @@
 #include "Renderer/SkyBoxRenderer.h"
 #include "Renderer/DeferredLightingRenderer.h"
 #include "Renderer/RawTriangleRenderer.h"
+#include "Renderer/PostProcessingRenderer.h"
+
+#include "RenderTarget/RenderTarget.h"
 
 #include <Accela/Render/Id.h>
 #include <Accela/Render/PresentConfig.h>
@@ -58,8 +61,8 @@ namespace Accela::Render
             bool OnCreateMaterial(std::promise<bool> resultPromise,
                                   const Material::Ptr& material) override;
             bool OnDestroyMaterial(MaterialId materialId) override;
-            bool OnCreateFrameBuffer(FrameBufferId frameBufferId, const std::vector<TextureId>& attachmentTextures) override;
-            bool OnDestroyFrameBuffer(FrameBufferId frameBufferId) override;
+            bool OnCreateRenderTarget(RenderTargetId renderTargetId, const std::string& tag) override;
+            bool OnDestroyRenderTarget(RenderTargetId renderTargetId) override;
             bool OnWorldUpdate(const WorldUpdate& update) override;
             bool OnSurfaceChanged() override;
             bool OnChangeRenderSettings(const RenderSettings& renderSettings) override;
@@ -74,7 +77,8 @@ namespace Accela::Render
 
             bool StartRenderPass(const VulkanRenderPassPtr& renderPass,
                                  const VulkanFramebufferPtr& framebuffer,
-                                 const VulkanCommandBufferPtr& commandBuffer);
+                                 const VulkanCommandBufferPtr& commandBuffer,
+                                 const glm::vec4& colorClearColor = {0,0,0,0});
             void EndRenderPass(const VulkanCommandBufferPtr& commandBuffer);
 
             void RefreshShadowMapsAsNeeded(const RenderParams& renderParams,
@@ -86,11 +90,25 @@ namespace Accela::Render
                                                 const std::vector<ViewProjection>& viewProjections,
                                                 const LoadedLight& loadedLight);
 
-            void OffscreenRender(const std::string& sceneName,
-                                 const FramebufferObjs& framebufferObjs,
-                                 const RenderParams& renderParams,
-                                 const std::vector<ViewProjection>& viewProjections,
-                                 const std::unordered_map<LightId, TextureId>& shadowMaps);
+            void RunSceneRender(const std::string& sceneName,
+                                const RenderTarget& renderTarget,
+                                const RenderParams& renderParams,
+                                const std::vector<ViewProjection>& viewProjections,
+                                const std::unordered_map<LightId, TextureId>& shadowMaps);
+
+            void RenderObjects(const std::string& sceneName,
+                               const FramebufferObjs& framebufferObjs,
+                               const RenderParams& renderParams,
+                               const std::vector<ViewProjection>& viewProjections,
+                               const std::unordered_map<LightId, TextureId>& shadowMaps);
+
+            void RunPostProcessing(const LoadedTexture& texture, const PostProcessEffect& effect);
+
+            void RenderBlit(const std::string& sceneName,
+                            const FramebufferObjs& framebufferObjs,
+                            const RenderParams& renderParams);
+
+            void RunSwapChainBlitPass(const VulkanFramebufferPtr& framebuffer, const LoadedTexture& texture);
 
         private:
 
@@ -105,6 +123,7 @@ namespace Accela::Render
             IFramebuffersPtr m_framebuffers;
             IMaterialsPtr m_materials;
             ILightsPtr m_lights;
+            IRenderTargetsPtr m_renderTargets;
 
             IRenderablesPtr m_renderables;
             Frames m_frames;
@@ -116,6 +135,7 @@ namespace Accela::Render
             RendererGroup<SkyBoxRenderer> m_skyBoxRenderers;
             RendererGroup<DeferredLightingRenderer> m_differedLightingRenderers;
             RendererGroup<RawTriangleRenderer> m_rawTriangleRenderers;
+            RendererGroup<PostProcessingRenderer> m_postProcessingRenderers;
     };
 }
 

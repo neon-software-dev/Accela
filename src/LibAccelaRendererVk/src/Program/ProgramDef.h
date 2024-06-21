@@ -36,13 +36,13 @@ namespace Accela::Render
                 std::vector<std::string> shaderNames,
                 std::vector<VulkanDescriptorSetLayoutPtr> descriptorSetLayouts,
                 std::vector<VkVertexInputAttributeDescription> vertexInputAttributeDescriptions,
-                const VkVertexInputBindingDescription& vertexInputBindingDescription);
+                std::optional<VkVertexInputBindingDescription> vertexInputBindingDescription);
 
             [[nodiscard]] std::string GetProgramName() const { return m_programName; }
             [[nodiscard]] std::vector<std::string> GetShaderNames() const { return m_shaderNames; }
             [[nodiscard]] std::vector<VulkanDescriptorSetLayoutPtr> GetDescriptorSetLayouts() const { return m_descriptorSetLayouts; }
             [[nodiscard]] std::vector<VkVertexInputAttributeDescription> GetVertexInputAttributeDescriptions() const { return m_vertexInputAttributeDescriptions; }
-            [[nodiscard]] VkVertexInputBindingDescription GetVertexInputBindingDescription() const { return m_vertexInputBindingDescription; }
+            [[nodiscard]] std::optional<VkVertexInputBindingDescription> GetVertexInputBindingDescription() const { return m_vertexInputBindingDescription; }
 
             [[nodiscard]] std::vector<VkDescriptorSetLayout> GetVkDescriptorSetLayouts() const;
             [[nodiscard]] std::optional<VulkanDescriptorSetLayout::BindingDetails> GetBindingDetailsByName(const std::string& inputName) const;
@@ -55,8 +55,9 @@ namespace Accela::Render
             std::string m_programName;
             std::vector<std::string> m_shaderNames;
             std::vector<VulkanDescriptorSetLayoutPtr> m_descriptorSetLayouts;
+
             std::vector<VkVertexInputAttributeDescription> m_vertexInputAttributeDescriptions;
-            VkVertexInputBindingDescription m_vertexInputBindingDescription;
+            std::optional<VkVertexInputBindingDescription> m_vertexInputBindingDescription;
     };
 }
 

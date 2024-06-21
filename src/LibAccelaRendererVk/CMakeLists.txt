@@ -39,6 +39,8 @@ project(LibAccelaRendererVk VERSION 0.0.1 LANGUAGES CXX)
 	file(GLOB AccelaRendererVk_Headers_Material "src/Material/*.h")
 	file(GLOB AccelaRendererVk_Sources_Light "src/Light/*.cpp")
 	file(GLOB AccelaRendererVk_Headers_Light "src/Light/*.h")
+	file(GLOB AccelaRendererVk_Sources_RenderTarget "src/RenderTarget/*.cpp")
+	file(GLOB AccelaRendererVk_Headers_RenderTarget "src/RenderTarget/*.h")
 
 add_library(AccelaRendererVk STATIC
 	${AccelaRendererVk_Include_Headers}
@@ -75,6 +77,8 @@ add_library(AccelaRendererVk STATIC
 	${AccelaRendererVk_Headers_Material}
 	${AccelaRendererVk_Sources_Light}
 	${AccelaRendererVk_Headers_Light}
+	${AccelaRendererVk_Sources_RenderTarget}
+	${AccelaRendererVk_Headers_RenderTarget}
 )
 
 target_compile_features(AccelaRendererVk

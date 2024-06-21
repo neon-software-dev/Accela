@@ -480,7 +480,15 @@ std::expected<Render::TextureId, bool> ModelResources::LoadModelMaterialTexture(
     //
     // Register the texture and its data as a Texture in the renderer
     //
-    auto texture = Render::Texture::FromImageData(textureId, Render::TextureUsage::ImageMaterial, 1, *textureData, modelTexture.fileName);
+    auto texture = Render::Texture::FromImageData(
+        textureId,
+        {Render::TextureUsage::Sampled},
+        Render::TextureFormat::R8G8B8A8_SRGB,
+        1,
+        false,
+        *textureData,
+        modelTexture.fileName
+    );
 
     // Full/max mip levels
     texture.SetFullMipLevels();

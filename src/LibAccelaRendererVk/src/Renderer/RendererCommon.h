@@ -25,16 +25,10 @@
 
 namespace Accela::Render
 {
-    static const uint32_t OffscreenRenderPass_OpaqueDeferredSubpass_Index = 0;
-    static const uint32_t OffscreenRenderPass_DeferredLightingSubpass_Index = 1;
-    static const uint32_t OffscreenRenderPass_ForwardSubpass_Index = 2;
-
-    static const uint32_t ShadowRenderPass_ShadowSubpass_Index = 0;
-
     enum class RenderType
     {
-        GpassOpaque,
-        GpassTranslucent,
+        GpassDeferred,
+        GpassForward,
         Shadow
     };
 
@@ -44,6 +38,10 @@ namespace Accela::Render
         Front,
         Back
     };
+
+    //
+    // Vulkan-aligned shader input payload data types
+    //
 
     struct ObjectDrawPayload
     {

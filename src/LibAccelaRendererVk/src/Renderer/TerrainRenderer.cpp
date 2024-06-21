@@ -157,11 +157,11 @@ void TerrainRenderer::Render(const std::string& sceneName,
     //
     // Render each terrain batch
     //
-    RenderState renderState{};
+    BindState bindState{};
 
     for (const auto& terrainBatch : terrainBatches)
     {
-        RenderBatch(renderState, terrainBatch, renderParams, commandBuffer, renderPass, framebuffer, viewProjections);
+        RenderBatch(bindState, terrainBatch, renderParams, commandBuffer, renderPass, framebuffer, viewProjections);
     }
 }
 
@@ -268,7 +268,7 @@ std::expected<TerrainRenderer::TerrainBatch, bool> TerrainRenderer::CreateTerrai
     return terrainBatch;
 }
 
-void TerrainRenderer::RenderBatch(RenderState& renderState,
+void TerrainRenderer::RenderBatch(BindState& bindState,
                                   const TerrainRenderer::TerrainBatch& terrainBatch,
                                   const RenderParams& renderParams,
                                   const VulkanCommandBufferPtr& commandBuffer,
@@ -285,23 +285,23 @@ void TerrainRenderer::RenderBatch(RenderState& renderState,
     );
 
     // We want to bind per-batch draw data to set 3 for every batch, so forcefully mark it as invalidated
-    renderState.set3Invalidated = true;
+    bindState.set3Invalidated = true;
 
     // Bind Data (as needed)
 
-    if (!BindPipeline(renderState, commandBuffer, renderPass, framebuffer)) { return; }
-    if (!BindDescriptorSet0(renderState, renderParams, commandBuffer, viewProjections)) { return; }
-    if (!BindDescriptorSet1(renderState, commandBuffer)) { return; }
-    if (!BindDescriptorSet2(renderState, terrainBatch, commandBuffer)) { return; }
-    if (!BindDescriptorSet3(renderState, terrainBatch, commandBuffer)) { return; }
+    if (!BindPipeline(bindState, commandBuffer, renderPass, framebuffer)) { return; }
+    if (!BindDescriptorSet0(bindState, renderParams, commandBuffer, viewProjections)) { return; }
+    if (!BindDescriptorSet1(bindState, commandBuffer)) { return; }
+    if (!BindDescriptorSet2(bindState, terrainBatch, commandBuffer)) { return; }
+    if (!BindDescriptorSet3(bindState, terrainBatch, commandBuffer)) { return; }
 
     // Draw
 
     const auto verticesBuffer = terrainBatch.loadedMesh.verticesBuffer->GetBuffer();
     const auto indicesBuffer = terrainBatch.loadedMesh.indicesBuffer->GetBuffer();
 
-    BindVertexBuffer(renderState, commandBuffer, terrainBatch.loadedMesh.verticesBuffer->GetBuffer());
-    BindIndexBuffer(renderState, commandBuffer, terrainBatch.loadedMesh.indicesBuffer->GetBuffer());
+    BindVertexBuffer(bindState, commandBuffer, terrainBatch.loadedMesh.verticesBuffer->GetBuffer());
+    BindIndexBuffer(bindState, commandBuffer, terrainBatch.loadedMesh.indicesBuffer->GetBuffer());
 
     commandBuffer->CmdDrawIndexed(
         terrainBatch.loadedMesh.numIndices,
@@ -312,7 +312,7 @@ void TerrainRenderer::RenderBatch(RenderState& renderState,
     );
 }
 
-bool TerrainRenderer::BindPipeline(RenderState& renderState,
+bool TerrainRenderer::BindPipeline(BindState& bindState,
                                    const VulkanCommandBufferPtr& commandBuffer,
                                    const VulkanRenderPassPtr& renderPass,
                                    const VulkanFramebufferPtr& framebuffer)
@@ -320,7 +320,7 @@ bool TerrainRenderer::BindPipeline(RenderState& renderState,
     //
     // If the program is already bound, nothing to do
     //
-    if (renderState.programDef == m_programDef) { return true; }
+    if (bindState.programDef == m_programDef) { return true; }
 
     //
     // Otherwise, get the pipeline for this batch
@@ -336,7 +336,7 @@ bool TerrainRenderer::BindPipeline(RenderState& renderState,
     // Bind the pipeline
     //
     commandBuffer->CmdBindPipeline(*pipelineExpect);
-    renderState.OnPipelineBound(m_programDef, *pipelineExpect);
+    bindState.OnPipelineBound(m_programDef, *pipelineExpect);
 
     return true;
 }
@@ -349,14 +349,14 @@ std::expected<VulkanPipelinePtr, bool> TerrainRenderer::GetBatchPipeline(const V
     //
     const auto viewport = Viewport(0, 0, framebuffer->GetSize()->w, framebuffer->GetSize()->h);
 
-    auto pipeline = GetPipeline(
+    auto pipeline = GetGraphicsPipeline(
         m_logger,
         m_vulkanObjs,
         m_shaders,
         m_pipelines,
         m_programDef,
         renderPass,
-        OffscreenRenderPass_OpaqueDeferredSubpass_Index,
+        GPassRenderPass_SubPass_DeferredLightingObjects,
         viewport,
         CullFace::Back,
         PolygonFillMode::Fill,
@@ -377,7 +377,7 @@ std::expected<VulkanPipelinePtr, bool> TerrainRenderer::GetBatchPipeline(const V
     return pipeline;
 }
 
-bool TerrainRenderer::BindDescriptorSet0(RenderState& renderState,
+bool TerrainRenderer::BindDescriptorSet0(BindState& bindState,
                                          const RenderParams& renderParams,
                                          const VulkanCommandBufferPtr& commandBuffer,
                                          const std::vector<ViewProjection>& viewProjections) const
@@ -385,13 +385,13 @@ bool TerrainRenderer::BindDescriptorSet0(RenderState& renderState,
     //
     // If global data is already bound, nothing to do
     //
-    if (!renderState.set0Invalidated) { return true; }
+    if (!bindState.set0Invalidated) { return true; }
 
     //
     // Create a descriptor set
     //
     const auto globalDataDescriptorSet = m_descriptorSets->CachedAllocateDescriptorSet(
-        (*renderState.programDef)->GetDescriptorSetLayouts()[0],
+        (*bindState.programDef)->GetDescriptorSetLayouts()[0],
         std::format("TerrainRenderer-DS0-{}", m_frameIndex)
     );
     if (!globalDataDescriptorSet)
@@ -404,19 +404,19 @@ bool TerrainRenderer::BindDescriptorSet0(RenderState& renderState,
     //
     // Update the descriptor set with data
     //
-    if (!BindDescriptorSet0_Global(renderState, renderParams, *globalDataDescriptorSet)) { return false; }
-    if (!BindDescriptorSet0_ViewProjection(renderState, *globalDataDescriptorSet, viewProjections)) { return false; }
+    if (!BindDescriptorSet0_Global(bindState, renderParams, *globalDataDescriptorSet)) { return false; }
+    if (!BindDescriptorSet0_ViewProjection(bindState, *globalDataDescriptorSet, viewProjections)) { return false; }
 
     //
     // Bind the global data descriptor set
     //
-    commandBuffer->CmdBindDescriptorSets(*renderState.pipeline, 0, {(*globalDataDescriptorSet)->GetVkDescriptorSet()});
-    renderState.OnSet0Bound();
+    commandBuffer->CmdBindDescriptorSets(*bindState.pipeline, 0, {(*globalDataDescriptorSet)->GetVkDescriptorSet()});
+    bindState.OnSet0Bound();
 
     return true;
 }
 
-bool TerrainRenderer::BindDescriptorSet0_Global(const RenderState& renderState,
+bool TerrainRenderer::BindDescriptorSet0_Global(const BindState& bindState,
                                                 const RenderParams& renderParams,
                                                 const VulkanDescriptorSetPtr& globalDataDescriptorSet) const
 {
@@ -445,7 +445,7 @@ bool TerrainRenderer::BindDescriptorSet0_Global(const RenderState& renderState,
     // Bind the global data buffer to the global data descriptor set
     //
     globalDataDescriptorSet->WriteBufferBind(
-        (*renderState.programDef)->GetBindingDetailsByName("u_globalData"),
+        (*bindState.programDef)->GetBindingDetailsByName("u_globalData"),
         VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         (*globalDataBuffer)->GetBuffer()->GetVkBuffer(),
         0,
@@ -460,7 +460,7 @@ bool TerrainRenderer::BindDescriptorSet0_Global(const RenderState& renderState,
     return true;
 }
 
-bool TerrainRenderer::BindDescriptorSet0_ViewProjection(const RenderState& renderState,
+bool TerrainRenderer::BindDescriptorSet0_ViewProjection(const BindState& bindState,
                                                         const VulkanDescriptorSetPtr& globalDataDescriptorSet,
                                                         const std::vector<ViewProjection>& viewProjections) const
 {
@@ -490,7 +490,7 @@ bool TerrainRenderer::BindDescriptorSet0_ViewProjection(const RenderState& rende
     }
 
     globalDataDescriptorSet->WriteBufferBind(
-        (*renderState.programDef)->GetBindingDetailsByName("i_viewProjectionData"),
+        (*bindState.programDef)->GetBindingDetailsByName("i_viewProjectionData"),
         VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         (*viewProjectionDataBuffer)->GetBuffer()->GetVkBuffer(),
         0,
@@ -505,18 +505,18 @@ bool TerrainRenderer::BindDescriptorSet0_ViewProjection(const RenderState& rende
     return true;
 }
 
-bool TerrainRenderer::BindDescriptorSet1(RenderState& renderState, const VulkanCommandBufferPtr& commandBuffer) const
+bool TerrainRenderer::BindDescriptorSet1(BindState& bindState, const VulkanCommandBufferPtr& commandBuffer) const
 {
     //
     // If renderer data is already bound, nothing to do
     //
-    if (!renderState.set1Invalidated) { return true; }
+    if (!bindState.set1Invalidated) { return true; }
 
     //
     // Otherwise, retrieve a descriptor set for binding renderer data
     //
     const auto rendererDataDescriptorSet = m_descriptorSets->CachedAllocateDescriptorSet(
-        (*renderState.programDef)->GetDescriptorSetLayouts()[1],
+        (*bindState.programDef)->GetDescriptorSetLayouts()[1],
         std::format("TerrainRenderer-DS1-{}", m_frameIndex)
     );
     if (!rendererDataDescriptorSet)
@@ -532,7 +532,7 @@ bool TerrainRenderer::BindDescriptorSet1(RenderState& renderState, const VulkanC
     const auto terrainPayloadBuffer =  m_renderables->GetTerrain().GetTerrainPayloadBuffer();
 
     (*rendererDataDescriptorSet)->WriteBufferBind(
-        (*renderState.programDef)->GetBindingDetailsByName("i_terrainData"),
+        (*bindState.programDef)->GetBindingDetailsByName("i_terrainData"),
         VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         terrainPayloadBuffer->GetBuffer()->GetVkBuffer(),
         0,
@@ -542,13 +542,13 @@ bool TerrainRenderer::BindDescriptorSet1(RenderState& renderState, const VulkanC
     //
     // Bind the renderer descriptor set
     //
-    commandBuffer->CmdBindDescriptorSets(*renderState.pipeline, 1, {(*rendererDataDescriptorSet)->GetVkDescriptorSet()});
-    renderState.OnSet1Bound();
+    commandBuffer->CmdBindDescriptorSets(*bindState.pipeline, 1, {(*rendererDataDescriptorSet)->GetVkDescriptorSet()});
+    bindState.OnSet1Bound();
 
     return true;
 }
 
-bool TerrainRenderer::BindDescriptorSet2(RenderState& renderState,
+bool TerrainRenderer::BindDescriptorSet2(BindState& bindState,
                                          const TerrainBatch& terrainBatch,
                                          const VulkanCommandBufferPtr& commandBuffer) const
 {
@@ -557,16 +557,16 @@ bool TerrainRenderer::BindDescriptorSet2(RenderState& renderState,
     // If renderer data is already bound, nothing to do
     //
     const bool dataBindsMatch =
-        renderState.materialDataBufferId == loadedMaterial.payloadBuffer->GetBuffer()->GetBufferId() &&
-        renderState.materialTextures == loadedMaterial.textureBinds;
+        bindState.materialDataBufferId == loadedMaterial.payloadBuffer->GetBuffer()->GetBufferId() &&
+        bindState.materialTextures == loadedMaterial.textureBinds;
 
-    if (!renderState.set2Invalidated && dataBindsMatch) { return true; }
+    if (!bindState.set2Invalidated && dataBindsMatch) { return true; }
 
     //
     // Create a descriptor set
     //
     const auto materialDescriptorSet = m_descriptorSets->CachedAllocateDescriptorSet(
-        (*renderState.programDef)->GetDescriptorSetLayouts()[2],
+        (*bindState.programDef)->GetDescriptorSetLayouts()[2],
         std::format("TerrainRenderer-DS2", m_frameIndex)
     );
     if (!materialDescriptorSet)
@@ -584,14 +584,14 @@ bool TerrainRenderer::BindDescriptorSet2(RenderState& renderState,
     // Bind the material's payload
     //
     (*materialDescriptorSet)->WriteBufferBind(
-        (*renderState.programDef)->GetBindingDetailsByName("i_materialData"),
+        (*bindState.programDef)->GetBindingDetailsByName("i_materialData"),
         VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         terrainBatch.loadedMaterial.payloadBuffer->GetBuffer()->GetVkBuffer(),
         terrainBatch.loadedMaterial.payloadByteOffset,
         terrainBatch.loadedMaterial.payloadByteSize
     );
 
-    renderState.materialDataBufferId = loadedMaterial.payloadBuffer->GetBuffer()->GetBufferId();
+    bindState.materialDataBufferId = loadedMaterial.payloadBuffer->GetBuffer()->GetBufferId();
 
     //
     // Bind the material's textures
@@ -623,24 +623,24 @@ bool TerrainRenderer::BindDescriptorSet2(RenderState& renderState,
         }
 
         (*materialDescriptorSet)->WriteCombinedSamplerBind(
-            (*renderState.programDef)->GetBindingDetailsByName(textureBindIt.first),
+            (*bindState.programDef)->GetBindingDetailsByName(textureBindIt.first),
             loadedTexture->vkImageViews.at(TextureView::DEFAULT),
             loadedTexture->vkSampler
         );
     }
 
-    renderState.materialTextures = loadedMaterial.textureBinds;
+    bindState.materialTextures = loadedMaterial.textureBinds;
 
     //
     // Bind the material descriptor set
     //
-    commandBuffer->CmdBindDescriptorSets(*renderState.pipeline, 2, {(*materialDescriptorSet)->GetVkDescriptorSet()});
-    renderState.OnSet2Bound();
+    commandBuffer->CmdBindDescriptorSets(*bindState.pipeline, 2, {(*materialDescriptorSet)->GetVkDescriptorSet()});
+    bindState.OnSet2Bound();
 
     return true;
 }
 
-bool TerrainRenderer::BindDescriptorSet3(RenderState& renderState,
+bool TerrainRenderer::BindDescriptorSet3(BindState& bindState,
                                          const TerrainBatch& terrainBatch,
                                          const VulkanCommandBufferPtr& commandBuffer) const
 {
@@ -648,7 +648,7 @@ bool TerrainRenderer::BindDescriptorSet3(RenderState& renderState,
     // If the set isn't invalidated, bail out. Note: This is just for consistency; we bind new draw
     // data to DS3 for every batch, so set3 is always invalidated at the start of every batch draw.
     //
-    if (!renderState.set3Invalidated)
+    if (!bindState.set3Invalidated)
     {
         return true;
     }
@@ -657,7 +657,7 @@ bool TerrainRenderer::BindDescriptorSet3(RenderState& renderState,
     // Retrieve a descriptor set for binding draw data
     //
     const auto drawDescriptorSet = m_descriptorSets->CachedAllocateDescriptorSet(
-        (*renderState.programDef)->GetDescriptorSetLayouts()[3],
+        (*bindState.programDef)->GetDescriptorSetLayouts()[3],
         std::format("TerrainRenderer-DS3-{}-{}", terrainBatch.batchKey.materialId.id, m_frameIndex)
     );
     if (!drawDescriptorSet)
@@ -674,13 +674,13 @@ bool TerrainRenderer::BindDescriptorSet3(RenderState& renderState,
     //
     // Update the "draw data" bind, which contains the ids of terrain to be rendered
     //
-    if (!BindDescriptorSet3_DrawData(renderState, terrainBatch, *drawDescriptorSet)) { return false; }
+    if (!BindDescriptorSet3_DrawData(bindState, terrainBatch, *drawDescriptorSet)) { return false; }
 
     //
     // Update the height map sampler bind
     //
     (*drawDescriptorSet)->WriteCombinedSamplerBind(
-        (*renderState.programDef)->GetBindingDetailsByName("i_heightSampler"),
+        (*bindState.programDef)->GetBindingDetailsByName("i_heightSampler"),
         terrainBatch.loadedHeightMapTexture.vkImageViews.at(TextureView::DEFAULT),
         terrainBatch.loadedHeightMapTexture.vkSampler
     );
@@ -688,13 +688,13 @@ bool TerrainRenderer::BindDescriptorSet3(RenderState& renderState,
     //
     // Bind the draw descriptor set
     //
-    commandBuffer->CmdBindDescriptorSets(*renderState.pipeline, 3, {(*drawDescriptorSet)->GetVkDescriptorSet()});
-    renderState.OnSet3Bound();
+    commandBuffer->CmdBindDescriptorSets(*bindState.pipeline, 3, {(*drawDescriptorSet)->GetVkDescriptorSet()});
+    bindState.OnSet3Bound();
 
     return true;
 }
 
-bool TerrainRenderer::BindDescriptorSet3_DrawData(RenderState& renderState,
+bool TerrainRenderer::BindDescriptorSet3_DrawData(BindState& bindState,
                                                   const TerrainBatch& terrainBatch,
                                                   const VulkanDescriptorSetPtr& drawDescriptorSet) const
 {
@@ -730,7 +730,7 @@ bool TerrainRenderer::BindDescriptorSet3_DrawData(RenderState& renderState,
     drawDataBuffer->Update(ExecutionContext::CPU(), 0, drawPayloads);
 
     drawDescriptorSet->WriteBufferBind(
-        (*renderState.programDef)->GetBindingDetailsByName("i_drawData"),
+        (*bindState.programDef)->GetBindingDetailsByName("i_drawData"),
         VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         drawDataBuffer->GetBuffer()->GetVkBuffer(),
         0,
@@ -745,14 +745,14 @@ bool TerrainRenderer::BindDescriptorSet3_DrawData(RenderState& renderState,
     return true;
 }
 
-void TerrainRenderer::BindVertexBuffer(RenderState& renderState,
+void TerrainRenderer::BindVertexBuffer(BindState& bindState,
                                        const VulkanCommandBufferPtr& commandBuffer,
                                        const BufferPtr& vertexBuffer)
 {
     //
     // If the vertex buffer is already bound, nothing to do
     //
-    if (vertexBuffer == renderState.vertexBuffer) { return; }
+    if (vertexBuffer == bindState.vertexBuffer) { return; }
 
     //
     // Bind the vertex buffer
@@ -762,17 +762,17 @@ void TerrainRenderer::BindVertexBuffer(RenderState& renderState,
     //
     // Update render state
     //
-    renderState.OnVertexBufferBound(vertexBuffer);
+    bindState.OnVertexBufferBound(vertexBuffer);
 }
 
-void TerrainRenderer::BindIndexBuffer(RenderState& renderState,
+void TerrainRenderer::BindIndexBuffer(BindState& bindState,
                                       const VulkanCommandBufferPtr& commandBuffer,
                                       const BufferPtr& indexBuffer)
 {
     //
     // If the index buffer is already bound, nothing to do
     //
-    if (indexBuffer == renderState.indexBuffer) { return; }
+    if (indexBuffer == bindState.indexBuffer) { return; }
 
     //
     // Bind the index buffer
@@ -782,7 +782,7 @@ void TerrainRenderer::BindIndexBuffer(RenderState& renderState,
     //
     // Update render state
     //
-    renderState.OnIndexBufferBound(indexBuffer);
+    bindState.OnIndexBufferBound(indexBuffer);
 }
 
 }

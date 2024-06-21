@@ -9,7 +9,7 @@
 
 #include "Renderer.h"
 #include "RendererCommon.h"
-#include "RenderState.h"
+#include "BindState.h"
 
 #include "../InternalId.h"
 
@@ -158,7 +158,7 @@ namespace Accela::Render
             //
 
             void RenderBatch(const std::string& sceneName,
-                             RenderState& renderState,
+                             BindState& bindState,
                              RenderMetrics& renderMetrics,
                              const RenderType& renderType,
                              const ObjectRenderBatch& renderBatch,
@@ -173,7 +173,7 @@ namespace Accela::Render
             //
             // Pipeline
             //
-            [[nodiscard]] bool BindPipeline(RenderState& renderState,
+            [[nodiscard]] bool BindPipeline(BindState& bindState,
                                             const RenderType& renderType,
                                             const ObjectRenderBatch& renderBatch,
                                             const VulkanCommandBufferPtr& commandBuffer,
@@ -181,7 +181,7 @@ namespace Accela::Render
                                             const VulkanFramebufferPtr& framebuffer,
                                             const std::optional<ShadowRenderData>& shadowRenderData);
 
-            [[nodiscard]] bool BindPushConstants(RenderState& renderState,
+            [[nodiscard]] bool BindPushConstants(BindState& bindState,
                                                  const RenderType& renderType,
                                                  const VulkanCommandBufferPtr& commandBuffer,
                                                  const std::optional<ShadowRenderData>& shadowRenderData) const;
@@ -190,79 +190,79 @@ namespace Accela::Render
             // DescriptorSet 0
             //
             [[nodiscard]] bool BindDescriptorSet0(const std::string& sceneName,
-                                                  RenderState& renderState,
+                                                  BindState& bindState,
                                                   const RenderType& renderType,
                                                   const RenderParams& renderParams,
                                                   const VulkanCommandBufferPtr& commandBuffer,
                                                   const std::vector<ViewProjection>& viewProjections,
                                                   const std::unordered_map<LightId, TextureId>& shadowMaps);
 
-            [[nodiscard]] bool BindDescriptorSet0_Global(RenderState& renderState,
+            [[nodiscard]] bool BindDescriptorSet0_Global(BindState& bindState,
                                                          const RenderParams& renderParams,
                                                          const VulkanDescriptorSetPtr& descriptorSet,
                                                          const std::vector<LoadedLight>& lights) const;
 
-            [[nodiscard]] bool BindDescriptorSet0_ViewProjection(RenderState& renderState,
+            [[nodiscard]] bool BindDescriptorSet0_ViewProjection(BindState& bindState,
                                                                  const std::vector<ViewProjection>& viewProjections,
                                                                  const VulkanDescriptorSetPtr& descriptorSet) const;
 
-            [[nodiscard]] bool BindDescriptorSet0_Lights(const RenderState& renderState,
+            [[nodiscard]] bool BindDescriptorSet0_Lights(const BindState& bindState,
                                                          const VulkanDescriptorSetPtr& globalDataDescriptorSet,
                                                          const std::vector<LoadedLight>& lights,
                                                          const std::unordered_map<LightId, TextureId>& shadowMaps) const;
 
-            [[nodiscard]] bool BindDescriptorSet0_ShadowMapTextures(const RenderState& renderState,
+            [[nodiscard]] bool BindDescriptorSet0_ShadowMapTextures(const BindState& bindState,
                                                                     const VulkanDescriptorSetPtr& globalDataDescriptorSet,
                                                                     const std::unordered_map<ShadowMapType, std::vector<TextureId>>& shadowMapTextureIds) const;
 
             //
             // DescriptorSet 1
             //
-            [[nodiscard]] bool BindDescriptorSet1(RenderState& renderState,
+            [[nodiscard]] bool BindDescriptorSet1(BindState& bindState,
                                                   const VulkanCommandBufferPtr& commandBuffer);
 
-            void BindDescriptorSet1_RendererData(const RenderState& renderState,
+            void BindDescriptorSet1_RendererData(const BindState& bindState,
                                                  const VulkanDescriptorSetPtr& descriptorSet) const;
 
             //
             // DescriptorSet 2
             //
-            [[nodiscard]] bool BindDescriptorSet2(RenderState& renderState,
+            [[nodiscard]] bool BindDescriptorSet2(BindState& bindState,
                                                   const ObjectRenderBatch& renderBatch,
                                                   const VulkanCommandBufferPtr& commandBuffer);
 
-            void BindDescriptorSet2_MaterialData(RenderState& renderState,
+            void BindDescriptorSet2_MaterialData(BindState& bindState,
                                                  const ObjectRenderBatch& renderBatch,
                                                  const VulkanDescriptorSetPtr& descriptorSet);
 
             //
             // DescriptorSet 3
             //
-            [[nodiscard]] bool BindDescriptorSet3(RenderState& renderState,
+            [[nodiscard]] bool BindDescriptorSet3(BindState& bindState,
                                                   const ObjectRenderBatch& renderBatch,
                                                   const VulkanCommandBufferPtr& commandBuffer) const;
 
-            [[nodiscard]] bool BindDescriptorSet3_DrawData(const RenderState& renderState,
+            [[nodiscard]] bool BindDescriptorSet3_DrawData(const BindState& bindState,
                                                            const ObjectRenderBatch& renderBatch,
                                                            const VulkanDescriptorSetPtr& drawDescriptorSet,
                                                            const BufferId& batchMeshDataBufferId) const;
 
-            static void BindDescriptorSet3_MeshData(const RenderState& renderState,
+            static void BindDescriptorSet3_MeshData(const BindState& bindState,
                                                     const ObjectRenderBatch& renderBatch,
                                                     const VulkanDescriptorSetPtr& drawDescriptorSet);
 
-            [[nodiscard]] bool BindDescriptorSet3_BoneData(const RenderState& renderState,
+            [[nodiscard]] bool BindDescriptorSet3_BoneData(const BindState& bindState,
                                                            const ObjectRenderBatch& renderBatch,
                                                            const VulkanDescriptorSetPtr& drawDescriptorSet) const;
 
             //
             // Vertex/Index buffers
             //
-            static void BindVertexBuffer(RenderState& renderState,
+            static void BindVertexBuffer(BindState& bindState,
                                          const VulkanCommandBufferPtr& commandBuffer,
                                          const BufferPtr& vertexBuffer);
 
-            static void BindIndexBuffer(RenderState& renderState,
+            static void BindIndexBuffer(BindState& bindState,
                                         const VulkanCommandBufferPtr& commandBuffer,
                                         const BufferPtr& indexBuffer);
 
@@ -277,6 +277,11 @@ namespace Accela::Render
             struct ShadowLayerIndexPayload
             {
                 alignas(4) float lightMaxAffectRange{0.0f};
+            };
+
+            struct LightingSettingPayload
+            {
+                alignas(4) uint32_t hdr{0};
             };
 
         private:

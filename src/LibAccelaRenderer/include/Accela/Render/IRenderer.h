@@ -23,6 +23,7 @@
 #include <memory>
 #include <future>
 #include <vector>
+#include <string>
 
 namespace Accela::Render
 {
@@ -67,8 +68,8 @@ namespace Accela::Render
             virtual std::future<bool> DestroyMesh(MeshId meshId) = 0;
             virtual std::future<bool> CreateMaterial(const Material::Ptr& material) = 0;
             virtual std::future<bool> DestroyMaterial(MaterialId materialId) = 0;
-            virtual std::future<bool> CreateFrameBuffer(FrameBufferId frameBufferId, const std::vector<TextureId>& attachmentTextures) = 0;
-            virtual std::future<bool> DestroyFrameBuffer(FrameBufferId frameBufferId) = 0;
+            virtual std::future<bool> CreateRenderTarget(RenderTargetId renderTargetId, const std::string& tag) = 0;
+            virtual std::future<bool> DestroyRenderTarget(RenderTargetId renderTargetId) = 0;
             virtual std::future<bool> UpdateWorld(const WorldUpdate& update) = 0;
             virtual std::future<bool> RenderFrame(const RenderGraph::Ptr& renderGraph) = 0;
             virtual std::future<bool> SurfaceChanged() = 0;

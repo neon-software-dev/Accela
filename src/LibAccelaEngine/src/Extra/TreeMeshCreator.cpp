@@ -42,8 +42,8 @@ TreeMeshCreator::TreeMeshCreator(const std::mt19937::result_type& seed)
 TreeMesh TreeMeshCreator::CreateTreeMesh(const TreeMeshParams& params, const Tree& tree, const std::string& tag)
 {
     TreeMesh treeMesh{};
-    treeMesh.branchesMesh = std::make_shared<Render::StaticMesh>(Render::INVALID_ID, std::format("Branches-{}", tag));
-    treeMesh.leavesMesh = std::make_shared<Render::StaticMesh>(Render::INVALID_ID, std::format("Leaves-{}", tag));
+    treeMesh.branchesMesh = std::make_shared<Render::StaticMesh>(Render::MeshId::Invalid(), std::format("Branches-{}", tag));
+    treeMesh.leavesMesh = std::make_shared<Render::StaticMesh>(Render::MeshId::Invalid(), std::format("Leaves-{}", tag));
 
     //
     // DFS iterate over the tree and append geometry for all branches and leaves we encounter

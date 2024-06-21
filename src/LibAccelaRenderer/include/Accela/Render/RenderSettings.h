@@ -86,6 +86,13 @@ namespace Accela::Render
 
         // Whether to render objects in wireframe
         bool objectsWireframe{false};
+
+        //
+        // Lighting
+        //
+        bool hdr{true};
+        float exposure{1.0f};
+        float gamma{2.2f};
     };
 }
 

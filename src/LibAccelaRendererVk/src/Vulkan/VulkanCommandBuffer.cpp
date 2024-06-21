@@ -84,7 +84,7 @@ void VulkanCommandBuffer::CmdEndRenderPass() const
 
 void VulkanCommandBuffer::CmdBindPipeline(const VulkanPipelinePtr& pipeline) const
 {
-    m_vk->vkCmdBindPipeline(m_vkCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->GetVkPipeline());
+    m_vk->vkCmdBindPipeline(m_vkCommandBuffer, pipeline->GetPipelineBindPoint(), pipeline->GetVkPipeline());
 }
 
 void VulkanCommandBuffer::CmdBindVertexBuffers(const uint32_t& firstBinding,
@@ -108,7 +108,7 @@ void VulkanCommandBuffer::CmdBindDescriptorSets(const VulkanPipelinePtr& pipelin
 {
     m_vk->vkCmdBindDescriptorSets(
         m_vkCommandBuffer,
-        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        pipeline->GetPipelineBindPoint(),
         pipeline->GetVkPipelineLayout(),
         firstSetNumber,                     // First set number
         descriptorSets.size(),              // Number of descriptor sets to bind
@@ -133,6 +133,13 @@ void VulkanCommandBuffer::CmdDrawIndexed(const uint32_t& indexCount,
                                          const uint32_t& firstInstance) const
 {
     m_vk->vkCmdDrawIndexed(m_vkCommandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+}
+
+void VulkanCommandBuffer::CmdDispatch(const uint32_t& groupCountX,
+                                      const uint32_t& groupCountY,
+                                      const uint32_t& groupCountZ) const
+{
+    m_vk->vkCmdDispatch(m_vkCommandBuffer, groupCountX, groupCountY, groupCountZ);
 }
 
 void VulkanCommandBuffer::CmdSetViewport(const Viewport& viewport, float minDepth, float maxDepth) const

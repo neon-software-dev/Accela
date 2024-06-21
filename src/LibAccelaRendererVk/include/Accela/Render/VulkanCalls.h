@@ -81,6 +81,7 @@ namespace Accela::Render
             VkResult vkCreateRenderPass(VkDevice device, const VkRenderPassCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkRenderPass* pRenderPass) const override;
             void vkDestroyRenderPass(VkDevice device, VkRenderPass renderPass, const VkAllocationCallbacks* pAllocator) const override;
             VkResult vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipelineCache, uint32_t createInfoCount, const VkGraphicsPipelineCreateInfo* pCreateInfos, const VkAllocationCallbacks* pAllocator, VkPipeline* pPipelines) const override;
+            VkResult vkCreateComputePipelines(VkDevice device, VkPipelineCache pipelineCache, uint32_t createInfoCount, const VkComputePipelineCreateInfo* pCreateInfos, const VkAllocationCallbacks* pAllocator, VkPipeline* pPipelines) const override;
             void vkDestroyPipeline(VkDevice device, VkPipeline pipeline, const VkAllocationCallbacks* pAllocator) const override;
             VkResult vkCreateFramebuffer(VkDevice device, const VkFramebufferCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkFramebuffer* pFramebuffer) const override;
             void vkDestroyFramebuffer(VkDevice device, VkFramebuffer framebuffer, const VkAllocationCallbacks* pAllocator) const override;
@@ -96,6 +97,7 @@ namespace Accela::Render
             void vkCmdBindIndexBuffer(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, VkIndexType indexType) const override;
             void vkCmdDraw(VkCommandBuffer commandBuffer, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance) const override;
             void vkCmdDrawIndexed(VkCommandBuffer commandBuffer, uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance) const override;
+            void vkCmdDispatch(VkCommandBuffer commandBuffer, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) const override;
             void vkCmdEndRenderPass(VkCommandBuffer commandBuffer) const override;
             VkResult vkEndCommandBuffer(VkCommandBuffer commandBuffer) const override;
             VkResult vkCreateSemaphore(VkDevice device, const VkSemaphoreCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSemaphore* pSemaphore) const override;
@@ -223,6 +225,7 @@ namespace Accela::Render
             PFN_vkCreateRenderPass m_vkCreateRenderPass{nullptr};
             PFN_vkDestroyRenderPass m_vkDestroyRenderPass{nullptr};
             PFN_vkCreateGraphicsPipelines m_vkCreateGraphicsPipelines{nullptr};
+            PFN_vkCreateComputePipelines m_vkCreateComputePipelines{nullptr};
             PFN_vkDestroyPipeline m_vkDestroyPipeline{nullptr};
             PFN_vkCreateFramebuffer m_vkCreateFramebuffer{nullptr};
             PFN_vkDestroyFramebuffer m_vkDestroyFramebuffer{nullptr};
@@ -238,6 +241,7 @@ namespace Accela::Render
             PFN_vkCmdBindIndexBuffer m_vkCmdBindIndexBuffer{nullptr};
             PFN_vkCmdDraw m_vkCmdDraw{nullptr};
             PFN_vkCmdDrawIndexed m_vkCmdDrawIndexed{nullptr};
+            PFN_vkCmdDispatch m_vkCmdDispatch{nullptr};
             PFN_vkCmdEndRenderPass m_vkCmdEndRenderPass{nullptr};
             PFN_vkEndCommandBuffer m_vkEndCommandBuffer{nullptr};
             PFN_vkCreateSemaphore m_vkCreateSemaphore{nullptr};

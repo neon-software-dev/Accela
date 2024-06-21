@@ -81,6 +81,11 @@ namespace Accela::Render
             [[nodiscard]] std::optional<uint32_t> GetGraphicsQueueFamilyIndex() const;
 
             /**
+             * @return The queue family index that supports compute commands, or std::nullopt if none exists.
+             */
+            [[nodiscard]] std::optional<uint32_t> GetComputeQueueFamilyIndex() const;
+
+            /**
              * @param surface Surface to be tested against
              *
              * @return The queue family index that supports presenting to the specified surface, or std::nullopt

@@ -26,7 +26,18 @@ PipelineFactory::PipelineFactory(Common::ILogger::Ptr logger,
 
 }
 
-std::expected<VulkanPipelinePtr, bool> PipelineFactory::GetPipeline(const VulkanDevicePtr& device, const PipelineConfig& config)
+std::expected<VulkanPipelinePtr, bool> PipelineFactory::GetPipeline(const VulkanDevicePtr& device, const GraphicsPipelineConfig& config)
+{
+   return GetPipelineT(device, config);
+}
+
+std::expected<VulkanPipelinePtr, bool> PipelineFactory::GetPipeline(const VulkanDevicePtr& device, const ComputePipelineConfig& config)
+{
+    return GetPipelineT(device, config);
+}
+
+template<typename ConfigType>
+std::expected<VulkanPipelinePtr, bool> PipelineFactory::GetPipelineT(const VulkanDevicePtr& device, const ConfigType& config)
 {
     const auto pipelineKey = config.GetUniqueKey();
 
@@ -43,7 +54,7 @@ std::expected<VulkanPipelinePtr, bool> PipelineFactory::GetPipeline(const Vulkan
     auto pipeline = std::make_shared<VulkanPipeline>(m_logger, m_vulkanObjs->GetCalls(), m_shaders, device);
     if (!pipeline->Create(config))
     {
-        m_logger->Log(Common::LogLevel::Fatal, "GetPipeline: Failed to create pipeline");
+        m_logger->Log(Common::LogLevel::Fatal, "GetGraphicsPipeline: Failed to create pipeline");
         return std::unexpected(false);
     }
 

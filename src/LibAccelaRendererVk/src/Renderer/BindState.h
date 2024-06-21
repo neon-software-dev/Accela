@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
  
-#ifndef LIBACCELARENDERERVK_SRC_RENDERER_RENDERSTATE_H
-#define LIBACCELARENDERERVK_SRC_RENDERER_RENDERSTATE_H
+#ifndef LIBACCELARENDERERVK_SRC_RENDERER_BINDSTATE_H
+#define LIBACCELARENDERERVK_SRC_RENDERER_BINDSTATE_H
 
 #include "../ForwardDeclares.h"
 #include "../InternalId.h"
@@ -16,7 +16,10 @@
 
 namespace Accela::Render
 {
-    struct RenderState
+    /**
+     * Keeps track of bound pipeline data during a specific Renderer flow
+     */
+    struct BindState
     {
         // Non-Descriptor Set Bound Data
         std::optional<ProgramDefPtr> programDef;
@@ -49,4 +52,4 @@ namespace Accela::Render
     };
 }
 
-#endif //LIBACCELARENDERERVK_SRC_RENDERER_RENDERSTATE_H
+#endif //LIBACCELARENDERERVK_SRC_RENDERER_BINDSTATE_H

@@ -172,6 +172,11 @@ layout(set = 3, binding = 0) readonly buffer DrawPayloadBuffer
     DrawPayload data[];
 } i_drawData;
 
+layout(push_constant) uniform constants
+{
+    bool hdr;
+} PushConstants;
+
 //
 // OUTPUTS
 //
@@ -226,9 +231,12 @@ void main()
     vec4 surfaceColor = ambientColor + diffuseColor + specularColor;
 
     //
-    // Clamp the brighest color between pure dark and pure bright
+    // If not doing HDR, clamp the brighest color between pure dark and pure bright
     //
-    surfaceColor = clamp(surfaceColor, vec4(0, 0, 0, 0), vec4(1, 1, 1, 1));
+    if (!PushConstants.hdr)
+    {
+        surfaceColor = clamp(surfaceColor, vec4(0, 0, 0, 0), vec4(1, 1, 1, 1));
+    }
 
     o_fragColor = surfaceColor;
 }
@@ -445,10 +453,13 @@ CalculatedLight CalculateFragmentLighting(MaterialPayload fragmentMaterial, vec3
         }
     }
 
-    // Clamp RGB values to full intensity if there's too much light
-    light.ambientLight = clamp(light.ambientLight, vec3(0, 0, 0), vec3(1, 1, 1));
-    light.diffuseLight = clamp(light.diffuseLight, vec3(0, 0, 0), vec3(1, 1, 1));
-    light.specularLight = clamp(light.specularLight, vec3(0, 0, 0), vec3(1, 1, 1));
+    // If not in HDR mode, Clamp RGB values to full intensity if there's too much light
+    if (!PushConstants.hdr)
+    {
+        light.ambientLight = clamp(light.ambientLight, vec3(0, 0, 0), vec3(1, 1, 1));
+        light.diffuseLight = clamp(light.diffuseLight, vec3(0, 0, 0), vec3(1, 1, 1));
+        light.specularLight = clamp(light.specularLight, vec3(0, 0, 0), vec3(1, 1, 1));
+    }
 
     return light;
 }

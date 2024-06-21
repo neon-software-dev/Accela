@@ -138,4 +138,28 @@ bool VulkanRenderPass::HasDepthAttachment() const
     });
 }
 
+std::vector<VkImageLayout> VulkanRenderPass::GetAttachmentInitialLayouts() const
+{
+    std::vector<VkImageLayout> initialLayouts(m_attachments.size(), VK_IMAGE_LAYOUT_UNDEFINED);
+
+    for (unsigned int x = 0; x < m_attachments.size(); ++x)
+    {
+        initialLayouts[x] = m_attachments[x].description.initialLayout;
+    }
+
+    return initialLayouts;
+}
+
+std::vector<VkImageLayout> VulkanRenderPass::GetAttachmentFinalLayouts() const
+{
+    std::vector<VkImageLayout> finalLayouts(m_attachments.size(), VK_IMAGE_LAYOUT_UNDEFINED);
+
+    for (unsigned int x = 0; x < m_attachments.size(); ++x)
+    {
+        finalLayouts[x] = m_attachments[x].description.finalLayout;
+    }
+
+    return finalLayouts;
+}
+
 }

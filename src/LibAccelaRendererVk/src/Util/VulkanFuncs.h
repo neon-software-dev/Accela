@@ -14,6 +14,7 @@
 #include "PostExecutionOps.h"
 
 #include <Accela/Render/Util/Rect.h>
+#include <Accela/Render/Texture/Texture.h>
 
 #include <Accela/Common/ImageData.h>
 #include <Accela/Common/Log/ILogger.h>
@@ -35,7 +36,7 @@ namespace Accela::Render
 
             VulkanFuncs(Common::ILogger::Ptr logger, VulkanObjsPtr vulkanObjs);
 
-            static std::optional<VkFormat> ImageDataFormatToVkFormat(const Common::ImageData::PixelFormat& format);
+            static std::optional<VkFormat> TextureFormatToVkFormat(const TextureFormat& textureFormat);
 
             [[nodiscard]] VkFormatProperties GetVkFormatProperties(const VkFormat& vkFormat) const;
 

@@ -72,8 +72,10 @@ void VulkanDescriptorSet::WriteCombinedSamplerBind(const std::optional<VulkanDes
 
     for (const auto& sampler : samplers)
     {
+        const bool isStorageBind = bindingDetails->descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+
         VkDescriptorImageInfo imageInfo{};
-        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageInfo.imageLayout = isStorageBind ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         imageInfo.imageView = sampler.first;
         imageInfo.sampler = sampler.second;
 
@@ -85,7 +87,7 @@ void VulkanDescriptorSet::WriteCombinedSamplerBind(const std::optional<VulkanDes
     descriptorWrite.dstSet = m_vkDescriptorSet;
     descriptorWrite.dstBinding = bindingDetails->binding;
     descriptorWrite.dstArrayElement = 0;
-    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrite.descriptorType = bindingDetails->descriptorType;
     descriptorWrite.descriptorCount = imageInfos.size();
     descriptorWrite.pBufferInfo = nullptr;
     descriptorWrite.pImageInfo = imageInfos.data();

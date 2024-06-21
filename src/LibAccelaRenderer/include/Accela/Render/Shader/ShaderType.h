@@ -14,7 +14,8 @@ namespace Accela::Render
         Vertex,
         Fragment,
         TESC,
-        TESE
+        TESE,
+        Compute
     };
 }
 

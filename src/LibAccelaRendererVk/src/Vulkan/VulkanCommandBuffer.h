@@ -64,6 +64,10 @@ namespace Accela::Render
                                 const int32_t& vertexOffset,
                                 const uint32_t& firstInstance) const;
 
+            void CmdDispatch(const uint32_t& groupCountX,
+                             const uint32_t& groupCountY,
+                             const uint32_t& groupCountZ) const;
+
             void CmdSetViewport(const Viewport& viewport, float minDepth, float maxDepth) const;
 
             void CmdPushConstants(const VulkanPipelinePtr& pipeline,

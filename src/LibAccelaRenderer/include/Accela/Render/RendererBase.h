@@ -49,8 +49,8 @@ namespace Accela::Render
             std::future<bool> DestroyMesh(MeshId meshId) override;
             std::future<bool> CreateMaterial(const Material::Ptr& material) override;
             std::future<bool> DestroyMaterial(MaterialId materialId) override;
-            std::future<bool> CreateFrameBuffer(FrameBufferId frameBufferId, const std::vector<TextureId>& attachmentTextures) override;
-            std::future<bool> DestroyFrameBuffer(FrameBufferId frameBufferId) override;
+            std::future<bool> CreateRenderTarget(RenderTargetId renderTargetId, const std::string& tag) override;
+            std::future<bool> DestroyRenderTarget(RenderTargetId renderTargetId) override;
             std::future<bool> UpdateWorld(const WorldUpdate& update) override;
             std::future<bool> RenderFrame(const RenderGraph::Ptr& renderGraph) override;
             std::future<bool> SurfaceChanged() override;
@@ -75,8 +75,8 @@ namespace Accela::Render
             virtual bool OnCreateMaterial(std::promise<bool> resultPromise,
                                           const Material::Ptr& material) = 0;
             virtual bool OnDestroyMaterial(MaterialId materialId) = 0;
-            virtual bool OnCreateFrameBuffer(FrameBufferId frameBufferId, const std::vector<TextureId>& attachmentTextures) = 0;
-            virtual bool OnDestroyFrameBuffer(FrameBufferId frameBufferId) = 0;
+            virtual bool OnCreateRenderTarget(RenderTargetId renderTargetId, const std::string& tag) = 0;
+            virtual bool OnDestroyRenderTarget(RenderTargetId renderTargetId) = 0;
             virtual bool OnWorldUpdate(const WorldUpdate& update) = 0;
             virtual bool OnSurfaceChanged() = 0;
             virtual bool OnChangeRenderSettings(const RenderSettings& renderSettings) = 0;

@@ -145,25 +145,39 @@ void DeferredLightingRenderer::Render(const std::string& sceneName,
                                       const std::vector<ViewProjection>& viewProjections,
                                       const std::unordered_map<LightId, TextureId>& shadowMaps)
 {
-    RenderState renderState{};
+    BindState bindState{};
 
     //
     // Bind Pipeline
     //
-    if (!BindPipeline(renderState, commandBuffer, renderPass, framebuffer)) { return; }
+    if (!BindPipeline(bindState, commandBuffer, renderPass, framebuffer)) { return; }
 
     //
     // Bind Descriptor Sets
     //
-    if (!BindDescriptorSet0(sceneName, renderState, renderParams, commandBuffer, viewProjections, shadowMaps)) { return; }
-    if (!BindDescriptorSet1(renderState, commandBuffer, framebuffer)) { return; }
-    if (!BindDescriptorSet2(renderState, materialType, commandBuffer)) { return; }
+    if (!BindDescriptorSet0(sceneName, bindState, renderParams, commandBuffer, viewProjections, shadowMaps)) { return; }
+    if (!BindDescriptorSet1(bindState, commandBuffer, framebuffer)) { return; }
+    if (!BindDescriptorSet2(bindState, materialType, commandBuffer)) { return; }
+
+    //
+    // Bind Push Constants
+    //
+    LightingSettingPayload payload{};
+    payload.hdr = m_renderSettings.hdr;
+
+    commandBuffer->CmdPushConstants(
+        *bindState.pipeline,
+        VK_SHADER_STAGE_FRAGMENT_BIT,
+        0,
+        sizeof(LightingSettingPayload),
+        &payload
+    );
 
     //
     // Draw
     //
-    BindVertexBuffer(renderState, commandBuffer, m_mesh.verticesBuffer->GetBuffer());
-    BindIndexBuffer(renderState, commandBuffer, m_mesh.indicesBuffer->GetBuffer());
+    BindVertexBuffer(bindState, commandBuffer, m_mesh.verticesBuffer->GetBuffer());
+    BindIndexBuffer(bindState, commandBuffer, m_mesh.indicesBuffer->GetBuffer());
 
     commandBuffer->CmdDrawIndexed(
         m_mesh.numIndices,
@@ -174,29 +188,35 @@ void DeferredLightingRenderer::Render(const std::string& sceneName,
     );
 }
 
-std::expected<VulkanPipelinePtr, bool> DeferredLightingRenderer::BindPipeline(RenderState& renderState,
-                                                                             const VulkanCommandBufferPtr& commandBuffer,
-                                                                             const VulkanRenderPassPtr& renderPass,
-                                                                             const VulkanFramebufferPtr& framebuffer)
+std::expected<VulkanPipelinePtr, bool> DeferredLightingRenderer::BindPipeline(BindState& bindState,
+                                                                              const VulkanCommandBufferPtr& commandBuffer,
+                                                                              const VulkanRenderPassPtr& renderPass,
+                                                                              const VulkanFramebufferPtr& framebuffer)
 {
     //
     // Retrieve the pipeline to use for rendering the batch
     //
     const auto viewport = Viewport(0, 0, framebuffer->GetSize()->w, framebuffer->GetSize()->h);
 
-    auto pipeline = GetPipeline(
+    std::vector<PushConstantRange> pushConstantRanges;
+
+    pushConstantRanges = {
+        {VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(LightingSettingPayload)}
+    };
+
+    auto pipeline = GetGraphicsPipeline(
         m_logger,
         m_vulkanObjs,
         m_shaders,
         m_pipelines,
         m_programDef,
         renderPass,
-        OffscreenRenderPass_DeferredLightingSubpass_Index,
+        GPassRenderPass_SubPass_DeferredLightingRender,
         viewport,
         CullFace::Back,
         PolygonFillMode::Fill,
         DepthBias::Disabled,
-        PushConstantRange::None(),
+        pushConstantRanges,
         m_frameIndex,
         m_pipelineHash
     );
@@ -211,13 +231,13 @@ std::expected<VulkanPipelinePtr, bool> DeferredLightingRenderer::BindPipeline(Re
 
     // Bind the pipeline
     commandBuffer->CmdBindPipeline(*pipeline);
-    renderState.OnPipelineBound(m_programDef, *pipeline);
+    bindState.OnPipelineBound(m_programDef, *pipeline);
 
     return *pipeline;
 }
 
 bool DeferredLightingRenderer::BindDescriptorSet0(const std::string& sceneName,
-                                                  RenderState& renderState,
+                                                  BindState& bindState,
                                                   const RenderParams& renderParams,
                                                   const VulkanCommandBufferPtr& commandBuffer,
                                                   const std::vector<ViewProjection>& viewProjections,
@@ -226,13 +246,13 @@ bool DeferredLightingRenderer::BindDescriptorSet0(const std::string& sceneName,
     //
     // If the set isn't invalidated, nothing to do
     //
-    if (!renderState.set0Invalidated) { return true; }
+    if (!bindState.set0Invalidated) { return true; }
 
     //
     // Create a descriptor set
     //
     const auto globalDataDescriptorSet = m_descriptorSets->CachedAllocateDescriptorSet(
-        (*renderState.programDef)->GetDescriptorSetLayouts()[0],
+        (*bindState.programDef)->GetDescriptorSetLayouts()[0],
         std::format("DeferredLightingRenderer-DS0-{}", m_frameIndex)
     );
     if (!globalDataDescriptorSet)
@@ -247,20 +267,20 @@ bool DeferredLightingRenderer::BindDescriptorSet0(const std::string& sceneName,
     //
     const auto sceneLights = m_lights->GetSceneLights(sceneName, viewProjections);
 
-    if (!BindDescriptorSet0_Global(renderState, renderParams, *globalDataDescriptorSet, sceneLights)) { return false; }
-    if (!BindDescriptorSet0_ViewProjection(renderState, viewProjections, *globalDataDescriptorSet)) { return false; }
-    if (!BindDescriptorSet0_Lights(renderState, *globalDataDescriptorSet, sceneLights, shadowMaps)) { return false; }
+    if (!BindDescriptorSet0_Global(bindState, renderParams, *globalDataDescriptorSet, sceneLights)) { return false; }
+    if (!BindDescriptorSet0_ViewProjection(bindState, viewProjections, *globalDataDescriptorSet)) { return false; }
+    if (!BindDescriptorSet0_Lights(bindState, *globalDataDescriptorSet, sceneLights, shadowMaps)) { return false; }
 
     //
     // Bind the global data descriptor set
     //
-    commandBuffer->CmdBindDescriptorSets(*renderState.pipeline, 0, {(*globalDataDescriptorSet)->GetVkDescriptorSet()});
-    renderState.OnSet0Bound();
+    commandBuffer->CmdBindDescriptorSets(*bindState.pipeline, 0, {(*globalDataDescriptorSet)->GetVkDescriptorSet()});
+    bindState.OnSet0Bound();
 
     return true;
 }
 
-bool DeferredLightingRenderer::BindDescriptorSet0_Global(const RenderState& renderState,
+bool DeferredLightingRenderer::BindDescriptorSet0_Global(const BindState& bindState,
                                                          const RenderParams& renderParams,
                                                          const VulkanDescriptorSetPtr& globalDataDescriptorSet,
                                                          const std::vector<LoadedLight>& lights) const
@@ -290,7 +310,7 @@ bool DeferredLightingRenderer::BindDescriptorSet0_Global(const RenderState& rend
     // Bind the global data buffer to the global data descriptor set
     //
     globalDataDescriptorSet->WriteBufferBind(
-        (*renderState.programDef)->GetBindingDetailsByName("u_globalData"),
+        (*bindState.programDef)->GetBindingDetailsByName("u_globalData"),
         VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         (*globalDataBuffer)->GetBuffer()->GetVkBuffer(),
         0,
@@ -305,7 +325,7 @@ bool DeferredLightingRenderer::BindDescriptorSet0_Global(const RenderState& rend
     return true;
 }
 
-bool DeferredLightingRenderer::BindDescriptorSet0_ViewProjection(RenderState& renderState,
+bool DeferredLightingRenderer::BindDescriptorSet0_ViewProjection(BindState& bindState,
                                                                  const std::vector<ViewProjection>& viewProjections,
                                                                  const VulkanDescriptorSetPtr& descriptorSet) const
 {
@@ -338,7 +358,7 @@ bool DeferredLightingRenderer::BindDescriptorSet0_ViewProjection(RenderState& re
     (*viewProjectionDataBuffer)->PushBack(ExecutionContext::CPU(), viewProjectionPayloads);
 
     descriptorSet->WriteBufferBind(
-        (*renderState.programDef)->GetBindingDetailsByName("i_viewProjectionData"),
+        (*bindState.programDef)->GetBindingDetailsByName("i_viewProjectionData"),
         VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         (*viewProjectionDataBuffer)->GetBuffer()->GetVkBuffer(),
         0,
@@ -353,7 +373,7 @@ bool DeferredLightingRenderer::BindDescriptorSet0_ViewProjection(RenderState& re
     return true;
 }
 
-bool DeferredLightingRenderer::BindDescriptorSet0_Lights(const RenderState& renderState,
+bool DeferredLightingRenderer::BindDescriptorSet0_Lights(const BindState& bindState,
                                                          const VulkanDescriptorSetPtr& globalDataDescriptorSet,
                                                          const std::vector<LoadedLight>& lights,
                                                          const std::unordered_map<LightId, TextureId>& shadowMaps) const
@@ -432,7 +452,7 @@ bool DeferredLightingRenderer::BindDescriptorSet0_Lights(const RenderState& rend
     // Bind the light data buffer to the global data descriptor set
     //
     globalDataDescriptorSet->WriteBufferBind(
-        (*renderState.programDef)->GetBindingDetailsByName("i_lightData"),
+        (*bindState.programDef)->GetBindingDetailsByName("i_lightData"),
         VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         (*lightDataBuffer)->GetBuffer()->GetVkBuffer(),
         0,
@@ -442,7 +462,7 @@ bool DeferredLightingRenderer::BindDescriptorSet0_Lights(const RenderState& rend
     //
     // Bind shadow map textures
     //
-    if (!BindDescriptorSet0_ShadowMapTextures(renderState, globalDataDescriptorSet, shadowMapTextureIds))
+    if (!BindDescriptorSet0_ShadowMapTextures(bindState, globalDataDescriptorSet, shadowMapTextureIds))
     {
         m_logger->Log(Common::LogLevel::Error, "DeferredLightingRenderer::BindDescriptorSet0_Lights: Failed to bind shadow maps");
         return false;
@@ -456,14 +476,14 @@ bool DeferredLightingRenderer::BindDescriptorSet0_Lights(const RenderState& rend
     return true;
 }
 
-bool DeferredLightingRenderer::BindDescriptorSet0_ShadowMapTextures(const RenderState& renderState,
+bool DeferredLightingRenderer::BindDescriptorSet0_ShadowMapTextures(const BindState& bindState,
                                                                     const VulkanDescriptorSetPtr& globalDataDescriptorSet,
                                                                     const std::unordered_map<ShadowMapType, std::vector<TextureId>>& shadowMapTextureIds) const
 {
     //
     // Cube shadow map binding details
     //
-    const auto shadowMapBindingDetails = (*renderState.programDef)->GetBindingDetailsByName("i_shadowSampler");
+    const auto shadowMapBindingDetails = (*bindState.programDef)->GetBindingDetailsByName("i_shadowSampler");
     if (!shadowMapBindingDetails)
     {
         m_logger->Log(Common::LogLevel::Error,
@@ -471,7 +491,7 @@ bool DeferredLightingRenderer::BindDescriptorSet0_ShadowMapTextures(const Render
         return false;
     }
 
-    const auto shadowMapBindingDetails_Cube = (*renderState.programDef)->GetBindingDetailsByName("i_shadowSampler_cubeMap");
+    const auto shadowMapBindingDetails_Cube = (*bindState.programDef)->GetBindingDetailsByName("i_shadowSampler_cubeMap");
     if (!shadowMapBindingDetails_Cube)
     {
         m_logger->Log(Common::LogLevel::Error,
@@ -538,14 +558,14 @@ bool DeferredLightingRenderer::BindDescriptorSet0_ShadowMapTextures(const Render
     return true;
 }
 
-bool DeferredLightingRenderer::BindDescriptorSet1(RenderState& renderState,
+bool DeferredLightingRenderer::BindDescriptorSet1(BindState& bindState,
                                                   const VulkanCommandBufferPtr& commandBuffer,
                                                   const VulkanFramebufferPtr& framebuffer)
 {
     //
     // If the set isn't invalidated, nothing to do
     //
-    if (!renderState.set1Invalidated) { return true; }
+    if (!bindState.set1Invalidated) { return true; }
 
     //
     // Create a descriptor set
@@ -592,26 +612,26 @@ bool DeferredLightingRenderer::BindDescriptorSet1(RenderState& renderState,
     //
     // Bind the descriptor set
     //
-    commandBuffer->CmdBindDescriptorSets(*renderState.pipeline, 1, {(*descriptorSet)->GetVkDescriptorSet()});
-    renderState.OnSet1Bound();
+    commandBuffer->CmdBindDescriptorSets(*bindState.pipeline, 1, {(*descriptorSet)->GetVkDescriptorSet()});
+    bindState.OnSet1Bound();
 
     return true;
 }
 
-bool DeferredLightingRenderer::BindDescriptorSet2(RenderState& renderState,
+bool DeferredLightingRenderer::BindDescriptorSet2(BindState& bindState,
                                                   const Material::Type& materialType,
                                                   const VulkanCommandBufferPtr& commandBuffer)
 {
     //
     // If descriptor set is already valid, nothing to do
     //
-    if (!renderState.set2Invalidated) { return true; }
+    if (!bindState.set2Invalidated) { return true; }
 
     //
     // Otherwise, retrieve a descriptor set for binding material data
     //
     const auto materialDataDescriptorSet = m_descriptorSets->CachedAllocateDescriptorSet(
-        (*renderState.programDef)->GetDescriptorSetLayouts()[2],
+        (*bindState.programDef)->GetDescriptorSetLayouts()[2],
         std::format("DeferredLightingRenderer-DS2-MaterialData-{}", m_frameIndex)
     );
     if (!materialDataDescriptorSet)
@@ -624,18 +644,18 @@ bool DeferredLightingRenderer::BindDescriptorSet2(RenderState& renderState,
     //
     // Update the descriptor set with data
     //
-    if (!BindDescriptorSet2_MaterialData(renderState, materialType, *materialDataDescriptorSet)) { return false; }
+    if (!BindDescriptorSet2_MaterialData(bindState, materialType, *materialDataDescriptorSet)) { return false; }
 
     //
     // Bind the material data descriptor set
     //
-    commandBuffer->CmdBindDescriptorSets(*renderState.pipeline, 2, {(*materialDataDescriptorSet)->GetVkDescriptorSet()});
-    renderState.OnSet2Bound();
+    commandBuffer->CmdBindDescriptorSets(*bindState.pipeline, 2, {(*materialDataDescriptorSet)->GetVkDescriptorSet()});
+    bindState.OnSet2Bound();
 
     return true;
 }
 
-bool DeferredLightingRenderer::BindDescriptorSet2_MaterialData(RenderState& renderState,
+bool DeferredLightingRenderer::BindDescriptorSet2_MaterialData(BindState& bindState,
                                                                const Material::Type& materialType,
                                                                const VulkanDescriptorSetPtr& materialDataDescriptorSet)
 {
@@ -646,7 +666,7 @@ bool DeferredLightingRenderer::BindDescriptorSet2_MaterialData(RenderState& rend
     }
 
     materialDataDescriptorSet->WriteBufferBind(
-        (*renderState.programDef)->GetBindingDetailsByName("i_materialData"),
+        (*bindState.programDef)->GetBindingDetailsByName("i_materialData"),
         VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
         (*materialDataBuffer)->GetBuffer()->GetVkBuffer(),
         0,
@@ -656,14 +676,14 @@ bool DeferredLightingRenderer::BindDescriptorSet2_MaterialData(RenderState& rend
     return true;
 }
 
-void DeferredLightingRenderer::BindVertexBuffer(RenderState& renderState,
+void DeferredLightingRenderer::BindVertexBuffer(BindState& bindState,
                                                 const VulkanCommandBufferPtr& commandBuffer,
                                                 const BufferPtr& vertexBuffer)
 {
     //
     // If the vertex buffer is already bound, nothing to do
     //
-    if (vertexBuffer == renderState.vertexBuffer) { return; }
+    if (vertexBuffer == bindState.vertexBuffer) { return; }
 
     //
     // Bind the vertex buffer
@@ -673,17 +693,17 @@ void DeferredLightingRenderer::BindVertexBuffer(RenderState& renderState,
     //
     // Update render state
     //
-    renderState.OnVertexBufferBound(vertexBuffer);
+    bindState.OnVertexBufferBound(vertexBuffer);
 }
 
-void DeferredLightingRenderer::BindIndexBuffer(RenderState& renderState,
+void DeferredLightingRenderer::BindIndexBuffer(BindState& bindState,
                                                const VulkanCommandBufferPtr& commandBuffer,
                                                const BufferPtr& indexBuffer)
 {
     //
     // If the index buffer is already bound, nothing to do
     //
-    if (indexBuffer == renderState.indexBuffer) { return; }
+    if (indexBuffer == bindState.indexBuffer) { return; }
 
     //
     // Bind the index buffer
@@ -693,7 +713,7 @@ void DeferredLightingRenderer::BindIndexBuffer(RenderState& renderState,
     //
     // Update render state
     //
-    renderState.OnIndexBufferBound(indexBuffer);
+    bindState.OnIndexBufferBound(indexBuffer);
 }
 
 }

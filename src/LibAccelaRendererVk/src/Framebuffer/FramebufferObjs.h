@@ -54,8 +54,9 @@ namespace Accela::Render
             void Destroy();
 
             [[nodiscard]] VulkanFramebufferPtr GetFramebuffer() const noexcept { return m_framebuffer; }
-            [[nodiscard]] std::optional<std::vector<std::pair<LoadedTexture, std::string>>> GetAttachmentTextureViews() const;
-            [[nodiscard]] std::optional<std::pair<LoadedTexture, std::string>> GetAttachmentTextureView(uint8_t attachmentIndex) const;
+            [[nodiscard]] std::size_t GetNumAttachments() const noexcept { return m_attachmentTextureViews.size(); }
+            [[nodiscard]] std::optional<std::vector<std::pair<LoadedTexture, std::string>>> GetAttachmentTextures() const;
+            [[nodiscard]] std::optional<std::pair<LoadedTexture, std::string>> GetAttachmentTexture(uint8_t attachmentIndex) const;
 
         private:
 

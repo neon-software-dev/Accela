@@ -283,7 +283,7 @@ void ObjectRenderables::ProcessDeletedObjects(const WorldUpdate& update,
 
         m_objectsRTree[renderableObject.renderable.sceneName].Remove(
             renderableObject.boundingBox_worldSpace.GetVolume(),
-            toDeleteId.id
+            toDeleteId
         );
 
         m_ids->objectIds.ReturnId(toDeleteId);

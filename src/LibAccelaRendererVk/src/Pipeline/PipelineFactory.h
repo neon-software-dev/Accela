@@ -28,11 +28,19 @@ namespace Accela::Render
             // IPipelineFactory
             //
             [[nodiscard]] std::expected<VulkanPipelinePtr, bool> GetPipeline(const VulkanDevicePtr& device,
-                                                                            const PipelineConfig& config) override;
+                                                                             const GraphicsPipelineConfig& config) override;
+
+            [[nodiscard]] std::expected<VulkanPipelinePtr, bool> GetPipeline(const VulkanDevicePtr& device,
+                                                                             const ComputePipelineConfig& config) override;
 
             void DestroyPipeline(const std::size_t& pipelineKey) override;
 
             void Destroy() override;
+
+        private:
+
+            template <typename ConfigType>
+            [[nodiscard]] std::expected<VulkanPipelinePtr, bool> GetPipelineT(const VulkanDevicePtr& device, const ConfigType& config);
 
         private:
 

@@ -21,18 +21,18 @@ namespace Accela::Render
      * A node for rendering a scene to a texture
      *
      * @param std::string - The name of the scene to render
-     * @param FrameBufferId - The framebuffer to be rendered into
+     * @param RenderTargetId - The render target to be rendered into
      * @param RenderParams - The parameters controlling the render
      */
-    using RenderGraphNode_RenderScene   = DataRenderGraphNode<RenderGraphNodeType::RenderScene, std::string, FrameBufferId, RenderParams>;
+    using RenderGraphNode_RenderScene   = DataRenderGraphNode<RenderGraphNodeType::RenderScene, std::string, RenderTargetId, RenderParams>;
 
     /**
      * A node for presenting a texture to the display
      *
-     * @param TextureId - The TextureId of the texture to be presented
+     * @param RenderTargetId - The RenderTargetId of the render target to be presented
      * @param PresentConfig - The parameters for controlling the presentation
      */
-    using RenderGraphNode_Present       = DataRenderGraphNode<RenderGraphNodeType::Present, TextureId, PresentConfig>;
+    using RenderGraphNode_Present       = DataRenderGraphNode<RenderGraphNodeType::Present, RenderTargetId, PresentConfig>;
 }
 
 #endif //LIBACCELARENDERER_INCLUDE_ACCELA_RENDER_GRAPH_RENDERGRAPHNODES_H

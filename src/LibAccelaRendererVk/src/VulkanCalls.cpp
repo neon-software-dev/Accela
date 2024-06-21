@@ -81,6 +81,7 @@ bool VulkanCalls::InitDeviceCalls(VkDevice vkDevice)
     FIND_DEVICE_CALL(vkCreateRenderPass)
     FIND_DEVICE_CALL(vkDestroyRenderPass)
     FIND_DEVICE_CALL(vkCreateGraphicsPipelines)
+    FIND_DEVICE_CALL(vkCreateComputePipelines)
     FIND_DEVICE_CALL(vkDestroyPipeline)
     FIND_DEVICE_CALL(vkCreateFramebuffer)
     FIND_DEVICE_CALL(vkDestroyFramebuffer)
@@ -95,6 +96,7 @@ bool VulkanCalls::InitDeviceCalls(VkDevice vkDevice)
     FIND_DEVICE_CALL(vkCmdBindIndexBuffer)
     FIND_DEVICE_CALL(vkCmdDraw)
     FIND_DEVICE_CALL(vkCmdDrawIndexed)
+    FIND_DEVICE_CALL(vkCmdDispatch)
     FIND_DEVICE_CALL(vkCmdEndRenderPass)
     FIND_DEVICE_CALL(vkEndCommandBuffer)
     FIND_DEVICE_CALL(vkCreateSemaphore)
@@ -363,8 +365,7 @@ void VulkanCalls::vkDestroyDevice(VkDevice device, const VkAllocationCallbacks *
     return m_vkDestroyDevice(device, pAllocator);
 }
 
-void
-VulkanCalls::vkGetDeviceQueue(VkDevice device, uint32_t queueFamilyIndex, uint32_t queueIndex, VkQueue *pQueue) const
+void VulkanCalls::vkGetDeviceQueue(VkDevice device, uint32_t queueFamilyIndex, uint32_t queueIndex, VkQueue *pQueue) const
 {
     return m_vkGetDeviceQueue(device, queueFamilyIndex, queueIndex, pQueue);
 }
@@ -442,6 +443,13 @@ VulkanCalls::vkCreateGraphicsPipelines(VkDevice device, VkPipelineCache pipeline
                                        const VkAllocationCallbacks *pAllocator, VkPipeline *pPipelines) const
 {
     return m_vkCreateGraphicsPipelines(device, pipelineCache, createInfoCount, pCreateInfos, pAllocator, pPipelines);
+}
+
+VkResult VulkanCalls::vkCreateComputePipelines(VkDevice device, VkPipelineCache pipelineCache, uint32_t createInfoCount,
+                                               const VkComputePipelineCreateInfo *pCreateInfos,
+                                               const VkAllocationCallbacks *pAllocator, VkPipeline *pPipelines) const
+{
+    return m_vkCreateComputePipelines(device, pipelineCache, createInfoCount, pCreateInfos, pAllocator, pPipelines);
 }
 
 void VulkanCalls::vkDestroyPipeline(VkDevice device, VkPipeline pipeline, const VkAllocationCallbacks *pAllocator) const
@@ -530,6 +538,11 @@ void VulkanCalls::vkCmdDrawIndexed(VkCommandBuffer commandBuffer, uint32_t index
                                    uint32_t firstIndex, int32_t vertexOffset, uint32_t firstInstance) const
 {
     return m_vkCmdDrawIndexed(commandBuffer, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+}
+
+void VulkanCalls::vkCmdDispatch(VkCommandBuffer commandBuffer, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) const
+{
+    return m_vkCmdDispatch(commandBuffer, groupCountX, groupCountY, groupCountZ);
 }
 
 void VulkanCalls::vkCmdEndRenderPass(VkCommandBuffer commandBuffer) const
