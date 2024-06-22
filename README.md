@@ -40,8 +40,8 @@ Accela is currently distributed under the GPL v3 software license. Please see th
 ![Alt text](screenshots/forest.png?raw=true "Forest")
 *A forest scene with dynamically generated trees and grass*
 
-![Alt text](screenshots/vampire_dancing.png?raw=true "Vampire Dancing")
-*Bone-based animated model dancing in Sponza with dynamic lighting and shadow mapping*
+![Alt text](screenshots/sponza.png?raw=true "Sponza")
+*Obligatory Sponza render*
 
 # Quick Start Guide
 
