@@ -402,6 +402,8 @@ bool VulkanObjs::CreateGPassRenderPass()
 {
     m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Creating gpass render pass");
 
+    const auto numGPassLayers = m_renderSettings->presentToHeadset ? 2 : 1;
+
     //
     // Framebuffer attachments
     //
@@ -415,6 +417,18 @@ bool VulkanObjs::CreateGPassRenderPass()
     colorAttachment.description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     colorAttachment.description.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
+    const ImageAccess colorAttachmentAccess(
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        // Deferred Lighting SubPass writing to the color attachment
+        BarrierPoint(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT),
+        // Forward Lighting Objects SubPass writing to the color attachment
+        BarrierPoint(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT),
+        Layers(0, numGPassLayers),
+        Levels(0, 1),
+        VK_IMAGE_ASPECT_COLOR_BIT
+    );
+
     VulkanRenderPass::Attachment positionAttachment(VulkanRenderPass::AttachmentType::Color);
     positionAttachment.description.format = VK_FORMAT_R32G32B32A32_SFLOAT;
     positionAttachment.description.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -424,6 +438,18 @@ bool VulkanObjs::CreateGPassRenderPass()
     positionAttachment.description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     positionAttachment.description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     positionAttachment.description.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    const ImageAccess positionAttachmentAccess(
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        // Deferred Lighting Objects SubPass writing to the position attachment
+        BarrierPoint(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT),
+        // Deferred Lighting SubPass reading from the position attachment
+        BarrierPoint(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT),
+        Layers(0, numGPassLayers),
+        Levels(0, 1),
+        VK_IMAGE_ASPECT_COLOR_BIT
+    );
 
     VulkanRenderPass::Attachment normalAttachment(VulkanRenderPass::AttachmentType::Color);
     normalAttachment.description.format = VK_FORMAT_R32G32B32A32_SFLOAT;
@@ -435,6 +461,8 @@ bool VulkanObjs::CreateGPassRenderPass()
     normalAttachment.description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     normalAttachment.description.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
+    const ImageAccess normalAttachmentAccess = positionAttachmentAccess;
+
     VulkanRenderPass::Attachment materialAttachment(VulkanRenderPass::AttachmentType::Color);
     materialAttachment.description.format = VK_FORMAT_R32_UINT;
     materialAttachment.description.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -444,6 +472,8 @@ bool VulkanObjs::CreateGPassRenderPass()
     materialAttachment.description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     materialAttachment.description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     materialAttachment.description.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    const ImageAccess materialAttachmentAccess = normalAttachmentAccess;
 
     VulkanRenderPass::Attachment ambientAttachment(VulkanRenderPass::AttachmentType::Color);
     ambientAttachment.description.format = VK_FORMAT_R8G8B8A8_SRGB;
@@ -455,6 +485,8 @@ bool VulkanObjs::CreateGPassRenderPass()
     ambientAttachment.description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     ambientAttachment.description.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
+    const ImageAccess ambientAttachmentAccess = materialAttachmentAccess;
+
     VulkanRenderPass::Attachment diffuseAttachment(VulkanRenderPass::AttachmentType::Color);
     diffuseAttachment.description.format = VK_FORMAT_R8G8B8A8_SRGB;
     diffuseAttachment.description.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -464,6 +496,8 @@ bool VulkanObjs::CreateGPassRenderPass()
     diffuseAttachment.description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     diffuseAttachment.description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     diffuseAttachment.description.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    const ImageAccess diffuseAttachmentAccess = ambientAttachmentAccess;
 
     VulkanRenderPass::Attachment specularAttachment(VulkanRenderPass::AttachmentType::Color);
     specularAttachment.description.format = VK_FORMAT_R8G8B8A8_SRGB;
@@ -475,6 +509,8 @@ bool VulkanObjs::CreateGPassRenderPass()
     specularAttachment.description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     specularAttachment.description.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
+    const ImageAccess specularAttachmentAccess = diffuseAttachmentAccess;
+
     VulkanRenderPass::Attachment depthAttachment(VulkanRenderPass::AttachmentType::Depth);
     depthAttachment.description.format = m_physicalDevice->GetDepthBufferFormat();
     depthAttachment.description.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -484,6 +520,18 @@ bool VulkanObjs::CreateGPassRenderPass()
     depthAttachment.description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
     depthAttachment.description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     depthAttachment.description.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    const ImageAccess depthAttachmentAccess(
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        // Deferred Lighting Objects SubPass using the depth attachment
+        BarrierPoint(VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT),
+        // Forward Lighting SubPass using the depth attachment
+        BarrierPoint(VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT),
+        Layers(0, numGPassLayers),
+        Levels(0, 1),
+        VK_IMAGE_ASPECT_DEPTH_BIT
+    );
 
     //
     // Deferred Lighting Objects Subpass
@@ -597,6 +645,16 @@ bool VulkanObjs::CreateGPassRenderPass()
             depthAttachment
         },
         {
+            colorAttachmentAccess,
+            positionAttachmentAccess,
+            normalAttachmentAccess,
+            materialAttachmentAccess,
+            ambientAttachmentAccess,
+            diffuseAttachmentAccess,
+            specularAttachmentAccess,
+            depthAttachmentAccess
+        },
+        {
             deferredLightingObjectsSubpass,
             deferredLightingSubpass,
             forwardLightingObjectsSubpass
@@ -627,6 +685,8 @@ bool VulkanObjs::CreateBlitRenderPass()
 {
     m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Creating blit render pass");
 
+    const auto numGPassLayers = m_renderSettings->presentToHeadset ? 2 : 1;
+
     //
     // Framebuffer attachments
     //
@@ -640,6 +700,16 @@ bool VulkanObjs::CreateBlitRenderPass()
     colorAttachment.description.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     colorAttachment.description.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
+    const ImageAccess colorAttachmentAccess(
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        BarrierPoint(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT),
+        BarrierPoint(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT),
+        Layers(0, numGPassLayers),
+        Levels(0, 1),
+        VK_IMAGE_ASPECT_COLOR_BIT
+    );
+
     VulkanRenderPass::Attachment depthAttachment(VulkanRenderPass::AttachmentType::Depth);
     depthAttachment.description.format = m_physicalDevice->GetDepthBufferFormat();
     depthAttachment.description.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -649,6 +719,16 @@ bool VulkanObjs::CreateBlitRenderPass()
     depthAttachment.description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
     depthAttachment.description.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
     depthAttachment.description.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    const ImageAccess depthAttachmentAccess(
+        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        BarrierPoint(VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT),
+        BarrierPoint(VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT),
+        Layers(0, numGPassLayers),
+        Levels(0, 1),
+        VK_IMAGE_ASPECT_DEPTH_BIT
+    );
 
     //
     // Blit Subpass
@@ -684,6 +764,10 @@ bool VulkanObjs::CreateBlitRenderPass()
         {
             colorAttachment,
             depthAttachment
+        },
+        {
+            colorAttachmentAccess,
+            depthAttachmentAccess
         },
         {
             blitSubpass
@@ -724,6 +808,16 @@ bool VulkanObjs::CreateSwapChainBlitRenderPass()
     colorAttachment.description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     colorAttachment.description.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
+    const ImageAccess colorAttachmentAccess(
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+        BarrierPoint(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT),
+        BarrierPoint(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT),
+        Layers(0, 1),
+        Levels(0, 1),
+        VK_IMAGE_ASPECT_COLOR_BIT
+    );
+
     VulkanRenderPass::Subpass swapChainBlitPass{};
 
     swapChainBlitPass.colorAttachmentRefs = {
@@ -731,7 +825,14 @@ bool VulkanObjs::CreateSwapChainBlitRenderPass()
     };
 
     m_swapChainBlitRenderPass = std::make_shared<VulkanRenderPass>(m_logger, m_vulkanCalls, m_physicalDevice, m_device);
-    if (!m_swapChainBlitRenderPass->Create({colorAttachment}, {swapChainBlitPass}, {}, std::nullopt, std::nullopt, "SwapChainBlit"))
+    if (!m_swapChainBlitRenderPass->Create(
+        {colorAttachment},
+        {colorAttachmentAccess},
+        {swapChainBlitPass},
+        {},
+        std::nullopt,
+        std::nullopt,
+        "SwapChainBlit"))
     {
         m_logger->Log(Common::LogLevel::Fatal, "CreateBlitRenderPass: Failed to create the swap chain blit render pass");
         return false;
@@ -754,7 +855,7 @@ bool VulkanObjs::CreateShadow2DRenderPass()
 {
     m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Creating shadow 2d render pass");
 
-    m_shadow2DRenderPass = CreateShadowRenderPass(std::nullopt, std::nullopt, "Shadow");
+    m_shadow2DRenderPass = CreateShadowRenderPass(std::nullopt, std::nullopt, 1, "Shadow");
 
     return m_shadow2DRenderPass != nullptr;
 }
@@ -776,7 +877,7 @@ bool VulkanObjs::CreateShadowCubeRenderPass()
     const std::vector<uint32_t> viewMasks = {0b00111111};
     const uint32_t correlationMask = 0b00111111;
 
-    m_shadowCubeRenderPass = CreateShadowRenderPass(viewMasks, correlationMask, "ShadowCube");
+    m_shadowCubeRenderPass = CreateShadowRenderPass(viewMasks, correlationMask, 6, "ShadowCube");
 
     return m_shadowCubeRenderPass != nullptr;
 }
@@ -793,6 +894,7 @@ void VulkanObjs::DestroyShadowCubeRenderPass()
 
 VulkanRenderPassPtr VulkanObjs::CreateShadowRenderPass(const std::optional<std::vector<uint32_t>>& multiViewMasks,
                                                        const std::optional<uint32_t>& multiViewCorrelationMask,
+                                                       unsigned int depthNumLayers,
                                                        const std::string& tag)
 {
     m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Creating {} render pass", tag);
@@ -807,6 +909,16 @@ VulkanRenderPassPtr VulkanObjs::CreateShadowRenderPass(const std::optional<std::
     depthAttachment.description.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
     depthAttachment.description.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
+    const ImageAccess depthAttachmentAccess(
+        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        BarrierPoint(VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT),
+        BarrierPoint(VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT),
+        Layers(0, depthNumLayers),
+        Levels(0, 1),
+        VK_IMAGE_ASPECT_DEPTH_BIT
+    );
+
     VulkanRenderPass::Subpass shadowPass{};
 
     VkAttachmentReference vkDepthAttachmentReference{};
@@ -814,19 +926,21 @@ VulkanRenderPassPtr VulkanObjs::CreateShadowRenderPass(const std::optional<std::
     vkDepthAttachmentReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
     shadowPass.depthAttachmentRef = vkDepthAttachmentReference;
 
-    // Dependency for following render passes to use the depth buffer that was written
+    // Manual external dependency to synchronize usage of the depth buffer that was written. Prevents having to record
+    // ImageAccess operations for every shadow map texture that the main rendering flow uses.
     VkSubpassDependency dependency_readShadowDepthOutput{};
     dependency_readShadowDepthOutput.srcSubpass = 0;
     dependency_readShadowDepthOutput.dstSubpass = VK_SUBPASS_EXTERNAL;
     dependency_readShadowDepthOutput.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    dependency_readShadowDepthOutput.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
     dependency_readShadowDepthOutput.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+    dependency_readShadowDepthOutput.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
     dependency_readShadowDepthOutput.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
     dependency_readShadowDepthOutput.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
     auto renderPass = std::make_shared<VulkanRenderPass>(m_logger, m_vulkanCalls, m_physicalDevice, m_device);
     if (!renderPass->Create(
         {depthAttachment},
+        {depthAttachmentAccess},
         {shadowPass},
         {dependency_readShadowDepthOutput},
         multiViewMasks,

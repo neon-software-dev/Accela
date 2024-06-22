@@ -85,7 +85,7 @@ void Textures::Destroy()
     SyncMetrics();
 }
 
-bool Textures::CreateTextureEmpty(const Texture& texture, const std::vector<TextureView>& textureViews, const TextureSampler& textureSampler)
+bool Textures::CreateTextureEmpty(const Texture& texture, const std::vector<TextureView>& textureViews, const std::vector<TextureSampler>& textureSamplers)
 {
     if (texture.data.has_value())
     {
@@ -101,7 +101,7 @@ bool Textures::CreateTextureEmpty(const Texture& texture, const std::vector<Text
 
     m_logger->Log(Common::LogLevel::Debug, "CreateTextureEmpty: Creating empty texture objects: {}", texture.id.id);
 
-    const auto loadedTexture = CreateTextureObjects(texture, textureViews, textureSampler, 1, false);
+    const auto loadedTexture = CreateTextureObjects(texture, textureViews, textureSamplers, 1, false);
     if (!loadedTexture)
     {
         m_logger->Log(Common::LogLevel::Error,
@@ -117,7 +117,7 @@ bool Textures::CreateTextureEmpty(const Texture& texture, const std::vector<Text
 
 bool Textures::CreateTextureFilled(const Texture& texture,
                                    const std::vector<TextureView>& textureViews,
-                                   const TextureSampler& textureSampler,
+                                   const std::vector<TextureSampler>& textureSamplers,
                                    std::promise<bool> resultPromise)
 {
     if (!texture.data.has_value())
@@ -173,7 +173,7 @@ bool Textures::CreateTextureFilled(const Texture& texture,
     //
     m_logger->Log(Common::LogLevel::Debug, "CreateTextureFilled: Creating texture objects: {}", texture.id.id);
 
-    const auto loadedTexture = CreateTextureObjects(texture, textureViews, textureSampler, mipLevels, generateMipMaps);
+    const auto loadedTexture = CreateTextureObjects(texture, textureViews, textureSamplers, mipLevels, generateMipMaps);
     if (!loadedTexture)
     {
         m_logger->Log(Common::LogLevel::Error,
@@ -201,7 +201,7 @@ bool Textures::CreateTextureFilled(const Texture& texture,
 
 std::expected<LoadedTexture, bool> Textures::CreateTextureObjects(const Texture& texture,
                                                                   const std::vector<TextureView>& textureViews,
-                                                                  const TextureSampler& textureSampler,
+                                                                  const std::vector<TextureSampler>& textureSamplers,
                                                                   const uint32_t& mipLevels,
                                                                   bool generatingMipMaps)
 {
@@ -243,10 +243,13 @@ std::expected<LoadedTexture, bool> Textures::CreateTextureObjects(const Texture&
         }
     }
 
-    if (!CreateTextureImageSampler(loadedTexture, textureSampler))
+    for (const auto& textureSampler : textureSamplers)
     {
-        m_logger->Log(Common::LogLevel::Error, "CreateTextureObjects: Failed to create texture image sampler");
-        return std::unexpected(false);
+        if (!CreateTextureImageSampler(loadedTexture, textureSampler))
+        {
+            m_logger->Log(Common::LogLevel::Error, "CreateTextureObjects: Failed to create texture image sampler");
+            return std::unexpected(false);
+        }
     }
 
     //
@@ -259,7 +262,10 @@ std::expected<LoadedTexture, bool> Textures::CreateTextureObjects(const Texture&
     {
         SetDebugName(m_vulkanObjs->GetCalls(), m_vulkanObjs->GetDevice(), VK_OBJECT_TYPE_IMAGE_VIEW, (uint64_t)vkImageViewIt.second, "ImageView-" + textureTag);
     }
-    SetDebugName(m_vulkanObjs->GetCalls(), m_vulkanObjs->GetDevice(), VK_OBJECT_TYPE_SAMPLER, (uint64_t)loadedTexture.vkSampler, "Sampler-" + textureTag);
+    for (const auto& vkSamplerIt : loadedTexture.vkSamplers)
+    {
+        SetDebugName(m_vulkanObjs->GetCalls(), m_vulkanObjs->GetDevice(), VK_OBJECT_TYPE_SAMPLER, (uint64_t)vkSamplerIt.second, "Sampler-" + textureTag);
+    }
 
     return loadedTexture;
 }
@@ -445,10 +451,24 @@ bool Textures::CreateTextureImageSampler(LoadedTexture& loadedTexture, const Tex
         case SamplerAddressMode::Mirror: vSamplerMode = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT; break;
     }
 
+    VkFilter vkMinFilter{};
+    switch (textureSampler.minFilter)
+    {
+        case SamplerFilterMode::Nearest: vkMinFilter = VK_FILTER_NEAREST; break;
+        case SamplerFilterMode::Linear: vkMinFilter = VK_FILTER_LINEAR; break;
+    }
+
+    VkFilter vkMagFilter{};
+    switch (textureSampler.magFilter)
+    {
+        case SamplerFilterMode::Nearest: vkMagFilter = VK_FILTER_NEAREST; break;
+        case SamplerFilterMode::Linear: vkMagFilter = VK_FILTER_LINEAR; break;
+    }
+
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    samplerInfo.magFilter = VK_FILTER_LINEAR;
-    samplerInfo.minFilter = VK_FILTER_LINEAR;
+    samplerInfo.magFilter = vkMinFilter;
+    samplerInfo.minFilter = vkMagFilter;
     samplerInfo.addressModeU = uSamplerMode;
     samplerInfo.addressModeV = vSamplerMode;
     samplerInfo.addressModeW = samplerInfo.addressModeU; // Noteworthy
@@ -501,7 +521,7 @@ bool Textures::CreateTextureImageSampler(LoadedTexture& loadedTexture, const Tex
         return false;
     }
 
-    loadedTexture.vkSampler = vkSampler;
+    loadedTexture.vkSamplers.insert({textureSampler.name, vkSampler});
 
     return true;
 }
@@ -516,10 +536,16 @@ void Textures::DestroyTextureObjects(const LoadedTexture& texture) const
     {
         RemoveDebugName(m_vulkanObjs->GetCalls(), m_vulkanObjs->GetDevice(), VK_OBJECT_TYPE_IMAGE_VIEW, (uint64_t)vkImageViewIt.second);
     }
-    RemoveDebugName(m_vulkanObjs->GetCalls(), m_vulkanObjs->GetDevice(), VK_OBJECT_TYPE_SAMPLER, (uint64_t)texture.vkSampler);
+    for (const auto& vkSamplerIt : texture.vkSamplers)
+    {
+        RemoveDebugName(m_vulkanObjs->GetCalls(), m_vulkanObjs->GetDevice(), VK_OBJECT_TYPE_SAMPLER, (uint64_t)vkSamplerIt.second);
+    }
 
     // Destroy objects
-    m_vulkanObjs->GetCalls()->vkDestroySampler(m_vulkanObjs->GetDevice()->GetVkDevice(), texture.vkSampler, nullptr);
+    for (const auto& vkSamplerIt : texture.vkSamplers)
+    {
+        m_vulkanObjs->GetCalls()->vkDestroySampler(m_vulkanObjs->GetDevice()->GetVkDevice(), vkSamplerIt.second,nullptr);
+    }
     for (const auto& vkImageViewIt : texture.vkImageViews)
     {
         m_vulkanObjs->GetCalls()->vkDestroyImageView(m_vulkanObjs->GetDevice()->GetVkDevice(), vkImageViewIt.second, nullptr);
@@ -824,17 +850,17 @@ bool Textures::CreateMissingTexture()
     );
     const auto missingTextureCubeView = TextureView::ViewAsCube(TextureView::DEFAULT, TextureView::Aspect::ASPECT_COLOR_BIT);
 
-    const auto textureSampler = TextureSampler(WRAP_ADDRESS_MODE);
+    const auto textureSampler = TextureSampler(TextureSampler::DEFAULT, WRAP_ADDRESS_MODE);
 
     // As this happens once during initialization, just create a fake promise/future for the data transfer,
     // we don't need to wait for it to finish
     std::promise<bool> createTexturePromise;
     std::future<bool> createTextureFuture = createTexturePromise.get_future();
-    CreateTextureFilled(missingTexture, {missingTextureView}, textureSampler, std::move(createTexturePromise));
+    CreateTextureFilled(missingTexture, {missingTextureView}, {textureSampler}, std::move(createTexturePromise));
 
     std::promise<bool> createTextureCubePromise;
     std::future<bool> createTextureCubeFuture = createTextureCubePromise.get_future();
-    CreateTextureFilled(missingTextureCube, {missingTextureCubeView}, textureSampler, std::move(createTextureCubePromise));
+    CreateTextureFilled(missingTextureCube, {missingTextureCubeView}, {textureSampler}, std::move(createTextureCubePromise));
 
     m_missingTextureId = missingTextureId;
     m_missingCubeTextureId = missingTextureCubeId;

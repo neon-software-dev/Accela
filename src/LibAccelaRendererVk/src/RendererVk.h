@@ -9,6 +9,7 @@
 
 #include "ForwardDeclares.h"
 #include "Frames.h"
+#include "RenderState.h"
 
 #include "Renderer/RendererGroup.h"
 #include "Renderer/SwapChainBlitRenderer.h"
@@ -76,6 +77,10 @@ namespace Accela::Render
             bool RenderGraphFunc_Present(const uint32_t& swapChainImageIndex, const RenderGraphNode::Ptr& node);
 
             bool StartRenderPass(const VulkanRenderPassPtr& renderPass,
+                                 const FramebufferObjs& framebufferObjs,
+                                 const VulkanCommandBufferPtr& commandBuffer,
+                                 const glm::vec4& colorClearColor = {0,0,0,0});
+            bool StartRenderPass(const VulkanRenderPassPtr& renderPass,
                                  const VulkanFramebufferPtr& framebuffer,
                                  const VulkanCommandBufferPtr& commandBuffer,
                                  const glm::vec4& colorClearColor = {0,0,0,0});
@@ -102,7 +107,9 @@ namespace Accela::Render
                                const std::vector<ViewProjection>& viewProjections,
                                const std::unordered_map<LightId, TextureId>& shadowMaps);
 
-            void RunPostProcessing(const LoadedTexture& texture, const PostProcessEffect& effect);
+            void RunPostProcessing(const LoadedTexture& inputTexture,
+                                   const LoadedTexture& outputTexture,
+                                   const PostProcessEffect& effect);
 
             void RenderBlit(const std::string& sceneName,
                             const FramebufferObjs& framebufferObjs,
@@ -127,6 +134,7 @@ namespace Accela::Render
 
             IRenderablesPtr m_renderables;
             Frames m_frames;
+            RenderState m_renderState;
 
             RendererGroup<SwapChainBlitRenderer> m_swapChainRenderers;
             RendererGroup<SpriteRenderer> m_spriteRenderers;

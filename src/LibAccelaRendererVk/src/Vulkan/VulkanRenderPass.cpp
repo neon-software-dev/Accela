@@ -29,12 +29,20 @@ VulkanRenderPass::VulkanRenderPass(Common::ILogger::Ptr logger,
 }
 
 bool VulkanRenderPass::Create(const std::vector<Attachment>& attachments,
+                              const std::vector<std::optional<ImageAccess>>& attachmentImageAccesses,
                               const std::vector<Subpass>& subpasses,
                               const std::vector<VkSubpassDependency>& vkDependencies,
                               const std::optional<std::vector<uint32_t>>& multiViewMasks,
                               const std::optional<uint32_t>& multiViewCorrelationMask,
                               const std::string& tag)
 {
+    if (attachments.size() != attachmentImageAccesses.size())
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "VulkanRenderPass::Create: Attachments and image accesses count doesn't match: {}", tag);
+        return false;
+    }
+
     //
     // Process attachments
     //
@@ -114,6 +122,7 @@ bool VulkanRenderPass::Create(const std::vector<Attachment>& attachments,
     // Update state
     //
     m_attachments = attachments;
+    m_attachmentImageAccesses = attachmentImageAccesses;
     m_subpasses = subpasses;
 
     return true;
@@ -129,6 +138,11 @@ void VulkanRenderPass::Destroy()
     }
 
     m_vkRenderPass = VK_NULL_HANDLE;
+}
+
+std::optional<ImageAccess> VulkanRenderPass::GetAttachmentImageAccess(AttachmentIndex attachmentIndex) const
+{
+    return m_attachmentImageAccesses.at(attachmentIndex);
 }
 
 bool VulkanRenderPass::HasDepthAttachment() const

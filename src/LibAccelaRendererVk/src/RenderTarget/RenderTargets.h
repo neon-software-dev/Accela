@@ -25,6 +25,7 @@ namespace Accela::Render
 
             RenderTargets(Common::ILogger::Ptr logger,
                           VulkanObjsPtr vulkanObjs,
+                          PostExecutionOpsPtr postExecutionOps,
                           IFramebuffersPtr framebuffers,
                           ITexturesPtr textures,
                           Ids::Ptr ids);
@@ -42,11 +43,13 @@ namespace Accela::Render
 
             [[nodiscard]] std::optional<FrameBufferId> CreateGPassFramebuffer(const std::string& tag) const;
             [[nodiscard]] std::optional<FrameBufferId> CreateBlitFramebuffer(FrameBufferId gPassFramebufferId, const std::string& tag) const;
+            [[nodiscard]] std::optional<TextureId> CreatePostProcessOutputTexture(const std::string& tag) const;
 
         private:
 
             Common::ILogger::Ptr m_logger;
             VulkanObjsPtr m_vulkanObjs;
+            PostExecutionOpsPtr m_postExecutionOps;
             IFramebuffersPtr m_framebuffers;
             ITexturesPtr m_textures;
             Ids::Ptr m_ids;

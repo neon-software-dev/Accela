@@ -625,7 +625,7 @@ bool TerrainRenderer::BindDescriptorSet2(BindState& bindState,
         (*materialDescriptorSet)->WriteCombinedSamplerBind(
             (*bindState.programDef)->GetBindingDetailsByName(textureBindIt.first),
             loadedTexture->vkImageViews.at(TextureView::DEFAULT),
-            loadedTexture->vkSampler
+            loadedTexture->vkSamplers.at(TextureSampler::DEFAULT)
         );
     }
 
@@ -682,7 +682,7 @@ bool TerrainRenderer::BindDescriptorSet3(BindState& bindState,
     (*drawDescriptorSet)->WriteCombinedSamplerBind(
         (*bindState.programDef)->GetBindingDetailsByName("i_heightSampler"),
         terrainBatch.loadedHeightMapTexture.vkImageViews.at(TextureView::DEFAULT),
-        terrainBatch.loadedHeightMapTexture.vkSampler
+        terrainBatch.loadedHeightMapTexture.vkSamplers.at(TextureSampler::DEFAULT)
     );
 
     //

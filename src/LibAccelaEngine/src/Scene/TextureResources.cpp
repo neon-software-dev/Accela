@@ -181,7 +181,7 @@ std::expected<TextRender, bool> TextureResources::OnRenderText(const std::string
         tag
     );
     const auto textureView = Render::TextureView::ViewAs2D(Render::TextureView::DEFAULT, Render::TextureView::Aspect::ASPECT_COLOR_BIT);
-    const auto textureSampler = Render::TextureSampler(Render::CLAMP_ADDRESS_MODE);
+    const auto textureSampler = Render::TextureSampler(Render::TextureSampler::DEFAULT, Render::CLAMP_ADDRESS_MODE);
 
     {
         std::lock_guard<std::mutex> texturesLock(m_texturesMutex);
@@ -312,7 +312,7 @@ Render::TextureId TextureResources::LoadTexture(const TextureData& textureData,
         uvAddressMode = *loadConfig.uvAddressMode;
     }
 
-    const auto textureSampler = Render::TextureSampler(uvAddressMode);
+    const auto textureSampler = Render::TextureSampler(Render::TextureSampler::DEFAULT, uvAddressMode);
 
     //
     // Send the texture to the renderer

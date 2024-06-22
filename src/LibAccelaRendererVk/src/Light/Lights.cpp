@@ -327,7 +327,7 @@ std::expected<FrameBufferId, bool> Lights::CreateShadowFramebuffer(const Light& 
     // Depth Attachment
     Texture texture{};
     TextureView textureView{};
-    TextureSampler textureSampler{CLAMP_ADDRESS_MODE};
+    TextureSampler textureSampler{TextureSampler::DEFAULT, CLAMP_ADDRESS_MODE};
     VulkanRenderPassPtr renderPass{};
 
     switch (GetShadowMapType(light))
@@ -363,7 +363,7 @@ std::expected<FrameBufferId, bool> Lights::CreateShadowFramebuffer(const Light& 
     }
 
     attachments.emplace_back(
-        TextureDefinition(texture, {textureView}, textureSampler),
+        TextureDefinition(texture, {textureView}, {textureSampler}),
         TextureView::DEFAULT
     );
 

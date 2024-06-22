@@ -33,6 +33,38 @@ SignalOn::SignalOn(std::vector<VkSemaphore> _semaphores)
     : semaphores(std::move(_semaphores))
 { }
 
+ImageAccess::ImageAccess(VkImageLayout _requiredInitialLayout,
+                         VkImageLayout _finalLayout,
+                         BarrierPoint _earliestUsage,
+                         BarrierPoint _latestUsage,
+                         Layers _layers,
+                         Levels _levels,
+                         VkImageAspectFlags _vkImageAspect)
+    : requiredInitialLayout(_requiredInitialLayout)
+    , finalLayout(_finalLayout)
+    , earliestUsage(_earliestUsage)
+    , latestUsage(_latestUsage)
+    , layers(_layers)
+    , levels(_levels)
+    , vkImageAspect(_vkImageAspect)
+{
+
+}
+
+ImageAccess::ImageAccess(BarrierPoint _earliestUsage,
+                         BarrierPoint _latestUsage,
+                         Layers _layers,
+                         Levels _levels,
+                         VkImageAspectFlags _vkImageAspect)
+    : earliestUsage(_earliestUsage)
+    , latestUsage(_latestUsage)
+    , layers(_layers)
+    , levels(_levels)
+    , vkImageAspect(_vkImageAspect)
+{
+
+}
+
 void InsertPipelineBarrier_Buffer(const IVulkanCallsPtr& vk,
                                   const VulkanCommandBufferPtr& commandBuffer,
                                   const SourceStage& sourceStage,

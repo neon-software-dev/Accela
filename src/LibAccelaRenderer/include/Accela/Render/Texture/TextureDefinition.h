@@ -23,15 +23,15 @@ namespace Accela::Render
     {
         TextureDefinition(Texture _texture,
                           std::vector<TextureView> _textureViews,
-                          TextureSampler _textureSampler)
+                          std::vector<TextureSampler> _textureSamplers)
             : texture(std::move(_texture))
             , textureViews(std::move(_textureViews))
-            , textureSampler(std::move(_textureSampler))
+            , textureSamplers(std::move(_textureSamplers))
         { }
 
         Texture texture;
         std::vector<TextureView> textureViews;
-        TextureSampler textureSampler;
+        std::vector<TextureSampler> textureSamplers;
     };
 }
 

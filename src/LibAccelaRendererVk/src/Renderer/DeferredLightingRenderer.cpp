@@ -510,6 +510,7 @@ bool DeferredLightingRenderer::BindDescriptorSet0_ShadowMapTextures(const BindSt
     //
     VulkanDescriptorSetLayout::BindingDetails shadowBindingDetails{};
     std::string shadowImageViewName;
+    std::string shadowSamplerName;
     VkImageView missingTextureImageView{VK_NULL_HANDLE};
     VkSampler missingTextureSampler{VK_NULL_HANDLE};
 
@@ -521,8 +522,9 @@ bool DeferredLightingRenderer::BindDescriptorSet0_ShadowMapTextures(const BindSt
             {
                 shadowBindingDetails = *shadowMapBindingDetails;
                 shadowImageViewName = TextureView::DEFAULT;
+                shadowSamplerName = TextureSampler::DEFAULT;
                 missingTextureImageView = missingTexture.vkImageViews.at(TextureView::DEFAULT);
-                missingTextureSampler = missingTexture.vkSampler;
+                missingTextureSampler = missingTexture.vkSamplers.at(TextureSampler::DEFAULT);
             }
                 break;
 
@@ -530,8 +532,9 @@ bool DeferredLightingRenderer::BindDescriptorSet0_ShadowMapTextures(const BindSt
             {
                 shadowBindingDetails = *shadowMapBindingDetails_Cube;
                 shadowImageViewName = TextureView::DEFAULT;
+                shadowSamplerName = TextureSampler::DEFAULT;
                 missingTextureImageView = missingCubeTexture.vkImageViews.at(TextureView::DEFAULT);
-                missingTextureSampler = missingCubeTexture.vkSampler;
+                missingTextureSampler = missingCubeTexture.vkSamplers.at(TextureSampler::DEFAULT);
             }
             break;
         }
@@ -544,7 +547,10 @@ bool DeferredLightingRenderer::BindDescriptorSet0_ShadowMapTextures(const BindSt
 
             if (textureOpt)
             {
-                samplerBinds.emplace_back(textureOpt->vkImageViews.at(shadowImageViewName), textureOpt->vkSampler);
+                samplerBinds.emplace_back(
+                    textureOpt->vkImageViews.at(shadowImageViewName),
+                    textureOpt->vkSamplers.at(shadowSamplerName)
+                );
             }
             else
             {

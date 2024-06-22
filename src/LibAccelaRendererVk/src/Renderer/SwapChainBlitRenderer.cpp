@@ -201,7 +201,7 @@ void SwapChainBlitRenderer::Render(const VulkanCommandBufferPtr& commandBuffer,
     m_descriptorSet->WriteCombinedSamplerBind(
         (*samplerBindingDetails),
         offscreenColorAttachment.vkImageViews.at(TextureView::DEFAULT),
-        offscreenColorAttachment.vkSampler
+        offscreenColorAttachment.vkSamplers.at(TextureSampler::DEFAULT)
     );
 
     commandBuffer->CmdBindPipeline(*pipeline);

@@ -85,7 +85,8 @@ void PostProcessingRenderer::Destroy()
 }
 
 void PostProcessingRenderer::Render(const VulkanCommandBufferPtr& commandBuffer,
-                                    const LoadedTexture& colorAttachment,
+                                    const LoadedTexture& inputTexture,
+                                    const LoadedTexture& outputTexture,
                                     const PostProcessEffect& effect)
 {
     //
@@ -139,18 +140,38 @@ void PostProcessingRenderer::Render(const VulkanCommandBufferPtr& commandBuffer,
     //
     // Bind Descriptor Set 0
     //
-    const auto samplerBindingDetails = programDef->GetBindingDetailsByName("i_offscreenImage");
-    if (!samplerBindingDetails)
+
+    // Bind Input Image
     {
-        m_logger->Log(Common::LogLevel::Error, "PostProcessingRenderer: Failed to retrieve sampler binding details");
-        return;
+        const auto samplerBindingDetails = programDef->GetBindingDetailsByName("i_inputImage");
+        if (!samplerBindingDetails)
+        {
+            m_logger->Log(Common::LogLevel::Error, "PostProcessingRenderer: Failed to retrieve input sampler binding details");
+            return;
+        }
+
+        (*descriptorSet)->WriteCombinedSamplerBind(
+            (*samplerBindingDetails),
+            inputTexture.vkImageViews.at(TextureView::DEFAULT),
+            inputTexture.vkSamplers.at(effect.inputSamplerName)
+        );
     }
 
-    (*descriptorSet)->WriteCombinedSamplerBind(
-        (*samplerBindingDetails),
-        colorAttachment.vkImageViews.at(TextureView::DEFAULT),
-        colorAttachment.vkSampler
-    );
+    // Bind Output Image
+    {
+        const auto samplerBindingDetails = programDef->GetBindingDetailsByName("i_outputImage");
+        if (!samplerBindingDetails)
+        {
+            m_logger->Log(Common::LogLevel::Error, "PostProcessingRenderer: Failed to retrieve output sampler binding details");
+            return;
+        }
+
+        (*descriptorSet)->WriteCombinedSamplerBind(
+            (*samplerBindingDetails),
+            outputTexture.vkImageViews.at(TextureView::DEFAULT),
+            outputTexture.vkSamplers.at(TextureSampler::DEFAULT)
+        );
+    }
 
     // Calculate work ground sizes by fitting the local work group sizes into
     // the render resolution

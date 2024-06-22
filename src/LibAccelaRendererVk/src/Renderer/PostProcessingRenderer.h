@@ -28,6 +28,7 @@ namespace Accela::Render
     struct PostProcessEffect
     {
         std::string programName;
+        std::string inputSamplerName;
         std::vector<std::byte> pushPayload;
         std::string tag;
     };
@@ -59,7 +60,8 @@ namespace Accela::Render
             void Destroy() override;
 
             void Render(const VulkanCommandBufferPtr& commandBuffer,
-                        const LoadedTexture& colorAttachment,
+                        const LoadedTexture& inputTexture,
+                        const LoadedTexture& outputTexture,
                         const PostProcessEffect& effect);
 
         private:

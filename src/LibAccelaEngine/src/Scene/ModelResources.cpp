@@ -499,7 +499,7 @@ std::expected<Render::TextureId, bool> ModelResources::LoadModelMaterialTexture(
     texture.numMipLevels = std::min(*texture.numMipLevels, 4U);
 
     const auto textureView = Render::TextureView::ViewAs2D(Render::TextureView::DEFAULT, Render::TextureView::Aspect::ASPECT_COLOR_BIT);
-    const auto textureSampler = Render::TextureSampler(modelTexture.uvAddressMode);
+    const auto textureSampler = Render::TextureSampler(Render::TextureSampler::DEFAULT, modelTexture.uvAddressMode);
 
     auto opFuture = m_renderer->CreateTexture(texture, textureView, textureSampler);
 

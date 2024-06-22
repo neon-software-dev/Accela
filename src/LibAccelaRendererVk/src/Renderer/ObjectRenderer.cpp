@@ -866,6 +866,7 @@ bool ObjectRenderer::BindDescriptorSet0_ShadowMapTextures(const BindState& bindS
     //
     VulkanDescriptorSetLayout::BindingDetails shadowBindingDetails{};
     std::string shadowImageViewName;
+    std::string shadowSamplerName;
     VkImageView missingTextureImageView{VK_NULL_HANDLE};
     VkSampler missingTextureSampler{VK_NULL_HANDLE};
 
@@ -877,19 +878,21 @@ bool ObjectRenderer::BindDescriptorSet0_ShadowMapTextures(const BindState& bindS
             {
                 shadowBindingDetails = *shadowMapBindingDetails;
                 shadowImageViewName = TextureView::DEFAULT;
+                shadowSamplerName = TextureSampler::DEFAULT;
                 missingTextureImageView = missingTexture.vkImageViews.at(TextureView::DEFAULT);
-                missingTextureSampler = missingTexture.vkSampler;
+                missingTextureSampler = missingTexture.vkSamplers.at(TextureSampler::DEFAULT);
             }
-                break;
+            break;
 
             case ShadowMapType::Cube:
             {
                 shadowBindingDetails = *shadowMapBindingDetails_Cube;
                 shadowImageViewName = TextureView::DEFAULT;
+                shadowSamplerName = TextureSampler::DEFAULT;
                 missingTextureImageView = missingCubeTexture.vkImageViews.at(TextureView::DEFAULT);
-                missingTextureSampler = missingCubeTexture.vkSampler;
+                missingTextureSampler = missingCubeTexture.vkSamplers.at(TextureSampler::DEFAULT);
             }
-                break;
+            break;
         }
 
         std::vector<std::pair<VkImageView, VkSampler>> samplerBinds;
@@ -900,7 +903,10 @@ bool ObjectRenderer::BindDescriptorSet0_ShadowMapTextures(const BindState& bindS
 
             if (textureOpt)
             {
-                samplerBinds.emplace_back(textureOpt->vkImageViews.at(shadowImageViewName), textureOpt->vkSampler);
+                samplerBinds.emplace_back(
+                    textureOpt->vkImageViews.at(shadowImageViewName),
+                    textureOpt->vkSamplers.at(shadowSamplerName)
+                );
             }
             else
             {
@@ -1056,7 +1062,7 @@ void ObjectRenderer::BindDescriptorSet2_MaterialData(BindState& bindState,
         descriptorSet->WriteCombinedSamplerBind(
             (*bindState.programDef)->GetBindingDetailsByName(textureBindIt.first),
             loadedTexture->vkImageViews.at(TextureView::DEFAULT),
-            loadedTexture->vkSampler
+            loadedTexture->vkSamplers.at(TextureSampler::DEFAULT)
         );
     }
 

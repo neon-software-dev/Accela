@@ -8,6 +8,9 @@
 #define LIBACCELARENDERERVK_SRC_VULKAN_VULKANRENDERPASS
 
 #include "../ForwardDeclares.h"
+#include "../InternalCommon.h"
+
+#include "../Util/Synchronization.h"
 
 #include <Accela/Common/Log/ILogger.h>
 
@@ -68,15 +71,18 @@ namespace Accela::Render
              * @return Whether the render pass was created successfully
              */
             bool Create(const std::vector<Attachment>& attachments,
+                        const std::vector<std::optional<ImageAccess>>& attachmentImageAccesses,
                         const std::vector<Subpass>& subpasses,
                         const std::vector<VkSubpassDependency>& vkDependencies,
                         const std::optional<std::vector<uint32_t>>& multiViewMasks,
                         const std::optional<uint32_t>& multiViewCorrelationMask,
                         const std::string& tag);
 
-            [[nodiscard]] VkRenderPass GetVkRenderPass() const { return m_vkRenderPass; }
-            [[nodiscard]] std::vector<Attachment> GetAttachments() const { return m_attachments; }
-            [[nodiscard]] std::vector<Subpass> GetSubpasses() const { return m_subpasses; }
+            [[nodiscard]] VkRenderPass GetVkRenderPass() const noexcept { return m_vkRenderPass; }
+            [[nodiscard]] std::vector<Attachment> GetAttachments() const noexcept { return m_attachments; }
+            [[nodiscard]] std::vector<Subpass> GetSubpasses() const noexcept { return m_subpasses; }
+            [[nodiscard]] std::vector<std::optional<ImageAccess>> GetAttachmentImageAccesses() const noexcept { return m_attachmentImageAccesses; }
+            [[nodiscard]] std::optional<ImageAccess> GetAttachmentImageAccess(AttachmentIndex attachmentIndex) const;
             [[nodiscard]] bool HasDepthAttachment() const;
 
             [[nodiscard]] std::vector<VkImageLayout> GetAttachmentInitialLayouts() const;
@@ -93,6 +99,7 @@ namespace Accela::Render
 
             VkRenderPass m_vkRenderPass{VK_NULL_HANDLE};
             std::vector<Attachment> m_attachments;
+            std::vector<std::optional<ImageAccess>> m_attachmentImageAccesses;
             std::vector<Subpass> m_subpasses;
     };
 }

@@ -49,7 +49,7 @@ bool FramebufferObjs::CreateOwning(const VulkanRenderPassPtr& renderPass,
 
         texture.id = m_ids->textureIds.GetId();
 
-        if (!m_textures->CreateTextureEmpty(texture, attachment.first.textureViews, attachment.first.textureSampler))
+        if (!m_textures->CreateTextureEmpty(texture, attachment.first.textureViews, attachment.first.textureSamplers))
         {
             m_logger->Log(Common::LogLevel::Error, "Framebuffer: Create: Failed to create texture");
 

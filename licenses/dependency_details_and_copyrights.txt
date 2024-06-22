@@ -89,3 +89,13 @@ https://json.nlohmann.me/
 [Qt6]
 GNU LGPL Version 3
 https://www.qt.io/product/qt6
+
+[FXAA]
+== Code ==
+MIT license
+Ported from code from https://github.com/kosua20/Rendu/
+== Algorithm/Code ==
+Public Domain / NVIDIA GameWorks
+https://github.com/hghdev/NVIDIAGameWorks-GraphicsSamples
+Original Author: TIMOTHY LOTTES
+This software contains source code provided by NVIDIA Corporation.

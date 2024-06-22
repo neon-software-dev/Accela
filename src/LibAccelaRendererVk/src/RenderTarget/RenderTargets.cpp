@@ -11,6 +11,8 @@
 
 #include "../Framebuffer/IFramebuffers.h"
 #include "../Texture/ITextures.h"
+#include "../Util/VulkanFuncs.h"
+#include "../Vulkan/VulkanDevice.h"
 
 #include <format>
 
@@ -19,11 +21,13 @@ namespace Accela::Render
 
 RenderTargets::RenderTargets(Common::ILogger::Ptr logger,
                              VulkanObjsPtr vulkanObjs,
+                             PostExecutionOpsPtr postExecutionOps,
                              IFramebuffersPtr framebuffers,
                              ITexturesPtr textures,
                              Ids::Ptr ids)
      : m_logger(std::move(logger))
      , m_vulkanObjs(std::move(vulkanObjs))
+     , m_postExecutionOps(std::move(postExecutionOps))
      , m_framebuffers(std::move(framebuffers))
      , m_textures(std::move(textures))
      , m_ids(std::move(ids))
@@ -73,9 +77,17 @@ bool RenderTargets::CreateRenderTarget(const RenderTargetId& renderTargetId, con
         return false;
     }
 
+    const auto postProcessOutputTexture = CreatePostProcessOutputTexture(tag);
+    if (!postProcessOutputTexture)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+              "RenderTargets::CreateRenderTarget: Failed to create post-process output texture: {}",tag);
+        return false;
+    }
+
     m_renderTargets.insert({
         renderTargetId,
-        RenderTarget(*gPassFramebufferId, *blitFramebufferId, tag)
+        RenderTarget(*gPassFramebufferId, *blitFramebufferId, *postProcessOutputTexture, tag)
     });
 
     return true;
@@ -93,7 +105,11 @@ std::optional<Render::FrameBufferId> RenderTargets::CreateGPassFramebuffer(const
         layerCount = 2;
     }
 
-    const auto attachmentTextureSampler = TextureSampler(CLAMP_ADDRESS_MODE);
+    const auto defaultTextureSampler = TextureSampler(TextureSampler::DEFAULT, CLAMP_ADDRESS_MODE);
+
+    auto nearestTextureSampler = TextureSampler(TextureSampler::NEAREST, CLAMP_ADDRESS_MODE);
+    nearestTextureSampler.minFilter = SamplerFilterMode::Nearest;
+    nearestTextureSampler.magFilter = SamplerFilterMode::Nearest;
 
     const auto colorAttachmentTexture = TextureDefinition {
         Texture::Empty(
@@ -103,14 +119,15 @@ std::optional<Render::FrameBufferId> RenderTargets::CreateGPassFramebuffer(const
             renderSettings.resolution,
             layerCount,
             false,
-            "Color"
+            std::format("Color-{}", tag)
         ),
-        { TextureView::ViewAs2DArray(
+        {
+            TextureView::ViewAs2DArray(
             TextureView::DEFAULT,
             TextureView::Aspect::ASPECT_COLOR_BIT,
-            TextureView::Layer(0, layerCount)
-        ) },
-        attachmentTextureSampler
+            TextureView::Layer(0, layerCount))
+        },
+        { defaultTextureSampler, nearestTextureSampler }
     };
 
     const auto positionAttachmentTexture = TextureDefinition {
@@ -121,10 +138,10 @@ std::optional<Render::FrameBufferId> RenderTargets::CreateGPassFramebuffer(const
             renderSettings.resolution,
             layerCount,
             false,
-            "Position"
+            std::format("Position-{}", tag)
         ),
         { TextureViewForLayerCount(Render::TextureView::Aspect::ASPECT_COLOR_BIT, layerCount) },
-        attachmentTextureSampler
+        { defaultTextureSampler }
     };
 
     const auto normalAttachmentTexture = TextureDefinition {
@@ -135,10 +152,10 @@ std::optional<Render::FrameBufferId> RenderTargets::CreateGPassFramebuffer(const
             renderSettings.resolution,
             layerCount,
             false,
-            "Normal"
+            std::format("Normal-{}", tag)
         ),
         { TextureViewForLayerCount(Render::TextureView::Aspect::ASPECT_COLOR_BIT, layerCount) },
-        attachmentTextureSampler
+        { defaultTextureSampler }
     };
 
     const auto materialAttachmentTexture = TextureDefinition {
@@ -149,10 +166,10 @@ std::optional<Render::FrameBufferId> RenderTargets::CreateGPassFramebuffer(const
             renderSettings.resolution,
             layerCount,
             false,
-            "Material"
+            std::format("Material-{}", tag)
         ),
         { TextureViewForLayerCount(Render::TextureView::Aspect::ASPECT_COLOR_BIT, layerCount) },
-        attachmentTextureSampler
+        { defaultTextureSampler }
     };
 
     const auto ambientAttachmentTexture = TextureDefinition {
@@ -163,10 +180,10 @@ std::optional<Render::FrameBufferId> RenderTargets::CreateGPassFramebuffer(const
             renderSettings.resolution,
             layerCount,
             false,
-            "Ambient"
+            std::format("Ambient-{}", tag)
         ),
         { TextureViewForLayerCount(Render::TextureView::Aspect::ASPECT_COLOR_BIT, layerCount) },
-        attachmentTextureSampler
+        { defaultTextureSampler }
     };
 
     const auto diffuseAttachmentTexture = TextureDefinition {
@@ -177,10 +194,10 @@ std::optional<Render::FrameBufferId> RenderTargets::CreateGPassFramebuffer(const
             renderSettings.resolution,
             layerCount,
             false,
-            "Diffuse"
+            std::format("Diffuse-{}", tag)
         ),
         { TextureViewForLayerCount(Render::TextureView::Aspect::ASPECT_COLOR_BIT, layerCount) },
-        attachmentTextureSampler
+        { defaultTextureSampler }
     };
 
     const auto specularAttachmentTexture = TextureDefinition {
@@ -191,10 +208,10 @@ std::optional<Render::FrameBufferId> RenderTargets::CreateGPassFramebuffer(const
             renderSettings.resolution,
             layerCount,
             false,
-            "Specular"
+            std::format("Specular-{}", tag)
         ),
         { TextureViewForLayerCount(Render::TextureView::Aspect::ASPECT_COLOR_BIT, layerCount) },
-        attachmentTextureSampler
+        { defaultTextureSampler }
     };
 
     const auto depthAttachmentTexture = TextureDefinition {
@@ -204,10 +221,10 @@ std::optional<Render::FrameBufferId> RenderTargets::CreateGPassFramebuffer(const
             renderSettings.resolution,
             layerCount,
             false,
-            "Depth"
+            std::format("Depth-{}", tag)
         ),
         { TextureViewForLayerCount(Render::TextureView::Aspect::ASPECT_DEPTH_BIT, layerCount) },
-        attachmentTextureSampler
+        { defaultTextureSampler }
     };
 
     //
@@ -291,6 +308,53 @@ std::optional<FrameBufferId> RenderTargets::CreateBlitFramebuffer(FrameBufferId 
     return blitFramebufferId;
 }
 
+std::optional<TextureId> RenderTargets::CreatePostProcessOutputTexture(const std::string& tag) const
+{
+    const auto renderSettings = m_vulkanObjs->GetRenderSettings();
+
+    uint32_t layerCount = 1;
+
+    // If we're presenting to a headset, create two layers for each render target texture, to hold the output for each eye
+    if (renderSettings.presentToHeadset)
+    {
+        layerCount = 2;
+    }
+
+    //
+    // Create the texture
+    //
+    const auto attachmentTextureSampler = TextureSampler(TextureSampler::DEFAULT, CLAMP_ADDRESS_MODE);
+
+    const auto textureId = m_ids->textureIds.GetId();
+
+    if (!m_textures->CreateTextureEmpty(
+        Texture::Empty(
+            textureId,
+            {TextureUsage::Storage, TextureUsage::TransferSource},
+            TextureFormat::R32G32B32A32_SFLOAT,
+            m_vulkanObjs->GetRenderSettings().resolution,
+            layerCount,
+            false,
+            std::format("PostProcessOutput-{}", tag)
+        ),
+        { TextureView::ViewAs2DArray(
+            TextureView::DEFAULT,
+            TextureView::Aspect::ASPECT_COLOR_BIT,
+            TextureView::Layer(0, layerCount)
+        ) },
+        { attachmentTextureSampler }
+    ))
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "RenderTargets::CreatePostProcessOutputTexture: Failed to create texture");
+        return std::nullopt;
+    }
+
+    const auto loadedTexture = m_textures->GetTexture(textureId).value();
+
+    return textureId;
+}
+
 void RenderTargets::DestroyRenderTarget(const RenderTargetId& renderTargetId, bool destroyImmediately)
 {
     const auto it = m_renderTargets.find(renderTargetId);
@@ -300,6 +364,8 @@ void RenderTargets::DestroyRenderTarget(const RenderTargetId& renderTargetId, bo
     }
 
     m_logger->Log(Common::LogLevel::Debug, "RenderTargets: Destroying render target: {}", renderTargetId.id);
+
+    m_textures->DestroyTexture(it->second.postProcessOutputTexture, destroyImmediately);
 
     m_framebuffers->DestroyFramebuffer(it->second.blitFramebuffer, destroyImmediately);
     m_framebuffers->DestroyFramebuffer(it->second.gPassFramebuffer, destroyImmediately);

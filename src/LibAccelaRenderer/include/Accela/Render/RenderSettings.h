@@ -92,7 +92,12 @@ namespace Accela::Render
         //
         bool hdr{true};
         float exposure{1.0f};
+
+        //
+        // Post-Processing
+        //
         float gamma{2.2f};
+        bool fxaa{true};
     };
 }
 

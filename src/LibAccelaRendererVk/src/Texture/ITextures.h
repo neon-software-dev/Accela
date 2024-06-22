@@ -40,10 +40,10 @@ namespace Accela::Render
 
             virtual bool CreateTextureEmpty(const Texture& texture,
                                             const std::vector<TextureView>& textureViews,
-                                            const TextureSampler& textureSampler) = 0;
+                                            const std::vector<TextureSampler>& textureSamplers) = 0;
             virtual bool CreateTextureFilled(const Texture& texture,
                                              const std::vector<TextureView>& textureViews,
-                                             const TextureSampler& textureSampler,
+                                             const std::vector<TextureSampler>& textureSamplers,
                                              std::promise<bool> resultPromise) = 0;
             virtual std::optional<LoadedTexture> GetTexture(TextureId textureId) = 0;
             virtual LoadedTexture GetMissingTexture() = 0;

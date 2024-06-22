@@ -67,9 +67,10 @@ RendererVk::RendererVk(std::string appName,
     , m_framebuffers(std::make_shared<Framebuffers>(m_logger, m_ids, m_vulkanObjs, m_textures, m_postExecutionOps))
     , m_materials(std::make_shared<Materials>(m_logger, m_metrics, m_vulkanObjs, m_postExecutionOps, m_ids, m_textures, m_buffers))
     , m_lights(std::make_shared<Lights>(m_logger, m_metrics, m_vulkanObjs, m_framebuffers, m_ids))
-    , m_renderTargets(std::make_shared<RenderTargets>(m_logger, m_vulkanObjs, m_framebuffers, m_textures, m_ids))
+    , m_renderTargets(std::make_shared<RenderTargets>(m_logger, m_vulkanObjs, m_postExecutionOps, m_framebuffers, m_textures, m_ids))
     , m_renderables(std::make_shared<Renderables>(m_logger, m_ids, m_postExecutionOps, m_textures, m_buffers, m_meshes, m_lights))
     , m_frames(m_logger, m_ids, m_vulkanObjs, m_textures)
+    , m_renderState(m_logger, m_vulkanObjs->GetCalls())
     , m_swapChainRenderers(m_logger, m_metrics, m_ids, m_postExecutionOps, m_vulkanObjs, m_programs, m_shaders, m_pipelines, m_buffers, m_materials, m_textures, m_meshes, m_lights, m_renderables)
     , m_spriteRenderers(m_logger, m_metrics, m_ids, m_postExecutionOps, m_vulkanObjs, m_programs, m_shaders, m_pipelines, m_buffers, m_materials, m_textures, m_meshes, m_lights, m_renderables)
     , m_objectRenderers(m_logger, m_metrics, m_ids, m_postExecutionOps, m_vulkanObjs, m_programs, m_shaders, m_pipelines, m_buffers, m_materials, m_textures, m_meshes, m_lights, m_renderables)
@@ -126,6 +127,7 @@ bool RendererVk::OnShutdown()
     m_objectRenderers.Destroy();
     m_spriteRenderers.Destroy();
     m_swapChainRenderers.Destroy();
+    m_renderState.Destroy();
     m_frames.Destroy();
     m_renderables->Destroy();
 
@@ -244,6 +246,12 @@ bool RendererVk::CreatePrograms()
         return false;
     }
 
+    if (!m_programs->CreateProgram("FXAA", {"FXAA.comp.spv"}))
+    {
+        m_logger->Log(Common::LogLevel::Error, "CreatePrograms: Failed to create FXAA program");
+        return false;
+    }
+
     return true;
 }
 
@@ -262,11 +270,11 @@ void RendererVk::OnCreateTexture(std::promise<bool> resultPromise,
 {
     if (texture.data.has_value())
     {
-        m_textures->CreateTextureFilled(texture, {textureView}, textureSampler, std::move(resultPromise));
+        m_textures->CreateTextureFilled(texture, {textureView}, {textureSampler}, std::move(resultPromise));
     }
     else
     {
-        resultPromise.set_value(m_textures->CreateTextureEmpty(texture, {textureView}, textureSampler));
+        resultPromise.set_value(m_textures->CreateTextureEmpty(texture, {textureView}, {textureSampler}));
     }
 }
 
@@ -551,11 +559,13 @@ void RendererVk::RunSceneRender(const std::string& sceneName,
     const auto gPassDepthAttachment = gPassFramebufferObjs->GetAttachmentTexture(Offscreen_Attachment_Depth);
     const auto gPassDepthTexture = *m_textures->GetTexture((*gPassDepthAttachment).first.textureId);
 
+    const auto postProcessingOutputTexture = *m_textures->GetTexture(renderTarget.postProcessOutputTexture);
+
     ////////////////////
     // GPass Render Pass
     ////////////////////
 
-    StartRenderPass(gPassRenderPass, gPassFramebufferObjs->GetFramebuffer(), commandBuffer);
+    StartRenderPass(gPassRenderPass, *gPassFramebufferObjs, commandBuffer);
         RenderObjects(sceneName, *gPassFramebufferObjs, renderParams, viewProjections, shadowMaps);
     EndRenderPass(commandBuffer);
 
@@ -563,55 +573,16 @@ void RendererVk::RunSceneRender(const std::string& sceneName,
     // Tone-Mapping
     //////////////////////////
 
-    // GPass pass must have finished writing to the color texture before tone-mapping can use it
-    InsertPipelineBarrier_Image(
-        m_vulkanObjs->GetCalls(),
-        commandBuffer,
-        gPassColorTexture.allocation.vkImage,
-        Layers(0, gPassColorTexture.numLayers),
-        Levels(0, 1),
-        VK_IMAGE_ASPECT_COLOR_BIT,
-        BarrierPoint(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT),
-        BarrierPoint(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT),
-        ImageTransition(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL)
-    );
-
     if (renderSettings.hdr)
     {
-        RunPostProcessing(gPassColorTexture, ToneMappingEffect(m_vulkanObjs->GetRenderSettings()));
+        RunPostProcessing(gPassColorTexture, postProcessingOutputTexture, ToneMappingEffect(m_vulkanObjs->GetRenderSettings()));
     }
 
     ///////////////////
     // Blit Render Pass
     ///////////////////
 
-    // Tone-mapping must have finished writing to color texture before blit pass can write to it
-    InsertPipelineBarrier_Image(
-        m_vulkanObjs->GetCalls(),
-        commandBuffer,
-        gPassColorTexture.allocation.vkImage,
-        Layers(0, gPassColorTexture.numLayers),
-        Levels(0, 1),
-        VK_IMAGE_ASPECT_COLOR_BIT,
-        BarrierPoint(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT),
-        BarrierPoint(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT),
-        ImageTransition(VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
-    );
-
-    // GPass pass must have finished writing to the depth texture before blit pass can use it
-    InsertPipelineBarrier_Image(
-        m_vulkanObjs->GetCalls(),
-        commandBuffer,
-        gPassDepthTexture.allocation.vkImage,
-        Layers(0, 1),
-        Levels(0, 1),
-        VK_IMAGE_ASPECT_DEPTH_BIT,
-        BarrierPoint(VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT),
-        BarrierPoint(VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT),
-        ImageTransition(VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
-    );
-
-    StartRenderPass(blitRenderPass, blitFramebufferObjs->GetFramebuffer(), commandBuffer);
+    StartRenderPass(blitRenderPass, *blitFramebufferObjs, commandBuffer);
         RenderBlit(sceneName, *blitFramebufferObjs, renderParams);
     EndRenderPass(commandBuffer);
 
@@ -619,20 +590,16 @@ void RendererVk::RunSceneRender(const std::string& sceneName,
     // Gamma Correction
     //////////////////////////
 
-    // Blit pass must have finished writing to the color texture before gamma correction can use it
-    InsertPipelineBarrier_Image(
-        m_vulkanObjs->GetCalls(),
-        commandBuffer,
-        gPassColorTexture.allocation.vkImage,
-        Layers(0, gPassColorTexture.numLayers),
-        Levels(0, 1),
-        VK_IMAGE_ASPECT_COLOR_BIT,
-        BarrierPoint(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT),
-        BarrierPoint(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT),
-        ImageTransition(VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL)
-    );
+    RunPostProcessing(gPassColorTexture, postProcessingOutputTexture, GammaCorrectionEffect(m_vulkanObjs->GetRenderSettings()));
 
-    RunPostProcessing(gPassColorTexture, GammaCorrectionEffect(m_vulkanObjs->GetRenderSettings()));
+    //////////////////////////
+    // FXAA
+    //////////////////////////
+
+    if (renderSettings.fxaa)
+    {
+        RunPostProcessing(gPassColorTexture, postProcessingOutputTexture, FXAAEffect(m_vulkanObjs->GetRenderSettings()));
+    }
 }
 
 bool RendererVk::RenderGraphFunc_Present(const uint32_t& swapChainImageIndex, const RenderGraphNode::Ptr& node)
@@ -673,6 +640,8 @@ bool RendererVk::RenderGraphFunc_Present(const uint32_t& swapChainImageIndex, co
     const auto presentColorTexture =
         gPassFramebufferObjs->GetAttachmentTexture(Offscreen_Attachment_Color)->first;
 
+    const auto presentColorVkImage = presentColorTexture.allocation.vkImage;
+
     ////////////////////////////////////////////////////
     // Finish the Render work command buffer and submit it
     ////////////////////////////////////////////////////
@@ -696,40 +665,49 @@ bool RendererVk::RenderGraphFunc_Present(const uint32_t& swapChainImageIndex, co
 
     swapChainBlitCommandBuffer->Begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
-    // Blit pass must have finished writing to the color texture before swap chain pass can read from it
-    InsertPipelineBarrier_Image(
-        m_vulkanObjs->GetCalls(),
-        swapChainBlitCommandBuffer,
-        presentColorTexture.allocation.vkImage,
-        Layers(0, presentColorTexture.numLayers),
-        Levels(0, 1),
-        VK_IMAGE_ASPECT_COLOR_BIT,
-        BarrierPoint(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT),
-        BarrierPoint(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT),
-        ImageTransition(VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
-    );
-
-    ////////////////////////////
-    // SwapChainBlit Render Pass
-    ////////////////////////////
-
     // Convert the linearly-specified clear color to SRGB space as gamma correction was already done before this
     const auto swapChainBlitClearColor =
         glm::convertLinearToSRGB(presentConfig.clearColor, m_vulkanObjs->GetRenderSettings().gamma);
+
+    // Prepare the present texture for read by the swap chain blit pass
+    m_renderState.PrepareOperation(swapChainBlitCommandBuffer, RenderOperation({
+        {presentColorVkImage, ImageAccess(
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            BarrierPoint(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT),
+            BarrierPoint(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT),
+            Layers(0, presentColorTexture.numLayers),
+            Levels(0,1),
+            VK_IMAGE_ASPECT_COLOR_BIT
+            )}
+        }
+    ));
 
     StartRenderPass(swapChainBlitRenderPass, swapChainFrameBuffer, swapChainBlitCommandBuffer, swapChainBlitClearColor);
         RunSwapChainBlitPass(swapChainFrameBuffer, presentColorTexture);
     EndRenderPass(swapChainBlitCommandBuffer);
 
-    // If outputting to a headset, add a pipeline barrier to wait for the swap chain blit
-    // work to finish reading from the color output before then transitioning it to
-    // VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL so that VR can transfer from it.
+    // If outputting to a headset, insert one last operation that will record that when we
+    // submit the present textures to the headset it transfers data from them
     if (m_vulkanObjs->GetRenderSettings().presentToHeadset)
     {
-        InsertPipelineBarrier_Image(
+        m_renderState.PrepareOperation(swapChainBlitCommandBuffer, RenderOperation({
+           {presentColorVkImage, ImageAccess(
+               VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+               VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+               BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_SHADER_READ_BIT),
+               BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT),
+               Layers(0, presentColorTexture.numLayers),
+               Levels(0,1),
+               VK_IMAGE_ASPECT_COLOR_BIT
+           )}
+        }
+        ));
+
+        /*InsertPipelineBarrier_Image(
             m_vulkanObjs->GetCalls(),
             swapChainBlitCommandBuffer,
-            presentColorTexture.allocation.vkImage,
+            presentColorVkImage,
             Layers(0, presentColorTexture.numLayers),
             Levels(0, 1),
             VK_IMAGE_ASPECT_COLOR_BIT,
@@ -739,7 +717,7 @@ bool RendererVk::RenderGraphFunc_Present(const uint32_t& swapChainImageIndex, co
             BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT),
             // Convert image to transfer src optimal
             ImageTransition(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
-        );
+        );*/
     }
 
     swapChainBlitCommandBuffer->End();
@@ -943,27 +921,89 @@ void RendererVk::RenderObjects(const std::string& sceneName,
     }
 }
 
-void RendererVk::RunPostProcessing(const LoadedTexture& texture, const PostProcessEffect& effect)
+void RendererVk::RunPostProcessing(const LoadedTexture& inputTexture, const LoadedTexture& outputTexture, const PostProcessEffect& effect)
 {
     auto& currentFrame = m_frames.GetCurrentFrame();
     const auto commandBuffer = currentFrame.GetRenderCommandBuffer();
 
-    CmdBufferSectionLabel sectionLabel(m_vulkanObjs->GetCalls(), commandBuffer, effect.tag);
+    //
+    // Execute the post-processing effect shader
+    //
+    m_renderState.PrepareOperation(commandBuffer, RenderOperation({
+        {inputTexture.allocation.vkImage, ImageAccess(
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            BarrierPoint(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT),
+            BarrierPoint(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT),
+            Layers(0, inputTexture.numLayers),
+            Levels(0,1),
+            VK_IMAGE_ASPECT_COLOR_BIT
+        )},
+        {outputTexture.allocation.vkImage, ImageAccess(
+            VK_IMAGE_LAYOUT_GENERAL,
+            VK_IMAGE_LAYOUT_GENERAL,
+            BarrierPoint(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT),
+            BarrierPoint(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT),
+            Layers(0, outputTexture.numLayers),
+            Levels(0,1),
+            VK_IMAGE_ASPECT_COLOR_BIT
+        )}
+    }));
 
-    m_postProcessingRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
-        .Render(commandBuffer, texture, effect);
+    {
+        CmdBufferSectionLabel sectionLabel(m_vulkanObjs->GetCalls(), commandBuffer, effect.tag);
 
-    // Effect must finish writing to the texture before any subsequent effect can use it
-    InsertPipelineBarrier_Image(
-        m_vulkanObjs->GetCalls(),
-        commandBuffer,
-        texture.allocation.vkImage,
-        Layers(0, texture.numLayers),
-        Levels(0, 1),
-        VK_IMAGE_ASPECT_COLOR_BIT,
-        BarrierPoint(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT),
-        BarrierPoint(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT),
-        ImageTransition(VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL)
+        m_postProcessingRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
+            .Render(commandBuffer, inputTexture, outputTexture, effect);
+    }
+
+    //
+    // Blit the post-process output back to the input texture
+    //
+    m_renderState.PrepareOperation(commandBuffer, RenderOperation({
+        {inputTexture.allocation.vkImage, ImageAccess(
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT),
+            BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT),
+            Layers(0, inputTexture.numLayers),
+            Levels(0,1),
+            VK_IMAGE_ASPECT_COLOR_BIT
+        )},
+        {outputTexture.allocation.vkImage, ImageAccess(
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT),
+            BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT),
+            Layers(0, outputTexture.numLayers),
+            Levels(0,1),
+            VK_IMAGE_ASPECT_COLOR_BIT
+        )}
+    }));
+
+    VkImageBlit blit{};
+    blit.srcOffsets[0] = { 0, 0, 0 };
+    blit.srcOffsets[1] = { (int)outputTexture.pixelSize.w, (int)outputTexture.pixelSize.h, 1 };
+    blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    blit.srcSubresource.mipLevel = 0;
+    blit.srcSubresource.baseArrayLayer = 0;
+    blit.srcSubresource.layerCount = outputTexture.numLayers;
+    blit.dstOffsets[0] = { 0, 0, 0 };
+    blit.dstOffsets[1] = { (int)inputTexture.pixelSize.w, (int)inputTexture.pixelSize.h, 1 };
+    blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    blit.dstSubresource.mipLevel = 0;
+    blit.dstSubresource.baseArrayLayer = 0;
+    blit.dstSubresource.layerCount = inputTexture.numLayers;
+
+    m_vulkanObjs->GetCalls()->vkCmdBlitImage(
+        commandBuffer->GetVkCommandBuffer(),
+        outputTexture.allocation.vkImage,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        inputTexture.allocation.vkImage,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1,
+        &blit,
+        VK_FILTER_LINEAR
     );
 }
 
@@ -1017,13 +1057,33 @@ void RendererVk::RunSwapChainBlitPass(const VulkanFramebufferPtr& framebuffer, c
 }
 
 bool RendererVk::StartRenderPass(const VulkanRenderPassPtr& renderPass,
-                                 const VulkanFramebufferPtr& framebuffer,
+                                 const FramebufferObjs& framebufferObjs,
                                  const VulkanCommandBufferPtr& commandBuffer,
                                  const glm::vec4& colorClearColor)
 {
     //
+    // Prepare a Render Operation associated with the Render Pass execution
+    //
+    const auto operation = RenderOperation::FromRenderPass(framebufferObjs, renderPass);
+    if (!operation)
+    {
+        m_logger->Log(Common::LogLevel::Error, "StartRenderPass: Failed to create the render operation");
+        return false;
+    }
+
+    m_renderState.PrepareOperation(commandBuffer, *operation);
+
+    //
     // Start Render Pass
     //
+    return StartRenderPass(renderPass, framebufferObjs.GetFramebuffer(), commandBuffer, colorClearColor);
+}
+
+bool RendererVk::StartRenderPass(const VulkanRenderPassPtr& renderPass,
+                                 const VulkanFramebufferPtr& framebuffer,
+                                 const VulkanCommandBufferPtr& commandBuffer,
+                                 const glm::vec4& colorClearColor)
+{
     const auto framebufferAttachments = framebuffer->GetAttachments();
 
     const auto attachments = renderPass->GetAttachments();
@@ -1042,11 +1102,11 @@ bool RendererVk::StartRenderPass(const VulkanRenderPassPtr& renderPass,
         {
             case VulkanRenderPass::AttachmentType::Color:
                 clearValues[x].color = {{colorClearColor.r, colorClearColor.g, colorClearColor.b, colorClearColor.a}};
-            break;
+                break;
             case VulkanRenderPass::AttachmentType::Depth:
                 clearValues[x].depthStencil.depth = 1.0f;
                 clearValues[x].depthStencil.stencil = 0.0f;
-            break;
+                break;
         }
     }
 
@@ -1172,20 +1232,17 @@ bool RendererVk::RefreshShadowMap(const RenderParams& renderParams,
     auto& currentFrame = m_frames.GetCurrentFrame();
 
     VulkanRenderPassPtr shadowRenderPass{};
-    unsigned int numShadowMapLayers = 1;
 
     switch (loadedLight.shadowMapType)
     {
         case ShadowMapType::Single:
         {
             shadowRenderPass = m_vulkanObjs->GetShadow2DRenderPass();
-            numShadowMapLayers = 1;
         }
             break;
         case ShadowMapType::Cube:
         {
             shadowRenderPass = m_vulkanObjs->GetShadowCubeRenderPass();
-            numShadowMapLayers = 6;
         }
         break;
     }
@@ -1218,26 +1275,7 @@ bool RendererVk::RefreshShadowMap(const RenderParams& renderParams,
     {
         CmdBufferSectionLabel sectionLabel(m_vulkanObjs->GetCalls(), commandBuffer, std::format("ShadowMapRender-Light-{}", loadedLight.light.lightId.id));
 
-        //
-        // Pipeline barrier to wait for parallel reads of the shadow map from other frames to finish before rendering over it.
-        // Note: The shadow render pass handles synchronization for future frames that read from its output.
-        //
-        InsertPipelineBarrier_Image(
-            m_vulkanObjs->GetCalls(),
-            commandBuffer,
-            shadowMapTexture.allocation.vkImage,
-            Layers(0, numShadowMapLayers),
-            Levels(0, 1),
-            VK_IMAGE_ASPECT_DEPTH_BIT,
-            // Deferred lighting fragment shader must finish sampling from the shadow map
-            BarrierPoint(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT),
-            // Before renderer depth stage(s) can write to the shadow map as a depth attachment
-            BarrierPoint(VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT),
-            // Whatever layout it was in before, transition it to depth attachment optimal as a depth target for shadow rendering
-            ImageTransition(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL)
-        );
-
-        if (!StartRenderPass(shadowRenderPass, shadowFramebuffer->GetFramebuffer(), commandBuffer)) { return false; }
+        if (!StartRenderPass(shadowRenderPass, *shadowFramebuffer, commandBuffer)) { return false; }
 
             //
             // Clear any existing shadow map data

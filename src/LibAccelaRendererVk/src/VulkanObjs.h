@@ -101,6 +101,7 @@ namespace Accela::Render
 
             VulkanRenderPassPtr CreateShadowRenderPass(const std::optional<std::vector<uint32_t>>& multiViewMasks,
                                                        const std::optional<uint32_t>& multiViewCorrelationMask,
+                                                       unsigned int depthNumLayers,
                                                        const std::string& tag);
 
         private:

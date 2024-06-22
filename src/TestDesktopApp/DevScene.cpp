@@ -81,7 +81,7 @@ void DevScene::CreateSceneEntities()
 
     CreateTreeEntity(0, {5,0,-2});
 
-    CreateForest(m_terrainEid, 100);
+    //CreateForest(m_terrainEid, 100);
 }
 
 bool DevScene::LoadResources()
@@ -892,6 +892,13 @@ void DevScene::HandleSetCommand(const std::vector<std::string>& tokens)
     {
         if (tokens.size() != 3) { return; }
         renderSettings.gamma = std::stof(v);
+        engine->SetRenderSettings(renderSettings);
+    }
+    else if (k == "rs.fxaa")
+    {
+        if (tokens.size() != 3) { return; }
+        if (v == "0") { renderSettings.fxaa = false; }
+        if (v == "1") { renderSettings.fxaa = true; }
         engine->SetRenderSettings(renderSettings);
     }
 }

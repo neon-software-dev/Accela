@@ -17,11 +17,26 @@ layout(push_constant) uniform constants
     float gamma;
 } PushConstants;
 
-layout (set = 0, binding = 0, rgba32f) uniform image2DArray i_offscreenImage;
+layout (set = 0, binding = 0) uniform sampler2DArray i_inputImage;
+layout (set = 0, binding = 1, rgba32f) uniform image2DArray i_outputImage;
 
 layout (local_size_x = POST_EFFECT_LOCAL_SIZE_X,
         local_size_y = POST_EFFECT_LOCAL_SIZE_Y,
         local_size_z = POST_EFFECT_LOCAL_SIZE_Z) in;
+
+vec4 DoWork(int layerIndex)
+{
+    const vec2 inUV = {
+        (float(gl_GlobalInvocationID.x) + 0.5f) / float(PushConstants.renderWidth),
+        (float(gl_GlobalInvocationID.y) + 0.5f) / float(PushConstants.renderHeight),
+    };
+
+    vec4 inPixel = texture(i_inputImage, vec3(inUV, layerIndex));
+
+    const vec3 srgb = pow(inPixel.xyz, vec3(1.0f / PushConstants.gamma));
+
+    return vec4(srgb, inPixel.a);
+}
 
 void main()
 {
@@ -32,22 +47,12 @@ void main()
         return;
     }
 
-    //
-    // Load input
-    //
-    vec4 inPixel = imageLoad(i_offscreenImage, ivec3(gl_GlobalInvocationID.xy, 0));
+    const int numLayers = imageSize(i_outputImage).z;
 
-    //
-    // Process
-    //
+    for (int layerIndex = 0; layerIndex < numLayers; ++layerIndex)
+    {
+        const vec4 outPixel = DoWork(layerIndex);
 
-    // gamma correction
-    const vec3 mapped = pow(inPixel.xyz, vec3(1.0f / PushConstants.gamma));
-
-    const vec4 outPixel = vec4(mapped, inPixel.a);
-
-    //
-    // Store output
-    //
-    imageStore(i_offscreenImage, ivec3(gl_GlobalInvocationID.xy, 0), outPixel);
+        imageStore(i_outputImage, ivec3(gl_GlobalInvocationID.xy, layerIndex), outPixel);
+    }
 }

@@ -30,7 +30,7 @@ namespace Accela::Render
         VkFormat vkFormat{};
         ImageAllocation allocation;
         std::unordered_map<std::string, VkImageView> vkImageViews;
-        VkSampler vkSampler{VK_NULL_HANDLE};
+        std::unordered_map<std::string, VkSampler> vkSamplers;
     };
 }
 

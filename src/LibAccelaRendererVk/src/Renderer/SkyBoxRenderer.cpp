@@ -414,7 +414,7 @@ bool SkyBoxRenderer::BindMaterialDescriptorSet(const RenderParams& renderParams,
     (*materialDescriptorSet)->WriteCombinedSamplerBind(
         m_programDef->GetBindingDetailsByName("i_skyboxSampler"),
         skyBoxTexture->vkImageViews.at(TextureView::DEFAULT),
-        skyBoxTexture->vkSampler
+        skyBoxTexture->vkSamplers.at(TextureSampler::DEFAULT)
     );
 
     //

@@ -36,6 +36,7 @@ namespace Accela::Render
 
         return {
             .programName = "ToneMapping",
+            .inputSamplerName = TextureSampler::NEAREST,
             .pushPayload = pushPayloadBytes,
             .tag = "ToneMapping"
         };
@@ -66,8 +67,36 @@ namespace Accela::Render
 
         return {
             .programName = "GammaCorrection",
+            .inputSamplerName = TextureSampler::NEAREST,
             .pushPayload = pushPayloadBytes,
             .tag = "GammaCorrection"
+        };
+    }
+
+    //
+    // FXAA Effect
+    //
+    struct FXAAPushPayload
+    {
+        // Required
+        alignas(4) uint32_t renderWidth{0};
+        alignas(4) uint32_t renderHeight{0};
+    };
+
+    [[nodiscard]] static PostProcessEffect FXAAEffect(const RenderSettings& renderSettings)
+    {
+        FXAAPushPayload pushPayload{};
+        pushPayload.renderWidth = renderSettings.resolution.w;
+        pushPayload.renderHeight = renderSettings.resolution.h;
+
+        std::vector<std::byte> pushPayloadBytes(sizeof(FXAAPushPayload));
+        memcpy(pushPayloadBytes.data(), &pushPayload, sizeof(FXAAPushPayload));
+
+        return {
+            .programName = "FXAA",
+            .inputSamplerName = TextureSampler::DEFAULT,
+            .pushPayload = pushPayloadBytes,
+            .tag = "FXAA"
         };
     }
 }

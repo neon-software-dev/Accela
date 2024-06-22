@@ -154,6 +154,34 @@ namespace Accela::Render
         DestAccess destAccess;
     };
 
+    struct ImageAccess
+    {
+        ImageAccess(VkImageLayout _requiredInitialLayout,
+                    VkImageLayout _finalLayout,
+                    BarrierPoint _earliestUsage,
+                    BarrierPoint _latestUsage,
+                    Layers _layers,
+                    Levels _levels,
+                    VkImageAspectFlags _vkImageAspect);
+
+
+        ImageAccess(BarrierPoint _earliestUsage,
+                    BarrierPoint _latestUsage,
+                    Layers _layers,
+                    Levels _levels,
+                    VkImageAspectFlags _vkImageAspect);
+
+        VkImageLayout requiredInitialLayout{VK_IMAGE_LAYOUT_UNDEFINED};
+        VkImageLayout finalLayout{VK_IMAGE_LAYOUT_UNDEFINED};
+
+        BarrierPoint earliestUsage;
+        BarrierPoint latestUsage;
+
+        Layers layers;
+        Levels levels;
+        VkImageAspectFlags vkImageAspect;
+    };
+
     void InsertPipelineBarrier_Buffer(const IVulkanCallsPtr& vk,
                                       const VulkanCommandBufferPtr& commandBuffer,
                                       const SourceStage& sourceStage,
