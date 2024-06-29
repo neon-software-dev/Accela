@@ -11,7 +11,8 @@
 //
 layout(location = 0) in vec2 i_fragTexCoord;            // The fragment's tex coord
 
-layout(set = 0, binding = 0) uniform sampler2DArray i_offscreenSampler;
+layout(set = 0, binding = 0) uniform sampler2DArray i_renderSampler;
+layout(set = 0, binding = 1) uniform sampler2DArray i_screenSampler;
 
 //
 // OUTPUTS
@@ -20,9 +21,17 @@ layout(location = 0) out vec4 o_fragColor;
 
 void main()
 {
-    // TODO: Make it configurable which layer we're sampling from, so in VR we can configure whether
-    // to show the left or right eye on screen. Defaulting to left for now.
-    const vec4 sampledColor = texture(i_offscreenSampler, vec3(i_fragTexCoord, 0));
+    // TODO: We're choosing to blit/present from the left eye in VR mode; make configurable
+    uint eyeIndex = 0;
 
-    o_fragColor = vec4(sampledColor.r, sampledColor.g, sampledColor.b, 1.0f);
+    // Sample from the world render output
+    const vec4 renderColor = texture(i_renderSampler, vec3(i_fragTexCoord, eyeIndex));
+
+    // Sample from the screen/sprite output
+    const vec4 screenColor = texture(i_screenSampler, vec3(i_fragTexCoord, 0));
+
+    // Combine sprite output on top of the render output using additive one-minus blending
+    const vec4 finalColor = (screenColor * screenColor.a) + (renderColor * (1.0f - screenColor.a));
+
+    o_fragColor = vec4(finalColor.r, finalColor.g, finalColor.b, 1.0f);
 }

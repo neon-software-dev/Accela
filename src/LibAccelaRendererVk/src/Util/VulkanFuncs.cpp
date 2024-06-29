@@ -41,6 +41,8 @@ std::optional<VkFormat> VulkanFuncs::TextureFormatToVkFormat(const Accela::Rende
         case TextureFormat::R8G8B8_SRGB: return VK_FORMAT_R8G8B8_SRGB;
         case TextureFormat::R8G8B8A8_SRGB: return VK_FORMAT_R8G8B8A8_SRGB;
         case TextureFormat::R32G32B32A32_SFLOAT: return VK_FORMAT_R32G32B32A32_SFLOAT;
+        case TextureFormat::R16G16B16A16_SFLOAT: return VK_FORMAT_R16G16B16A16_SFLOAT;
+        case TextureFormat::R8G8B8A8_UNORM: return VK_FORMAT_R8G8B8A8_UNORM;
     }
 
     assert(false);

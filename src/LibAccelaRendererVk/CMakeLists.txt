@@ -4,6 +4,7 @@ project(LibAccelaRendererVk VERSION 0.0.1 LANGUAGES CXX)
 
 	find_package(Vulkan REQUIRED)
 	find_package(VulkanMemoryAllocator CONFIG REQUIRED)
+	find_package(unofficial-spirv-reflect CONFIG REQUIRED)
 
 	file(GLOB AccelaRendererVk_Include_Headers "include/Accela/Render/*.h")
 
@@ -11,8 +12,6 @@ project(LibAccelaRendererVk VERSION 0.0.1 LANGUAGES CXX)
 	file(GLOB AccelaRendererVk_Headers "src/*.h")
 	file(GLOB AccelaRendererVk_Sources_VMA "src/VMA/*.cpp")
 	file(GLOB AccelaRendererVk_Headers_VMA "src/VMA/*.h")
-	file(GLOB AccelaRendererVk_Sources_SPIRV "src/SPIRV/*.c")
-	file(GLOB AccelaRendererVk_Headers_SPIRV "src/SPIRV/*.h")
 	file(GLOB AccelaRendererVk_Sources_Vulkan "src/Vulkan/*.cpp")
 	file(GLOB AccelaRendererVk_Headers_Vulkan "src/Vulkan/*.h")
 	file(GLOB AccelaRendererVk_Sources_Shader "src/Shader/*.cpp")
@@ -49,8 +48,6 @@ add_library(AccelaRendererVk STATIC
 	${AccelaRendererVk_Headers}
 	${AccelaRendererVk_Sources_VMA}
 	${AccelaRendererVk_Headers_VMA}
-	${AccelaRendererVk_Sources_SPIRV}
-	${AccelaRendererVk_Headers_SPIRV}
 	${AccelaRendererVk_Sources_Vulkan}
 	${AccelaRendererVk_Headers_Vulkan}
 	${AccelaRendererVk_Sources_Shader}
@@ -95,6 +92,7 @@ target_link_libraries(AccelaRendererVk
 	PRIVATE
 		Vulkan::Vulkan
 		GPUOpen::VulkanMemoryAllocator
+		unofficial::spirv-reflect::spirv-reflect
 )
 
 target_include_directories(AccelaRendererVk

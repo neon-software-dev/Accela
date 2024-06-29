@@ -34,7 +34,7 @@ namespace Accela::Engine
         public:
 
             FontResources(Common::ILogger::Ptr logger,
-                          IPackageResourcesPtr packages,
+                          PackageResourcesPtr packages,
                           std::shared_ptr<Platform::IText> text,
                           std::shared_ptr<Common::MessageDrivenThreadPool> threadPool);
 
@@ -64,7 +64,7 @@ namespace Accela::Engine
         private:
 
             Common::ILogger::Ptr m_logger;
-            IPackageResourcesPtr m_packages;
+            PackageResourcesPtr m_packages;
             std::shared_ptr<Platform::IText> m_text;
             std::shared_ptr<Common::MessageDrivenThreadPool> m_threadPool;
     };

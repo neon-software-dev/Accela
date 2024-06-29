@@ -15,7 +15,7 @@ namespace Accela::Engine
 {
 
 FontResources::FontResources(Common::ILogger::Ptr logger,
-                             IPackageResourcesPtr packages,
+                             PackageResourcesPtr packages,
                              std::shared_ptr<Platform::IText> text,
                              std::shared_ptr<Common::MessageDrivenThreadPool> threadPool)
      : m_logger(std::move(logger))

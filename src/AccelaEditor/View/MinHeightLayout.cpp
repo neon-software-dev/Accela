@@ -78,10 +78,8 @@ QSize MinHeightLayout::DoLayout(const QRect& r, bool testOnly) const
 
     unsigned int curYPos = r.y();
 
-    for (unsigned int x = 0; x < m_items.size(); ++x)
+    for (auto& pItem : m_items)
     {
-        QLayoutItem* pItem = m_items.at(x);
-
         const int itemHeightForWidth = pItem->heightForWidth(r.width());
 
         QSize itemSize = {r.width(), itemHeightForWidth};

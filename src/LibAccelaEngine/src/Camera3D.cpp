@@ -37,7 +37,21 @@ glm::vec3 Camera3D::GetUpUnit() const
 
 glm::vec3 Camera3D::GetRightUnit() const
 {
-    return glm::normalize(glm::cross(m_lookUnit, GetUpUnit()));
+    auto upUnit = GetUpUnit();
+
+    if (Render::AreUnitVectorsParallel(upUnit, m_lookUnit))
+    {
+        if (m_lookUnit.y >= 0.0f)
+        {
+            upUnit = glm::vec3(0,0,1);
+        }
+        else
+        {
+            upUnit = glm::vec3(0,0,-1);
+        }
+    }
+
+    return glm::normalize(glm::cross(m_lookUnit, upUnit));
 }
 
 void Camera3D::TranslateBy(const glm::vec3& translation)
@@ -73,7 +87,12 @@ void Camera3D::SetFovYDegrees(float fovy) noexcept
     m_fovy = fovy;
 }
 
-void Camera3D::SetUp(const glm::vec3& upUnit) noexcept
+void Camera3D::SetLookUnit(const glm::vec3& lookUnit) noexcept
+{
+    m_lookUnit = lookUnit;
+}
+
+void Camera3D::SetUpUnit(const glm::vec3& upUnit) noexcept
 {
     m_upUnit = upUnit;
 }

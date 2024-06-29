@@ -62,6 +62,8 @@ namespace Accela::Render
 
         float maxRenderDistance{1000.0f};
 
+        float globalViewScale{1.0f};
+
         //
         // Shadows
         //

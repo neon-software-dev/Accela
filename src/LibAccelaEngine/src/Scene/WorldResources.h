@@ -72,7 +72,7 @@ namespace Accela::Engine
             std::shared_ptr<Platform::IText> m_text;
             AudioManagerPtr m_audioManager;
 
-            IPackageResources::Ptr m_packages;
+            PackageResourcesPtr m_packages;
             ITextureResources::Ptr m_textures;
             IMeshResources::Ptr m_meshes;
             IMaterialResources::Ptr m_materials;

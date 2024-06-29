@@ -58,7 +58,7 @@ namespace Accela::Render
             [[nodiscard]] VulkanSwapChainPtr GetSwapChain() const noexcept;
             [[nodiscard]] VulkanFramebufferPtr GetSwapChainFrameBuffer(const uint32_t& imageIndex) const noexcept;
             [[nodiscard]] VulkanRenderPassPtr GetGPassRenderPass() const noexcept;
-            [[nodiscard]] VulkanRenderPassPtr GetBlitRenderPass() const noexcept;
+            [[nodiscard]] VulkanRenderPassPtr GetScreenRenderPass() const noexcept;
             [[nodiscard]] VulkanRenderPassPtr GetSwapChainBlitRenderPass() const noexcept;
             [[nodiscard]] VulkanRenderPassPtr GetShadow2DRenderPass() const noexcept;
             [[nodiscard]] VulkanRenderPassPtr GetShadowCubeRenderPass() const noexcept;
@@ -85,8 +85,8 @@ namespace Accela::Render
 
             bool CreateGPassRenderPass();
             void DestroyGPassRenderPass();
-            bool CreateBlitRenderPass();
-            void DestroyBlitRenderPass();
+            bool CreateScreenRenderPass();
+            void DestroyScreenRenderPass();
             bool CreateSwapChainBlitRenderPass();
             void DestroySwapChainBlitRenderPass();
             bool CreateShadow2DRenderPass();
@@ -125,11 +125,12 @@ namespace Accela::Render
             VulkanSwapChainPtr m_swapChain;
             std::vector<VulkanFramebufferPtr> m_swapChainFrameBuffers;
 
-            VulkanRenderPassPtr m_gPassRenderPass;
-            VulkanRenderPassPtr m_blitRenderPass;
-            VulkanRenderPassPtr m_swapChainBlitRenderPass;
-            VulkanRenderPassPtr m_shadow2DRenderPass;
-            VulkanRenderPassPtr m_shadowCubeRenderPass;
+
+            VulkanRenderPassPtr m_gPassRenderPass; // Renders the world into the gpass framebuffer
+            VulkanRenderPassPtr m_screenRenderPass; // Renders screen sprites into the screen framebuffer
+            VulkanRenderPassPtr m_swapChainBlitRenderPass; // Combines the gpass and screen output into the swap chain framebuffer
+            VulkanRenderPassPtr m_shadow2DRenderPass; // Renders a 2D shadow pass into a light framebuffer
+            VulkanRenderPassPtr m_shadowCubeRenderPass; // Renders a cubic shadow pass into a light framebuffer
     };
 }
 

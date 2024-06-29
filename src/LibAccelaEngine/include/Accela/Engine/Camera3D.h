@@ -35,7 +35,8 @@ namespace Accela::Engine
             void SetPosition(const glm::vec3& position) noexcept;
             void RotateBy(float xRotDeg, float yRotDeg);
             void SetFovYDegrees(float fovy) noexcept;
-            void SetUp(const glm::vec3& upUnit) noexcept;
+            void SetLookUnit(const glm::vec3& lookUnit) noexcept;
+            void SetUpUnit(const glm::vec3& upUnit) noexcept;
 
         private:
 

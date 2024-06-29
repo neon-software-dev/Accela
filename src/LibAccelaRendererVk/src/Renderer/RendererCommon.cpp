@@ -68,7 +68,9 @@ std::expected<ViewProjection, bool> GetCameraViewProjection(const RenderSettings
                                                             const RenderCamera& camera,
                                                             const std::optional<Eye>& eye)
 {
-    const auto viewTransform = GetCameraViewTransform(context, camera, eye);
+    auto viewTransform = GetCameraViewTransform(context, camera, eye);
+    viewTransform = glm::scale(viewTransform, glm::vec3(renderSettings.globalViewScale));
+
     const auto projectionTransform = GetCameraProjectionTransform(renderSettings, context, camera, eye);
 
     if (!projectionTransform)

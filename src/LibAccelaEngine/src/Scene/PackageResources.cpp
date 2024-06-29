@@ -13,6 +13,13 @@
 namespace Accela::Engine
 {
 
+struct FetchConstructResultMessage : public Common::ResultMessage<std::expected<Construct::Ptr, bool>>
+{
+        FetchConstructResultMessage()
+        : Common::ResultMessage<std::expected<Construct::Ptr, bool>>("FetchConstructResultMessage")
+    { }
+};
+
 PackageResources::PackageResources(Common::ILogger::Ptr logger,
                                    std::shared_ptr<Platform::IFiles> files,
                                    std::shared_ptr<Common::MessageDrivenThreadPool> threadPool)
@@ -94,6 +101,20 @@ void PackageResources::ClosePackage(const PackageName& packageName)
     m_packages.erase(packageName);
 }
 
+std::future<std::expected<Construct::Ptr, bool>> PackageResources::FetchPackageConstruct(const PRI& construct)
+{
+    auto message = std::make_shared<FetchConstructResultMessage>();
+    auto messageFuture = message->CreateFuture();
+
+    m_threadPool->PostMessage(message, [=,this](const Common::Message::Ptr& _message){
+        std::dynamic_pointer_cast<FetchConstructResultMessage>(_message)->SetResult(
+            OnFetchPackageConstruct(construct)
+        );
+    });
+
+    return messageFuture;
+}
+
 bool PackageResources::OnOpenAndRegisterPackage(const PackageName& packageName)
 {
     m_logger->Log(Common::LogLevel::Info, "PackageResources:: Opening package: {}", packageName.name);
@@ -106,6 +127,35 @@ bool PackageResources::OnOpenAndRegisterPackage(const PackageName& packageName)
     }
 
     return RegisterPackageSource(*package);
+}
+
+std::expected<Construct::Ptr, bool> PackageResources::OnFetchPackageConstruct(const PRI& construct) const
+{
+    const auto package = m_packages.find(*construct.GetPackageName());
+    if (package == m_packages.cend())
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "PackageResources::OnFetchPackageConstruct: No such package is registered: {}", construct.GetPackageName()->name);
+        return std::unexpected(false);
+    }
+
+    const auto constructData = package->second->GetConstructData(construct.GetResourceName());
+    if (!constructData)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "PackageResources::OnFetchPackageConstruct: Failed to get construct data from package: {}", construct.GetResourceName());
+        return std::unexpected(false);
+    }
+
+    const auto constructObj = Construct::FromBytes(*constructData);
+    if (!constructObj)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "PackageResources::OnFetchPackageConstruct: Failed to create construct from bytes: {}", construct.GetResourceName());
+        return std::unexpected(false);
+    }
+
+    return *constructObj;
 }
 
 }

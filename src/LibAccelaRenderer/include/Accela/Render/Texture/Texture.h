@@ -31,10 +31,12 @@ namespace Accela::Render
 
     enum class TextureFormat
     {
-        R32_UINT,           // 4 byte unsigned int
-        R8G8B8_SRGB,        // RGB stored as single byte SRGB
-        R8G8B8A8_SRGB,      // RGBA stored as single byte SRGB
-        R32G32B32A32_SFLOAT // RGBA stored as 4 byte signed floats
+        R32_UINT,               // 4 byte unsigned int
+        R8G8B8_SRGB,            // RGB stored as single byte SRGB
+        R8G8B8A8_SRGB,          // RGBA stored as single byte SRGB
+        R32G32B32A32_SFLOAT,    // RGBA stored as 4 byte signed floats
+        R16G16B16A16_SFLOAT,    // RGBA stored as 2 byte signed floats
+        R8G8B8A8_UNORM          // RGBA stored as 1 byte unsigned floats
     };
 
     /**

@@ -66,6 +66,8 @@ namespace Accela::Engine
             [[nodiscard]] std::vector<EntityId> GetSpriteEntitiesAt(const glm::vec2& virtualPoint) const override;
             [[nodiscard]] std::optional<EntityId> GetTopSpriteEntityAt(const glm::vec2& virtualPoint) const override;
 
+            void CreateConstructEntities(const Construct::Ptr& construct) override;
+
             template <typename T>
             bool HasComponent(EntityId entityId)
             {

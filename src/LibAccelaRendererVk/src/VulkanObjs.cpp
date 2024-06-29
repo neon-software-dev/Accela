@@ -55,7 +55,7 @@ VulkanCommandPoolPtr VulkanObjs::GetTransferCommandPool() const noexcept { retur
 VulkanSwapChainPtr VulkanObjs::GetSwapChain() const noexcept { return m_swapChain; }
 VulkanFramebufferPtr VulkanObjs::GetSwapChainFrameBuffer(const uint32_t& imageIndex) const noexcept { return m_swapChainFrameBuffers[imageIndex]; }
 VulkanRenderPassPtr VulkanObjs::GetGPassRenderPass() const noexcept { return m_gPassRenderPass; }
-VulkanRenderPassPtr VulkanObjs::GetBlitRenderPass() const noexcept { return m_blitRenderPass; }
+VulkanRenderPassPtr VulkanObjs::GetScreenRenderPass() const noexcept { return m_screenRenderPass; }
 VulkanRenderPassPtr VulkanObjs::GetSwapChainBlitRenderPass() const noexcept { return m_swapChainBlitRenderPass; }
 VulkanRenderPassPtr VulkanObjs::GetShadow2DRenderPass() const noexcept { return m_shadow2DRenderPass; }
 VulkanRenderPassPtr VulkanObjs::GetShadowCubeRenderPass() const noexcept { return m_shadowCubeRenderPass; }
@@ -126,9 +126,9 @@ bool VulkanObjs::Initialize(bool enableValidationLayers, const RenderSettings& r
         return false;
     }
 
-    if (!CreateBlitRenderPass())
+    if (!CreateScreenRenderPass())
     {
-        m_logger->Log(Common::LogLevel::Error, "VulkanObjs: Failed to create blit render pass");
+        m_logger->Log(Common::LogLevel::Error, "VulkanObjs: Failed to create screen render pass");
         return false;
     }
 
@@ -153,7 +153,7 @@ void VulkanObjs::Destroy()
 
     DestroyShadowCubeRenderPass();
     DestroyShadow2DRenderPass();
-    DestroyBlitRenderPass();
+    DestroyScreenRenderPass();
     DestroyGPassRenderPass();
     DestroySwapChainFrameBuffers();
     DestroySwapChainBlitRenderPass();
@@ -408,7 +408,7 @@ bool VulkanObjs::CreateGPassRenderPass()
     // Framebuffer attachments
     //
     VulkanRenderPass::Attachment colorAttachment(VulkanRenderPass::AttachmentType::Color);
-    colorAttachment.description.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    colorAttachment.description.format = VK_FORMAT_R16G16B16A16_SFLOAT;
     colorAttachment.description.samples = VK_SAMPLE_COUNT_1_BIT;
     colorAttachment.description.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.description.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -681,19 +681,17 @@ void VulkanObjs::DestroyGPassRenderPass()
     }
 }
 
-bool VulkanObjs::CreateBlitRenderPass()
+bool VulkanObjs::CreateScreenRenderPass()
 {
-    m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Creating blit render pass");
-
-    const auto numGPassLayers = m_renderSettings->presentToHeadset ? 2 : 1;
+    m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Creating screen render pass");
 
     //
     // Framebuffer attachments
     //
     VulkanRenderPass::Attachment colorAttachment(VulkanRenderPass::AttachmentType::Color);
-    colorAttachment.description.format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    colorAttachment.description.format = VK_FORMAT_R8G8B8A8_UNORM;
     colorAttachment.description.samples = VK_SAMPLE_COUNT_1_BIT;
-    colorAttachment.description.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    colorAttachment.description.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.description.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     colorAttachment.description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     colorAttachment.description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -705,7 +703,7 @@ bool VulkanObjs::CreateBlitRenderPass()
         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         BarrierPoint(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT),
         BarrierPoint(VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT),
-        Layers(0, numGPassLayers),
+        Layers(0, 1),
         Levels(0, 1),
         VK_IMAGE_ASPECT_COLOR_BIT
     );
@@ -713,9 +711,9 @@ bool VulkanObjs::CreateBlitRenderPass()
     VulkanRenderPass::Attachment depthAttachment(VulkanRenderPass::AttachmentType::Depth);
     depthAttachment.description.format = m_physicalDevice->GetDepthBufferFormat();
     depthAttachment.description.samples = VK_SAMPLE_COUNT_1_BIT;
-    depthAttachment.description.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    depthAttachment.description.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depthAttachment.description.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    depthAttachment.description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    depthAttachment.description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depthAttachment.description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
     depthAttachment.description.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
     depthAttachment.description.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
@@ -725,42 +723,28 @@ bool VulkanObjs::CreateBlitRenderPass()
         VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
         BarrierPoint(VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT),
         BarrierPoint(VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT),
-        Layers(0, numGPassLayers),
+        Layers(0, 1),
         Levels(0, 1),
         VK_IMAGE_ASPECT_DEPTH_BIT
     );
 
     //
-    // Blit Subpass
+    // Screen Subpass
     //
-    VulkanRenderPass::Subpass blitSubpass{};
+    VulkanRenderPass::Subpass screenSubpass{};
 
-    blitSubpass.colorAttachmentRefs = {
-        {.attachment = Blit_Attachment_Color,    .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
+    screenSubpass.colorAttachmentRefs = {
+        {.attachment = Screen_Attachment_Color,    .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
     };
 
-    blitSubpass.depthAttachmentRef =
-        {.attachment = Blit_Attachment_Depth,    .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
-
-    //
-    // Multiview settings
-    //
-    std::optional<std::vector<uint32_t>> viewMasks;
-    std::optional<uint32_t> correlationMask;
-
-    // If we're presenting to a headset the render pass should use multiview to render each eye in each draw call
-    if (m_renderSettings->presentToHeadset)
-    {
-        // If in VR mode, the offscreen subpasses are multiviewed for rendering twice, once for each eye
-        viewMasks = {0b00000011, 0b00000011, 0b00000011};
-        correlationMask = 0b00000011;
-    }
+    screenSubpass.depthAttachmentRef =
+        {.attachment = Screen_Attachment_Depth,    .layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
 
     //
     // Create the render pass
     //
-    m_blitRenderPass = std::make_shared<VulkanRenderPass>(m_logger, m_vulkanCalls, m_physicalDevice, m_device);
-    if (!m_blitRenderPass->Create(
+    m_screenRenderPass = std::make_shared<VulkanRenderPass>(m_logger, m_vulkanCalls, m_physicalDevice, m_device);
+    if (!m_screenRenderPass->Create(
         {
             colorAttachment,
             depthAttachment
@@ -770,27 +754,27 @@ bool VulkanObjs::CreateBlitRenderPass()
             depthAttachmentAccess
         },
         {
-            blitSubpass
+            screenSubpass
         },
         { },
-        viewMasks,
-        correlationMask,
-        "Blit"))
+        std::nullopt,
+        std::nullopt,
+        "Screen"))
     {
-        m_logger->Log(Common::LogLevel::Fatal, "CreateBlitRenderPass: Failed to create the offscreen render pass");
+        m_logger->Log(Common::LogLevel::Fatal, "CreateScreenRenderPass: Failed to create the screen render pass");
         return false;
     }
 
     return true;
 }
 
-void VulkanObjs::DestroyBlitRenderPass()
+void VulkanObjs::DestroyScreenRenderPass()
 {
-    if (m_blitRenderPass != nullptr)
+    if (m_screenRenderPass != nullptr)
     {
-        m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Destroying blit render pass");
-        m_blitRenderPass->Destroy();
-        m_blitRenderPass = nullptr;
+        m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Destroying screen render pass");
+        m_screenRenderPass->Destroy();
+        m_screenRenderPass = nullptr;
     }
 }
 

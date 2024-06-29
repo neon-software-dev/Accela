@@ -245,8 +245,22 @@ void EnginePerfMonitorEntity::CreateEntities()
     );
     currentYPos += CreateEntity(
         Common::MetricType::Counter,
-        "Renderer: Transparent Objects Rendered: ",
-        "Renderer_Object_Transparent_Objects_Rendered_Count",
+        "Renderer: Transparent Draw Calls Count: ",
+        "Renderer_Object_Transparent_DrawCalls_Count",
+        textProperties,
+        currentYPos
+    );
+    currentYPos += CreateEntity(
+        Common::MetricType::Counter,
+        "Renderer: Total Memory Usage: ",
+        "Renderer_Memory_Usage",
+        textProperties,
+        currentYPos
+    );
+    currentYPos += CreateEntity(
+        Common::MetricType::Counter,
+        "Renderer: Total Memory Available: ",
+        "Renderer_Memory_Available",
         textProperties,
         currentYPos
     );
@@ -287,7 +301,7 @@ uint32_t EnginePerfMonitorEntity::CreateEntity(
     textEntity->SetPosition(m_position + glm::vec3(0,yOffset,0));
     textEntity->SetTextProperties(textProperties);
 
-    const auto renderedTextHeight = textEntity->GetRenderedTextSize()->h;
+    const auto renderedTextHeight = m_engine->GetWorldState()->RenderSizeToVirtualSize(*textEntity->GetRenderedTextSize()).h;
 
     m_entities.emplace_back(metricType, metricName, description, std::move(textEntity));
 
@@ -315,7 +329,7 @@ void EnginePerfMonitorEntity::OnSimulationStep(unsigned int)
             {
                 const auto metricValue = m_engine->GetMetrics()->GetDoubleValue(metricEntity.metricName);
                 if (!metricValue) { continue; }
-                metricEntity.entity->SetText(metricEntity.description + std::format("{}", *metricValue));
+                metricEntity.entity->SetText(metricEntity.description + std::format("{:.3f}", *metricValue));
             }
             break;
         }

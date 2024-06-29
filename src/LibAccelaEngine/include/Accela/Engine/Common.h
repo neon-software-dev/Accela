@@ -11,6 +11,7 @@
 #include <string>
 #include <unordered_map>
 #include <optional>
+#include <ostream>
 
 namespace Accela::Engine
 {

@@ -19,6 +19,7 @@ namespace Accela::Engine
     class IPhysics; using IPhysicsPtr = std::shared_ptr<IPhysics>;
     class IPhysicsRuntime; using IPhysicsRuntimePtr = std::shared_ptr<IPhysicsRuntime>;
     class IPackageResources; using IPackageResourcesPtr = std::shared_ptr<IPackageResources>;
+    class PackageResources; using PackageResourcesPtr = std::shared_ptr<PackageResources>;
     class ITextureResources; using ITextureResourcesPtr = std::shared_ptr<ITextureResources>;
     class IFontResources; using IFontResourcesPtr = std::shared_ptr<IFontResources>;
     class IMaterialResources; using IMaterialResourcesPtr = std::shared_ptr<IMaterialResources>;

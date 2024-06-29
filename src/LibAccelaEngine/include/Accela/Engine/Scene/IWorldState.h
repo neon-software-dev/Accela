@@ -18,6 +18,8 @@
 
 #include "../Physics/IPhysicsRuntime.h"
 
+#include "../Package/Construct.h"
+
 #include <Accela/Render/Id.h>
 #include <Accela/Render/Util/Rect.h>
 
@@ -87,6 +89,13 @@ namespace Accela::Engine
              * @return The EntityId of the top-most sprite underneath the virtual point, or std::nullopt if no such sprite
              */
             [[nodiscard]] virtual std::optional<EntityId> GetTopSpriteEntityAt(const glm::vec2& virtualPoint) const = 0;
+
+            /**
+             * Create entities/components for all of the entities listed in a provided Construct
+             *
+             * @param construct The construct from which to create entities
+             */
+            virtual void CreateConstructEntities(const Construct::Ptr& construct) = 0;
 
             //
             // Windowing

@@ -10,9 +10,10 @@
 #include "IPrograms.h"
 
 #include "../Shader/IShaders.h"
-#include "../SPIRV/spirv_reflect.h"
 
 #include <Accela/Common/Log/ILogger.h>
+
+#include <spirv_reflect.h>
 
 #include <optional>
 #include <string>

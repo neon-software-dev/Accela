@@ -88,6 +88,7 @@ Alternatively, manually install / make available:
 - nlohmann-json
 - vulkan
 - vulkan-memory-allocator
+- spirv-reflect
 - openvr
 - sdl2
 - sdl2-image

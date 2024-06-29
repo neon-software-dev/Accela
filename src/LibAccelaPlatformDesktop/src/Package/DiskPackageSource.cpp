@@ -53,7 +53,7 @@ std::expected<PackageSource::Ptr, DiskPackageSource::OpenPackageError> DiskPacka
 }
 
 DiskPackageSource::DiskPackageSource(DiskPackageSource::Tag, std::filesystem::path packageDir, std::filesystem::path packageFilePath)
-    : PackageSource(packageFilePath.filename().replace_extension())
+    : PackageSource(packageFilePath.filename().replace_extension().string())
     , m_packageDir(std::move(packageDir))
     , m_manifestFilePath(std::move(packageFilePath))
 {
@@ -183,7 +183,7 @@ std::vector<std::string> DiskPackageSource::GetFileNames(const std::vector<std::
     std::vector<std::string> names;
 
     std::ranges::transform(filePaths, std::back_inserter(names), [](const auto& filePath){
-        return filePath.filename();
+        return filePath.filename().string();
     });
 
     return names;
@@ -224,7 +224,7 @@ std::expected<std::string, bool> DiskPackageSource::GetTextureFormatHint(const s
         return std::unexpected(false);
     }
 
-    std::string hint = path.extension();
+    std::string hint = path.extension().string();
 
     // Remove leading period from the extension name (.jpg - > jpg)
     hint = hint.substr(1, hint.size() - 1);
@@ -241,7 +241,7 @@ DiskPackageSource::GetModelTextureFormatHint(const std::string&, const std::stri
         return std::unexpected(false);
     }
 
-    return path.extension();
+    return path.extension().string();
 }
 
 std::expected<std::vector<std::byte>, unsigned int> DiskPackageSource::GetManifestFileData() const

@@ -19,7 +19,7 @@ namespace Accela::Engine
 {
 
 AudioResources::AudioResources(Common::ILogger::Ptr logger,
-                               IPackageResourcesPtr packages,
+                               PackageResourcesPtr packages,
                                AudioManagerPtr audioManager,
                                std::shared_ptr<Common::MessageDrivenThreadPool> threadPool)
     : m_logger(std::move(logger))

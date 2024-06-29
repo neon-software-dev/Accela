@@ -24,7 +24,7 @@ namespace Accela::Render
         alignas(4) float hdr_exposure{1.0f};
     };
 
-    [[nodiscard]] static PostProcessEffect ToneMappingEffect(const RenderSettings& renderSettings)
+    [[nodiscard]] [[maybe_unused]] static PostProcessEffect ToneMappingEffect(const RenderSettings& renderSettings)
     {
         ToneMappingPushPayload pushPayload{};
         pushPayload.renderWidth = renderSettings.resolution.w;
@@ -55,7 +55,7 @@ namespace Accela::Render
         alignas(4) float gamma{1.0f};
     };
 
-    [[nodiscard]] static PostProcessEffect GammaCorrectionEffect(const RenderSettings& renderSettings)
+    [[nodiscard]] [[maybe_unused]] static PostProcessEffect GammaCorrectionEffect(const RenderSettings& renderSettings)
     {
         GammaCorrectionPushPayload pushPayload{};
         pushPayload.renderWidth = renderSettings.resolution.w;
@@ -83,7 +83,7 @@ namespace Accela::Render
         alignas(4) uint32_t renderHeight{0};
     };
 
-    [[nodiscard]] static PostProcessEffect FXAAEffect(const RenderSettings& renderSettings)
+    [[nodiscard]] [[maybe_unused]] static PostProcessEffect FXAAEffect(const RenderSettings& renderSettings)
     {
         FXAAPushPayload pushPayload{};
         pushPayload.renderWidth = renderSettings.resolution.w;

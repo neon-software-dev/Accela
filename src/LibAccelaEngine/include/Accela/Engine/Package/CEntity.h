@@ -16,7 +16,7 @@
 
 namespace Accela::Engine
 {
-    static constexpr std::string DEFAULT_CENTITY_NAME = "New Entity";
+    static const std::string DEFAULT_CENTITY_NAME = "New Entity";
 
     /**
      * A construct entity (as opposed to an 'Entity' which is an engine

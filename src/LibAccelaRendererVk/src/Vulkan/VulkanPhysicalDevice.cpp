@@ -30,6 +30,7 @@ VulkanPhysicalDevice::VulkanPhysicalDevice(Common::ILogger::Ptr logger,
     // Query for device properties and features
     m_vulkanCalls->vkGetPhysicalDeviceProperties(m_vkPhysicalDevice, &m_vkPhysicalDeviceProperties);
     m_vulkanCalls->vkGetPhysicalDeviceFeatures(m_vkPhysicalDevice, &m_vkPhysicalDeviceFeatures);
+    m_vulkanCalls->vkGetPhysicalDeviceMemoryProperties(m_vkPhysicalDevice, &m_vkPhysicalDeviceMemoryProperties);
 
     // Query for queue family information
     uint32_t queueFamilyCount = 0;

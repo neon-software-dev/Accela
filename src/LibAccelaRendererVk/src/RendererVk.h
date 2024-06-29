@@ -111,11 +111,13 @@ namespace Accela::Render
                                    const LoadedTexture& outputTexture,
                                    const PostProcessEffect& effect);
 
-            void RenderBlit(const std::string& sceneName,
-                            const FramebufferObjs& framebufferObjs,
-                            const RenderParams& renderParams);
+            void RenderScreen(const std::string& sceneName,
+                              const FramebufferObjs& framebufferObjs,
+                              const RenderParams& renderParams);
 
-            void RunSwapChainBlitPass(const VulkanFramebufferPtr& framebuffer, const LoadedTexture& texture);
+            void RunSwapChainBlitPass(const VulkanFramebufferPtr& framebuffer,
+                                      const LoadedTexture& renderTexture,
+                                      const LoadedTexture& screenTexture);
 
         private:
 

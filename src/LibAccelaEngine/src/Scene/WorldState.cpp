@@ -21,6 +21,9 @@
 #include <Accela/Engine/Camera2D.h>
 #include <Accela/Engine/Camera3D.h>
 
+#include <Accela/Engine/Package/CTransformComponent.h>
+#include <Accela/Engine/Package/CModelRenderableComponent.h>
+
 #include <Accela/Engine/Component/Components.h>
 
 #include <Accela/Common/Assert.h>
@@ -311,6 +314,37 @@ std::optional<EntityId> WorldState::GetTopSpriteEntityAt(const glm::vec2& virtua
     }
 
     return allEntities.front();
+}
+
+void WorldState::CreateConstructEntities(const Construct::Ptr& construct)
+{
+    const auto& entities = construct->GetEntities();
+
+    m_logger->Log(Common::LogLevel::Info, "Creating {} entities from construct: {}", entities.size(), construct->GetName());
+
+    for (const auto& entity : entities)
+    {
+        const auto eid = CreateEntity();
+
+        for (const auto& component : entity->components)
+        {
+            switch (component->GetType())
+            {
+                case Component::Type::Transform:
+                {
+                    const auto cTransformComponent = std::dynamic_pointer_cast<CTransformComponent>(component);
+                    AddOrUpdateComponent(eid, cTransformComponent->ToEngineComponent());
+                }
+                break;
+                case Component::Type::ModelRenderable:
+                {
+                    const auto cModelRenderableComponent = std::dynamic_pointer_cast<CModelRenderableComponent>(component);
+                    AddOrUpdateComponent(eid, cModelRenderableComponent->component);
+                }
+                break;
+            }
+        }
+    }
 }
 
 void WorldState::OnModelRenderableComponentCreated(entt::registry& registry, entt::entity entity)

@@ -11,6 +11,8 @@
 #include <Accela/Engine/Package/CTransformComponent.h>
 #include <Accela/Engine/Package/CModelRenderableComponent.h>
 
+#include <Accela/Render/Util/Vector.h>
+
 namespace Accela
 {
 
@@ -18,8 +20,9 @@ void EditorScene::OnSceneStart(const Engine::IEngineRuntime::Ptr& _engine)
 {
     Scene::OnSceneStart(_engine);
 
-    engine->GetWorldState()->SetWorldCamera(Engine::DEFAULT_SCENE, std::make_shared<Engine::Camera3D>(glm::vec3{0,0,2}));
     engine->GetWorldState()->SetAmbientLighting(Engine::DEFAULT_SCENE, 0.5f, glm::vec3(1));
+
+    InitCamera();
 }
 
 void EditorScene::OnSimulationStep(unsigned int timeStep)
@@ -72,6 +75,12 @@ void EditorScene::ProcessMessage(const Common::Message::Ptr& message)
         ProcessSetEntityComponentCommand(std::dynamic_pointer_cast<SetEntityComponentCommand>(message));
     } else if (message->GetTypeIdentifier() == RemoveEntityComponentCommand::TYPE) {
         ProcessRemoveEntityComponentCommand(std::dynamic_pointer_cast<RemoveEntityComponentCommand>(message));
+    } else if (message->GetTypeIdentifier() == RotateCameraCommand::TYPE) {
+        ProcessRotateCameraCommand(std::dynamic_pointer_cast<RotateCameraCommand>(message));
+    } else if (message->GetTypeIdentifier() == PanCameraCommand::TYPE) {
+        ProcessPanCameraCommand(std::dynamic_pointer_cast<PanCameraCommand>(message));
+    } else if (message->GetTypeIdentifier() == ScaleCommand::TYPE) {
+        ProcessScaleCommand(std::dynamic_pointer_cast<ScaleCommand>(message));
     }
 }
 
@@ -142,19 +151,7 @@ void EditorScene::ProcessSetEntityComponentCommand(const SetEntityComponentComma
         {
             const auto cTransformComponent = std::dynamic_pointer_cast<Engine::CTransformComponent>(cmd->component);
 
-            auto engineComponent = Engine::TransformComponent();
-            engineComponent.SetPosition(cTransformComponent->position);
-
-            engineComponent.SetOrientation(
-                glm::angleAxis(glm::radians(cTransformComponent->eulerRotation.x), glm::vec3(1,0,0)) *
-                glm::angleAxis(glm::radians(cTransformComponent->eulerRotation.y), glm::vec3(0,1,0)) *
-                glm::angleAxis(glm::radians(cTransformComponent->eulerRotation.z), glm::vec3(0,0,1))
-            );
-
-            // Divided by 100 to convert from editor 100% to engine 1.0f
-            engineComponent.SetScale(cTransformComponent->scale / 100.0f);
-
-            Engine::AddOrUpdateComponent(engine->GetWorldState(), cmd->eid, engineComponent);
+            Engine::AddOrUpdateComponent(engine->GetWorldState(), cmd->eid, cTransformComponent->ToEngineComponent());
         }
         break;
         case Engine::Component::Type::ModelRenderable:
@@ -182,6 +179,107 @@ void EditorScene::ProcessRemoveEntityComponentCommand(const RemoveEntityComponen
     }
 
     cmd->SetResult(true);
+}
+
+void EditorScene::ProcessRotateCameraCommand(const RotateCameraCommand::Ptr& cmd)
+{
+    const float rotateSensitivityFactor = 0.2f;
+
+    RotateCamera(
+        (float)cmd->xRot * rotateSensitivityFactor,
+        (float)cmd->yRot * rotateSensitivityFactor
+    );
+}
+
+void EditorScene::ProcessPanCameraCommand(const PanCameraCommand::Ptr& cmd)
+{
+    const auto camera = engine->GetWorldState()->GetWorldCamera(Engine::DEFAULT_SCENE);
+    const auto renderSettings = engine->GetRenderSettings();
+
+    const float panSensitivityFactor = 0.002f;
+
+    const float xPanAmount = (float)cmd->xPan * (1.0f / renderSettings.globalViewScale) * panSensitivityFactor;
+    const float yPanAmount = (float)cmd->yPan * (1.0f / renderSettings.globalViewScale) * panSensitivityFactor;
+
+    const auto xPan = xPanAmount * -camera->GetRightUnit();
+    const auto yPan = yPanAmount * camera->GetUpUnit();
+    const auto pan = xPan + yPan;
+
+    m_focusPoint += pan;
+    camera->SetPosition(camera->GetPosition() + pan);
+
+    RotateCamera(0.0f, 0.0f);
+}
+
+void EditorScene::ProcessScaleCommand(const ScaleCommand::Ptr& cmd)
+{
+    const float scaleSensitivityFactor = 0.01f;
+
+    auto renderSettings = engine->GetRenderSettings();
+    renderSettings.globalViewScale *= (1.0f + (cmd->scaleDeltaDegrees * scaleSensitivityFactor));
+
+    engine->SetRenderSettings(renderSettings);
+}
+
+void EditorScene::InitCamera()
+{
+    const auto camera = engine->GetWorldState()->GetWorldCamera(Engine::DEFAULT_SCENE);
+
+    camera->SetPosition({0,0,1});
+    RotateCamera(0.0f, 0.0f);
+}
+
+void EditorScene::RotateCamera(float yRotDegrees, float rightRotDegrees)
+{
+    const auto camera = engine->GetWorldState()->GetWorldCamera(Engine::DEFAULT_SCENE);
+
+    // Current camera rotation
+    auto currentCameraRot = glm::identity<glm::quat>();
+
+    {
+        // Note: Two-step rotation: Determine rotation around y-axis, and then that rotation gives you a rotated right
+        // vector which is then itself rotated over
+        const auto yRot = glm::angleAxis(glm::radians(m_yRot), glm::vec3(0, -1, 0));
+        const auto yRotRight = yRot * glm::vec3(-1, 0, 0);
+        const auto rightRot = glm::angleAxis(glm::radians(m_rightRot), yRotRight);
+
+        currentCameraRot = rightRot * yRot;
+    }
+
+    // Update rotation angles
+    m_yRot += yRotDegrees;
+    if (m_yRot >= 360.0f) { m_yRot -= 360.0f; }
+    if (m_yRot <= -360.0f) { m_yRot += 360.0f; }
+
+    m_rightRot += rightRotDegrees;
+    if (m_rightRot >= 360.0f) { m_rightRot -= 360.0f; }
+    if (m_rightRot <= -360.0f) { m_rightRot += 360.0f; }
+
+    // New camera rotation
+    auto newCameraRot = glm::identity<glm::quat>();
+
+    {
+        const auto yRot = glm::angleAxis(glm::radians(m_yRot), glm::vec3(0, -1, 0));
+        const auto newCameraRight = yRot * glm::vec3(-1, 0, 0);
+        const auto rightRot = glm::angleAxis(glm::radians(m_rightRot), newCameraRight);
+
+        newCameraRot = rightRot * yRot;
+    }
+
+    // Update camera parameters given the new camera position
+
+    // Position
+    const auto initialCameraPos = glm::inverse(currentCameraRot) * (camera->GetPosition() - m_focusPoint);
+    const auto newCameraPos = (newCameraRot * initialCameraPos) + m_focusPoint;
+    camera->SetPosition(newCameraPos);
+
+    // Look
+    const auto newCameraLookUnit = m_focusPoint - newCameraPos;
+    camera->SetLookUnit(newCameraLookUnit);
+
+    // Up
+    const auto newCameraUpUnit = newCameraRot * glm::vec3(0,1,0);
+    camera->SetUpUnit(newCameraUpUnit);
 }
 
 }

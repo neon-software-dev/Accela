@@ -21,7 +21,7 @@ namespace Accela::Engine
 {
 
 ModelResources::ModelResources(Common::ILogger::Ptr logger,
-                               IPackageResourcesPtr packages,
+                               PackageResourcesPtr packages,
                                std::shared_ptr<Render::IRenderer> renderer,
                                std::shared_ptr<Platform::IFiles> files,
                                std::shared_ptr<Common::MessageDrivenThreadPool> threadPool)

@@ -220,7 +220,6 @@ std::pair<uint32_t, uint32_t> PostProcessingRenderer::CalculateWorkGroupSize() c
     }
 
     return std::make_pair(*workGroupSizeX, *workGroupSizeY);
-
 }
 
 }

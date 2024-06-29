@@ -8,11 +8,15 @@
 
 #include "../Thread/AccelaThread.h"
 
+#include <QMouseEvent>
+#include <QWheelEvent>
+
 namespace Accela
 {
 
 AccelaWindow::AccelaWindow(Common::ILogger::Ptr logger, Common::IMetrics::Ptr metrics)
-    : m_scene(std::make_shared<EditorScene>())
+    : m_logger(std::move(logger))
+    , m_scene(std::make_shared<EditorScene>())
 {
     setSurfaceType(QSurface::VulkanSurface);
 
@@ -20,7 +24,7 @@ AccelaWindow::AccelaWindow(Common::ILogger::Ptr logger, Common::IMetrics::Ptr me
     // the engine yet
     m_accelaThread = std::make_unique<AccelaThread>(
         this,
-        std::move(logger),
+        m_logger,
         std::move(metrics),
         m_scene
     );
@@ -35,16 +39,6 @@ AccelaWindow::~AccelaWindow()
 void AccelaWindow::EnqueueSceneMessage(const Common::Message::Ptr& message) const
 {
     m_scene->EnqueueMessage(message);
-}
-
-void AccelaWindow::showEvent(QShowEvent *e)
-{
-    QWindow::showEvent(e);
-
-    // When the window is shown, start the engine. Note that showEvent may
-    // be called numerous times; RunEngine() internally does nothing if
-    // it's already running.
-    m_accelaThread->RunEngine();
 }
 
 void AccelaWindow::Destroy()
@@ -65,6 +59,64 @@ void AccelaWindow::Destroy()
     // shutdown. If we don't then the window will crash when trying
     // to destroy its already destroyed instance in destroy()
     setVulkanInstance(nullptr);
+}
+
+void AccelaWindow::showEvent(QShowEvent *e)
+{
+    QWindow::showEvent(e);
+    e->accept();
+
+    // When the window is shown, start the engine. Note that showEvent may
+    // be called numerous times; RunEngine() internally does nothing if
+    // it's already running.
+    m_accelaThread->RunEngine();
+}
+
+void AccelaWindow::mouseMoveEvent(QMouseEvent *pMouseEvent)
+{
+    QWindow::mouseMoveEvent(pMouseEvent);
+    pMouseEvent->accept();
+
+    const auto buttons = pMouseEvent->buttons();
+    const auto modifiers = pMouseEvent->modifiers();
+
+    if (buttons & Qt::MouseButton::MiddleButton)
+    {
+        if (m_dragLastMousePoint)
+        {
+            const auto drag = pMouseEvent->pos() - *m_dragLastMousePoint;
+
+            if (modifiers & Qt::KeyboardModifier::ShiftModifier)
+            {
+                EnqueueSceneMessage(std::make_shared<PanCameraCommand>(drag.x(), drag.y()));
+            }
+            else
+            {
+                EnqueueSceneMessage(std::make_shared<RotateCameraCommand>(drag.x(), drag.y()));
+            }
+        }
+    }
+
+    m_dragLastMousePoint = pMouseEvent->pos();
+}
+
+void AccelaWindow::mouseReleaseEvent(QMouseEvent *pMouseEvent)
+{
+    QWindow::mouseReleaseEvent(pMouseEvent);
+    pMouseEvent->accept();
+
+    m_dragLastMousePoint = std::nullopt;
+}
+
+void AccelaWindow::wheelEvent(QWheelEvent *pWheelEvent)
+{
+    QWindow::wheelEvent(pWheelEvent);
+    pWheelEvent->accept();
+
+    // y is provided in eights of a degree
+    const float deltaDegrees = (float)pWheelEvent->angleDelta().y() * (1.0f / 8.0f);
+
+    EnqueueSceneMessage(std::make_shared<ScaleCommand>(deltaDegrees));
 }
 
 }

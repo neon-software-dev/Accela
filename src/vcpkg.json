@@ -8,6 +8,7 @@
     "vulkan",
     "vulkan-memory-allocator",
     "openvr",
+    "spirv-reflect",
     {
       "name": "sdl2",
       "default-features": false,

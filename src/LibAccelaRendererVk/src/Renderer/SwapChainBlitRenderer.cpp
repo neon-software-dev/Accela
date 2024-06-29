@@ -136,7 +136,8 @@ void SwapChainBlitRenderer::Destroy()
 void SwapChainBlitRenderer::Render(const VulkanCommandBufferPtr& commandBuffer,
                                    const VulkanRenderPassPtr& renderPass,
                                    const VulkanFramebufferPtr& swapChainFramebuffer,
-                                   const LoadedTexture& offscreenColorAttachment)
+                                   const LoadedTexture& renderTexture,
+                                   const LoadedTexture& screenTexture)
 {
     //
     // Update our mesh to blit the render into the swap chain framebuffer
@@ -160,10 +161,17 @@ void SwapChainBlitRenderer::Render(const VulkanCommandBufferPtr& commandBuffer,
     const auto vkVerticesBuffer = loadedMesh->verticesBuffer->GetBuffer()->GetVkBuffer();
     const auto vkIndicesBuffer = loadedMesh->indicesBuffer->GetBuffer()->GetVkBuffer();
 
-    const auto samplerBindingDetails = m_programDef->GetBindingDetailsByName("i_offscreenSampler");
-    if (!samplerBindingDetails)
+    const auto renderSamplerBindingDetails = m_programDef->GetBindingDetailsByName("i_renderSampler");
+    if (!renderSamplerBindingDetails)
     {
-        m_logger->Log(Common::LogLevel::Error, "SwapChainBlitRenderer: Failed to retrieve sampler binding details");
+        m_logger->Log(Common::LogLevel::Error, "SwapChainBlitRenderer: Failed to retrieve render sampler binding details");
+        return;
+    }
+
+    const auto screenSamplerBindingDetails = m_programDef->GetBindingDetailsByName("i_screenSampler");
+    if (!screenSamplerBindingDetails)
+    {
+        m_logger->Log(Common::LogLevel::Error, "SwapChainBlitRenderer: Failed to retrieve screen sampler binding details");
         return;
     }
 
@@ -197,11 +205,16 @@ void SwapChainBlitRenderer::Render(const VulkanCommandBufferPtr& commandBuffer,
     // Render work
     //
 
-    // TODO Perf: Only write if the attachment changes
     m_descriptorSet->WriteCombinedSamplerBind(
-        (*samplerBindingDetails),
-        offscreenColorAttachment.vkImageViews.at(TextureView::DEFAULT),
-        offscreenColorAttachment.vkSamplers.at(TextureSampler::DEFAULT)
+        (*renderSamplerBindingDetails),
+        renderTexture.vkImageViews.at(TextureView::DEFAULT),
+        renderTexture.vkSamplers.at(TextureSampler::DEFAULT)
+    );
+
+    m_descriptorSet->WriteCombinedSamplerBind(
+        (*screenSamplerBindingDetails),
+        screenTexture.vkImageViews.at(TextureView::DEFAULT),
+        screenTexture.vkSamplers.at(TextureSampler::DEFAULT)
     );
 
     commandBuffer->CmdBindPipeline(*pipeline);

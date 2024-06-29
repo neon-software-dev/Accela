@@ -95,6 +95,46 @@ namespace Accela
         Engine::EntityId eid;
         Engine::Component::Type type;
     };
+
+    struct RotateCameraCommand : public Common::Message
+    {
+        using Ptr = std::shared_ptr<RotateCameraCommand>;
+        static constexpr auto TYPE = "RotateCameraCommand";
+        RotateCameraCommand(int _xRot, int _yRot)
+            : Common::Message(TYPE)
+            , xRot(_xRot)
+            , yRot(_yRot)
+        { }
+
+        int xRot;
+        int yRot;
+    };
+
+    struct PanCameraCommand : public Common::Message
+    {
+        using Ptr = std::shared_ptr<PanCameraCommand>;
+        static constexpr auto TYPE = "PanCameraCommand";
+        PanCameraCommand(int _xPan, int _yPan)
+            : Common::Message(TYPE)
+            , xPan(_xPan)
+            , yPan(_yPan)
+        { }
+
+        int xPan;
+        int yPan;
+    };
+
+    struct ScaleCommand : public Common::Message
+    {
+        using Ptr = std::shared_ptr<ScaleCommand>;
+        static constexpr auto TYPE = "ScaleCommand";
+        explicit ScaleCommand(float _scaleDeltaDegrees)
+            : Common::Message(TYPE)
+            , scaleDeltaDegrees(_scaleDeltaDegrees)
+        { }
+
+        float scaleDeltaDegrees;
+    };
 }
 
 #endif //ACCELAEDITOR_EDITORSCENE_MESSAGES_H

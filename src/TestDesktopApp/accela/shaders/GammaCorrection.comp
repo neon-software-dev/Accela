@@ -18,7 +18,7 @@ layout(push_constant) uniform constants
 } PushConstants;
 
 layout (set = 0, binding = 0) uniform sampler2DArray i_inputImage;
-layout (set = 0, binding = 1, rgba32f) uniform image2DArray i_outputImage;
+layout (set = 0, binding = 1, rgba8) uniform image2DArray i_outputImage;
 
 layout (local_size_x = POST_EFFECT_LOCAL_SIZE_X,
         local_size_y = POST_EFFECT_LOCAL_SIZE_Y,
@@ -33,7 +33,7 @@ vec4 DoWork(int layerIndex)
 
     vec4 inPixel = texture(i_inputImage, vec3(inUV, layerIndex));
 
-    const vec3 srgb = pow(inPixel.xyz, vec3(1.0f / PushConstants.gamma));
+    const vec3 srgb = pow(inPixel.rgb, vec3(1.0f / PushConstants.gamma));
 
     return vec4(srgb, inPixel.a);
 }

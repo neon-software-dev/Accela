@@ -38,12 +38,12 @@ glm::quat RotationBetweenVectors(glm::vec3 start, glm::vec3 dest)
     const float s = std::sqrt((1.0f + cosTheta) * 2.0f);
     const float iS = 1 / s;
 
-    return glm::quat(
+    return {
         s * 0.5f,
         rotationAxis.x * iS,
         rotationAxis.y * iS,
         rotationAxis.z * iS
-    );
+    };
 }
 
 }

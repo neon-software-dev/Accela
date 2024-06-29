@@ -37,7 +37,7 @@ struct TextRenderResultMessage : public Common::ResultMessage<std::expected<Text
 };
 
 TextureResources::TextureResources(Common::ILogger::Ptr logger,
-                                   IPackageResourcesPtr packages,
+                                   PackageResourcesPtr packages,
                                    std::shared_ptr<Render::IRenderer> renderer,
                                    std::shared_ptr<Platform::IFiles> files,
                                    std::shared_ptr<Platform::IText> text,
@@ -181,7 +181,14 @@ std::expected<TextRender, bool> TextureResources::OnRenderText(const std::string
         tag
     );
     const auto textureView = Render::TextureView::ViewAs2D(Render::TextureView::DEFAULT, Render::TextureView::Aspect::ASPECT_COLOR_BIT);
-    const auto textureSampler = Render::TextureSampler(Render::TextureSampler::DEFAULT, Render::CLAMP_ADDRESS_MODE);
+
+    auto textureSampler = Render::TextureSampler(Render::TextureSampler::DEFAULT, Render::CLAMP_ADDRESS_MODE);
+
+    // Use nearest sampling for text renders. Scenarios such as the perf monitor where the width of the text slightly
+    // changes as the text at the end of a texture changes causes rasterization/sampling changes that cause text renders
+    // to fluctuate when viewed close up, otherwise
+    textureSampler.minFilter = Render::SamplerFilterMode::Nearest;
+    textureSampler.magFilter = Render::SamplerFilterMode::Nearest;
 
     {
         std::lock_guard<std::mutex> texturesLock(m_texturesMutex);

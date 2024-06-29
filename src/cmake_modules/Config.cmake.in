@@ -23,6 +23,7 @@ find_dependency(SDL2 CONFIG REQUIRED)
 find_dependency(SDL2_image CONFIG REQUIRED)
 find_dependency(SDL2_ttf CONFIG REQUIRED)
 find_dependency(OpenVR REQUIRED)
+find_dependency(unofficial-spirv-reflect CONFIG REQUIRED)
 find_dependency(Qt REQUIRED COMPONENTS Widgets)
 
 find_library(PhysXCharacterKinematicFile PhysXCharacterKinematic_static_64 HINTS "${ACCELA_INSTALL_LIB_DIR}" REQUIRED)

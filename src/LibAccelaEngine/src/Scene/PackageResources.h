@@ -36,13 +36,19 @@ namespace Accela::Engine
             //
             [[nodiscard]] std::future<bool> OpenAndRegisterPackage(const PackageName& packageName) override;
             [[nodiscard]] bool RegisterPackageSource(const Platform::PackageSource::Ptr& package) override;
-            [[nodiscard]] std::vector<Platform::PackageSource::Ptr> GetAllPackages() const override;
-            [[nodiscard]] std::optional<Platform::PackageSource::Ptr> GetPackageSource(const PackageName& packageName) const override;
             void ClosePackage(const PackageName& packageName) override;
+            [[nodiscard]] std::future<std::expected<Construct::Ptr, bool>> FetchPackageConstruct(const PRI& construct) override;
+
+            //
+            // Internal
+            //
+            [[nodiscard]] std::vector<Platform::PackageSource::Ptr> GetAllPackages() const;
+            [[nodiscard]] std::optional<Platform::PackageSource::Ptr> GetPackageSource(const PackageName& packageName) const;
 
         private:
 
             [[nodiscard]] bool OnOpenAndRegisterPackage(const PackageName& packageName);
+            [[nodiscard]] std::expected<Construct::Ptr, bool> OnFetchPackageConstruct(const PRI& construct) const;
 
         private:
 

@@ -8,13 +8,14 @@
 #define LIBACCELARENDERERVK_SRC_VULKAN_VULKANSHADERMODULE
 
 #include "../ForwardDeclares.h"
-#include "../SPIRV/spirv_reflect.h"
 
 #include <Accela/Render/Shader/ShaderSpec.h>
 
 #include <Accela/Common/Log/ILogger.h>
 
 #include <vulkan/vulkan.h>
+
+#include <spirv_reflect.h>
 
 #include <memory>
 #include <string>

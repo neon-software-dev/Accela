@@ -234,6 +234,24 @@ ModelMaterial ModelLoader::ProcessMaterial(const aiMaterial* pMaterial) const
         rawMaterial.alphaCutoff = gltfAlphaCutoff;
     }
 
+    //
+    // Material Fixes/Adjustments
+    //
+
+    // For some reason it's common for people to define materials to have no ambient texture and a black
+    // ambient color, which means the material will never be affected by ambient lighting, which doesn't
+    // make any sense. If we see a material in this situation, we force its ambient color/texture to match
+    // its diffuse.
+    if (rawMaterial.ambientTextures.empty() &&
+        glm::all(glm::epsilonEqual(rawMaterial.ambientColor, glm::vec4{0,0,0,0}, std::numeric_limits<float>::epsilon())))
+    {
+        rawMaterial.ambientColor = rawMaterial.diffuseColor;
+        rawMaterial.ambientTextures = rawMaterial.diffuseTextures;
+
+        m_logger->Log(Common::LogLevel::Warning,
+          "Fixed material which had no ambient color or texture defined: {}", rawMaterial.name);
+    }
+
     /*
     // Debug logging for material properties
     m_logger->Log(Common::LogLevel::Error, "------ MATERIAL: {} -------", rawMaterial.name);

@@ -32,7 +32,7 @@ namespace Accela::Engine
         public:
 
             AudioResources(Common::ILogger::Ptr logger,
-                           IPackageResourcesPtr packages,
+                           PackageResourcesPtr packages,
                            AudioManagerPtr audioManager,
                            std::shared_ptr<Common::MessageDrivenThreadPool> threadPool);
 
@@ -60,7 +60,7 @@ namespace Accela::Engine
         private:
 
             Common::ILogger::Ptr m_logger;
-            IPackageResourcesPtr m_packages;
+            PackageResourcesPtr m_packages;
             AudioManagerPtr m_audioManager;
             std::shared_ptr<Common::MessageDrivenThreadPool> m_threadPool;
 

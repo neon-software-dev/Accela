@@ -7,11 +7,11 @@
 #ifndef LIBACCELARENDERERVK_SRC_VULKAN_VULKANCOMMON_H
 #define LIBACCELARENDERERVK_SRC_VULKAN_VULKANCOMMON_H
 
-#include "../SPIRV/spirv_reflect.h"
-
 #include <Accela/Common/Build.h>
 
 #include <vulkan/vulkan.h>
+
+#include <spirv_reflect.h>
 
 #include <tuple>
 #include <optional>

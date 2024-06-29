@@ -16,6 +16,7 @@
 #include <QWindow>
 
 #include <memory>
+#include <optional>
 
 namespace Accela
 {
@@ -45,11 +46,18 @@ namespace Accela
         protected:
 
             void showEvent(QShowEvent* e) override;
+            void mouseMoveEvent(QMouseEvent* pMouseEvent) override;
+            void mouseReleaseEvent(QMouseEvent* pMouseEvent) override;
+            void wheelEvent(QWheelEvent* pWheelEvent) override;
 
         private:
 
+            Common::ILogger::Ptr m_logger;
+
             std::unique_ptr<AccelaThread> m_accelaThread;
             EditorScene::Ptr m_scene;
+
+            std::optional<QPoint> m_dragLastMousePoint;
     };
 }
 

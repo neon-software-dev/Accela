@@ -23,6 +23,7 @@
 #include "Light/Lights.h"
 #include "RenderTarget/RenderTargets.h"
 #include "Renderer/PostProcessingEffects.h"
+#include "VMA/IVMA.h"
 
 #include "Vulkan/VulkanDebug.h"
 #include "Vulkan/VulkanSwapChain.h"
@@ -421,6 +422,24 @@ bool RendererVk::OnRenderFrame(RenderGraph::Ptr renderGraph)
     frameRenderWorkTimer.StopTimer(m_metrics);
     frameRenderTotalTimer.StopTimer(m_metrics);
 
+    ////////////////////////////////////
+    // Record Metrics
+    ////////////////////////////////////
+
+    const auto numMemoryHeaps = m_vulkanObjs->GetPhysicalDevice()->GetPhysicalDeviceMemoryProperties().memoryHeapCount;
+    const auto vmaBudgets = m_vulkanObjs->GetVMA()->GetVmaBudget(numMemoryHeaps);
+    std::size_t memoryUsageBytes = 0;
+    std::size_t memoryAvailableBytes = 0;
+
+    for (const auto& vmaBudget : vmaBudgets)
+    {
+        memoryUsageBytes += vmaBudget.usage;
+        memoryAvailableBytes += vmaBudget.budget;
+    }
+
+    m_metrics->SetCounterValue(Renderer_Memory_Usage, memoryUsageBytes);
+    m_metrics->SetCounterValue(Renderer_Memory_Available, memoryAvailableBytes);
+
     return graphProcessSuccess;
 }
 
@@ -528,13 +547,14 @@ void RendererVk::RunSceneRender(const std::string& sceneName,
                                 const std::vector<ViewProjection>& viewProjections,
                                 const std::unordered_map<LightId, TextureId>& shadowMaps)
 {
-    //
+    ////////////////////
     // Setup
-    //
+    ////////////////////
+
     auto& currentFrame = m_frames.GetCurrentFrame();
     const auto commandBuffer = currentFrame.GetRenderCommandBuffer();
     const auto gPassRenderPass = m_vulkanObjs->GetGPassRenderPass();
-    const auto blitRenderPass = m_vulkanObjs->GetBlitRenderPass();
+    const auto screenRenderPass = m_vulkanObjs->GetScreenRenderPass();
     const auto renderSettings = m_vulkanObjs->GetRenderSettings();
 
     const auto gPassFramebufferObjs = m_framebuffers->GetFramebufferObjs(renderTarget.gPassFramebuffer);
@@ -545,19 +565,22 @@ void RendererVk::RunSceneRender(const std::string& sceneName,
         return;
     }
 
-    const auto blitFramebufferObjs = m_framebuffers->GetFramebufferObjs(renderTarget.blitFramebuffer);
-    if (!blitFramebufferObjs)
+    const auto screenFramebufferObjs = m_framebuffers->GetFramebufferObjs(renderTarget.screenFramebuffer);
+    if (!screenFramebufferObjs)
     {
         m_logger->Log(Common::LogLevel::Error,
-          "RunSceneRender: No such blit framebuffer exists: {}", renderTarget.blitFramebuffer.id);
+          "RunSceneRender: No such screen framebuffer exists: {}", renderTarget.screenFramebuffer.id);
         return;
     }
 
     const auto gPassColorAttachment = gPassFramebufferObjs->GetAttachmentTexture(Offscreen_Attachment_Color);
-    const auto gPassColorTexture = *m_textures->GetTexture((*gPassColorAttachment).first.textureId);
+    const auto gPassColorTexture = gPassColorAttachment->first;
 
     const auto gPassDepthAttachment = gPassFramebufferObjs->GetAttachmentTexture(Offscreen_Attachment_Depth);
-    const auto gPassDepthTexture = *m_textures->GetTexture((*gPassDepthAttachment).first.textureId);
+    const auto gPassDepthTexture = gPassDepthAttachment->first;
+
+    const auto screenColorAttachment = screenFramebufferObjs->GetAttachmentTexture(Screen_Attachment_Color);
+    const auto screenColorTexture = screenColorAttachment->first;
 
     const auto postProcessingOutputTexture = *m_textures->GetTexture(renderTarget.postProcessOutputTexture);
 
@@ -569,6 +592,14 @@ void RendererVk::RunSceneRender(const std::string& sceneName,
         RenderObjects(sceneName, *gPassFramebufferObjs, renderParams, viewProjections, shadowMaps);
     EndRenderPass(commandBuffer);
 
+    ///////////////////
+    // Screen Render Pass
+    ///////////////////
+
+    StartRenderPass(screenRenderPass, *screenFramebufferObjs, commandBuffer);
+        RenderScreen(sceneName, *screenFramebufferObjs, renderParams);
+    EndRenderPass(commandBuffer);
+
     //////////////////////////
     // Tone-Mapping
     //////////////////////////
@@ -578,19 +609,12 @@ void RendererVk::RunSceneRender(const std::string& sceneName,
         RunPostProcessing(gPassColorTexture, postProcessingOutputTexture, ToneMappingEffect(m_vulkanObjs->GetRenderSettings()));
     }
 
-    ///////////////////
-    // Blit Render Pass
-    ///////////////////
-
-    StartRenderPass(blitRenderPass, *blitFramebufferObjs, commandBuffer);
-        RenderBlit(sceneName, *blitFramebufferObjs, renderParams);
-    EndRenderPass(commandBuffer);
-
     //////////////////////////
     // Gamma Correction
     //////////////////////////
 
     RunPostProcessing(gPassColorTexture, postProcessingOutputTexture, GammaCorrectionEffect(m_vulkanObjs->GetRenderSettings()));
+    RunPostProcessing(screenColorTexture, postProcessingOutputTexture, GammaCorrectionEffect(m_vulkanObjs->GetRenderSettings()));
 
     //////////////////////////
     // FXAA
@@ -637,10 +661,21 @@ bool RendererVk::RenderGraphFunc_Present(const uint32_t& swapChainImageIndex, co
         return false;
     }
 
-    const auto presentColorTexture =
-        gPassFramebufferObjs->GetAttachmentTexture(Offscreen_Attachment_Color)->first;
+    const auto screenFramebufferObjs = m_framebuffers->GetFramebufferObjs(renderTarget->screenFramebuffer);
+    if (!screenFramebufferObjs)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "RenderGraphFunc_PresentTexture: No such screen framebuffer exists: {}", renderTarget->screenFramebuffer.id);
+        return false;
+    }
 
-    const auto presentColorVkImage = presentColorTexture.allocation.vkImage;
+    const auto offscreenColorTexture =
+        gPassFramebufferObjs->GetAttachmentTexture(Offscreen_Attachment_Color)->first;
+    const auto offscreenColorVkImage = offscreenColorTexture.allocation.vkImage;
+
+    const auto screenColorTexture =
+        screenFramebufferObjs->GetAttachmentTexture(Screen_Attachment_Color)->first;
+    const auto screenColorVkImage = screenColorTexture.allocation.vkImage;
 
     ////////////////////////////////////////////////////
     // Finish the Render work command buffer and submit it
@@ -665,26 +700,44 @@ bool RendererVk::RenderGraphFunc_Present(const uint32_t& swapChainImageIndex, co
 
     swapChainBlitCommandBuffer->Begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
-    // Convert the linearly-specified clear color to SRGB space as gamma correction was already done before this
+    // Convert the linearly-specified clear color to SRGB space as gamma correction was already done before this pass
     const auto swapChainBlitClearColor =
         glm::convertLinearToSRGB(presentConfig.clearColor, m_vulkanObjs->GetRenderSettings().gamma);
 
-    // Prepare the present texture for read by the swap chain blit pass
+    // Prepare the input textures for read by the swap chain blit pass
     m_renderState.PrepareOperation(swapChainBlitCommandBuffer, RenderOperation({
-        {presentColorVkImage, ImageAccess(
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            BarrierPoint(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT),
-            BarrierPoint(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT),
-            Layers(0, presentColorTexture.numLayers),
-            Levels(0,1),
-            VK_IMAGE_ASPECT_COLOR_BIT
-            )}
-        }
-    ));
+       // We're going to read from the offscreen texture
+       {offscreenColorVkImage, ImageAccess(
+           VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+           VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+           BarrierPoint(
+               VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+               VK_ACCESS_SHADER_READ_BIT),
+           BarrierPoint(
+               VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+               VK_ACCESS_SHADER_READ_BIT),
+           Layers(0, offscreenColorTexture.numLayers),
+           Levels(0, 1),
+           VK_IMAGE_ASPECT_COLOR_BIT
+       )},
+       // We're going to read from the screen texture
+       {screenColorVkImage, ImageAccess(
+           VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+           VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+           BarrierPoint(
+               VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+               VK_ACCESS_SHADER_READ_BIT),
+           BarrierPoint(
+               VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+               VK_ACCESS_SHADER_READ_BIT),
+           Layers(0, 1),
+           Levels(0, 1),
+           VK_IMAGE_ASPECT_COLOR_BIT
+       )}
+    } ));
 
     StartRenderPass(swapChainBlitRenderPass, swapChainFrameBuffer, swapChainBlitCommandBuffer, swapChainBlitClearColor);
-        RunSwapChainBlitPass(swapChainFrameBuffer, presentColorTexture);
+        RunSwapChainBlitPass(swapChainFrameBuffer, offscreenColorTexture, screenColorTexture);
     EndRenderPass(swapChainBlitCommandBuffer);
 
     // If outputting to a headset, insert one last operation that will record that when we
@@ -692,32 +745,18 @@ bool RendererVk::RenderGraphFunc_Present(const uint32_t& swapChainImageIndex, co
     if (m_vulkanObjs->GetRenderSettings().presentToHeadset)
     {
         m_renderState.PrepareOperation(swapChainBlitCommandBuffer, RenderOperation({
-           {presentColorVkImage, ImageAccess(
+            // OpenVR is going to transfer from the present texture when we submit eye renders below
+            {offscreenColorVkImage, ImageAccess(
                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_SHADER_READ_BIT),
                BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT),
-               Layers(0, presentColorTexture.numLayers),
+               Layers(0, offscreenColorTexture.numLayers),
                Levels(0,1),
                VK_IMAGE_ASPECT_COLOR_BIT
-           )}
+            )}
         }
         ));
-
-        /*InsertPipelineBarrier_Image(
-            m_vulkanObjs->GetCalls(),
-            swapChainBlitCommandBuffer,
-            presentColorVkImage,
-            Layers(0, presentColorTexture.numLayers),
-            Levels(0, 1),
-            VK_IMAGE_ASPECT_COLOR_BIT,
-            // SwapChainBlit fragment shader must finish sampling from the image texture
-            BarrierPoint(VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT),
-            // Before VR starts transferring from it
-            BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT),
-            // Convert image to transfer src optimal
-            ImageTransition(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
-        );*/
     }
 
     swapChainBlitCommandBuffer->End();
@@ -727,7 +766,7 @@ bool RendererVk::RenderGraphFunc_Present(const uint32_t& swapChainImageIndex, co
         m_vulkanObjs->GetDevice()->GetVkGraphicsQueue(),
         {swapChainBlitCommandBuffer->GetVkCommandBuffer()},
         WaitOn({
-           // Post Effects work must be done before we can read from it
+           // Render work must be finished before we can read from its output
            {currentFrame.GetRenderFinishedSemaphore(), VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT},
            // Swap chain image must be available before we can write to it
            {currentFrame.GetImageAvailableSemaphore(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT}
@@ -750,11 +789,11 @@ bool RendererVk::RenderGraphFunc_Present(const uint32_t& swapChainImageIndex, co
         eyeRenderData.vkPhysicalDevice = m_vulkanObjs->GetPhysicalDevice()->GetVkPhysicalDevice();
         eyeRenderData.vkDevice = m_vulkanObjs->GetDevice()->GetVkDevice();
         eyeRenderData.vkQueue = m_vulkanObjs->GetDevice()->GetVkGraphicsQueue();
-        eyeRenderData.vkImage = presentColorTexture.allocation.vkImage;
+        eyeRenderData.vkImage = offscreenColorTexture.allocation.vkImage;
         eyeRenderData.queueFamilyIndex = m_vulkanObjs->GetPhysicalDevice()->GetGraphicsQueueFamilyIndex().value();
-        eyeRenderData.width = presentColorTexture.pixelSize.w;
-        eyeRenderData.height = presentColorTexture.pixelSize.h;
-        eyeRenderData.format = presentColorTexture.vkFormat;
+        eyeRenderData.width = offscreenColorTexture.pixelSize.w;
+        eyeRenderData.height = offscreenColorTexture.pixelSize.h;
+        eyeRenderData.format = offscreenColorTexture.vkFormat;
         eyeRenderData.sampleCount = 0;
 
         m_vulkanObjs->GetContext()->VR_SubmitEyeRender(Eye::Left, eyeRenderData);
@@ -930,6 +969,7 @@ void RendererVk::RunPostProcessing(const LoadedTexture& inputTexture, const Load
     // Execute the post-processing effect shader
     //
     m_renderState.PrepareOperation(commandBuffer, RenderOperation({
+        // We're going to read from the input texture
         {inputTexture.allocation.vkImage, ImageAccess(
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -939,6 +979,7 @@ void RendererVk::RunPostProcessing(const LoadedTexture& inputTexture, const Load
             Levels(0,1),
             VK_IMAGE_ASPECT_COLOR_BIT
         )},
+        // We're going to write to the output texture
         {outputTexture.allocation.vkImage, ImageAccess(
             VK_IMAGE_LAYOUT_GENERAL,
             VK_IMAGE_LAYOUT_GENERAL,
@@ -961,6 +1002,7 @@ void RendererVk::RunPostProcessing(const LoadedTexture& inputTexture, const Load
     // Blit the post-process output back to the input texture
     //
     m_renderState.PrepareOperation(commandBuffer, RenderOperation({
+        // We're going to transfer/blit the result to the input texture
         {inputTexture.allocation.vkImage, ImageAccess(
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -970,6 +1012,7 @@ void RendererVk::RunPostProcessing(const LoadedTexture& inputTexture, const Load
             Levels(0,1),
             VK_IMAGE_ASPECT_COLOR_BIT
         )},
+        // We're going to transfer/blit the result from the output texture
         {outputTexture.allocation.vkImage, ImageAccess(
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
@@ -1007,16 +1050,16 @@ void RendererVk::RunPostProcessing(const LoadedTexture& inputTexture, const Load
     );
 }
 
-void RendererVk::RenderBlit(const std::string& sceneName,
-                            const FramebufferObjs& framebufferObjs,
-                            const RenderParams& renderParams)
+void RendererVk::RenderScreen(const std::string& sceneName,
+                              const FramebufferObjs& framebufferObjs,
+                              const RenderParams& renderParams)
 {
     auto& currentFrame = m_frames.GetCurrentFrame();
     const auto commandBuffer = currentFrame.GetRenderCommandBuffer();
-    const auto renderPass = m_vulkanObjs->GetBlitRenderPass();
+    const auto renderPass = m_vulkanObjs->GetScreenRenderPass();
 
     {
-        CmdBufferSectionLabel sectionLabel(m_vulkanObjs->GetCalls(), commandBuffer, "Blit");
+        CmdBufferSectionLabel sectionLabel(m_vulkanObjs->GetCalls(), commandBuffer, "Screen");
 
         // Sprites
         {
@@ -1034,7 +1077,9 @@ void RendererVk::RenderBlit(const std::string& sceneName,
     }
 }
 
-void RendererVk::RunSwapChainBlitPass(const VulkanFramebufferPtr& framebuffer, const LoadedTexture& texture)
+void RendererVk::RunSwapChainBlitPass(const VulkanFramebufferPtr& framebuffer,
+                                      const LoadedTexture& renderTexture,
+                                      const LoadedTexture& screenTexture)
 {
     auto& currentFrame = m_frames.GetCurrentFrame();
     const auto commandBuffer = currentFrame.GetSwapChainBlitCommandBuffer();
@@ -1051,7 +1096,8 @@ void RendererVk::RunSwapChainBlitPass(const VulkanFramebufferPtr& framebuffer, c
                 commandBuffer,
                 renderPass,
                 framebuffer,
-                texture
+                renderTexture,
+                screenTexture
             );
     }
 }

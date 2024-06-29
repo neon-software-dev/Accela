@@ -40,7 +40,7 @@ namespace Accela::Engine
         public:
 
             ModelResources(Common::ILogger::Ptr logger,
-                           IPackageResourcesPtr packages,
+                           PackageResourcesPtr packages,
                            std::shared_ptr<Render::IRenderer> renderer,
                            std::shared_ptr<Platform::IFiles> files,
                            std::shared_ptr<Common::MessageDrivenThreadPool> threadPool);
@@ -108,7 +108,7 @@ namespace Accela::Engine
         private:
 
             Common::ILogger::Ptr m_logger;
-            IPackageResourcesPtr m_packages;
+            PackageResourcesPtr m_packages;
             std::shared_ptr<Render::IRenderer> m_renderer;
             std::shared_ptr<Platform::IFiles> m_files;
             std::shared_ptr<Common::MessageDrivenThreadPool> m_threadPool;

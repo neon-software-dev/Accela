@@ -23,7 +23,8 @@ namespace Accela::Engine
 
         unsigned int grass_tuftMinCount{5};
         unsigned int grass_tuftMaxCount{10};
-        float grass_size{1.0f};
+        float grass_width{1.0f};
+        float grass_height{1.0f};
         float grass_sizeVariance{0.5f};
     };
 
@@ -54,7 +55,8 @@ namespace Accela::Engine
             [[nodiscard]] GrassTuft CreateGrassTuft(const StandardGrassParams& params,
                                                     const glm::vec3& origin,
                                                     const glm::vec3& orientationUnit,
-                                                    float size);
+                                                    float width,
+                                                    float height);
 
             [[nodiscard]] inline float Rand(float min, float max);
 

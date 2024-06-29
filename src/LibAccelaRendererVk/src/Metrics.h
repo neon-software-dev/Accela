@@ -44,6 +44,10 @@ namespace Accela::Render
     // Buffers system
         static constexpr char Renderer_Buffers_Count[] = "Renderer_Buffers_Count";
         static constexpr char Renderer_Buffers_ByteSize[] = "Renderer_Buffers_ByteSize";
+
+    // Memory usage
+        static constexpr char Renderer_Memory_Usage[] = "Renderer_Memory_Usage";
+        static constexpr char Renderer_Memory_Available[] = "Renderer_Memory_Available";
 }
 
 #endif //LIBACCELARENDERERVK_SRC_METRICS_H

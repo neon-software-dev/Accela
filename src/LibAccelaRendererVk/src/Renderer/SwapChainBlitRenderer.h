@@ -50,7 +50,8 @@ namespace Accela::Render
             void Render(const VulkanCommandBufferPtr& commandBuffer,
                         const VulkanRenderPassPtr& renderPass,
                         const VulkanFramebufferPtr& swapChainFramebuffer,
-                        const LoadedTexture& offscreenColorAttachment);
+                        const LoadedTexture& renderTexture,
+                        const LoadedTexture& screenTexture);
 
         private:
 

@@ -20,17 +20,17 @@ namespace Accela::Render
         { }
 
         RenderTarget(FrameBufferId _gPassFramebuffer,
-                     FrameBufferId _blitFramebuffer,
+                     FrameBufferId _screenFramebuffer,
                      TextureId _postProcessOutputTexture,
                      std::string _tag)
             : gPassFramebuffer(_gPassFramebuffer)
-            , blitFramebuffer(_blitFramebuffer)
+            , screenFramebuffer(_screenFramebuffer)
             , postProcessOutputTexture(_postProcessOutputTexture)
             , tag(std::move(_tag))
         {}
 
         FrameBufferId gPassFramebuffer{};
-        FrameBufferId blitFramebuffer{};
+        FrameBufferId screenFramebuffer{};
         TextureId postProcessOutputTexture{};
 
         std::string tag;

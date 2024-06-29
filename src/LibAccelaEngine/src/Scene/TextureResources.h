@@ -42,7 +42,7 @@ namespace Accela::Engine
         public:
 
             TextureResources(Common::ILogger::Ptr logger,
-                             IPackageResourcesPtr packages,
+                             PackageResourcesPtr packages,
                              std::shared_ptr<Render::IRenderer> renderer,
                              std::shared_ptr<Platform::IFiles> files,
                              std::shared_ptr<Platform::IText> text,
@@ -106,7 +106,7 @@ namespace Accela::Engine
         private:
 
             Common::ILogger::Ptr m_logger;
-            IPackageResourcesPtr m_packages;
+            PackageResourcesPtr m_packages;
             std::shared_ptr<Render::IRenderer> m_renderer;
             std::shared_ptr<Platform::IFiles> m_files;
             std::shared_ptr<Platform::IText> m_text;

@@ -63,6 +63,12 @@ namespace Accela
             void ProcessCreateEntityCommand(const CreateEntityCommand::Ptr& cmd);
             void ProcessSetEntityComponentCommand(const SetEntityComponentCommand::Ptr& cmd);
             void ProcessRemoveEntityComponentCommand(const RemoveEntityComponentCommand::Ptr& cmd);
+            void ProcessRotateCameraCommand(const RotateCameraCommand::Ptr& cmd);
+            void ProcessPanCameraCommand(const PanCameraCommand::Ptr& cmd);
+            void ProcessScaleCommand(const ScaleCommand::Ptr& cmd);
+
+            void InitCamera();
+            void RotateCamera(float yRotDegrees, float rightRotDegrees);
 
         private:
 
@@ -70,6 +76,11 @@ namespace Accela
             std::queue<Common::Message::Ptr> m_messages;
 
             PollingMessageFulfiller m_messageFulfiller;
+
+            // TODO! Reset on package change
+            glm::vec3 m_focusPoint{0,0,0};
+            float m_yRot{0.0f};
+            float m_rightRot{0.0f};
     };
 }
 

@@ -84,7 +84,7 @@ void ObjectRenderables::ProcessUpdate(const WorldUpdate& update,
 }
 
 void ObjectRenderables::ProcessAddedObjects(const WorldUpdate& update,
-                                            ModifiedWorldAreas& modifieShadowWorldAreas,
+                                            ModifiedWorldAreas& modifiedShadowWorldAreas,
                                             const VulkanCommandBufferPtr& commandBuffer,
                                             VkFence vkFence)
 {
@@ -148,7 +148,7 @@ void ObjectRenderables::ProcessAddedObjects(const WorldUpdate& update,
 
             if (object.shadowPass)
             {
-                modifieShadowWorldAreas.boundingBoxes_worldSpace.push_back(objectData.boundingBox_worldSpace);
+                modifiedShadowWorldAreas.boundingBoxes_worldSpace.push_back(objectData.boundingBox_worldSpace);
             }
         }
 

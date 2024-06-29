@@ -295,11 +295,13 @@ void MeshResources::DestroyMesh(const ResourceIdentifier& resource)
         return;
     }
 
+    const auto resourceCopy = resource;
+
     m_renderer->DestroyMesh(it->second);
 
-    m_meshes.erase(resource);
-    m_staticMeshData.erase(resource);
-    m_heightMapData.erase(resource); // May or may not exist
+    m_meshes.erase(resourceCopy);
+    m_staticMeshData.erase(resourceCopy);
+    m_heightMapData.erase(resourceCopy); // May or may not exist
 }
 
 void MeshResources::DestroyAll()

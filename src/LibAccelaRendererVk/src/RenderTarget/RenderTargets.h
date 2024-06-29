@@ -42,7 +42,7 @@ namespace Accela::Render
         private:
 
             [[nodiscard]] std::optional<FrameBufferId> CreateGPassFramebuffer(const std::string& tag) const;
-            [[nodiscard]] std::optional<FrameBufferId> CreateBlitFramebuffer(FrameBufferId gPassFramebufferId, const std::string& tag) const;
+            [[nodiscard]] std::optional<FrameBufferId> CreateScreenFramebuffer(const std::string& tag) const;
             [[nodiscard]] std::optional<TextureId> CreatePostProcessOutputTexture(const std::string& tag) const;
 
         private:

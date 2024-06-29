@@ -34,9 +34,9 @@ namespace Accela::Render
     static const uint32_t GPassRenderPass_SubPass_DeferredLightingRender = 1;
     static const uint32_t GPassRenderPass_SubPass_ForwardLightingObjects = 2;
 
-    // Attachment indices for the Blit Framebuffer
-    static const uint32_t Blit_Attachment_Color = 0;
-    static const uint32_t Blit_Attachment_Depth = 1;
+    // Attachment indices for the Screen Framebuffer
+    static const uint32_t Screen_Attachment_Color = 0;
+    static const uint32_t Screen_Attachment_Depth = 1;
 
     // Subpass indices for the Blit Render Pass
     static const uint32_t BlitRenderPass_SubPass_Blit = 0;

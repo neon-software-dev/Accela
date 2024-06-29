@@ -75,6 +75,10 @@ namespace Accela::Render
                 return m_vkPhysicalDeviceFeatures;
             }
 
+            [[nodiscard]] const VkPhysicalDeviceMemoryProperties& GetPhysicalDeviceMemoryProperties() const noexcept {
+                return m_vkPhysicalDeviceMemoryProperties;
+            }
+
             /**
              * @return The queue family index that supports graphics commands, or std::nullopt if none exists.
              */
@@ -110,6 +114,7 @@ namespace Accela::Render
 
             VkPhysicalDeviceProperties m_vkPhysicalDeviceProperties{};
             VkPhysicalDeviceFeatures m_vkPhysicalDeviceFeatures{};
+            VkPhysicalDeviceMemoryProperties m_vkPhysicalDeviceMemoryProperties{};
             std::vector<VkQueueFamilyProperties> m_vkQueueFamilyProperties;
             std::vector<VkExtensionProperties> m_vkExtensionProperties;
     };

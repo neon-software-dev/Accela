@@ -13,7 +13,7 @@
 namespace Accela::Engine
 {
 
-GrassMeshCreator::GrassMeshCreator(const unsigned long& seed)
+GrassMeshCreator::GrassMeshCreator(const std::mt19937::result_type& seed)
     : m_mt(seed)
 {
 

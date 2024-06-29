@@ -116,7 +116,7 @@ namespace Accela::Render
 
         [[nodiscard]] IfParallel ButIfParallelWith(const glm::vec3& constant)
         {
-            return IfParallel(query, constant);
+            return {query, constant};
         }
 
         private:

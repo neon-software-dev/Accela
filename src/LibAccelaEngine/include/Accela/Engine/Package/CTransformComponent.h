@@ -9,6 +9,8 @@
 
 #include <Accela/Engine/Package/Component.h>
 
+#include <Accela/Engine/Component/TransformComponent.h>
+
 #include <glm/glm.hpp>
 
 namespace Accela::Engine
@@ -26,6 +28,23 @@ namespace Accela::Engine
 
         [[nodiscard]] Component::Type GetType() const override { return Component::Type::Transform; }
         [[nodiscard]] bool IsComplete() const override { return true; };
+
+        [[nodiscard]] TransformComponent ToEngineComponent() const
+        {
+            Engine::TransformComponent transformComponent{};
+            transformComponent.SetPosition(position);
+
+            transformComponent.SetOrientation(
+                glm::angleAxis(glm::radians(eulerRotation.x), glm::vec3(1,0,0)) *
+                glm::angleAxis(glm::radians(eulerRotation.y), glm::vec3(0,1,0)) *
+                glm::angleAxis(glm::radians(eulerRotation.z), glm::vec3(0,0,1))
+            );
+
+            // Divided by 100 to convert from editor 100% to engine 1.0f
+            transformComponent.SetScale(scale / 100.0f);
+
+            return transformComponent;
+        }
 
         glm::vec3 position{0.0f};
         // Stored as euler angles for use in editor, converted to quaternions at engine interface

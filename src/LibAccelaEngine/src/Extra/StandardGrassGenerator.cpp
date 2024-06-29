@@ -12,7 +12,7 @@
 namespace Accela::Engine
 {
 
-StandardGrassGenerator::StandardGrassGenerator(const unsigned long& seed)
+StandardGrassGenerator::StandardGrassGenerator(const std::mt19937::result_type& seed)
     : m_mt(seed)
 {
 
@@ -37,7 +37,8 @@ GrassClump StandardGrassGenerator::GenerateGrassClump(const StandardGrassParams&
             params,
             tuftOrigin,
             {0,1,0},
-            params.grass_size
+            params.grass_width,
+            params.grass_height
         );
 
         clump.tufts.push_back(tuft);
@@ -84,7 +85,8 @@ GrassClump StandardGrassGenerator::GenerateGrassClump(const StandardGrassParams&
             params,
             tuftOrigin,
             heightMapQuery->pointNormalUnit_modelSpace,
-            params.grass_size
+            params.grass_width,
+            params.grass_height
         );
 
         clump.tufts.push_back(tuft);
@@ -96,13 +98,14 @@ GrassClump StandardGrassGenerator::GenerateGrassClump(const StandardGrassParams&
 GrassTuft StandardGrassGenerator::CreateGrassTuft(const StandardGrassParams& params,
                                                   const glm::vec3& origin,
                                                   const glm::vec3& orientationUnit,
-                                                  float size)
+                                                  float width,
+                                                  float height)
 {
     GrassTuft tuft{};
     tuft.origin = origin;
     tuft.orientationUnit = orientationUnit;
-    tuft.width = size * (1.0f + Rand(-params.grass_sizeVariance, params.grass_sizeVariance));
-    tuft.height = size * (1.0f + Rand(-params.grass_sizeVariance, params.grass_sizeVariance));
+    tuft.width = width * (1.0f + Rand(-params.grass_sizeVariance, params.grass_sizeVariance));
+    tuft.height = height * (1.0f + Rand(-params.grass_sizeVariance, params.grass_sizeVariance));
 
     return tuft;
 }

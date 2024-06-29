@@ -149,7 +149,7 @@ void CreatePackageDialog::VM_OnCreateDirectoryChanged(const std::optional<std::f
 {
     if (createDirectory)
     {
-        m_pCreateDirectoryEdit->setText(createDirectory->c_str());
+        m_pCreateDirectoryEdit->setText(QString::fromStdString(createDirectory->string()));
     }
     else
     {
