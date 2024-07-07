@@ -61,10 +61,27 @@ On Linux, most distributions have Qt6 development files in the package managemen
 
 #### Nvidia PhysX
 
-The AccelaEngine project depends on PhysX.
+The AccelaEngine project depends on PhysX which neeeds to be manually built as the version in vcpkg is currently broken for Linux.
 
 - `git clone https://github.com/NVIDIA-Omniverse/PhysX`
 - `cd PhysX/physx/`
+
+Some project generation flags need to be configured. The easiest way to do this is to modify the appropriate file for your compiler under buildtools/presets/public/{compiler}.xml . Ensure the following switches are set:
+
+```
+<cmakeSwitch name="PX_BUILDSNIPPETS" value="False" comment="Generate the snippets" />
+<cmakeSwitch name="PX_GENERATE_STATIC_LIBRARIES" value="True" comment="Generate static
+```
+
+On Windows, also specify:
+
+```
+<cmakeSwitch name="NV_USE_STATIC_WINCRT" value="False" comment="Use the statically linked windows CRT" />
+<cmakeSwitch name="NV_USE_DEBUG_WINCRT" value="True" comment="Use the debug version of the CRT" />
+```
+
+Now generate project files with:
+
 - `./generate_projects.sh`
 
 You can choose which variants (checked, debug, profile, release) of PhysX you want to build. Only building release is fine if you don't want to debug into it. Go into the compiler directory for each variant you want, and build and install it.
