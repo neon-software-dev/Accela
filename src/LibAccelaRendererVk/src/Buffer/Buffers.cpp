@@ -50,7 +50,7 @@ void Buffers::Destroy()
 
     while (!m_buffers.empty())
     {
-        DestroyBuffer(m_buffers.cbegin()->first);
+        (void)DestroyBuffer(m_buffers.cbegin()->first);
     }
 
     m_bufferIds.Reset();
@@ -61,6 +61,7 @@ void Buffers::Destroy()
 std::expected<BufferPtr, Buffers::BufferCreateError> Buffers::CreateBuffer(
     VkBufferUsageFlags vkUsageFlags,
     VmaMemoryUsage vmaMemoryUsage,
+    VmaAllocationCreateFlags vmaAllocationCreateFlags,
     const std::size_t& byteSize,
     const std::string& tag)
 {
@@ -81,17 +82,19 @@ std::expected<BufferPtr, Buffers::BufferCreateError> Buffers::CreateBuffer(
 
     VmaAllocationCreateInfo vmaAllocCreateInfo{};
     vmaAllocCreateInfo.usage = vmaMemoryUsage;
+    vmaAllocCreateInfo.flags = vmaAllocationCreateFlags;
 
     BufferAllocation bufferAllocation{};
     bufferAllocation.vkBufferUsageFlags = vkUsageFlags;
     bufferAllocation.vmaMemoryUsage = vmaMemoryUsage;
+    bufferAllocation.vmaAllocationCreateFlags = vmaAllocationCreateFlags;
 
     auto result = m_vulkanObjs->GetVMA()->CreateBuffer(
         &bufferInfo,
         &vmaAllocCreateInfo,
         &bufferAllocation.vkBuffer,
         &bufferAllocation.vmaAllocation,
-        nullptr);
+        &bufferAllocation.vmaAllocationInfo);
     if (result != VK_SUCCESS)
     {
         m_logger->Log(Common::LogLevel::Error,
@@ -155,10 +158,42 @@ bool Buffers::DestroyBuffer(BufferId bufferId)
 static bool CanBufferBeMapped(const BufferPtr& buffer)
 {
     const bool isSupportedAllocationType =
-        buffer->GetAllocation().vmaMemoryUsage == VMA_MEMORY_USAGE_CPU_TO_GPU ||
-        buffer->GetAllocation().vmaMemoryUsage == VMA_MEMORY_USAGE_CPU_ONLY;
+        (buffer->GetAllocation().vmaAllocationCreateFlags & VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT) ||
+        (buffer->GetAllocation().vmaAllocationCreateFlags & VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
 
     return isSupportedAllocationType;
+}
+
+std::vector<std::byte> Buffers::MappedReadBuffer(const BufferPtr& buffer, const BufferRead& read) const
+{
+    //
+    // Verify preconditions
+    //
+    const bool canBufferBeMapped = CanBufferBeMapped(buffer);
+
+    if (!canBufferBeMapped)
+    {
+        assert(canBufferBeMapped);
+
+        m_logger->Log(Common::LogLevel::Error,
+          "Buffers: MappedReadBuffer: The supplied buffer, id: {}, is not a mappable type", buffer->GetBufferId().id);
+        return {};
+    }
+
+    //
+    // Map the buffer into memory and read the data from it
+    //
+    void *pMappedBuffer{nullptr};
+    m_vulkanObjs->GetVMA()->MapMemory(buffer->GetVmaAllocation(), &pMappedBuffer);
+
+    std::vector<std::byte> bufferBytes(read.readByteSize, std::byte(0));
+
+    assert(buffer->GetByteSize() >= (read.readOffset + read.readByteSize));
+    memcpy(bufferBytes.data(), (unsigned char*)pMappedBuffer + read.readOffset, read.readByteSize);
+
+    m_vulkanObjs->GetVMA()->UnmapMemory(buffer->GetVmaAllocation());
+
+    return bufferBytes;
 }
 
 bool Buffers::MappedUpdateBuffer(const BufferPtr& buffer, const std::vector<BufferUpdate>& updates) const
@@ -313,7 +348,8 @@ bool Buffers::StagingUpdateBuffer(const BufferPtr& buffer,
     //
     const auto stagingBuffer = CreateBuffer(
         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-        VMA_MEMORY_USAGE_CPU_ONLY,
+        VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
+        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
         totalUpdateBytes,
         std::format("StagingUpdateBuffer-{}" ,buffer->GetBufferId().id)
     );
@@ -332,7 +368,7 @@ bool Buffers::StagingUpdateBuffer(const BufferPtr& buffer,
     stagingBufferUpdate.pData = allUpdatesBytes.data();
     stagingBufferUpdate.dataByteSize = allUpdatesBytes.size();
 
-    MappedUpdateBuffer(*stagingBuffer, {stagingBufferUpdate});
+    (void)MappedUpdateBuffer(*stagingBuffer, {stagingBufferUpdate});
 
     //
     // Copy the data from the staging buffer to the destination buffer.
@@ -342,7 +378,7 @@ bool Buffers::StagingUpdateBuffer(const BufferPtr& buffer,
 
     for (const auto& update : updates)
     {
-        CopyBufferData(
+        (void)CopyBufferData(
             *stagingBuffer,             // srcBuffer
             stagingOffset,              // srcOffset
             update.dataByteSize,     // copyByteSize
@@ -362,7 +398,7 @@ bool Buffers::StagingUpdateBuffer(const BufferPtr& buffer,
     const auto stagingBufferId = (*stagingBuffer)->GetBufferId();
 
     m_postExecutionOps->EnqueueFrameless(vkExecutionFence, [stagingBufferId, this](){
-        DestroyBuffer(stagingBufferId);
+        (void)DestroyBuffer(stagingBufferId);
     });
 
     return true;

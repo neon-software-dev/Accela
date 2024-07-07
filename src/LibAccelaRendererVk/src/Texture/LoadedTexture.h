@@ -11,6 +11,7 @@
 
 #include "../Util/ImageAllocation.h"
 
+#include <Accela/Render/Texture/TextureDefinition.h>
 #include <Accela/Render/Util/Rect.h>
 
 #include <vulkan/vulkan.h>
@@ -22,15 +23,8 @@ namespace Accela::Render
 {
     struct LoadedTexture
     {
-        TextureId textureId{INVALID_ID};
-        USize pixelSize{0,0};
-        uint32_t mipLevels{1};
-        uint32_t numLayers{1};
-
-        VkFormat vkFormat{};
-        ImageAllocation allocation;
-        std::unordered_map<std::string, VkImageView> vkImageViews;
-        std::unordered_map<std::string, VkSampler> vkSamplers;
+        TextureDefinition textureDefinition;
+        ImageId imageId{INVALID_ID};
     };
 }
 

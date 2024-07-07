@@ -69,7 +69,7 @@ void DevScene::CreateSceneEntities()
 
     //CreateSpotLight({0,1,0}, true);
     CreatePointLight({0, 2, 2}, true);
-    CreateTerrainEntity(10.0f, {0, 0, 0});
+    CreateTerrainEntity(100.0f, {0, 0, 0});
     //CreateFloorEntity({0,0,0}, 150);
 
     /*CreateModelEntity(
@@ -566,8 +566,8 @@ void DevScene::OnMouseMoveEvent(const Platform::MouseMoveEvent& event)
 
     // Apply mouse movements as camera view rotations
     engine->GetWorldState()->GetWorldCamera("default")->RotateBy(
-        (float)event.yRel * -0.002f,
-        (float)event.xRel * -0.002f
+        event.yRel * -0.002f,
+        event.xRel * -0.002f
     );
 }
 
@@ -601,13 +601,13 @@ Engine::PlayerMovement DevScene::GetActiveMovementCommands()
     if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::S)) {
         movementCommands.backward = true;
     }
-    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::LeftControl)) {
+    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::Control)) {
         movementCommands.down = true;
     }
     if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::Space)) {
         movementCommands.up = true;
     }
-    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::LeftShift)) {
+    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::Shift)) {
         movementCommands.sprint = true;
     }
 

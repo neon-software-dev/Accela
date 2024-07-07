@@ -116,7 +116,6 @@ void EnginePerfMonitorEntity::CreateEntities()
         textProperties,
         currentYPos
     );
-
     currentYPos += CreateEntity(
         Common::MetricType::Counter,
         "Renderer: Texture Count: ",
@@ -126,15 +125,22 @@ void EnginePerfMonitorEntity::CreateEntities()
     );
     currentYPos += CreateEntity(
         Common::MetricType::Counter,
-        "Renderer: Texture Loading Count: ",
-        "Renderer_Textures_Loading_Count",
+        "Renderer: Images Count: ",
+        "Renderer_Images_Count",
         textProperties,
         currentYPos
     );
     currentYPos += CreateEntity(
         Common::MetricType::Counter,
-        "Renderer: Texture ToDestroy Count: ",
-        "Renderer_Textures_ToDestroy_Count",
+        "Renderer: Images Loading Count: ",
+        "Renderer_Images_Loading_Count",
+        textProperties,
+        currentYPos
+    );
+    currentYPos += CreateEntity(
+        Common::MetricType::Counter,
+        "Renderer: Images ToDestroy Count: ",
+        "Renderer_Images_ToDestroy_Count",
         textProperties,
         currentYPos
     );

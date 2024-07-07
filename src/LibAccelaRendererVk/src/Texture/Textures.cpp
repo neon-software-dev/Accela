@@ -16,6 +16,7 @@
 #include "../Vulkan/VulkanPhysicalDevice.h"
 
 #include "../VMA/IVMA.h"
+#include "../Image/IImages.h"
 #include "../Buffer/IBuffers.h"
 #include "../Util/VulkanFuncs.h"
 #include "../Util/Futures.h"
@@ -37,12 +38,14 @@ namespace Accela::Render
 Textures::Textures(Common::ILogger::Ptr logger,
                    Common::IMetrics::Ptr metrics,
                    VulkanObjsPtr vulkanObjs,
+                   IImagesPtr images,
                    IBuffersPtr buffers,
                    PostExecutionOpsPtr postExecutionOps,
                    Ids::Ptr ids)
     : m_logger(std::move(logger))
     , m_metrics(std::move(metrics))
     , m_vulkanObjs(std::move(vulkanObjs))
+    , m_images(std::move(images))
     , m_buffers(std::move(buffers))
     , m_postExecutionOps(std::move(postExecutionOps))
     , m_ids(std::move(ids))
@@ -50,19 +53,17 @@ Textures::Textures(Common::ILogger::Ptr logger,
 
 }
 
-bool Textures::Initialize(VulkanCommandPoolPtr transferCommandPool,
-                          VkQueue vkTransferQueue)
+bool Textures::Initialize()
 {
     m_logger->Log(Common::LogLevel::Info, "Textures: Initializing");
-
-    m_transferCommandPool = transferCommandPool;
-    m_vkTransferQueue = vkTransferQueue;
 
     if (!CreateMissingTexture())
     {
         m_logger->Log(Common::LogLevel::Error, "Textures: Failed to create missing texture");
         return false;
     }
+
+    SyncMetrics();
 
     return true;
 }
@@ -79,603 +80,38 @@ void Textures::Destroy()
     m_missingTextureId = TextureId{INVALID_ID};
     m_missingCubeTextureId = TextureId{INVALID_ID};
 
-    m_texturesLoading.clear();
-    m_texturesToDestroy.clear();
-
     SyncMetrics();
 }
 
-bool Textures::CreateTextureEmpty(const Texture& texture, const std::vector<TextureView>& textureViews, const std::vector<TextureSampler>& textureSamplers)
+bool Textures::CreateTexture(const TextureDefinition& textureDefinition, std::promise<bool> resultPromise)
 {
-    if (texture.data.has_value())
-    {
-        m_logger->Log(Common::LogLevel::Warning, "CreateTextureEmpty: Texture has data provided, will be ignored: {}", texture.id.id);
-    }
-
-    const auto it = m_textures.find(texture.id);
+    const auto it = m_textures.find(textureDefinition.texture.id);
     if (it != m_textures.cend())
     {
-        m_logger->Log(Common::LogLevel::Warning, "CreateTextureEmpty: Texture already exists: {}", texture.id.id);
+        m_logger->Log(Common::LogLevel::Warning, "CreateTexture: Texture already exists: {}", textureDefinition.texture.id.id);
+        return ErrorResult(resultPromise);
+    }
+
+    m_logger->Log(Common::LogLevel::Debug, "CreateTexture: Creating texture: {}", textureDefinition.texture.id.id);
+
+    const auto imageDefinition = TextureDefToImageDef(textureDefinition);
+
+    const auto imageIdExpect = m_images->CreateFilledImage(imageDefinition, textureDefinition.texture.data, std::move(resultPromise));
+    if (!imageIdExpect)
+    {
+        m_logger->Log(Common::LogLevel::Warning, "CreateTexture: Failed to create image: {}", textureDefinition.texture.id.id);
         return false;
     }
-
-    m_logger->Log(Common::LogLevel::Debug, "CreateTextureEmpty: Creating empty texture objects: {}", texture.id.id);
-
-    const auto loadedTexture = CreateTextureObjects(texture, textureViews, textureSamplers, 1, false);
-    if (!loadedTexture)
-    {
-        m_logger->Log(Common::LogLevel::Error,
-          "CreateTextureEmpty: Failed to create texture objects for texture: {}", texture.id.id);
-        return false;
-    }
-
-    m_textures.insert(std::make_pair(texture.id, loadedTexture.value()));
-    SyncMetrics();
-
-    return true;
-}
-
-bool Textures::CreateTextureFilled(const Texture& texture,
-                                   const std::vector<TextureView>& textureViews,
-                                   const std::vector<TextureSampler>& textureSamplers,
-                                   std::promise<bool> resultPromise)
-{
-    if (!texture.data.has_value())
-    {
-        m_logger->Log(Common::LogLevel::Error, "CreateTextureFilled: Texture has no data provided: {}", texture.id.id);
-        return ErrorResult(resultPromise);
-    }
-
-    const auto it = m_textures.find(texture.id);
-    if (it != m_textures.cend())
-    {
-        m_logger->Log(Common::LogLevel::Warning, "CreateTextureFilled: Texture already exists: {}", texture.id.id);
-        return ErrorResult(resultPromise);
-    }
-
-    //
-    // Mipmap setup
-    //
-    bool generateMipMaps = false;
-    uint32_t mipLevels = 1;
-
-    const bool generateMipMapsRequested = texture.numMipLevels.has_value();
-
-    if (generateMipMapsRequested)
-    {
-        if (!texture.format)
-        {
-            m_logger->Log(Common::LogLevel::Error,
-              "CreateTextureFilled: Mipmaps requested for texture with no format provided: {}", texture.id.id);
-            return false;
-        }
-
-        mipLevels = *texture.numMipLevels;
-
-        const auto vkFormat = VulkanFuncs::TextureFormatToVkFormat(*texture.format);
-        if (vkFormat)
-        {
-            const bool deviceSupportsMipMaps = DoesDeviceSupportMipMapGeneration(*vkFormat);
-            const bool imageSupportsMipMaps = texture.numLayers == 1;
-
-            generateMipMaps = deviceSupportsMipMaps && imageSupportsMipMaps;
-
-            if (!generateMipMaps)
-            {
-                m_logger->Log(Common::LogLevel::Warning,
-                  "CreateTextureFilled: Asked to generate mipmaps but device or image doesn't support it, ignoring");
-            }
-        }
-    }
-
-    //
-    // Create the texture's objects
-    //
-    m_logger->Log(Common::LogLevel::Debug, "CreateTextureFilled: Creating texture objects: {}", texture.id.id);
-
-    const auto loadedTexture = CreateTextureObjects(texture, textureViews, textureSamplers, mipLevels, generateMipMaps);
-    if (!loadedTexture)
-    {
-        m_logger->Log(Common::LogLevel::Error,
-          "CreateTextureFilled: Failed to create texture objects for texture: {}", texture.id.id);
-        return ErrorResult(resultPromise);
-    }
-
-    // Create a record of the texture
-    m_textures.insert(std::make_pair(texture.id, loadedTexture.value()));
-
-    SyncMetrics();
-
-    //
-    // Asynchronously fill the texture image with the provided data, and generate mipmaps as needed
-    //
-    return TransferImageData(
-        *loadedTexture,
-        *(texture.data),
-        mipLevels,
-        generateMipMaps,
-        true,
-        std::move(resultPromise)
-    );
-}
-
-std::expected<LoadedTexture, bool> Textures::CreateTextureObjects(const Texture& texture,
-                                                                  const std::vector<TextureView>& textureViews,
-                                                                  const std::vector<TextureSampler>& textureSamplers,
-                                                                  const uint32_t& mipLevels,
-                                                                  bool generatingMipMaps)
-{
-    VulkanFuncs vulkanFuncs(m_logger, m_vulkanObjs);
 
     LoadedTexture loadedTexture{};
-    loadedTexture.textureId = texture.id;
-    loadedTexture.pixelSize = texture.pixelSize;
-    loadedTexture.mipLevels = mipLevels;
-    loadedTexture.numLayers = texture.numLayers;
+    loadedTexture.textureDefinition = textureDefinition;
+    loadedTexture.imageId = *imageIdExpect;
 
-    //
-    // Setup
-    //
-    const auto vkFormat = GetTextureImageFormat(texture);
-    if (!vkFormat)
-    {
-        m_logger->Log(Common::LogLevel::Error, "CreateTextureObjects: Failed to determine image format");
-        return std::unexpected(false);
-    }
+    m_textures.insert(std::make_pair(textureDefinition.texture.id, loadedTexture));
 
-    loadedTexture.vkFormat = *vkFormat;
-
-    //
-    // Create a VkImage, VkImageView, VkSampler
-    //
-    if (!CreateTextureImage(loadedTexture, texture, generatingMipMaps))
-    {
-        m_logger->Log(Common::LogLevel::Error, "CreateTextureObjects: Failed to create texture image");
-        return std::unexpected(false);
-    }
-
-    for (const auto& textureView : textureViews)
-    {
-        if (!CreateTextureImageView(loadedTexture, textureView))
-        {
-            m_logger->Log(Common::LogLevel::Error, "CreateTextureObjects: Failed to create texture image view");
-            return std::unexpected(false);
-        }
-    }
-
-    for (const auto& textureSampler : textureSamplers)
-    {
-        if (!CreateTextureImageSampler(loadedTexture, textureSampler))
-        {
-            m_logger->Log(Common::LogLevel::Error, "CreateTextureObjects: Failed to create texture image sampler");
-            return std::unexpected(false);
-        }
-    }
-
-    //
-    // Now that all operations are successful, attach debug names to the created objects
-    //
-    const std::string textureTag = std::format("Texture-{}", texture.tag);
-
-    SetDebugName(m_vulkanObjs->GetCalls(), m_vulkanObjs->GetDevice(), VK_OBJECT_TYPE_IMAGE, (uint64_t)loadedTexture.allocation.vkImage, "Image-" + textureTag);
-    for (const auto& vkImageViewIt : loadedTexture.vkImageViews)
-    {
-        SetDebugName(m_vulkanObjs->GetCalls(), m_vulkanObjs->GetDevice(), VK_OBJECT_TYPE_IMAGE_VIEW, (uint64_t)vkImageViewIt.second, "ImageView-" + textureTag);
-    }
-    for (const auto& vkSamplerIt : loadedTexture.vkSamplers)
-    {
-        SetDebugName(m_vulkanObjs->GetCalls(), m_vulkanObjs->GetDevice(), VK_OBJECT_TYPE_SAMPLER, (uint64_t)vkSamplerIt.second, "Sampler-" + textureTag);
-    }
-
-    return loadedTexture;
-}
-
-bool Textures::CreateTextureImage(LoadedTexture& loadedTexture, const Texture& texture, bool generatingMipMaps) const
-{
-    //
-    // Extent
-    //
-    VkExtent3D vkExtent{};
-    vkExtent.width = texture.pixelSize.w;
-    vkExtent.height = texture.pixelSize.h;
-    vkExtent.depth = 1;
-
-    //
-    // Usage
-    //
-    VkImageUsageFlags vkImageUsageFlags{0};
-
-    for (const auto usage : texture.usages)
-    {
-        switch (usage)
-        {
-            case TextureUsage::Sampled:
-                vkImageUsageFlags = vkImageUsageFlags | VK_IMAGE_USAGE_SAMPLED_BIT;
-            break;
-            case TextureUsage::InputAttachment:
-                vkImageUsageFlags = vkImageUsageFlags | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
-            break;
-            case TextureUsage::ColorAttachment:
-                vkImageUsageFlags = vkImageUsageFlags | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-            break;
-            case TextureUsage::DepthStencilAttachment:
-                vkImageUsageFlags = vkImageUsageFlags | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-            break;
-            case TextureUsage::TransferSource:
-                vkImageUsageFlags = vkImageUsageFlags | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-            break;
-            case TextureUsage::Storage:
-                vkImageUsageFlags = vkImageUsageFlags | VK_IMAGE_USAGE_STORAGE_BIT;
-            break;
-        }
-    }
-
-    // TODO: Not all textures need to have data transferred to them
-    vkImageUsageFlags |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-
-    // If we're generating mipmaps, mark the image as a transfer source as
-    // we blit from the base mip level to the other mip levels
-    if (generatingMipMaps)
-    {
-        vkImageUsageFlags |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-    }
-
-    //
-    // Create a VkImage
-    //
-    VkImageCreateFlags vkImageCreateFlags{0};
-
-    if (texture.cubicTexture)
-    {
-        if (texture.numLayers != 6)
-        {
-            m_logger->Log(Common::LogLevel::Error,
-              "CreateTextureImage: Specified as cubic texture but doesn't have six layers: {}", texture.id.id);
-            return false;
-        }
-
-        vkImageCreateFlags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
-    }
-
-    VkImageCreateInfo info = {};
-    info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    info.pNext = nullptr;
-    info.imageType = VK_IMAGE_TYPE_2D;
-    info.format = loadedTexture.vkFormat;
-    info.extent = vkExtent;
-    info.mipLevels = loadedTexture.mipLevels;
-    info.arrayLayers = texture.numLayers;
-    info.samples = VK_SAMPLE_COUNT_1_BIT;
-    info.tiling = VK_IMAGE_TILING_OPTIMAL;
-    info.usage = vkImageUsageFlags;
-    info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    info.flags = vkImageCreateFlags;
-
-    VmaAllocationCreateInfo vmaAllocCreateInfo = {};
-    vmaAllocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    vmaAllocCreateInfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-    VkImage vkImage;
-    VmaAllocation vmaAllocation;
-
-    auto result = m_vulkanObjs->GetVMA()->CreateImage(&info, &vmaAllocCreateInfo, &vkImage, &vmaAllocation, nullptr);
-    if (result != VK_SUCCESS)
-    {
-        m_logger->Log(Common::LogLevel::Error,
-          "CreateTextureImage: vmaCreateImage failure, result code: {}", (uint32_t)result);
-        return false;
-    }
-
-    loadedTexture.allocation = ImageAllocation(vkImage, vmaAllocation);
+    SyncMetrics();
 
     return true;
-}
-
-bool Textures::CreateTextureImageView(LoadedTexture& loadedTexture, const TextureView& textureView) const
-{
-    if (loadedTexture.vkImageViews.contains(textureView.name))
-    {
-        m_logger->Log(Common::LogLevel::Error,
-          "CreateTextureImageView: Texture already has a texture view with the name: {}", textureView.name);
-        return false;
-    }
-
-    VkImageViewType vkImageViewType{};
-    switch (textureView.viewType)
-    {
-        case TextureView::ViewType::VIEW_TYPE_1D: vkImageViewType = VK_IMAGE_VIEW_TYPE_1D; break;
-        case TextureView::ViewType::VIEW_TYPE_2D: vkImageViewType = VK_IMAGE_VIEW_TYPE_2D; break;
-        case TextureView::ViewType::VIEW_TYPE_3D: vkImageViewType = VK_IMAGE_VIEW_TYPE_3D; break;
-        case TextureView::ViewType::VIEW_TYPE_CUBE: vkImageViewType = VK_IMAGE_VIEW_TYPE_CUBE; break;
-        case TextureView::ViewType::VIEW_TYPE_1D_ARRAY: vkImageViewType = VK_IMAGE_VIEW_TYPE_1D_ARRAY; break;
-        case TextureView::ViewType::VIEW_TYPE_2D_ARRAY: vkImageViewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY; break;
-        case TextureView::ViewType::VIEW_TYPE_CUBE_ARRAY: vkImageViewType = VK_IMAGE_VIEW_TYPE_CUBE_ARRAY; break;
-    }
-
-    VkImageAspectFlags vkImageAspectFlags{0};
-    for (const auto& aspect : textureView.aspects)
-    {
-        switch (aspect)
-        {
-            case TextureView::Aspect::ASPECT_COLOR_BIT: vkImageAspectFlags = vkImageAspectFlags | VK_IMAGE_ASPECT_COLOR_BIT; break;
-            case TextureView::Aspect::ASPECT_DEPTH_BIT: vkImageAspectFlags = vkImageAspectFlags | VK_IMAGE_ASPECT_DEPTH_BIT; break;
-            case TextureView::Aspect::ASPECT_STENCIL_BIT: vkImageAspectFlags = vkImageAspectFlags | VK_IMAGE_ASPECT_STENCIL_BIT; break;
-        }
-    }
-
-    VkImageViewCreateInfo viewInfo{};
-    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    viewInfo.image = loadedTexture.allocation.vkImage;
-    viewInfo.viewType = vkImageViewType;
-    viewInfo.format = loadedTexture.vkFormat;
-    viewInfo.subresourceRange.aspectMask = vkImageAspectFlags;
-    viewInfo.subresourceRange.baseMipLevel = 0;
-    viewInfo.subresourceRange.levelCount = loadedTexture.mipLevels;
-    viewInfo.subresourceRange.baseArrayLayer = textureView.layer.baseLayer;
-    viewInfo.subresourceRange.layerCount = textureView.layer.layerCount;
-
-    VkImageView vkImageView{VK_NULL_HANDLE};
-
-    auto result = m_vulkanObjs->GetCalls()->vkCreateImageView(m_vulkanObjs->GetDevice()->GetVkDevice(), &viewInfo, nullptr, &vkImageView);
-    if (result != VK_SUCCESS)
-    {
-        m_logger->Log(Common::LogLevel::Error,
-          "CreateTextureImageView: vkCreateImageView call failed, result code: {}", (uint32_t)result);
-
-        m_vulkanObjs->GetVMA()->DestroyImage(loadedTexture.allocation.vkImage, loadedTexture.allocation.vmaAllocation);
-
-        return false;
-    }
-
-    loadedTexture.vkImageViews.insert({textureView.name, vkImageView});
-
-    return true;
-}
-
-bool Textures::CreateTextureImageSampler(LoadedTexture& loadedTexture, const TextureSampler& textureSampler) const
-{
-    VkSamplerAddressMode uSamplerMode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    switch (textureSampler.uvAddressMode.first)
-    {
-        case SamplerAddressMode::Wrap: uSamplerMode = VK_SAMPLER_ADDRESS_MODE_REPEAT; break;
-        case SamplerAddressMode::Clamp: uSamplerMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; break;
-        case SamplerAddressMode::Mirror: uSamplerMode = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT; break;
-    }
-
-    VkSamplerAddressMode vSamplerMode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    switch (textureSampler.uvAddressMode.second)
-    {
-        case SamplerAddressMode::Wrap: vSamplerMode = VK_SAMPLER_ADDRESS_MODE_REPEAT; break;
-        case SamplerAddressMode::Clamp: vSamplerMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; break;
-        case SamplerAddressMode::Mirror: vSamplerMode = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT; break;
-    }
-
-    VkFilter vkMinFilter{};
-    switch (textureSampler.minFilter)
-    {
-        case SamplerFilterMode::Nearest: vkMinFilter = VK_FILTER_NEAREST; break;
-        case SamplerFilterMode::Linear: vkMinFilter = VK_FILTER_LINEAR; break;
-    }
-
-    VkFilter vkMagFilter{};
-    switch (textureSampler.magFilter)
-    {
-        case SamplerFilterMode::Nearest: vkMagFilter = VK_FILTER_NEAREST; break;
-        case SamplerFilterMode::Linear: vkMagFilter = VK_FILTER_LINEAR; break;
-    }
-
-    VkSamplerCreateInfo samplerInfo{};
-    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    samplerInfo.magFilter = vkMinFilter;
-    samplerInfo.minFilter = vkMagFilter;
-    samplerInfo.addressModeU = uSamplerMode;
-    samplerInfo.addressModeV = vSamplerMode;
-    samplerInfo.addressModeW = samplerInfo.addressModeU; // Noteworthy
-    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-    samplerInfo.unnormalizedCoordinates = VK_FALSE;
-    samplerInfo.compareEnable = VK_FALSE;
-    samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    samplerInfo.mipLodBias = 0.0f;
-    samplerInfo.minLod = 0.0f;
-    samplerInfo.maxLod = 0.0f;
-
-    // Configure anisotropy if the device supports it
-    if (m_vulkanObjs->GetPhysicalDevice()->GetPhysicalDeviceFeatures().samplerAnisotropy == VK_TRUE)
-    {
-        const auto anisotropyLevel = m_vulkanObjs->GetRenderSettings().textureAnisotropy;
-
-        samplerInfo.anisotropyEnable = anisotropyLevel == TextureAnisotropy::None ? VK_FALSE : VK_TRUE;
-
-        const float maxAnisotropy = anisotropyLevel == TextureAnisotropy::Maximum ?
-            m_vulkanObjs->GetPhysicalDevice()->GetPhysicalDeviceProperties().limits.maxSamplerAnisotropy :
-            2.0f;
-
-        samplerInfo.maxAnisotropy = maxAnisotropy;
-    }
-
-    // Configure mipmap sampling if we have mip levels
-    if (loadedTexture.mipLevels > 1)
-    {
-        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-        samplerInfo.minLod = 0.0f;
-        samplerInfo.maxLod = static_cast<float>(loadedTexture.mipLevels);
-        samplerInfo.mipLodBias = 0.0f;
-    }
-
-    VkSampler vkSampler{VK_NULL_HANDLE};
-
-    auto result = m_vulkanObjs->GetCalls()->vkCreateSampler(m_vulkanObjs->GetDevice()->GetVkDevice(), &samplerInfo, nullptr, &vkSampler);
-    if (result != VK_SUCCESS)
-    {
-        m_logger->Log(Common::LogLevel::Error,
-          "CreateTextureImageSampler: vkCreateSampler call failed, result code: {}", (uint32_t)result);
-
-        for (const auto& vkImageViewIt : loadedTexture.vkImageViews)
-        {
-            m_vulkanObjs->GetCalls()->vkDestroyImageView(m_vulkanObjs->GetDevice()->GetVkDevice(), vkImageViewIt.second, nullptr);
-        }
-        m_vulkanObjs->GetVMA()->DestroyImage(loadedTexture.allocation.vkImage, loadedTexture.allocation.vmaAllocation);
-
-        return false;
-    }
-
-    loadedTexture.vkSamplers.insert({textureSampler.name, vkSampler});
-
-    return true;
-}
-
-void Textures::DestroyTextureObjects(const LoadedTexture& texture) const
-{
-    m_logger->Log(Common::LogLevel::Debug, "Textures: Destroying texture objects: {}", texture.textureId.id);
-
-    // Remove debug names
-    RemoveDebugName(m_vulkanObjs->GetCalls(), m_vulkanObjs->GetDevice(), VK_OBJECT_TYPE_IMAGE, (uint64_t)texture.allocation.vkImage);
-    for (const auto& vkImageViewIt : texture.vkImageViews)
-    {
-        RemoveDebugName(m_vulkanObjs->GetCalls(), m_vulkanObjs->GetDevice(), VK_OBJECT_TYPE_IMAGE_VIEW, (uint64_t)vkImageViewIt.second);
-    }
-    for (const auto& vkSamplerIt : texture.vkSamplers)
-    {
-        RemoveDebugName(m_vulkanObjs->GetCalls(), m_vulkanObjs->GetDevice(), VK_OBJECT_TYPE_SAMPLER, (uint64_t)vkSamplerIt.second);
-    }
-
-    // Destroy objects
-    for (const auto& vkSamplerIt : texture.vkSamplers)
-    {
-        m_vulkanObjs->GetCalls()->vkDestroySampler(m_vulkanObjs->GetDevice()->GetVkDevice(), vkSamplerIt.second,nullptr);
-    }
-    for (const auto& vkImageViewIt : texture.vkImageViews)
-    {
-        m_vulkanObjs->GetCalls()->vkDestroyImageView(m_vulkanObjs->GetDevice()->GetVkDevice(), vkImageViewIt.second, nullptr);
-    }
-    m_vulkanObjs->GetVMA()->DestroyImage(texture.allocation.vkImage, texture.allocation.vmaAllocation);
-
-    // Return the id to the pool now that it's fully no longer in use
-    m_ids->textureIds.ReturnId(texture.textureId);
-}
-
-std::expected<VkFormat, bool> Textures::GetTextureImageFormat(const Texture& texture)
-{
-    // We provide texture format for depth-usage textures, from device capabilities
-    if (std::ranges::contains(texture.usages, TextureUsage::DepthStencilAttachment))
-    {
-        return m_vulkanObjs->GetPhysicalDevice()->GetDepthBufferFormat();
-    }
-
-    // Otherwise, get the format as specified by the texture itself
-    if (!texture.format.has_value())
-    {
-        m_logger->Log(Common::LogLevel::Error,
-          "Textures::GetTextureImageFormat: Non-depth texture doesn't have a format provided: {}", texture.tag);
-        return std::unexpected(false);
-    }
-
-    const auto vkFormat = VulkanFuncs::TextureFormatToVkFormat(*texture.format);
-    if (!vkFormat.has_value())
-    {
-        m_logger->Log(Common::LogLevel::Error,
-          "Textures::GetTextureImageFormat: Non-depth texture has an unsupported format: {}", texture.tag);
-        return std::unexpected(false);
-    }
-
-    return *vkFormat;
-}
-
-bool Textures::DoesDeviceSupportMipMapGeneration(const VkFormat& vkFormat) const
-{
-    auto vulkanFuncs = VulkanFuncs(m_logger, m_vulkanObjs);
-
-    const VkFormatProperties vkFormatProperties = vulkanFuncs.GetVkFormatProperties(vkFormat);
-
-    return vkFormatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
-}
-
-bool Textures::TransferImageData(const LoadedTexture& loadedTexture,
-                                 const Common::ImageData::Ptr& imageData,
-                                 const uint32_t& mipLevels,
-                                 bool generateMipMaps,
-                                 bool initialDataTransfer,
-                                 std::promise<bool> resultPromise)
-{
-    m_logger->Log(Common::LogLevel::Debug,
-      "Textures::TransferImageData: Starting data transfer for texture: {}", loadedTexture.textureId.id);
-
-    // If we're already actively transferring data to the texture, error out
-    if (m_texturesLoading.contains(loadedTexture.textureId))
-    {
-        m_logger->Log(Common::LogLevel::Error,
-          "Textures::TransferImageData: A data transfer for the texture is already in progress, id: {}", loadedTexture.textureId.id);
-        return ErrorResult(resultPromise);
-    }
-
-    VulkanFuncs vulkanFuncs(m_logger, m_vulkanObjs);
-
-    return vulkanFuncs.QueueSubmit<bool>(
-        std::format("TransferImageData-{}", loadedTexture.textureId.id),
-        m_postExecutionOps,
-        m_vkTransferQueue,
-        m_transferCommandPool,
-        [&](const VulkanCommandBufferPtr& commandBuffer, VkFence vkFence)  {
-
-            // Mark the texture as loading
-            m_texturesLoading.insert(loadedTexture.textureId);
-            SyncMetrics();
-
-            // After the data transfer the image should be ready to be read by a shader
-            VkImageLayout finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-            // ... Unless we need to generate mipmaps, in which case it should be instead
-            // be put into transfer dest optimal for receiving mip data
-            if (generateMipMaps)
-            {
-                finalLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-            }
-
-            //
-            // Transfer from the provided data to the image's base mip level
-            //
-            const auto transferResult = vulkanFuncs.TransferImageData(
-                m_buffers,
-                m_postExecutionOps,
-                commandBuffer->GetVkCommandBuffer(),
-                vkFence,
-                imageData,
-                loadedTexture.allocation.vkImage,
-                mipLevels,
-                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                finalLayout
-            );
-            if (!transferResult)
-            {
-                m_logger->Log(Common::LogLevel::Error, "TransferImageToTexture: Failed to transfer data to GPU image");
-                return false;
-            }
-
-            //
-            // If requested, generate mip maps for the image's other mip levels
-            //
-            if (generateMipMaps)
-            {
-                vulkanFuncs.GenerateMipMaps(
-                    commandBuffer->GetVkCommandBuffer(),
-                    USize(imageData->GetPixelWidth(), imageData->GetPixelHeight()),
-                    loadedTexture.allocation.vkImage,
-                    mipLevels,
-                    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
-                );
-            }
-
-            return true;
-        },
-        [=,this](bool commandsSuccessful){
-            return OnTextureTransferFinished(commandsSuccessful, loadedTexture, initialDataTransfer);
-        },
-        std::move(resultPromise),
-        EnqueueType::Frameless
-    );
 }
 
 std::optional<LoadedTexture> Textures::GetTexture(TextureId textureId)
@@ -689,14 +125,31 @@ std::optional<LoadedTexture> Textures::GetTexture(TextureId textureId)
     return it->second;
 }
 
-LoadedTexture Textures::GetMissingTexture()
+std::optional<std::pair<LoadedTexture, LoadedImage>> Textures::GetTextureAndImage(TextureId textureId)
 {
-    return GetTexture(m_missingTextureId).value();
+    const auto loadedTexture = GetTexture(textureId);
+    if (!loadedTexture)
+    {
+        return std::nullopt;
+    }
+
+    const auto loadedImage = m_images->GetImage(loadedTexture->imageId);
+    if (!loadedImage)
+    {
+        return std::nullopt;
+    }
+
+    return std::make_pair(*loadedTexture, *loadedImage);
 }
 
-LoadedTexture Textures::GetMissingCubeTexture()
+std::pair<LoadedTexture, LoadedImage> Textures::GetMissingTexture()
 {
-    return GetTexture(m_missingCubeTextureId).value();
+    return GetTextureAndImage(m_missingTextureId).value();
+}
+
+std::pair<LoadedTexture, LoadedImage> Textures::GetMissingCubeTexture()
+{
+    return GetTextureAndImage(m_missingCubeTextureId).value();
 }
 
 void Textures::DestroyTexture(TextureId textureId, bool destroyImmediately)
@@ -711,64 +164,13 @@ void Textures::DestroyTexture(TextureId textureId, bool destroyImmediately)
 
     const auto texture = it->second;
 
-    // Whether destroying the texture's objects immediately or not below, erase our knowledge
-    // of the texture; no future render work is allowed to use it
-    m_textures.erase(it);
-    m_texturesToDestroy.erase(textureId);
+    m_images->DestroyImage(texture.imageId, destroyImmediately);
+
+    m_textures.erase(texture.textureDefinition.texture.id);
+
+    m_ids->textureIds.ReturnId(texture.textureDefinition.texture.id);
 
     SyncMetrics();
-
-    // If a texture's data transfer is still happening, need to wait until the transfer has finished before
-    // destroying the texture's Vulkan objects. Mark the texture as to be deleted and bail out.
-    if (m_texturesLoading.contains(textureId) && !destroyImmediately)
-    {
-        m_logger->Log(Common::LogLevel::Debug, "Textures: Postponing destroy of texture: {}", textureId.id);
-        m_texturesToDestroy.insert(textureId);
-        return;
-    }
-    else if (destroyImmediately)
-    {
-        m_logger->Log(Common::LogLevel::Debug, "Textures: Destroying texture immediately: {}", textureId.id);
-        DestroyTextureObjects(texture);
-    }
-    else
-    {
-        m_logger->Log(Common::LogLevel::Debug, "Textures: Enqueueing texture destroy: {}", textureId.id);
-        m_postExecutionOps->Enqueue_Current([=,this]() { DestroyTextureObjects(texture); });
-    }
-}
-
-bool Textures::OnTextureTransferFinished(bool transfersSuccessful, const LoadedTexture& loadedTexture, bool initialDataTransfer)
-{
-    m_logger->Log(Common::LogLevel::Debug, "Textures: Texture load finished for texture: {}", loadedTexture.textureId.id);
-
-    // Mark the texture as no longer loading
-    m_texturesLoading.erase(loadedTexture.textureId);
-
-    // Now that the transfer is finished, we want to destroy the texture in two cases:
-    // 1) While the transfer was happening, we received a call to destroy the texture
-    // 2) The transfer was an initial data transfer, which failed
-    //
-    // Note that for update transfers, we're (currently) allowing the texture to still
-    // exist, even though updating its data failed.
-    if (m_texturesToDestroy.contains(loadedTexture.textureId) || (initialDataTransfer && !transfersSuccessful))
-    {
-        m_logger->Log(Common::LogLevel::Debug,
-          "Textures::OnTextureLoadFinished: Texture should be destroyed: {}", loadedTexture.textureId.id);
-
-        // Erase our records of the texture
-        m_textures.erase(loadedTexture.textureId);
-        m_texturesToDestroy.erase(loadedTexture.textureId);
-
-        // Enqueue texture object destruction
-        m_postExecutionOps->Enqueue_Current([=, this]() { DestroyTextureObjects(loadedTexture); });
-
-        SyncMetrics();
-        return false;
-    }
-
-    SyncMetrics();
-    return true;
 }
 
 bool Textures::CreateMissingTexture()
@@ -808,16 +210,21 @@ bool Textures::CreateMissingTexture()
     );
 
     const auto missingTextureId = m_ids->textureIds.GetId();
+
     const auto missingTexture = Texture::FromImageData(
         missingTextureId,
-        {TextureUsage::Sampled},
-        TextureFormat::R8G8B8A8_SRGB,
         1,
         false,
         missingTextureImage,
         "Missing"
     );
-    const auto missingTextureView = TextureView::ViewAs2D(TextureView::DEFAULT, TextureView::Aspect::ASPECT_COLOR_BIT);
+    if (!missingTexture)
+    {
+        m_logger->Log(Common::LogLevel::Error, "Failed to create missing texture object");
+        return false;
+    }
+
+    const auto missingTextureView = TextureView::ViewAs2D(TextureView::DEFAULT);
 
     //
     // Missing 2D Cube Texture
@@ -839,28 +246,42 @@ bool Textures::CreateMissingTexture()
     );
 
     const auto missingTextureCubeId = m_ids->textureIds.GetId();
+
     const auto missingTextureCube = Texture::FromImageData(
         missingTextureCubeId,
-        {TextureUsage::Sampled},
-        TextureFormat::R8G8B8A8_SRGB,
         6,
         true,
         missingTextureCubeImage,
         "MissingCube"
     );
-    const auto missingTextureCubeView = TextureView::ViewAsCube(TextureView::DEFAULT, TextureView::Aspect::ASPECT_COLOR_BIT);
+    if (!missingTextureCube)
+    {
+        m_logger->Log(Common::LogLevel::Error, "Failed to create missing cube texture object");
+        return false;
+    }
 
+    const auto missingTextureCubeView = TextureView::ViewAsCube(TextureView::DEFAULT);
+
+    //
+    // Create missing textures
+    //
     const auto textureSampler = TextureSampler(TextureSampler::DEFAULT, WRAP_ADDRESS_MODE);
 
     // As this happens once during initialization, just create a fake promise/future for the data transfer,
     // we don't need to wait for it to finish
     std::promise<bool> createTexturePromise;
     std::future<bool> createTextureFuture = createTexturePromise.get_future();
-    CreateTextureFilled(missingTexture, {missingTextureView}, {textureSampler}, std::move(createTexturePromise));
+    CreateTexture(
+        TextureDefinition(*missingTexture, {missingTextureView}, {textureSampler}),
+        std::move(createTexturePromise)
+    );
 
     std::promise<bool> createTextureCubePromise;
     std::future<bool> createTextureCubeFuture = createTextureCubePromise.get_future();
-    CreateTextureFilled(missingTextureCube, {missingTextureCubeView}, {textureSampler}, std::move(createTextureCubePromise));
+    CreateTexture(
+        TextureDefinition(*missingTextureCube, {missingTextureCubeView}, {textureSampler}),
+        std::move(createTextureCubePromise)
+    );
 
     m_missingTextureId = missingTextureId;
     m_missingCubeTextureId = missingTextureCubeId;
@@ -868,11 +289,113 @@ bool Textures::CreateMissingTexture()
     return true;
 }
 
-void Textures::SyncMetrics()
+void Textures::SyncMetrics() const
 {
     m_metrics->SetCounterValue(Renderer_Textures_Count, m_textures.size());
-    m_metrics->SetCounterValue(Renderer_Textures_Loading_Count, m_texturesLoading.size());
-    m_metrics->SetCounterValue(Renderer_Textures_ToDestroy_Count, m_texturesToDestroy.size());
+}
+
+ImageDefinition Textures::TextureDefToImageDef(const TextureDefinition& textureDefinition)
+{
+    VkFormat vkImageFormat{VK_FORMAT_R8G8B8A8_SRGB};
+
+    switch (textureDefinition.texture.format)
+    {
+        case Format::RGBA32:
+            vkImageFormat = VK_FORMAT_R8G8B8A8_SRGB;
+        break;
+    }
+
+    // Textures are universally sampled and have their image data transfered to them
+    VkImageUsageFlags vkImageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+    // If the texture has mip levels, mark it as a transfer source for the mip-mapping blit transfers
+    if (textureDefinition.texture.numMipLevels)
+    {
+        vkImageUsageFlags = vkImageUsageFlags | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    }
+
+    const auto image = Image{
+        .tag = std::format("Texture-{}", textureDefinition.texture.tag),
+        .vkImageType = VK_IMAGE_TYPE_2D,
+        .vkFormat = vkImageFormat,
+        .vkImageTiling = VK_IMAGE_TILING_OPTIMAL,
+        .vkImageUsageFlags = vkImageUsageFlags,
+        .size = textureDefinition.texture.pixelSize,
+        .numLayers = textureDefinition.texture.numLayers,
+        .numMipLevels = textureDefinition.texture.numMipLevels ? *textureDefinition.texture.numMipLevels : 1,
+        .cubeCompatible = textureDefinition.texture.cubicTexture
+    };
+
+    std::vector<ImageView> imageViews;
+
+    for (const auto& textureView : textureDefinition.textureViews)
+    {
+        VkImageViewType vkImageViewType{VK_IMAGE_VIEW_TYPE_2D};
+
+        switch (textureView.viewType)
+        {
+            case TextureView::ViewType::VIEW_TYPE_2D:
+                vkImageViewType = VK_IMAGE_VIEW_TYPE_2D;
+                break;
+            case TextureView::ViewType::VIEW_TYPE_CUBE:
+                vkImageViewType = VK_IMAGE_VIEW_TYPE_CUBE;
+                break;
+        }
+
+        imageViews.push_back(ImageView{
+            .name = textureView.name,
+            .vkImageViewType = vkImageViewType,
+            .vkImageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseLayer = textureView.layer.baseLayer,
+            .layerCount = textureView.layer.layerCount
+        });
+    }
+
+    std::vector<ImageSampler> imageSamplers;
+
+    for (const auto& textureSampler : textureDefinition.textureSamplers)
+    {
+        VkSamplerAddressMode uSamplerMode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        switch (textureSampler.uvAddressMode.first)
+        {
+            case SamplerAddressMode::Wrap: uSamplerMode = VK_SAMPLER_ADDRESS_MODE_REPEAT; break;
+            case SamplerAddressMode::Clamp: uSamplerMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; break;
+            case SamplerAddressMode::Mirror: uSamplerMode = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT; break;
+        }
+
+        VkSamplerAddressMode vSamplerMode = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        switch (textureSampler.uvAddressMode.second)
+        {
+            case SamplerAddressMode::Wrap: vSamplerMode = VK_SAMPLER_ADDRESS_MODE_REPEAT; break;
+            case SamplerAddressMode::Clamp: vSamplerMode = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE; break;
+            case SamplerAddressMode::Mirror: vSamplerMode = VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT; break;
+        }
+
+        VkFilter vkMinFilter{};
+        switch (textureSampler.minFilter)
+        {
+            case SamplerFilterMode::Nearest: vkMinFilter = VK_FILTER_NEAREST; break;
+            case SamplerFilterMode::Linear: vkMinFilter = VK_FILTER_LINEAR; break;
+        }
+
+        VkFilter vkMagFilter{};
+        switch (textureSampler.magFilter)
+        {
+            case SamplerFilterMode::Nearest: vkMagFilter = VK_FILTER_NEAREST; break;
+            case SamplerFilterMode::Linear: vkMagFilter = VK_FILTER_LINEAR; break;
+        }
+
+        imageSamplers.push_back(ImageSampler{
+            .name = textureSampler.name,
+            .vkMagFilter = vkMagFilter,
+            .vkMinFilter = vkMinFilter,
+            .vkSamplerAddressModeU = uSamplerMode,
+            .vkSamplerAddressModeV = vSamplerMode,
+            .vkSamplerMipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR
+        });
+    }
+
+    return ImageDefinition(image, imageViews, imageSamplers);
 }
 
 }

@@ -7,14 +7,12 @@
 #ifndef ACCELAEDITOR_THREAD_ACCELATHREAD_H
 #define ACCELAEDITOR_THREAD_ACCELATHREAD_H
 
-#include "../EditorScene/EditorScene.h"
-#include "../EditorScene/SceneCommand.h"
+#include "../MessageBasedScene.h"
 
 #include <Accela/Engine/IEngine.h>
 
 #include <Accela/Common/Log/ILogger.h>
 #include <Accela/Common/Metrics/IMetrics.h>
-#include <Accela/Platform/PlatformQt.h>
 
 #include <QThread>
 
@@ -26,6 +24,11 @@ class QWindow;
 
 namespace Accela
 {
+    namespace Platform
+    {
+        class PlatformQt;
+    }
+
     /**
      * Runs an accela engine instance in a QThread
      */
@@ -42,7 +45,8 @@ namespace Accela
             AccelaThread(QWindow *pWindow,
                          Common::ILogger::Ptr logger,
                          Common::IMetrics::Ptr metrics,
-                         EditorScene::Ptr scene);
+                         std::shared_ptr<Platform::PlatformQt> platform,
+                         std::shared_ptr<MessageBasedScene> scene);
 
             /**
              * Start the engine within this thread, if it's not already
@@ -96,8 +100,8 @@ namespace Accela
             QWindow* m_pWindow;
             Common::ILogger::Ptr m_logger;
             Common::IMetrics::Ptr m_metrics;
-            EditorScene::Ptr m_scene;
-            Platform::PlatformQt::Ptr m_platform;
+            std::shared_ptr<Platform::PlatformQt> m_platform;
+            std::shared_ptr<MessageBasedScene> m_scene;
 
             State m_state{State::WaitingForCommand};
 

@@ -44,6 +44,7 @@ SpriteRenderer::SpriteRenderer(Common::ILogger::Ptr logger,
                                IPipelineFactoryPtr pipelines,
                                IBuffersPtr buffers,
                                IMaterialsPtr materials,
+                               IImagesPtr images,
                                ITexturesPtr textures,
                                IMeshesPtr meshes,
                                ILightsPtr lights,
@@ -59,6 +60,7 @@ SpriteRenderer::SpriteRenderer(Common::ILogger::Ptr logger,
               std::move(pipelines),
               std::move(buffers),
               std::move(materials),
+              std::move(images),
               std::move(textures),
               std::move(meshes),
               std::move(lights),
@@ -270,7 +272,7 @@ void SpriteRenderer::RenderBatch(const LoadedMesh& spriteMesh,
     //
     // Fetch the texture this batch uses
     //
-    auto loadedTexture = m_textures->GetTexture(spriteBatch.textureId);
+    auto loadedTexture = m_textures->GetTextureAndImage(spriteBatch.textureId);
     if (!loadedTexture)
     {
         m_logger->Log(Common::LogLevel::Error,
@@ -464,11 +466,11 @@ std::optional<VulkanDescriptorSetPtr> SpriteRenderer::UpdateRendererDescriptorSe
     return *rendererDataDescriptorSet;
 }
 
-std::optional<VulkanDescriptorSetPtr> SpriteRenderer::UpdateMaterialDescriptorSet(const LoadedTexture& loadedTexture)
+std::optional<VulkanDescriptorSetPtr> SpriteRenderer::UpdateMaterialDescriptorSet(const std::pair<LoadedTexture, LoadedImage>& loadedTexture)
 {
     const auto materialDescriptorSet = m_descriptorSets->CachedAllocateDescriptorSet(
         m_programDef->GetDescriptorSetLayouts()[2],
-        std::format("SpriteRenderer-MaterialData-{}-{}", m_frameIndex, loadedTexture.textureId.id)
+        std::format("SpriteRenderer-MaterialData-{}-{}", m_frameIndex, loadedTexture.first.textureDefinition.texture.id.id)
     );
     if (!materialDescriptorSet)
     {
@@ -478,8 +480,8 @@ std::optional<VulkanDescriptorSetPtr> SpriteRenderer::UpdateMaterialDescriptorSe
 
     (*materialDescriptorSet)->WriteCombinedSamplerBind(
         m_programDef->GetBindingDetailsByName("i_spriteSampler"),
-        loadedTexture.vkImageViews.at(TextureView::DEFAULT),
-        loadedTexture.vkSamplers.at(TextureSampler::DEFAULT)
+        loadedTexture.second.vkImageViews.at(TextureView::DEFAULT),
+        loadedTexture.second.vkSamplers.at(TextureSampler::DEFAULT)
     );
 
     return *materialDescriptorSet;

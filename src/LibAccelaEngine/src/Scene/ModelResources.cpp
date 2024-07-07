@@ -482,26 +482,30 @@ std::expected<Render::TextureId, bool> ModelResources::LoadModelMaterialTexture(
     //
     auto texture = Render::Texture::FromImageData(
         textureId,
-        {Render::TextureUsage::Sampled},
-        Render::TextureFormat::R8G8B8A8_SRGB,
         1,
         false,
         *textureData,
         modelTexture.fileName
     );
+    if (!texture)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "ModelResources::LoadModelMaterialTexture: Failed to create texture object: {} : {}", modelName, modelTexture.fileName);
+        return std::unexpected(false);
+    }
 
     // Full/max mip levels
-    texture.SetFullMipLevels();
+    texture->SetFullMipLevels();
 
     // For models, since we have no real input on what level of mipmapping is wanted, let's just generate 4 levels for
     // a decent balance between having some minimum mipmaping, but nothing too extensive
     // TODO: Client can provide some sort of parameter which maps texture name -> mip level
-    texture.numMipLevels = std::min(*texture.numMipLevels, 4U);
+    texture->numMipLevels = std::min(*texture->numMipLevels, 4U);
 
-    const auto textureView = Render::TextureView::ViewAs2D(Render::TextureView::DEFAULT, Render::TextureView::Aspect::ASPECT_COLOR_BIT);
+    const auto textureView = Render::TextureView::ViewAs2D(Render::TextureView::DEFAULT);
     const auto textureSampler = Render::TextureSampler(Render::TextureSampler::DEFAULT, modelTexture.uvAddressMode);
 
-    auto opFuture = m_renderer->CreateTexture(texture, textureView, textureSampler);
+    auto opFuture = m_renderer->CreateTexture(*texture, textureView, textureSampler);
 
     if (resultWhen == ResultWhen::FullyLoaded && !opFuture.get())
     {

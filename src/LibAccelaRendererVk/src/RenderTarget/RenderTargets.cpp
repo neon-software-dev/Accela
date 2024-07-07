@@ -10,9 +10,10 @@
 #include "../InternalCommon.h"
 
 #include "../Framebuffer/IFramebuffers.h"
-#include "../Texture/ITextures.h"
+#include "../Image/IImages.h"
 #include "../Util/VulkanFuncs.h"
 #include "../Vulkan/VulkanDevice.h"
+#include "../Vulkan/VulkanPhysicalDevice.h"
 
 #include <format>
 
@@ -23,33 +24,16 @@ RenderTargets::RenderTargets(Common::ILogger::Ptr logger,
                              VulkanObjsPtr vulkanObjs,
                              PostExecutionOpsPtr postExecutionOps,
                              IFramebuffersPtr framebuffers,
-                             ITexturesPtr textures,
+                             IImagesPtr images,
                              Ids::Ptr ids)
      : m_logger(std::move(logger))
      , m_vulkanObjs(std::move(vulkanObjs))
      , m_postExecutionOps(std::move(postExecutionOps))
      , m_framebuffers(std::move(framebuffers))
-     , m_textures(std::move(textures))
+     , m_images(std::move(images))
      , m_ids(std::move(ids))
 {
 
-}
-
-TextureView TextureViewForLayerCount(TextureView::Aspect aspect, uint32_t layerCount)
-{
-    //
-    // If we're creating single layer render textures for desktop mode, our view of those textures is as a simple
-    // one layer 2D image. If we created multiple layer textures for rendering in VR mode, we view the texture as
-    // a texture array over all the texture's layers.
-    //
-    if (layerCount == 1)
-    {
-        return TextureView::ViewAs2D(TextureView::DEFAULT, aspect);
-    }
-    else
-    {
-        return TextureView::ViewAs2DArray(TextureView::DEFAULT, aspect, TextureView::Layer(0, layerCount));
-    }
 }
 
 bool RenderTargets::CreateRenderTarget(const RenderTargetId& renderTargetId, const std::string& tag)
@@ -77,17 +61,17 @@ bool RenderTargets::CreateRenderTarget(const RenderTargetId& renderTargetId, con
         return false;
     }
 
-    const auto postProcessOutputTexture = CreatePostProcessOutputTexture(tag);
-    if (!postProcessOutputTexture)
+    const auto postProcessOutputImage = CreatePostProcessOutputImage(tag);
+    if (!postProcessOutputImage)
     {
         m_logger->Log(Common::LogLevel::Error,
-              "RenderTargets::CreateRenderTarget: Failed to create post-process output texture: {}",tag);
+          "RenderTargets::CreateRenderTarget: Failed to create post-process output image: {}",tag);
         return false;
     }
 
     m_renderTargets.insert({
         renderTargetId,
-        RenderTarget(*gPassFramebufferId, *screenFramebufferId, *postProcessOutputTexture, tag)
+        RenderTarget(*gPassFramebufferId, *screenFramebufferId, *postProcessOutputImage, tag)
     });
 
     return true;
@@ -105,126 +89,177 @@ std::optional<Render::FrameBufferId> RenderTargets::CreateGPassFramebuffer(const
         layerCount = 2;
     }
 
-    const auto defaultTextureSampler = TextureSampler(TextureSampler::DEFAULT, CLAMP_ADDRESS_MODE);
+    const auto defaultImageSampler = ImageSampler(
+        ImageSampler::DEFAULT,
+        VK_FILTER_LINEAR,
+        VK_FILTER_LINEAR,
+        VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+        VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+        VK_SAMPLER_MIPMAP_MODE_LINEAR
+    );
 
-    auto nearestTextureSampler = TextureSampler(TextureSampler::NEAREST, CLAMP_ADDRESS_MODE);
-    nearestTextureSampler.minFilter = SamplerFilterMode::Nearest;
-    nearestTextureSampler.magFilter = SamplerFilterMode::Nearest;
+    const auto nearestImageSampler = ImageSampler(
+        ImageSampler::NEAREST,
+        VK_FILTER_NEAREST,
+        VK_FILTER_NEAREST,
+        VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+        VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+        VK_SAMPLER_MIPMAP_MODE_LINEAR
+    );
 
-    const auto colorAttachmentTexture = TextureDefinition {
-        Texture::Empty(
-            Render::TextureId::Invalid(),
-            {TextureUsage::Sampled, TextureUsage::ColorAttachment, TextureUsage::TransferSource, TextureUsage::Storage},
-            TextureFormat::R16G16B16A16_SFLOAT,
-            renderSettings.resolution,
-            layerCount,
-            false,
-            std::format("Color-{}", tag)
-        ),
-        {
-            TextureView::ViewAs2DArray(
-            TextureView::DEFAULT,
-            TextureView::Aspect::ASPECT_COLOR_BIT,
-            TextureView::Layer(0, layerCount))
+    //
+    // Color Attachment Image
+    //
+    const auto colorAttachmentImage = ImageDefinition {
+        Image{
+            .tag = std::format("Color-{}", tag),
+            .vkImageType = VK_IMAGE_TYPE_2D,
+            .vkFormat = VK_FORMAT_R16G16B16A16_SFLOAT,
+            .vkImageTiling = VK_IMAGE_TILING_OPTIMAL,
+            .vkImageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+                                | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT
+                                | VK_IMAGE_USAGE_STORAGE_BIT,
+            .size = renderSettings.resolution,
+            .numLayers = layerCount,
+            .vmaAllocationCreateFlags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
         },
-        { defaultTextureSampler, nearestTextureSampler }
+        {
+            ImageView{
+                .name = ImageView::DEFAULT,
+                .vkImageViewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY,
+                .vkImageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseLayer = 0,
+                .layerCount = layerCount
+            }
+        },
+        { defaultImageSampler, nearestImageSampler }
     };
 
-    const auto positionAttachmentTexture = TextureDefinition {
-        Texture::Empty(
-            Render::TextureId::Invalid(),
-            {TextureUsage::ColorAttachment, TextureUsage::InputAttachment},
-            TextureFormat::R32G32B32A32_SFLOAT,
-            renderSettings.resolution,
-            layerCount,
-            false,
-            std::format("Position-{}", tag)
-        ),
-        { TextureViewForLayerCount(TextureView::Aspect::ASPECT_COLOR_BIT, layerCount) },
-        { defaultTextureSampler }
+    //
+    // Position Attachment Image
+    //
+    const auto positionAttachmentImage = ImageDefinition {
+        Image{
+            .tag = std::format("Position-{}", tag),
+            .vkImageType = VK_IMAGE_TYPE_2D,
+            .vkFormat = VK_FORMAT_R32G32B32A32_SFLOAT,
+            .vkImageTiling = VK_IMAGE_TILING_OPTIMAL,
+            .vkImageUsageFlags = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
+            .size = renderSettings.resolution,
+            .numLayers = layerCount,
+            .vmaAllocationCreateFlags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
+        },
+        {
+            ImageView{
+                .name = ImageView::DEFAULT,
+                .vkImageViewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY,
+                .vkImageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseLayer = 0,
+                .layerCount = layerCount
+            }
+        },
+        { nearestImageSampler }
     };
 
-    const auto normalAttachmentTexture = TextureDefinition {
-        Texture::Empty(
-            Render::TextureId::Invalid(),
-            {TextureUsage::ColorAttachment, TextureUsage::InputAttachment},
-            TextureFormat::R32G32B32A32_SFLOAT,
-            renderSettings.resolution,
-            layerCount,
-            false,
-            std::format("Normal-{}", tag)
-        ),
-        { TextureViewForLayerCount(TextureView::Aspect::ASPECT_COLOR_BIT, layerCount) },
-        { defaultTextureSampler }
+    //
+    // Normal Attachment Image
+    //
+    auto normalAttachmentImage = positionAttachmentImage;
+    normalAttachmentImage.image.tag = std::format("Normal-{}", tag);
+
+    //
+    // Object Detail Attachment Image
+    //
+
+    // R = Object ID, G = Material ID
+    auto objectDetailImageSampler = nearestImageSampler;
+    objectDetailImageSampler.vkSamplerMipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST; // R32G32 doesn't support linear
+
+    const auto objectDetailAttachmentImage = ImageDefinition {
+        Image{
+            .tag = std::format("ObjectDetail-{}", tag),
+            .vkImageType = VK_IMAGE_TYPE_2D,
+            .vkFormat = GetObjectDetailVkFormat(),
+            .vkImageTiling = VK_IMAGE_TILING_OPTIMAL,
+            .vkImageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+            .size = renderSettings.resolution,
+            .numLayers = layerCount,
+            .vmaAllocationCreateFlags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
+        },
+        {
+            ImageView{
+                .name = ImageView::DEFAULT,
+                .vkImageViewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY,
+                .vkImageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseLayer = 0,
+                .layerCount = layerCount
+            }
+        },
+        { objectDetailImageSampler }
     };
 
-    const auto materialAttachmentTexture = TextureDefinition {
-        Texture::Empty(
-            Render::TextureId::Invalid(),
-            {TextureUsage::ColorAttachment, TextureUsage::InputAttachment},
-            TextureFormat::R32_UINT,
-            renderSettings.resolution,
-            layerCount,
-            false,
-            std::format("Material-{}", tag)
-        ),
-        { TextureViewForLayerCount(TextureView::Aspect::ASPECT_COLOR_BIT, layerCount) },
-        { defaultTextureSampler }
+    //
+    // Ambient Attachment Image
+    //
+    const auto ambientAttachmentImage = ImageDefinition {
+        Image{
+            .tag = std::format("Ambient-{}", tag),
+            .vkImageType = VK_IMAGE_TYPE_2D,
+            .vkFormat = VK_FORMAT_R8G8B8A8_SRGB,
+            .vkImageTiling = VK_IMAGE_TILING_OPTIMAL,
+            .vkImageUsageFlags = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
+            .size = renderSettings.resolution,
+            .numLayers = layerCount,
+            .vmaAllocationCreateFlags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
+        },
+        {
+            ImageView{
+                .name = ImageView::DEFAULT,
+                .vkImageViewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY,
+                .vkImageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseLayer = 0,
+                .layerCount = layerCount
+            }
+        },
+        { nearestImageSampler }
     };
 
-    const auto ambientAttachmentTexture = TextureDefinition {
-        Texture::Empty(
-            Render::TextureId::Invalid(),
-            {TextureUsage::Sampled, TextureUsage::ColorAttachment, TextureUsage::TransferSource, TextureUsage::InputAttachment},
-            TextureFormat::R8G8B8A8_SRGB,
-            renderSettings.resolution,
-            layerCount,
-            false,
-            std::format("Ambient-{}", tag)
-        ),
-        { TextureViewForLayerCount(TextureView::Aspect::ASPECT_COLOR_BIT, layerCount) },
-        { defaultTextureSampler }
-    };
+    //
+    // Diffuse Attachment Image
+    //
+    auto diffuseAttachmentImage = ambientAttachmentImage;
+    diffuseAttachmentImage.image.tag = std::format("Diffuse-{}", tag);
 
-    const auto diffuseAttachmentTexture = TextureDefinition {
-        Texture::Empty(
-            Render::TextureId::Invalid(),
-            {TextureUsage::Sampled, TextureUsage::ColorAttachment, TextureUsage::TransferSource, TextureUsage::InputAttachment},
-            TextureFormat::R8G8B8A8_SRGB,
-            renderSettings.resolution,
-            layerCount,
-            false,
-            std::format("Diffuse-{}", tag)
-        ),
-        { TextureViewForLayerCount(TextureView::Aspect::ASPECT_COLOR_BIT, layerCount) },
-        { defaultTextureSampler }
-    };
+    //
+    // Specular Attachment Image
+    //
+    auto specularAttachmentImage = ambientAttachmentImage;
+    specularAttachmentImage.image.tag = std::format("Specular-{}", tag);
 
-    const auto specularAttachmentTexture = TextureDefinition {
-        Texture::Empty(
-            Render::TextureId::Invalid(),
-            {TextureUsage::Sampled, TextureUsage::ColorAttachment, TextureUsage::TransferSource, TextureUsage::InputAttachment},
-            TextureFormat::R8G8B8A8_SRGB,
-            renderSettings.resolution,
-            layerCount,
-            false,
-            std::format("Specular-{}", tag)
-        ),
-        { TextureViewForLayerCount(TextureView::Aspect::ASPECT_COLOR_BIT, layerCount) },
-        { defaultTextureSampler }
-    };
-
-    const auto depthAttachmentTexture = TextureDefinition {
-        Texture::EmptyDepth(
-            Render::TextureId::Invalid(),
-            {TextureUsage::DepthStencilAttachment, TextureUsage::Sampled},
-            renderSettings.resolution,
-            layerCount,
-            false,
-            std::format("Depth-{}", tag)
-        ),
-        { TextureViewForLayerCount(TextureView::Aspect::ASPECT_DEPTH_BIT, layerCount) },
-        { defaultTextureSampler }
+    //
+    // Depth Attachment Image
+    //
+    const auto depthAttachmentImage = ImageDefinition {
+        Image{
+            .tag = std::format("Depth-{}", tag),
+            .vkImageType = VK_IMAGE_TYPE_2D,
+            .vkFormat = m_vulkanObjs->GetPhysicalDevice()->GetDepthBufferFormat(),
+            .vkImageTiling = VK_IMAGE_TILING_OPTIMAL,
+            .vkImageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+            .size = renderSettings.resolution,
+            .numLayers = layerCount,
+            .vmaAllocationCreateFlags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
+        },
+        {
+            ImageView{
+                .name = ImageView::DEFAULT,
+                .vkImageViewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY,
+                .vkImageAspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT,
+                .baseLayer = 0,
+                .layerCount = layerCount
+            }
+        },
+        { nearestImageSampler }
     };
 
     //
@@ -237,14 +272,14 @@ std::optional<Render::FrameBufferId> RenderTargets::CreateGPassFramebuffer(const
         gPassFramebufferId,
         m_vulkanObjs->GetGPassRenderPass(),
         {
-            {colorAttachmentTexture, TextureView::DEFAULT},
-            {positionAttachmentTexture,TextureView::DEFAULT},
-            {normalAttachmentTexture, TextureView::DEFAULT},
-            {materialAttachmentTexture,TextureView::DEFAULT},
-            {ambientAttachmentTexture, TextureView::DEFAULT},
-            {diffuseAttachmentTexture,TextureView::DEFAULT},
-            {specularAttachmentTexture,TextureView::DEFAULT},
-            {depthAttachmentTexture, TextureView::DEFAULT}
+            {colorAttachmentImage, ImageView::DEFAULT},
+            {positionAttachmentImage, ImageView::DEFAULT},
+            {normalAttachmentImage, ImageView::DEFAULT},
+            {objectDetailAttachmentImage, ImageView::DEFAULT},
+            {ambientAttachmentImage, ImageView::DEFAULT},
+            {diffuseAttachmentImage, ImageView::DEFAULT},
+            {specularAttachmentImage, ImageView::DEFAULT},
+            {depthAttachmentImage, ImageView::DEFAULT}
         },
         m_vulkanObjs->GetRenderSettings().resolution,
         1,
@@ -268,39 +303,70 @@ std::optional<FrameBufferId> RenderTargets::CreateScreenFramebuffer(const std::s
 {
     const auto renderSettings = m_vulkanObjs->GetRenderSettings();
 
-    const auto defaultTextureSampler = TextureSampler(TextureSampler::DEFAULT, CLAMP_ADDRESS_MODE);
+    const auto defaultImageSampler = ImageSampler(
+        ImageSampler::DEFAULT,
+        VK_FILTER_LINEAR,
+        VK_FILTER_LINEAR,
+        VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+        VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+        VK_SAMPLER_MIPMAP_MODE_LINEAR
+    );
 
-    auto nearestTextureSampler = TextureSampler(TextureSampler::NEAREST, CLAMP_ADDRESS_MODE);
-    nearestTextureSampler.minFilter = SamplerFilterMode::Nearest;
-    nearestTextureSampler.magFilter = SamplerFilterMode::Nearest;
+    const auto nearestImageSampler = ImageSampler(
+        ImageSampler::NEAREST,
+        VK_FILTER_NEAREST,
+        VK_FILTER_NEAREST,
+        VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+        VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+        VK_SAMPLER_MIPMAP_MODE_LINEAR
+    );
 
-    const auto colorAttachmentTexture = TextureDefinition {
-        Texture::Empty(
-            Render::TextureId::Invalid(),
-            {TextureUsage::Sampled, TextureUsage::ColorAttachment, TextureUsage::TransferSource, TextureUsage::Storage},
-            TextureFormat::R8G8B8A8_UNORM,
-            renderSettings.resolution,
-            1,
-            false,
-            std::format("ScreenColor-{}", tag)
-        ),
-        {
-            TextureView::ViewAs2DArray(TextureView::DEFAULT, TextureView::Aspect::ASPECT_COLOR_BIT, TextureView::Layer(0, 1))
+    const auto colorAttachmentImage = ImageDefinition {
+        Image{
+            .tag = std::format("ScreenColor-{}", tag),
+            .vkImageType = VK_IMAGE_TYPE_2D,
+            .vkFormat = VK_FORMAT_R8G8B8A8_UNORM,
+            .vkImageTiling = VK_IMAGE_TILING_OPTIMAL,
+            .vkImageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
+                                 | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT
+                                 | VK_IMAGE_USAGE_STORAGE_BIT,
+            .size = renderSettings.resolution,
+            .numLayers = 1,
+            .vmaAllocationCreateFlags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
         },
-        { defaultTextureSampler, nearestTextureSampler }
+        {
+            ImageView{
+                .name = ImageView::DEFAULT,
+                .vkImageViewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY,
+                .vkImageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseLayer = 0,
+                .layerCount = 1
+            }
+        },
+        { defaultImageSampler, nearestImageSampler }
     };
 
-    const auto depthAttachmentTexture = TextureDefinition {
-        Texture::EmptyDepth(
-            Render::TextureId::Invalid(),
-            {TextureUsage::DepthStencilAttachment, TextureUsage::Sampled},
-            renderSettings.resolution,
-            1,
-            false,
-            std::format("ScreenDepth-{}", tag)
-        ),
-        { TextureView::ViewAs2D(TextureView::DEFAULT, TextureView::Aspect::ASPECT_DEPTH_BIT) },
-        { defaultTextureSampler }
+    const auto depthAttachmentImage = ImageDefinition {
+        Image{
+            .tag = std::format("ScreenDepth-{}", tag),
+            .vkImageType = VK_IMAGE_TYPE_2D,
+            .vkFormat = m_vulkanObjs->GetPhysicalDevice()->GetDepthBufferFormat(),
+            .vkImageTiling = VK_IMAGE_TILING_OPTIMAL,
+            .vkImageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+            .size = renderSettings.resolution,
+            .numLayers = 1,
+            .vmaAllocationCreateFlags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
+        },
+        {
+            ImageView{
+                .name = ImageView::DEFAULT,
+                .vkImageViewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY,
+                .vkImageAspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT,
+                .baseLayer = 0,
+                .layerCount = 1
+            }
+        },
+        { defaultImageSampler }
     };
 
     ////
@@ -311,8 +377,8 @@ std::optional<FrameBufferId> RenderTargets::CreateScreenFramebuffer(const std::s
         screenFramebufferId,
         m_vulkanObjs->GetScreenRenderPass(),
         {
-            {colorAttachmentTexture, TextureView::DEFAULT},
-            {depthAttachmentTexture, TextureView::DEFAULT}
+            {colorAttachmentImage, ImageView::DEFAULT},
+            {depthAttachmentImage, ImageView::DEFAULT}
         },
         m_vulkanObjs->GetRenderSettings().resolution,
         1,
@@ -324,7 +390,7 @@ std::optional<FrameBufferId> RenderTargets::CreateScreenFramebuffer(const std::s
         m_ids->frameBufferIds.ReturnId(screenFramebufferId);
 
         m_logger->Log(Common::LogLevel::Error,
-              "RenderTargets::CreateBlitFramebuffer: Failed to create screen framebuffer: {}", tag);
+          "RenderTargets::CreateBlitFramebuffer: Failed to create screen framebuffer: {}", tag);
 
         return std::nullopt;
     }
@@ -332,7 +398,7 @@ std::optional<FrameBufferId> RenderTargets::CreateScreenFramebuffer(const std::s
     return screenFramebufferId;
 }
 
-std::optional<TextureId> RenderTargets::CreatePostProcessOutputTexture(const std::string& tag) const
+std::optional<ImageId> RenderTargets::CreatePostProcessOutputImage(const std::string& tag) const
 {
     const auto renderSettings = m_vulkanObjs->GetRenderSettings();
 
@@ -345,38 +411,45 @@ std::optional<TextureId> RenderTargets::CreatePostProcessOutputTexture(const std
     }
 
     //
-    // Create the texture
+    // Create the image
     //
-    const auto attachmentTextureSampler = TextureSampler(TextureSampler::DEFAULT, CLAMP_ADDRESS_MODE);
+    const Image image{
+        .tag = std::format("PostProcessOutput-{}", tag),
+        .vkImageType = VK_IMAGE_TYPE_2D,
+        .vkFormat = VK_FORMAT_R8G8B8A8_UNORM,
+        .vkImageTiling = VK_IMAGE_TILING_OPTIMAL,
+        .vkImageUsageFlags = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+        .size = m_vulkanObjs->GetRenderSettings().resolution,
+        .numLayers = layerCount,
+        .vmaAllocationCreateFlags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
+    };
 
-    const auto textureId = m_ids->textureIds.GetId();
+    const ImageView imageView{
+        .name = ImageView::DEFAULT,
+        .vkImageViewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY,
+        .vkImageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT,
+        .baseLayer = 0,
+        .layerCount = layerCount
+    };
 
-    if (!m_textures->CreateTextureEmpty(
-        Texture::Empty(
-            textureId,
-            {TextureUsage::Storage, TextureUsage::TransferSource},
-            TextureFormat::R8G8B8A8_UNORM, // Note that we're dropping down to 32bit color in compute output
-            m_vulkanObjs->GetRenderSettings().resolution,
-            layerCount,
-            false,
-            std::format("PostProcessOutput-{}", tag)
-        ),
-        { TextureView::ViewAs2DArray(
-            TextureView::DEFAULT,
-            TextureView::Aspect::ASPECT_COLOR_BIT,
-            TextureView::Layer(0, layerCount)
-        ) },
-        { attachmentTextureSampler }
-    ))
+    const ImageSampler imageSampler{
+        .name = ImageSampler::DEFAULT,
+        .vkMagFilter = VK_FILTER_LINEAR,
+        .vkMinFilter = VK_FILTER_LINEAR,
+        .vkSamplerAddressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+        .vkSamplerAddressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+        .vkSamplerMipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR
+    };
+
+    const auto imageExpect = m_images->CreateEmptyImage({image, {imageView}, {imageSampler}});
+    if (!imageExpect)
     {
         m_logger->Log(Common::LogLevel::Error,
-          "RenderTargets::CreatePostProcessOutputTexture: Failed to create texture");
+          "RenderTargets::CreatePostProcessOutputImage: Failed to create image");
         return std::nullopt;
     }
 
-    const auto loadedTexture = m_textures->GetTexture(textureId).value();
-
-    return textureId;
+    return *imageExpect;
 }
 
 void RenderTargets::DestroyRenderTarget(const RenderTargetId& renderTargetId, bool destroyImmediately)
@@ -389,7 +462,7 @@ void RenderTargets::DestroyRenderTarget(const RenderTargetId& renderTargetId, bo
 
     m_logger->Log(Common::LogLevel::Debug, "RenderTargets: Destroying render target: {}", renderTargetId.id);
 
-    m_textures->DestroyTexture(it->second.postProcessOutputTexture, destroyImmediately);
+    m_images->DestroyImage(it->second.postProcessOutputImage, destroyImmediately);
 
     m_framebuffers->DestroyFramebuffer(it->second.screenFramebuffer, destroyImmediately);
     m_framebuffers->DestroyFramebuffer(it->second.gPassFramebuffer, destroyImmediately);
@@ -428,6 +501,17 @@ bool RenderTargets::OnRenderSettingsChanged(const RenderSettings&)
     }
 
     return allSuccessful;
+}
+
+VkFormat RenderTargets::GetObjectDetailVkFormat() const
+{
+    return VK_FORMAT_R32G32_UINT;
+}
+
+std::size_t RenderTargets::GetObjectDetailPerPixelByteSize() const
+{
+    // VK_FORMAT_R32G32_UINT
+    return 8;
 }
 
 void RenderTargets::Destroy()

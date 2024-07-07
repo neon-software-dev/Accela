@@ -32,6 +32,7 @@ Common::IMetrics::Ptr EngineRuntime::GetMetrics() const noexcept { return m_metr
 IWorldState::Ptr EngineRuntime::GetWorldState() const noexcept { return m_runState->worldState; }
 IWorldResources::Ptr EngineRuntime::GetWorldResources() const noexcept { return m_runState->worldResources; }
 IKeyboardState::CPtr EngineRuntime::GetKeyboardState() const noexcept { return m_runState->keyboardState; }
+IMouseState::CPtr EngineRuntime::GetMouseState() const noexcept { return m_runState->mouseState; }
 std::uintmax_t EngineRuntime::GetTickIndex() const noexcept { return m_runState->tickIndex; }
 std::uintmax_t EngineRuntime::GetSimulatedTime() const noexcept { return m_runState->tickIndex * m_runState->timeStep; }
 Render::RenderSettings EngineRuntime::GetRenderSettings() const noexcept { return std::dynamic_pointer_cast<WorldState>(m_runState->worldState)->GetRenderSettings(); }

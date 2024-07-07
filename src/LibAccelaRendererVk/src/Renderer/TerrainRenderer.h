@@ -13,6 +13,7 @@
 #include "../Mesh/LoadedMesh.h"
 #include "../Material/LoadedMaterial.h"
 #include "../Texture/LoadedTexture.h"
+#include "../Image/LoadedImage.h"
 #include "../Util/ViewProjection.h"
 
 #include <Accela/Render/Task/RenderParams.h>
@@ -36,6 +37,7 @@ namespace Accela::Render
                             IPipelineFactoryPtr pipelines,
                             IBuffersPtr buffers,
                             IMaterialsPtr materials,
+                            IImagesPtr images,
                             ITexturesPtr textures,
                             IMeshesPtr meshes,
                             ILightsPtr lights,
@@ -82,7 +84,7 @@ namespace Accela::Render
                 TerrainBatchKey batchKey;
                 LoadedMesh loadedMesh;
                 LoadedMaterial loadedMaterial;
-                LoadedTexture loadedHeightMapTexture;
+                LoadedImage loadedHeightMapImage;
                 std::vector<TerrainId> terrainIds;
             };
 

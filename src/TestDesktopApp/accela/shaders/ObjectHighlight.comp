@@ -1,0 +1,132 @@
+#version 450
+
+//
+// Definitions
+//
+const uint POST_EFFECT_LOCAL_SIZE_X = 16;
+const uint POST_EFFECT_LOCAL_SIZE_Y = 16;
+const uint POST_EFFECT_LOCAL_SIZE_Z = 1;
+
+// Must match RenderSettings::HighlightMode ordering
+const uint HIGHLIGHT_MODE_FILL = 0; // Color the entire object
+const uint HIGHLIGHT_MODE_OUTLINE = 1; // Color the border of the object
+
+//
+// Inputs
+//
+layout(push_constant) uniform constants
+{
+    uint renderWidth;
+    uint renderHeight;
+
+    uint highlightMode;
+    uint numHighlightedObjects;
+} PushConstants;
+
+layout(set = 0, binding = 0) readonly buffer HighlightedObjectsBuffer
+{
+    uint ids[];
+} i_highlightedObjects;
+
+layout (set = 0, binding = 1) uniform sampler2DArray i_inputImage;
+layout (set = 0, binding = 2) uniform usampler2DArray i_objectDetail;
+layout (set = 0, binding = 3, rgba8) uniform image2DArray i_outputImage;
+
+layout (local_size_x = POST_EFFECT_LOCAL_SIZE_X,
+        local_size_y = POST_EFFECT_LOCAL_SIZE_Y,
+        local_size_z = POST_EFFECT_LOCAL_SIZE_Z) in;
+
+vec4 HighlightPixel(vec4 inPixel)
+{
+    inPixel.g = min(1.0f, inPixel.g + 0.3f);
+    return inPixel;
+}
+
+vec4 DoWork(int layerIndex)
+{
+    const vec2 inUV = {
+        (float(gl_GlobalInvocationID.x) + 0.5f) / float(PushConstants.renderWidth),
+        (float(gl_GlobalInvocationID.y) + 0.5f) / float(PushConstants.renderHeight),
+    };
+
+    vec4 inPixel = texture(i_inputImage, vec3(inUV, layerIndex));
+    const uvec2 inObjectDetail = texture(i_objectDetail, vec3(inUV, layerIndex)).rg;
+    const uint inObjectId = inObjectDetail.r;
+
+    // Ignore pixels without a valid object id provided
+    if (inObjectId == 0)
+    {
+        return inPixel;
+    }
+
+    // Determine if the pixel is associated with a highlighted object
+    bool pixelIsForHighlightedObject = false;
+
+    for (uint x = 0; x < PushConstants.numHighlightedObjects; ++x)
+    {
+        const uint highlightedObjectId = i_highlightedObjects.ids[x];
+
+        if (highlightedObjectId != inObjectId)
+        {
+           continue;
+        }
+
+        pixelIsForHighlightedObject = true;
+        break;
+    }
+
+    // If not, leave the pixel untouched
+    if (!pixelIsForHighlightedObject)
+    {
+        return inPixel;
+    }
+
+    if (PushConstants.highlightMode == HIGHLIGHT_MODE_FILL)
+    {
+        return HighlightPixel(inPixel);
+    }
+
+    // Otherwise, check the pixel is within range of any other object
+    bool pixelIsWithinRangeOfAnotherObject = false;
+
+    for (int offsetX = -2; offsetX <= 2; offsetX = offsetX + 2)
+    {
+        for (int offsetY = -2; offsetY <= 2; offsetY = offsetY + 2)
+        {
+            const uvec4 gather = textureGatherOffset(i_objectDetail, vec3(inUV, layerIndex), ivec2(offsetX, offsetY), 0);
+            if (gather.r != inObjectId || gather.g != inObjectId || gather.b != inObjectId || gather.a != inObjectId)
+            {
+                pixelIsWithinRangeOfAnotherObject = true;
+                break;
+            }
+        }
+
+        if (pixelIsWithinRangeOfAnotherObject) break;
+    }
+
+    if (pixelIsWithinRangeOfAnotherObject)
+    {
+        return HighlightPixel(inPixel);
+    }
+
+    return inPixel;
+}
+
+void main()
+{
+    // Ignore out of render size work invocations (for when a render dimension isn't cleanly divisible by
+    // the local group size).
+    if (gl_GlobalInvocationID.x > PushConstants.renderWidth || gl_GlobalInvocationID.y > PushConstants.renderHeight)
+    {
+        return;
+    }
+
+    const int numLayers = imageSize(i_outputImage).z;
+
+    for (int layerIndex = 0; layerIndex < numLayers; ++layerIndex)
+    {
+        const vec4 outPixel = DoWork(layerIndex);
+
+        imageStore(i_outputImage, ivec3(gl_GlobalInvocationID.xy, layerIndex), outPixel);
+    }
+}

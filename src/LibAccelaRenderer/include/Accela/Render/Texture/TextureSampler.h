@@ -12,6 +12,8 @@
 
 namespace Accela::Render
 {
+    using TextureSamplerName = std::string;
+
     enum class SamplerAddressMode
     {
         Wrap,
@@ -32,15 +34,15 @@ namespace Accela::Render
 
     struct TextureSampler
     {
-        static constexpr std::string DEFAULT{"DEFAULT"};
-        static constexpr std::string NEAREST{"NEAREST"};
+        static constexpr TextureSamplerName DEFAULT{"DEFAULT"};
+        static constexpr TextureSamplerName NEAREST{"NEAREST"};
 
         explicit TextureSampler(std::string_view _name, UVAddressMode _uvAddressMode)
             : name(_name)
             , uvAddressMode(std::move(_uvAddressMode))
         { }
 
-        std::string name;
+        TextureSamplerName name;
         UVAddressMode uvAddressMode;
         SamplerFilterMode minFilter{SamplerFilterMode::Linear};
         SamplerFilterMode magFilter{SamplerFilterMode::Linear};

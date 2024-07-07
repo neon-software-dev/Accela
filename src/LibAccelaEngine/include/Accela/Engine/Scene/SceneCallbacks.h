@@ -13,6 +13,7 @@
 #include <Accela/Platform/Event/KeyEvent.h>
 #include <Accela/Platform/Event/MouseMoveEvent.h>
 #include <Accela/Platform/Event/MouseButtonEvent.h>
+#include <Accela/Platform/Event/MouseWheelEvent.h>
 
 #include <memory>
 
@@ -37,6 +38,7 @@ namespace Accela::Engine
             virtual void OnKeyEvent(const Platform::KeyEvent& event) { (void)event; }
             virtual void OnMouseMoveEvent(const Platform::MouseMoveEvent& event) { (void)event; }
             virtual void OnMouseButtonEvent(const Platform::MouseButtonEvent& event) { (void)event; }
+            virtual void OnMouseWheelEvent(const Platform::MouseWheelEvent& event) { (void)event; }
             virtual void OnPhysicsTriggerEvent(const PhysicsTriggerEvent& event) { (void)event; }
     };
 }

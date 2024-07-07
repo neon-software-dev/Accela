@@ -6,16 +6,18 @@
  
 #include "AccelaThread.h"
 
+#include "../EditorScene/Messages.h"
+
 #include <Accela/Engine/Builder.h>
 #include <Accela/Engine/Scene/WrappedScene.h>
 #include <Accela/Engine/DesktopVulkanContext.h>
 
 #include <Accela/Render/RendererBuilder.h>
 
+#include <Accela/Platform/PlatformQt.h>
 #include <Accela/Platform/QtVulkanCalls.h>
 #include <Accela/Platform/Window/QtWindow.h>
 
-#include <Accela/Common/Log/StdLogger.h>
 #include <Accela/Common/Metrics/InMemoryMetrics.h>
 
 namespace Accela
@@ -24,12 +26,13 @@ namespace Accela
 AccelaThread::AccelaThread(QWindow *pWindow,
                            Common::ILogger::Ptr logger,
                            Common::IMetrics::Ptr metrics,
-                           EditorScene::Ptr scene)
+                           std::shared_ptr<Platform::PlatformQt> platform,
+                           std::shared_ptr<MessageBasedScene> scene)
     : m_pWindow(pWindow)
     , m_logger(std::move(logger))
     , m_metrics(std::move(metrics))
+    , m_platform(std::move(platform))
     , m_scene(std::move(scene))
-    , m_platform(std::make_shared<Platform::PlatformQt>(m_logger))
 {
     std::dynamic_pointer_cast<Platform::QtWindow>(m_platform->GetWindow())
         ->AttachToWindow(m_pWindow);
@@ -67,6 +70,7 @@ void AccelaThread::QuitEngine()
     }
     else if (m_state == State::RunningEngine)
     {
+        // TODO: A common command across all scenes, not in EditorScene
         m_scene->EnqueueMessage(std::make_shared<SceneQuitCommand>());
     }
 

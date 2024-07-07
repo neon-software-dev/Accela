@@ -21,7 +21,8 @@ CPUDataBuffer::Create(const IBuffersPtr& buffers,
 {
     const auto bufferCreate = buffers->CreateBuffer(
         vkUsageFlags,
-        VMA_MEMORY_USAGE_CPU_TO_GPU,
+        VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
+        VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT,
         initialCapacity,
         tag
     );
@@ -153,7 +154,8 @@ bool CPUDataBuffer::ResizeBuffer(const std::size_t& newByteSize)
     //
     const auto newBufferCreate = m_buffers->CreateBuffer(
         m_buffer->GetUsageFlags(),
-        VMA_MEMORY_USAGE_CPU_TO_GPU,
+        VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
+        VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT,
         newByteSize,
         m_buffer->GetTag()
     );

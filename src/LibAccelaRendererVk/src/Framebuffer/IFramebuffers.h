@@ -11,9 +11,10 @@
 
 #include "../ForwardDeclares.h"
 
+#include "../Image/ImageDefinition.h"
+
 #include <Accela/Render/Id.h>
 #include <Accela/Render/Util/Rect.h>
-#include <Accela/Render/Texture/TextureDefinition.h>
 
 #include <string>
 #include <optional>
@@ -32,14 +33,14 @@ namespace Accela::Render
 
             virtual bool CreateFramebuffer(FrameBufferId id,
                                            const VulkanRenderPassPtr& renderPass,
-                                           const std::vector<std::pair<TextureDefinition, std::string>>& attachments,
+                                           const std::vector<std::pair<ImageDefinition, std::string>>& attachments,
                                            const USize& size,
                                            const uint32_t& layers,
                                            const std::string& tag) = 0;
 
             virtual bool CreateFramebuffer(FrameBufferId id,
                                            const VulkanRenderPassPtr& renderPass,
-                                           const std::vector<std::pair<TextureId, std::string>>& attachmentTextureViews,
+                                           const std::vector<std::pair<ImageId, std::string>>& attachmentImageViews,
                                            const USize& size,
                                            const uint32_t& layers,
                                            const std::string& tag) = 0;

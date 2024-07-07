@@ -25,7 +25,8 @@ GPUDataBuffer::Create(const IBuffersPtr& buffers,
 {
     const auto bufferCreate = buffers->CreateBuffer(
         bufferUsage | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        VMA_MEMORY_USAGE_GPU_ONLY,
+        VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+        0,
         initialCapacity,
         tag
     );
@@ -171,7 +172,8 @@ bool GPUDataBuffer::ResizeBuffer(const ExecutionContext& context, const std::siz
     //
     const auto bufferCreate = m_buffers->CreateBuffer(
         m_buffer->GetUsageFlags() | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        VMA_MEMORY_USAGE_GPU_ONLY,
+        VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+        0,
         newByteSize,
         m_buffer->GetTag()
     );

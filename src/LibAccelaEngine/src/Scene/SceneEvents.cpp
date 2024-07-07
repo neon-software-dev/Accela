@@ -77,6 +77,14 @@ void SceneEvents::OnMouseButtonEvent(const Platform::MouseButtonEvent& event)
     }
 }
 
+void SceneEvents::OnMouseWheelEvent(const Platform::MouseWheelEvent& event)
+{
+    for (const auto& listener : m_listeners)
+    {
+        listener->OnMouseWheelEvent(event);
+    }
+}
+
 void SceneEvents::OnPhysicsTriggerEvent(const PhysicsTriggerEvent& event)
 {
     for (const auto& listener : m_listeners)

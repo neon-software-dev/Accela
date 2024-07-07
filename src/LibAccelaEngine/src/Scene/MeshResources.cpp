@@ -145,19 +145,12 @@ Render::MeshId MeshResources::OnLoadHeightMapMesh(const CustomResourceIdentifier
         return Render::MeshId::Invalid();
     }
 
-    if (!heightMapTextureOpt->data.has_value())
-    {
-        m_logger->Log(Common::LogLevel::Error,
-          "OnLoadHeightMapMesh: Texture has no image data, not a valid height map, id: {}", heightMapTextureId.id);
-        return Render::MeshId::Invalid();
-    }
-
     //
     // Load the height map mesh from the texture's image data
     //
     return OnLoadHeightMapMesh(
         resource,
-        heightMapTextureOpt->data.value(),
+        heightMapTextureOpt->data,
         heightMapDataSize,
         meshSize_worldSpace,
         displacementFactor,

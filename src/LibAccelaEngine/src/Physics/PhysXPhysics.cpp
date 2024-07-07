@@ -57,8 +57,11 @@ void PhysXPhysics::InitPhysX()
     );
 
     #ifdef ACCELA_USE_GPU_CUDA
-        physx::PxCudaContextManagerDesc cudaContextManagerDesc{};
-        m_pxCudaContextManager = PxCreateCudaContextManager(*m_pxFoundation, cudaContextManagerDesc, PxGetProfilerCallback());
+        if (ACCELA_USE_GPU_CUDA == 1)
+        {
+            physx::PxCudaContextManagerDesc cudaContextManagerDesc{};
+            m_pxCudaContextManager = PxCreateCudaContextManager(*m_pxFoundation, cudaContextManagerDesc,PxGetProfilerCallback());
+        }
     #endif
 }
 

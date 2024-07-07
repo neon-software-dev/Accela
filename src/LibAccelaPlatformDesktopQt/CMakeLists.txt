@@ -6,6 +6,7 @@ project(LibAccelaPlatformDesktopQt VERSION 0.0.1 LANGUAGES CXX)
 
 	file(GLOB AccelaPlatformDesktopQt_Include_Headers "include/Accela/Platform/*.h")
 	file(GLOB AccelaPlatformDesktopQt_Include_Window_Headers "include/Accela/Platform/Window/*.h")
+	file(GLOB AccelaPlatformDesktopQt_Include_Event_Headers "include/Accela/Platform/Event/*.h")
 
 	file(GLOB AccelaPlatformDesktopQt_Sources "src/*.cpp")
 	file(GLOB AccelaPlatformDesktopQt_Headers "src/*.h")
@@ -17,6 +18,7 @@ project(LibAccelaPlatformDesktopQt VERSION 0.0.1 LANGUAGES CXX)
 add_library(AccelaPlatformDesktopQt STATIC
 	${AccelaPlatformDesktopQt_Include_Headers}
 	${AccelaPlatformDesktopQt_Include_Window_Headers}
+	${AccelaPlatformDesktopQt_Include_Event_Headers}
 
 	${AccelaPlatformDesktopQt_Sources}
 	${AccelaPlatformDesktopQt_Headers}

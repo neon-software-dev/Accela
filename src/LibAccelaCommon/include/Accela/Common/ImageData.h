@@ -26,6 +26,7 @@ namespace Accela::Common
             enum class PixelFormat
             {
                 RGB24,          // 3 bytes per pixel, for R, G, and B values
+                R32G32,         // 8 bytes per pixel, for R and G values
                 RGBA32          // 4 bytes per pixel, for R, G, B, and A values
             };
 
@@ -44,6 +45,8 @@ namespace Accela::Common
                 std::size_t pixelWidth,
                 std::size_t pixelHeight,
                 PixelFormat pixelFormat);
+
+            [[nodiscard]] Common::ImageData::Ptr Clone() const;
 
             /**
              * @return The raw bytes that make up the image

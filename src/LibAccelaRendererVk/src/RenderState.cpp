@@ -70,7 +70,7 @@ void RenderState::PrepareImageAccess(const VulkanCommandBufferPtr& commandBuffer
     }
 
     //
-    // Insert Image Barrier
+    // Insert RenderTexture Barrier
     //
     InsertPipelineBarrier_Image(
         m_vulkanCalls,
@@ -85,7 +85,7 @@ void RenderState::PrepareImageAccess(const VulkanCommandBufferPtr& commandBuffer
     );
 
     //
-    // Update Image State
+    // Update RenderTexture State
     //
     currentState.currentLayout = imageAccess.finalLayout;
     currentState.currentAccess = imageAccess;

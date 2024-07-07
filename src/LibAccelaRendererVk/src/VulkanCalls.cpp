@@ -141,6 +141,7 @@ bool VulkanCalls::InitDeviceCalls(VkDevice vkDevice)
     FIND_DEVICE_CALL(vkCmdBindDescriptorSets)
     FIND_DEVICE_CALL(vkCmdPipelineBarrier)
     FIND_DEVICE_CALL(vkCmdCopyBufferToImage)
+    FIND_DEVICE_CALL(vkCmdCopyImageToBuffer)
     FIND_DEVICE_CALL(vkResetDescriptorPool)
     FIND_DEVICE_CALL(vkCreateSampler)
     FIND_DEVICE_CALL(vkDestroySampler)
@@ -808,6 +809,12 @@ void VulkanCalls::vkCmdCopyBufferToImage(VkCommandBuffer commandBuffer, VkBuffer
                                          const VkBufferImageCopy *pRegions) const
 {
     return m_vkCmdCopyBufferToImage(commandBuffer, srcBuffer, dstImage, dstImageLayout, regionCount, pRegions);
+}
+
+void VulkanCalls::vkCmdCopyImageToBuffer(VkCommandBuffer commandBuffer, VkImage srcImage, VkImageLayout srcImageLayout, VkBuffer dstBuffer,
+                            uint32_t regionCount, const VkBufferImageCopy* pRegions) const
+{
+    return m_vkCmdCopyImageToBuffer(commandBuffer, srcImage, srcImageLayout, dstBuffer, regionCount, pRegions);
 }
 
 VkResult VulkanCalls::vkResetDescriptorPool(VkDevice device, VkDescriptorPool descriptorPool,

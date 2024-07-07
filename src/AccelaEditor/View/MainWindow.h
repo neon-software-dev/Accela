@@ -7,10 +7,13 @@
 #ifndef ACCELAEDITOR_VIEW_MAINWINDOW_H
 #define ACCELAEDITOR_VIEW_MAINWINDOW_H
 
+#include "../SceneMessageListener.h"
+
 #include <Accela/Engine/Package/Package.h>
 
 #include <Accela/Common/Log/ILogger.h>
 #include <Accela/Common/Metrics/IMetrics.h>
+#include <Accela/Common/Thread/Message.h>
 
 #include <QMainWindow>
 
@@ -48,6 +51,9 @@ namespace Accela
             void UI_OnMenuWindow_EntitiesTriggered(bool);
             void UI_OnMenuWindow_EntityTriggered(bool);
             void UI_OnDockWidgetVisibilityChanged(bool);
+
+            // Signals from AccelaWindow/Scene
+            void UI_OnSceneMessage(const Common::Message::Ptr& message);
 
             // Signals from the ViewModel
             void VM_ErrorDialogShow(const std::string& title, const std::string& message);

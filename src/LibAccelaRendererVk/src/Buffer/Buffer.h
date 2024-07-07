@@ -21,6 +21,8 @@ namespace Accela::Render
     {
         VkBufferUsageFlags vkBufferUsageFlags{0};
         VmaMemoryUsage vmaMemoryUsage{VMA_MEMORY_USAGE_UNKNOWN};
+        VmaAllocationCreateFlags vmaAllocationCreateFlags{0};
+        VmaAllocationInfo vmaAllocationInfo{};
 
         VkBuffer vkBuffer{VK_NULL_HANDLE};
         VmaAllocation vmaAllocation{nullptr};
@@ -43,6 +45,12 @@ namespace Accela::Render
     {
         std::size_t deleteOffset{0};
         std::size_t deleteByteSize{0};
+    };
+
+    struct BufferRead
+    {
+        std::size_t readOffset{0};
+        std::size_t readByteSize{0};
     };
 
     template <typename T>

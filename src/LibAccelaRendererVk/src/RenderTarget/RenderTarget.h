@@ -7,6 +7,8 @@
 #ifndef LIBACCELARENDERERVK_SRC_RENDERTARGET_RENDERTARGET_H
 #define LIBACCELARENDERERVK_SRC_RENDERTARGET_RENDERTARGET_H
 
+#include "../InternalId.h"
+
 #include <Accela/Render/Id.h>
 
 #include <string>
@@ -21,17 +23,17 @@ namespace Accela::Render
 
         RenderTarget(FrameBufferId _gPassFramebuffer,
                      FrameBufferId _screenFramebuffer,
-                     TextureId _postProcessOutputTexture,
+                     ImageId _postProcessOutputImage,
                      std::string _tag)
             : gPassFramebuffer(_gPassFramebuffer)
             , screenFramebuffer(_screenFramebuffer)
-            , postProcessOutputTexture(_postProcessOutputTexture)
+            , postProcessOutputImage(_postProcessOutputImage)
             , tag(std::move(_tag))
         {}
 
         FrameBufferId gPassFramebuffer{};
         FrameBufferId screenFramebuffer{};
-        TextureId postProcessOutputTexture{};
+        ImageId postProcessOutputImage{};
 
         std::string tag;
     };

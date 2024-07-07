@@ -36,6 +36,7 @@ namespace Accela::Render
                                 IPipelineFactoryPtr pipelines,
                                 IBuffersPtr buffers,
                                 IMaterialsPtr materials,
+                                IImagesPtr images,
                                 ITexturesPtr textures,
                                 IMeshesPtr meshes,
                                 ILightsPtr lights,

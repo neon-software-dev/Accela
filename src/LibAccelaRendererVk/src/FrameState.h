@@ -8,8 +8,8 @@
 #define LIBACCELARENDERERVK_SRC_FRAMESTATE_H
 
 #include "ForwardDeclares.h"
+#include "InternalId.h"
 
-#include <Accela/Render/Ids.h>
 #include <Accela/Render/RenderSettings.h>
 
 #include <Accela/Common/Log/ILogger.h>
@@ -23,9 +23,9 @@ namespace Accela::Render
         public:
 
             FrameState(Common::ILogger::Ptr logger,
-                       Ids::Ptr ids,
                        VulkanObjsPtr vulkanObjs,
-                       ITexturesPtr textures,
+                       IRenderTargetsPtr renderTargets,
+                       IImagesPtr images,
                        uint8_t frameIndex);
 
             bool Initialize(const RenderSettings& renderSettings);
@@ -39,13 +39,15 @@ namespace Accela::Render
             [[nodiscard]] VkSemaphore GetRenderFinishedSemaphore() const noexcept { return m_renderFinishedSemaphore; }
             [[nodiscard]] VkSemaphore GetSwapChainBlitFinishedSemaphore() const noexcept { return m_swapChainBlitFinishedSemaphore; }
             [[nodiscard]] VkFence GetPipelineFence() const noexcept { return m_pipelineFence; }
+            [[nodiscard]] ImageId GetObjectDetailImageId() const noexcept { return m_objectDetailImageId; }
 
         private:
 
             Common::ILogger::Ptr m_logger;
-            Ids::Ptr m_ids;
             VulkanObjsPtr m_vulkanObjs;
+            IRenderTargetsPtr m_renderTargets;
             ITexturesPtr m_textures;
+            IImagesPtr m_images;
 
             uint8_t m_frameIndex;
 
@@ -64,6 +66,9 @@ namespace Accela::Render
             VkSemaphore m_swapChainBlitFinishedSemaphore{VK_NULL_HANDLE};
             // Fence triggered when the pipeline has finished this frame's work
             VkFence m_pipelineFence{VK_NULL_HANDLE};
+
+            // Image that receives a copy of the object detail render output
+            ImageId m_objectDetailImageId;
     };
 }
 

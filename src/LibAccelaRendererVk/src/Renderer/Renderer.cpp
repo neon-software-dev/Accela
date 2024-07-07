@@ -27,6 +27,7 @@ Renderer::Renderer(
     IPipelineFactoryPtr pipelines,
     IBuffersPtr buffers,
     IMaterialsPtr materials,
+    IImagesPtr images,
     ITexturesPtr textures,
     IMeshesPtr meshes,
     ILightsPtr lights,
@@ -42,6 +43,7 @@ Renderer::Renderer(
     , m_pipelines(std::move(pipelines))
     , m_buffers(std::move(buffers))
     , m_materials(std::move(materials))
+    , m_images(std::move(images))
     , m_textures(std::move(textures))
     , m_meshes(std::move(meshes))
     , m_lights(std::move(lights))

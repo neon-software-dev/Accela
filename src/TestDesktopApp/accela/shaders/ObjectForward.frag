@@ -12,10 +12,10 @@
 //
 struct GlobalPayload
 {
-// General
+    // General
     mat4 surfaceTransform;          // Projection Space -> Rotated projection space
 
-// Lighting
+    // Lighting
     uint numLights;
     float ambientLightIntensity;
     vec3 ambientLightColor;
@@ -114,7 +114,7 @@ FragmentColors CalculateFragmentColors(MaterialPayload materialPayload);
 FragmentColors ProcessAlphaMode(MaterialPayload materialPayload, FragmentColors fragmentColors);
 vec3 CalculateFragmentModelNormal(MaterialPayload materialPayload);
 
-CalculatedLight CalculateFragmentLighting(MaterialPayload fragmentMaterial, vec3 fragmentNormal_viewSpace);
+CalculatedLight CalculateFragmentLighting(MaterialPayload fragmentMaterial, vec3 fragmentNormal_viewSpace, bool isTranslucent);
 float GetFragShadowLevel(LightPayload lightData, vec3 fragPosition_worldSpace);
 float GetLightFragDepth(LightPayload lightData, vec3 fragPosition_worldSpace);
 float GetFragShadowLevel_Single(LightPayload lightData, vec3 fragPosition_worldSpace, float lightToFragDepth);
@@ -181,6 +181,7 @@ layout(push_constant) uniform constants
 // OUTPUTS
 //
 layout(location = 0) out vec4 o_fragColor;
+layout(location = 1) out uvec2 o_vertexObjectDetail;
 
 void main()
 {
@@ -198,16 +199,13 @@ void main()
     //
     fragmentColors = ProcessAlphaMode(materialPayload, fragmentColors);
 
-    //
-    // Discard fully transparent fragments.
-    // (0.01f used instead of 0.0f to avoid potential precision issues.)
-    //
-    if (fragmentColors.ambientColor.a <= 0.01f &&
-        fragmentColors.diffuseColor.a <= 0.01f &&
-        fragmentColors.specularColor.a <= 0.01f)
-    {
-        discard;
-    }
+    // The fragment is translucent if any of its color components have a alpha between zero and one. Using
+    // hundredths to account for float imprecision
+    const bool isTranslucent =(
+        (fragmentColors.ambientColor.a > 0.01f && fragmentColors.ambientColor.a < 0.99f) ||
+        (fragmentColors.diffuseColor.a > 0.01f && fragmentColors.diffuseColor.a < 0.99f) ||
+        (fragmentColors.specularColor.a > 0.01f && fragmentColors.specularColor.a < 0.99f)
+    );
 
     //
     // Calculate the fragment's view-space normal for lighting to use
@@ -219,7 +217,7 @@ void main()
     //
     // Calculate the light hitting the fragment
     //
-    const CalculatedLight calculatedLight = CalculateFragmentLighting(materialPayload, fragmentNormal_viewSpace);
+    const CalculatedLight calculatedLight = CalculateFragmentLighting(materialPayload, fragmentNormal_viewSpace, isTranslucent);
 
     //
     // Combine the lighting with the fragment's color
@@ -230,6 +228,10 @@ void main()
 
     vec4 surfaceColor = ambientColor + diffuseColor + specularColor;
 
+    // Set the alpha of the fragment to the fragment's max per-component alpha
+    surfaceColor.a = max(ambientColor.a, diffuseColor.a);
+    surfaceColor.a = max(surfaceColor.a, surfaceColor.a);
+
     //
     // If not doing HDR, clamp the brighest color between pure dark and pure bright
     //
@@ -239,6 +241,8 @@ void main()
     }
 
     o_fragColor = surfaceColor;
+    o_vertexObjectDetail.r = drawPayload.dataIndex + 1; // +1 converts from data index to object id
+    o_vertexObjectDetail.g = drawPayload.materialIndex;
 }
 
 vec4 TextureOp(vec4 dest, vec4 texture, uint textureOp)
@@ -322,7 +326,7 @@ vec3 CalculateFragmentModelNormal(MaterialPayload materialPayload)
     return modelNormal;
 }
 
-CalculatedLight CalculateFragmentLighting(MaterialPayload fragmentMaterial, vec3 fragmentNormal_viewSpace)
+CalculatedLight CalculateFragmentLighting(MaterialPayload fragmentMaterial, vec3 fragmentNormal_viewSpace, bool isTranslucent)
 {
     const mat4 viewTransform = i_viewProjectionData.data[gl_ViewIndex].viewTransform;
 
@@ -380,7 +384,9 @@ CalculatedLight CalculateFragmentLighting(MaterialPayload fragmentMaterial, vec3
             continue;
         }
 
-        const float fragShadowLevel = GetFragShadowLevel(lightData, fragPosition_worldSpace);
+        // Translucent fragments can't be in shadow as they cast no shadows (Shadow.frag), which means there's
+        // no available depth information in shadow maps for them to calculate their distance / shadow level
+        const float fragShadowLevel = isTranslucent ? 0.0f : GetFragShadowLevel(lightData, fragPosition_worldSpace);
 
         // If the fragment is in full shadow from the light, the light doesn't hit it, bail out early
         if (fragShadowLevel == 1.0f)

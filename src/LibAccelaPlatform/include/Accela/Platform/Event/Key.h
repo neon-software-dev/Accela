@@ -19,8 +19,8 @@ namespace Accela::Platform
     enum class Key
     {
         Escape,
-        LeftControl,
-        LeftShift,
+        Control,
+        Shift,
         Backspace,
         Keypad_Enter,
         Return,

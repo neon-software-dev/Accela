@@ -13,6 +13,7 @@
 #include "../Mesh/LoadedMesh.h"
 #include "../Buffer/ItemBuffer.h"
 #include "../Texture/LoadedTexture.h"
+#include "../Image/LoadedImage.h"
 
 #include <Accela/Render/Task/RenderParams.h>
 
@@ -45,6 +46,7 @@ namespace Accela::Render
                            IPipelineFactoryPtr pipelines,
                            IBuffersPtr buffers,
                            IMaterialsPtr materials,
+                           IImagesPtr images,
                            ITexturesPtr textures,
                            IMeshesPtr meshes,
                            ILightsPtr lights,
@@ -77,7 +79,7 @@ namespace Accela::Render
             bool UpdateGlobalDescriptorSet_ViewProjection(const RenderParams& renderParams,
                                                           const VulkanDescriptorSetPtr& descriptorSet);
             std::optional<VulkanDescriptorSetPtr> UpdateRendererDescriptorSet();
-            std::optional<VulkanDescriptorSetPtr> UpdateMaterialDescriptorSet(const LoadedTexture& loadedTexture);
+            std::optional<VulkanDescriptorSetPtr> UpdateMaterialDescriptorSet(const std::pair<LoadedTexture, LoadedImage>& loadedTexture);
             std::optional<VulkanDescriptorSetPtr> UpdateDrawDescriptorSet(const SpriteBatch& spriteBatch);
 
             [[nodiscard]] std::unordered_map<TextureId, SpriteBatch> CompileSpriteBatches(const std::string& sceneName) const;

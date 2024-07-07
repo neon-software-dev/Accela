@@ -13,6 +13,7 @@ namespace Accela::Engine
 {
     class Scene; using ScenePtr = std::shared_ptr<Scene>;
     class IKeyboardState; using IKeyboardStatePtr = std::shared_ptr<IKeyboardState>;
+    class IMouseState; using IMouseStatePtr = std::shared_ptr<IMouseState>;
     class IWorldResources; using IWorldResourcesPtr = std::shared_ptr<IWorldResources>;
     class IWorldState; using IWorldStatePtr = std::shared_ptr<IWorldState>;
     class AudioManager; using AudioManagerPtr = std::shared_ptr<AudioManager>;

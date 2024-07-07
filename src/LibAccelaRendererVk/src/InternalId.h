@@ -10,5 +10,6 @@
 #include <Accela/Render/Id.h>
 
 DEFINE_ID_TYPE(BufferId)
+DEFINE_ID_TYPE(ImageId)
 
 #endif //LIBACCELARENDERERVK_SRC_INTERNALID_H

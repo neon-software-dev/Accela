@@ -222,16 +222,18 @@ void SpriteRenderables::ProcessDeletedSprites(const WorldUpdate& update, const V
 
 SpritePayload SpriteRenderables::SpriteToPayload(const SpriteRenderable& sprite, const LoadedTexture& spriteTexture)
 {
-    auto sourceRect = URect(spriteTexture.pixelSize);
+    const auto spriteTextureSize = spriteTexture.textureDefinition.texture.pixelSize;
+
+    auto sourceRect = URect(spriteTextureSize);
     if (sprite.srcPixelRect.has_value()) { sourceRect = sprite.srcPixelRect.value(); }
 
     FSize destSize = {(float)sourceRect.w, (float)sourceRect.h};
     if (sprite.dstSize.has_value()) { destSize = *sprite.dstSize; }
 
-    const float selectPercentX      = (float)sourceRect.x / (float)spriteTexture.pixelSize.w;
-    const float selectPercentY      = (float)sourceRect.y / (float)spriteTexture.pixelSize.h;
-    const float selectPercentWidth  = (float)sourceRect.w / (float)spriteTexture.pixelSize.w;
-    const float selectPercentHeight = (float)sourceRect.h / (float)spriteTexture.pixelSize.h;
+    const float selectPercentX      = (float)sourceRect.x / (float)spriteTextureSize.w;
+    const float selectPercentY      = (float)sourceRect.y / (float)spriteTextureSize.h;
+    const float selectPercentWidth  = (float)sourceRect.w / (float)spriteTextureSize.w;
+    const float selectPercentHeight = (float)sourceRect.h / (float)spriteTextureSize.h;
 
     const glm::mat4 translation = glm::translate(glm::mat4(1), sprite.position);
 

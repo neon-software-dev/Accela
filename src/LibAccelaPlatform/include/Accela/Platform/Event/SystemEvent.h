@@ -12,13 +12,21 @@
 #include "WindowCloseEvent.h"
 #include "MouseMoveEvent.h"
 #include "MouseButtonEvent.h"
+#include "MouseWheelEvent.h"
 
 #include <variant>
 
 namespace Accela::Platform
 {
     // Variant defining all possible system events
-    using SystemEvent = std::variant<KeyEvent, WindowResizeEvent, WindowCloseEvent, MouseMoveEvent, MouseButtonEvent>;
+    using SystemEvent = std::variant<
+        KeyEvent,
+        WindowResizeEvent,
+        WindowCloseEvent,
+        MouseMoveEvent,
+        MouseButtonEvent,
+        MouseWheelEvent
+    >;
 }
 
 

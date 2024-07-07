@@ -135,6 +135,32 @@ namespace Accela
 
         float scaleDeltaDegrees;
     };
+
+    struct EntityClicked : public Common::Message
+    {
+        using Ptr = std::shared_ptr<EntityClicked>;
+        static constexpr auto TYPE = "EntityClicked";
+        explicit EntityClicked(Engine::EntityId _eid)
+            : Common::Message(TYPE)
+            , eid(_eid)
+        { }
+
+        Engine::EntityId eid;
+    };
+
+    struct SetEntityHighlighted : public Common::Message
+    {
+        using Ptr = std::shared_ptr<SetEntityHighlighted>;
+        static constexpr auto TYPE = "SetEntityHighlighted";
+        SetEntityHighlighted(Engine::EntityId _eid, bool _highlighted)
+            : Common::Message(TYPE)
+            , eid(_eid)
+            , highlighted(_highlighted)
+        { }
+
+        Engine::EntityId eid;
+        bool highlighted;
+    };
 }
 
 #endif //ACCELAEDITOR_EDITORSCENE_MESSAGES_H

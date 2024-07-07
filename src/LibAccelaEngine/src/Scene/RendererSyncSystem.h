@@ -47,6 +47,11 @@ namespace Accela::Engine
             void Initialize(entt::registry& registry) override;
             void Execute(const RunState::Ptr& runState, entt::registry& registry) override;
 
+            /**
+             * Returns the entity associated with a renderer object id
+             */
+            [[nodiscard]] std::optional<entt::entity> GetObjectEntity(const Render::ObjectId& objectId) const;
+
         private:
 
             void OnRenderableStateDestroyed(entt::registry& registry, entt::entity entity);
@@ -98,6 +103,8 @@ namespace Accela::Engine
 
             entt::observer m_renderableStateUpdateObserver;
             entt::observer m_lightStateUpdateObserver;
+
+            std::unordered_map<Render::ObjectId, entt::entity> m_objectsToEntities;
 
             std::unordered_set<Render::RenderableId> m_spriteRenderablesToDestroy;
             std::unordered_set<Render::RenderableId> m_objectRenderablesToDestroy;

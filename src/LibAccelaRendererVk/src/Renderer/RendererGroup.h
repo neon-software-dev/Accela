@@ -49,6 +49,7 @@ namespace Accela::Render
                           IPipelineFactoryPtr pipelines,
                           IBuffersPtr buffers,
                           IMaterialsPtr materials,
+                          IImagesPtr images,
                           ITexturesPtr textures,
                           IMeshesPtr meshes,
                           ILightsPtr lights,
@@ -63,6 +64,7 @@ namespace Accela::Render
                  , m_pipelines(std::move(pipelines))
                  , m_buffers(std::move(buffers))
                  , m_materials(std::move(materials))
+                 , m_images(std::move(images))
                  , m_textures(std::move(textures))
                  , m_meshes(std::move(meshes))
                  , m_lights(std::move(lights))
@@ -91,6 +93,7 @@ namespace Accela::Render
             IPipelineFactoryPtr m_pipelines;
             IBuffersPtr m_buffers;
             IMaterialsPtr m_materials;
+            IImagesPtr m_images;
             ITexturesPtr m_textures;
             IMeshesPtr m_meshes;
             ILightsPtr m_lights;
@@ -200,6 +203,7 @@ namespace Accela::Render
             m_pipelines,
             m_buffers,
             m_materials,
+            m_images,
             m_textures,
             m_meshes,
             m_lights,

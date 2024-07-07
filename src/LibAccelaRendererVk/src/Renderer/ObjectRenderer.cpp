@@ -18,6 +18,7 @@
 #include "../Mesh/IMeshes.h"
 #include "../Material/IMaterials.h"
 #include "../Texture/ITextures.h"
+#include "../Image/IImages.h"
 #include "../Light/ILights.h"
 
 #include "../Vulkan/VulkanDebug.h"
@@ -47,6 +48,7 @@ ObjectRenderer::ObjectRenderer(Common::ILogger::Ptr logger,
                                IPipelineFactoryPtr pipelines,
                                IBuffersPtr buffers,
                                IMaterialsPtr materials,
+                               IImagesPtr images,
                                ITexturesPtr textures,
                                IMeshesPtr meshes,
                                ILightsPtr lights,
@@ -62,6 +64,7 @@ ObjectRenderer::ObjectRenderer(Common::ILogger::Ptr logger,
                std::move(pipelines),
                std::move(buffers),
                std::move(materials),
+               std::move(images),
                std::move(textures),
                std::move(meshes),
                std::move(lights),
@@ -95,7 +98,7 @@ void ObjectRenderer::Render(const std::string& sceneName,
                             const VulkanRenderPassPtr& renderPass,
                             const VulkanFramebufferPtr& framebuffer,
                             const std::vector<ViewProjection>& viewProjections,
-                            const std::unordered_map<LightId, TextureId>& shadowMaps,
+                            const std::unordered_map<LightId, ImageId>& shadowMaps,
                             const std::optional<ShadowRenderData>& shadowRenderData)
 {
     CmdBufferSectionLabel sectionLabel(m_vulkanObjs->GetCalls(), commandBuffer, "ObjectRenderer");
@@ -435,7 +438,7 @@ void ObjectRenderer::RenderBatch(const std::string& sceneName,
                                  const VulkanRenderPassPtr& renderPass,
                                  const VulkanFramebufferPtr& framebuffer,
                                  const std::vector<ViewProjection>& viewProjections,
-                                 const std::unordered_map<LightId, TextureId>& shadowMaps,
+                                 const std::unordered_map<LightId, ImageId>& shadowMaps,
                                  const std::optional<ShadowRenderData>& shadowRenderData)
 {
     //
@@ -586,7 +589,7 @@ bool ObjectRenderer::BindDescriptorSet0(const std::string& sceneName,
                                         const RenderParams& renderParams,
                                         const VulkanCommandBufferPtr& commandBuffer,
                                         const std::vector<ViewProjection>& viewProjections,
-                                        const std::unordered_map<LightId, TextureId>& shadowMaps)
+                                        const std::unordered_map<LightId, ImageId>& shadowMaps)
 {
     //
     // If the set isn't invalidated, nothing to do
@@ -732,7 +735,7 @@ bool ObjectRenderer::BindDescriptorSet0_ViewProjection(BindState& bindState,
 bool ObjectRenderer::BindDescriptorSet0_Lights(const BindState& bindState,
                                                const VulkanDescriptorSetPtr& globalDataDescriptorSet,
                                                const std::vector<LoadedLight>& lights,
-                                               const std::unordered_map<LightId, TextureId>& shadowMaps) const
+                                               const std::unordered_map<LightId, ImageId>& shadowMaps) const
 {
     //
     // Create a per-render CPU buffer for holding light data
@@ -754,11 +757,11 @@ bool ObjectRenderer::BindDescriptorSet0_Lights(const BindState& bindState,
     //
     // Calculate light data
     //
-    const auto defaultLightTextures = std::vector<TextureId>(Max_Light_Count, Render::TextureId(Render::INVALID_ID));
+    const auto defaultLightImages = std::vector<ImageId>(Max_Light_Count, Render::ImageId(Render::INVALID_ID));
 
-    std::unordered_map<ShadowMapType, std::vector<TextureId>> shadowMapTextureIds {
-        {ShadowMapType::Single, defaultLightTextures},
-        {ShadowMapType::Cube, defaultLightTextures}
+    std::unordered_map<ShadowMapType, std::vector<ImageId>> shadowMapImageIds {
+        {ShadowMapType::Single, defaultLightImages},
+        {ShadowMapType::Cube, defaultLightImages}
     };
 
     // TODO Perf: Cull out lights that are a certain distance away from the camera
@@ -794,7 +797,7 @@ bool ObjectRenderer::BindDescriptorSet0_Lights(const BindState& bindState,
         const auto lightShadowMapIt = shadowMaps.find(light.lightId);
         if (lightShadowMapIt != shadowMaps.cend())
         {
-            shadowMapTextureIds[loadedLight.shadowMapType][lightIndex] = lightShadowMapIt->second;
+            shadowMapImageIds[loadedLight.shadowMapType][lightIndex] = lightShadowMapIt->second;
             lightPayload.shadowMapIndex = (int)lightIndex;
         }
 
@@ -818,7 +821,7 @@ bool ObjectRenderer::BindDescriptorSet0_Lights(const BindState& bindState,
     //
     // Bind shadow map textures
     //
-    if (!BindDescriptorSet0_ShadowMapTextures(bindState, globalDataDescriptorSet, shadowMapTextureIds))
+    if (!BindDescriptorSet0_ShadowMapTextures(bindState, globalDataDescriptorSet, shadowMapImageIds))
     {
         m_logger->Log(Common::LogLevel::Error, "DeferredLightingRenderer::BindDescriptorSet0_Lights: Failed to bind shadow maps");
         return false;
@@ -834,7 +837,7 @@ bool ObjectRenderer::BindDescriptorSet0_Lights(const BindState& bindState,
 
 bool ObjectRenderer::BindDescriptorSet0_ShadowMapTextures(const BindState& bindState,
                                                           const VulkanDescriptorSetPtr& globalDataDescriptorSet,
-                                                          const std::unordered_map<ShadowMapType, std::vector<TextureId>>& shadowMapTextureIds) const
+                                                          const std::unordered_map<ShadowMapType, std::vector<ImageId>>& shadowMapImageIds) const
 {
     //
     // Cube shadow map binding details
@@ -870,42 +873,42 @@ bool ObjectRenderer::BindDescriptorSet0_ShadowMapTextures(const BindState& bindS
     VkImageView missingTextureImageView{VK_NULL_HANDLE};
     VkSampler missingTextureSampler{VK_NULL_HANDLE};
 
-    for (const auto& typeIt : shadowMapTextureIds)
+    for (const auto& typeIt : shadowMapImageIds)
     {
         switch (typeIt.first)
         {
             case ShadowMapType::Single:
             {
                 shadowBindingDetails = *shadowMapBindingDetails;
-                shadowImageViewName = TextureView::DEFAULT;
-                shadowSamplerName = TextureSampler::DEFAULT;
-                missingTextureImageView = missingTexture.vkImageViews.at(TextureView::DEFAULT);
-                missingTextureSampler = missingTexture.vkSamplers.at(TextureSampler::DEFAULT);
+                shadowImageViewName = ImageView::DEFAULT;
+                shadowSamplerName = ImageSampler::DEFAULT;
+                missingTextureImageView = missingTexture.second.vkImageViews.at(ImageView::DEFAULT);
+                missingTextureSampler = missingTexture.second.vkSamplers.at(ImageSampler::DEFAULT);
             }
             break;
 
             case ShadowMapType::Cube:
             {
                 shadowBindingDetails = *shadowMapBindingDetails_Cube;
-                shadowImageViewName = TextureView::DEFAULT;
-                shadowSamplerName = TextureSampler::DEFAULT;
-                missingTextureImageView = missingCubeTexture.vkImageViews.at(TextureView::DEFAULT);
-                missingTextureSampler = missingCubeTexture.vkSamplers.at(TextureSampler::DEFAULT);
+                shadowImageViewName = ImageView::DEFAULT;
+                shadowSamplerName = ImageSampler::DEFAULT;
+                missingTextureImageView = missingCubeTexture.second.vkImageViews.at(ImageView::DEFAULT);
+                missingTextureSampler = missingCubeTexture.second.vkSamplers.at(ImageSampler::DEFAULT);
             }
             break;
         }
 
         std::vector<std::pair<VkImageView, VkSampler>> samplerBinds;
 
-        for (const auto& textureId : typeIt.second)
+        for (const auto& imageId : typeIt.second)
         {
-            const auto textureOpt = m_textures->GetTexture(textureId);
+            const auto imageOpt = m_images->GetImage(imageId);
 
-            if (textureOpt)
+            if (imageOpt)
             {
                 samplerBinds.emplace_back(
-                    textureOpt->vkImageViews.at(shadowImageViewName),
-                    textureOpt->vkSamplers.at(shadowSamplerName)
+                    imageOpt->vkImageViews.at(shadowImageViewName),
+                    imageOpt->vkSamplers.at(shadowSamplerName)
                 );
             }
             else
@@ -1035,7 +1038,7 @@ void ObjectRenderer::BindDescriptorSet2_MaterialData(BindState& bindState,
     //
     for (const auto& textureBindIt : loadedMaterial.textureBinds)
     {
-        std::optional<LoadedTexture> loadedTexture{};
+        std::optional<std::pair<LoadedTexture, LoadedImage>> loadedTexture{};
 
         if (textureBindIt.second == TextureId{INVALID_ID})
         {
@@ -1043,7 +1046,7 @@ void ObjectRenderer::BindDescriptorSet2_MaterialData(BindState& bindState,
         }
         else
         {
-            loadedTexture = m_textures->GetTexture(textureBindIt.second);
+            loadedTexture = m_textures->GetTextureAndImage(textureBindIt.second);
 
             // Fallback to missing texture as needed
             if (!loadedTexture)
@@ -1061,8 +1064,8 @@ void ObjectRenderer::BindDescriptorSet2_MaterialData(BindState& bindState,
 
         descriptorSet->WriteCombinedSamplerBind(
             (*bindState.programDef)->GetBindingDetailsByName(textureBindIt.first),
-            loadedTexture->vkImageViews.at(TextureView::DEFAULT),
-            loadedTexture->vkSamplers.at(TextureSampler::DEFAULT)
+            loadedTexture->second.vkImageViews.at(TextureView::DEFAULT),
+            loadedTexture->second.vkSamplers.at(TextureSampler::DEFAULT)
         );
     }
 

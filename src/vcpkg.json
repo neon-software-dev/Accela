@@ -1,4 +1,8 @@
 {
+  "name": "accela",
+  "version": "0.1.0",
+  "builtin-baseline": "78ba9711d30c64a6b40462c72f356c681e2255f3",
+
   "dependencies": [
     "glm",
     "entt",
@@ -20,8 +24,6 @@
       "features": [ "libjpeg-turbo" ]
     },
     "sdl2-ttf"
-  ],
-  "name": "accela",
-  "version": "0.1.0"
+  ]
 }
 

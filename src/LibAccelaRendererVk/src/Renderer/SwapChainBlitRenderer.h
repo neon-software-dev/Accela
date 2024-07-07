@@ -38,6 +38,7 @@ namespace Accela::Render
                                   IPipelineFactoryPtr pipelines,
                                   IBuffersPtr buffers,
                                   IMaterialsPtr materials,
+                                  IImagesPtr images,
                                   ITexturesPtr textures,
                                   IMeshesPtr meshes,
                                   ILightsPtr lights,
@@ -50,8 +51,15 @@ namespace Accela::Render
             void Render(const VulkanCommandBufferPtr& commandBuffer,
                         const VulkanRenderPassPtr& renderPass,
                         const VulkanFramebufferPtr& swapChainFramebuffer,
-                        const LoadedTexture& renderTexture,
-                        const LoadedTexture& screenTexture);
+                        const LoadedImage& renderImage,
+                        const LoadedImage& screenImage);
+
+        private:
+
+            struct SwapChainBlitPushPayload
+            {
+                alignas(4) uint32_t presentEyeIndex{0};
+            };
 
         private:
 

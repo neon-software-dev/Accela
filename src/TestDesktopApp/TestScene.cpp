@@ -411,8 +411,8 @@ void TestScene::OnMouseMoveEvent(const Platform::MouseMoveEvent& event)
 
     // Apply mouse movements as camera view rotations
     engine->GetWorldState()->GetWorldCamera("default")->RotateBy(
-        (float)event.yRel * -0.002f,
-        (float)event.xRel * -0.002f
+        event.yRel * -0.002f,
+        event.xRel * -0.002f
     );
 }
 
@@ -446,13 +446,13 @@ Engine::PlayerMovement TestScene::GetActiveMovementCommands() const
     if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::S)) {
         movementCommands.backward = true;
     }
-    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::LeftControl)) {
+    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::Control)) {
         movementCommands.down = true;
     }
     if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::Space)) {
         movementCommands.up = true;
     }
-    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::LeftShift)) {
+    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::Shift)) {
         movementCommands.sprint = true;
     }
 

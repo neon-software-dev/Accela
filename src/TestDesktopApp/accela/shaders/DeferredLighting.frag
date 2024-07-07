@@ -108,7 +108,7 @@ float MapRange(float val, float min1, float max1, float min2, float max2)
 // INPUTS
 layout(input_attachment_index = 0, set = 1, binding = 0) uniform subpassInput i_vertexPosition_worldSpace;
 layout(input_attachment_index = 1, set = 1, binding = 1) uniform subpassInput i_vertexNormal_viewSpace;
-layout(input_attachment_index = 2, set = 1, binding = 2) uniform usubpassInput i_vertexMaterial;
+layout(input_attachment_index = 2, set = 1, binding = 2) uniform usubpassInput i_vertexObjectDetail;
 layout(input_attachment_index = 3, set = 1, binding = 3) uniform subpassInput i_vertexAmbientColor;
 layout(input_attachment_index = 4, set = 1, binding = 4) uniform subpassInput i_vertexDiffuseColor;
 layout(input_attachment_index = 5, set = 1, binding = 5) uniform subpassInput i_vertexSpecularColor;
@@ -150,7 +150,7 @@ layout(location = 0) out vec4 o_fragColor;
 
 void main()
 {
-    const uint fragmentMaterialIndex = subpassLoad(i_vertexMaterial).r;
+    const uint fragmentMaterialIndex = subpassLoad(i_vertexObjectDetail).g;
     const MaterialPayload fragmentMaterial = i_materialData.data[fragmentMaterialIndex];
 
     //
@@ -174,6 +174,10 @@ void main()
     const vec4 specularColor = fragmentColors.specularColor * vec4(calculatedLight.specularLight, 1.0f);
 
     vec4 surfaceColor = ambientColor + diffuseColor + specularColor;
+
+    // Set the alpha of the fragment to the fragment's max per-component alpha
+    surfaceColor.a = max(ambientColor.a, diffuseColor.a);
+    surfaceColor.a = max(surfaceColor.a, surfaceColor.a);
 
     //
     // If not doing HDR, clamp the brighest color between pure dark and pure bright

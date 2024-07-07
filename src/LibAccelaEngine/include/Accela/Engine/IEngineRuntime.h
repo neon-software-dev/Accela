@@ -8,6 +8,7 @@
 #define LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_IENGINERUNTIME_H
 
 #include <Accela/Engine/IKeyboardState.h>
+#include <Accela/Engine/IMouseState.h>
 #include <Accela/Engine/Scene/IWorldState.h>
 #include <Accela/Engine/Scene/IWorldResources.h>
 
@@ -42,6 +43,7 @@ namespace Accela::Engine
             [[nodiscard]] virtual IWorldState::Ptr GetWorldState() const noexcept = 0;
             [[nodiscard]] virtual IWorldResources::Ptr GetWorldResources() const noexcept = 0;
             [[nodiscard]] virtual IKeyboardState::CPtr GetKeyboardState() const noexcept = 0;
+            [[nodiscard]] virtual IMouseState::CPtr GetMouseState() const noexcept = 0;
 
             /**
              * @return The current simulation step tick index. Rolls over at uintmax_t ticks.

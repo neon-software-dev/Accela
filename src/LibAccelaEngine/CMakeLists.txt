@@ -8,6 +8,7 @@ project(LibAccelaEngine VERSION 0.0.1 LANGUAGES CXX)
 	find_package(EnTT CONFIG REQUIRED)
 	find_package(AudioFile CONFIG REQUIRED)
 	find_package(assimp CONFIG REQUIRED)
+	find_package(CUDAToolkit REQUIRED)
 
 	#########################
 	# TODO: Remove this block when PhysX package in vcpkg isn't broken for linux
@@ -17,11 +18,10 @@ project(LibAccelaEngine VERSION 0.0.1 LANGUAGES CXX)
 		IMPORTED_LOCATION "${PhysXCharacterKinematicFile}"
 	)
 
-	find_library(PhysXCookingFile PhysXCooking_64 HINTS "${PHYSX_BIN_DIR}" REQUIRED)
-	add_library(PhysXCooking IMPORTED SHARED)
+	find_library(PhysXCookingFile PhysXCooking_static_64 HINTS "${PHYSX_BIN_DIR}" REQUIRED)
+	add_library(PhysXCooking IMPORTED STATIC)
 	set_target_properties(PhysXCooking PROPERTIES
 		IMPORTED_LOCATION "${PhysXCookingFile}"
-		IMPORTED_IMPLIB "${PhysXCookingFile}"
 	)
 
 	find_library(PhysXExtensionsFile PhysXExtensions_static_64 HINTS "${PHYSX_BIN_DIR}" REQUIRED)
@@ -30,11 +30,10 @@ project(LibAccelaEngine VERSION 0.0.1 LANGUAGES CXX)
 		IMPORTED_LOCATION "${PhysXExtensionsFile}"
 	)
 
-	find_library(PhysXFile PhysX_64 HINTS "${PHYSX_BIN_DIR}" REQUIRED)
-	add_library(PhysX IMPORTED SHARED)
+	find_library(PhysXFile PhysX_static_64 HINTS "${PHYSX_BIN_DIR}" REQUIRED)
+	add_library(PhysX IMPORTED STATIC)
 	set_target_properties(PhysX PROPERTIES
 		IMPORTED_LOCATION "${PhysXFile}"
-		IMPORTED_IMPLIB "${PhysXFile}"
 	)
 
 	find_library(PhysXPvdSDKFile PhysXPvdSDK_static_64 HINTS "${PHYSX_BIN_DIR}" REQUIRED)
@@ -43,42 +42,44 @@ project(LibAccelaEngine VERSION 0.0.1 LANGUAGES CXX)
 		IMPORTED_LOCATION "${PhysXPvdSDKFile}"
 	)
 
-	find_library(PhysXCommonFile PhysXCommon_64 HINTS "${PHYSX_BIN_DIR}" REQUIRED)
-	add_library(PhysXCommon IMPORTED SHARED)
+	find_library(PhysXCommonFile PhysXCommon_static_64 HINTS "${PHYSX_BIN_DIR}" REQUIRED)
+	add_library(PhysXCommon IMPORTED STATIC)
 	set_target_properties(PhysXCommon PROPERTIES
 		IMPORTED_LOCATION "${PhysXCommonFile}"
-		IMPORTED_IMPLIB "${PhysXCommonFile}"
 	)
 
-	find_library(PhysXFoundationFile PhysXFoundation_64 HINTS "${PHYSX_BIN_DIR}" REQUIRED)
-	add_library(PhysXFoundation IMPORTED SHARED)
+	find_library(PhysXFoundationFile PhysXFoundation_static_64 HINTS "${PHYSX_BIN_DIR}" REQUIRED)
+	add_library(PhysXFoundation IMPORTED STATIC)
 	set_target_properties(PhysXFoundation PROPERTIES
 		IMPORTED_LOCATION "${PhysXFoundationFile}"
-		IMPORTED_IMPLIB "${PhysXFoundationFile}"
 	)
+
+	find_library(PhysXGpuFile PhysXGpu_64 HINTS "${PHYSX_BIN_DIR}")
+	add_library(PhysXGpu IMPORTED SHARED)
+	set_target_properties(PhysXGpu PROPERTIES
+		IMPORTED_LOCATION "${PhysXGpuFile}"
+		IMPORTED_IMPLIB "${PhysXGpuFile}"
+	)
+
+	# PhysX installs a Gpu lib on linux but not windows. Link against it on linux and not on windows.
+	# PhysXGpuFile is also not marked as REQUIRED above.
+	if (UNIX)
+		set(PhysXGpuFileOptional PhysXGpuFile)
+		set(PhysXGpuOptional PhysXGpu)
+	endif()
+
+	# TODO! Update README with instructions to build it static, and version
 
 	set(PHYSX_TARGETS
 		PhysXCharacterKinematic
-		PhysXCooking
 		PhysXExtensions
 		PhysX
 		PhysXPvdSDK
+		${PhysXGpuOptional}
+		PhysXCooking
 		PhysXCommon
 		PhysXFoundation
 	)
-
-	set_target_properties(${PHYSX_TARGETS} PROPERTIES
-		INTERFACE_INCLUDE_DIRECTORIES "${PHYSX_INSTALL_DIR}/include"
-	)
-
-	if (WIN32)
-		set (PHYSX_WINDOWS_DLLS
-			"${PHYSX_BIN_DIR}/PhysXCooking_64.dll"
-			"${PHYSX_BIN_DIR}/PhysX_64.dll"
-			"${PHYSX_BIN_DIR}/PhysXCommon_64.dll"
-			"${PHYSX_BIN_DIR}/PhysXFoundation_64.dll"
-		)
-	endif ()
 
 	#
 	#########################
@@ -185,6 +186,7 @@ target_link_libraries(AccelaEngine
 		AudioFile
 		assimp::assimp
 		${PHYSX_TARGETS}
+		CUDA::cuda_driver # TODO: Verify this links on windows; it isn't needed there but is on linux
 )
 
 target_include_directories(AccelaEngine
@@ -196,21 +198,6 @@ target_include_directories(AccelaEngine
 )
 
 ####
-# Post-Build
-####
-
-# So that TestDesktopApp can run, on Windows, copy PhysX dlls to the runtime
-# dir as it needs them in the same dir to run. On Linux, the TestDesktopApp
-# executable is internally linked to the dlls in build hierarchy
-if (WIN32)
-	add_custom_command(TARGET AccelaEngine POST_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy_if_different
-			${PHYSX_WINDOWS_DLLS}
-			${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
-	)
-endif()
-
-####
 # Installation
 ####
 
@@ -219,7 +206,9 @@ include(GNUInstallDirs)
 install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 # Install PhysX dynamic libraries
-install(IMPORTED_RUNTIME_ARTIFACTS PhysXCooking PhysX PhysXCommon PhysXFoundation)
+if (UNIX)
+	install(IMPORTED_RUNTIME_ARTIFACTS PhysXGpu)
+endif ()
 
 # Install PhysX libraries
 install(

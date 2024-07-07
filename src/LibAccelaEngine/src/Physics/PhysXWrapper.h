@@ -17,6 +17,7 @@
     #pragma GCC diagnostic ignored "-Wredundant-decls"
 #endif
 
+#include <PxConfig.h>
 #include <PxPhysicsAPI.h>
 
 #ifdef __GNUC__

@@ -78,13 +78,17 @@ bool PhysXScene::Create()
     sceneDesc.gravity = ToPhysX(m_params.gravity);
     sceneDesc.cpuDispatcher	= m_pCpuDispatcher;
     sceneDesc.filterShader	= physx::PxDefaultSimulationFilterShader;
-    #ifdef ACCELA_USE_GPU_CUDA
-        assert(m_pCudaContextManager != nullptr);
 
-        // TODO Perf: Tweak values in sceneDesc.gpuDynamicsConfig
-        sceneDesc.cudaContextManager = m_pCudaContextManager;
-        sceneDesc.flags |= physx::PxSceneFlag::eENABLE_GPU_DYNAMICS;
-        sceneDesc.broadPhaseType = physx::PxBroadPhaseType::eGPU;
+    #ifdef ACCELA_USE_GPU_CUDA
+        if (ACCELA_USE_GPU_CUDA == 1)
+        {
+            assert(m_pCudaContextManager != nullptr);
+
+            // TODO Perf: Tweak values in sceneDesc.gpuDynamicsConfig
+            sceneDesc.cudaContextManager = m_pCudaContextManager;
+            sceneDesc.flags |= physx::PxSceneFlag::eENABLE_GPU_DYNAMICS;
+            sceneDesc.broadPhaseType = physx::PxBroadPhaseType::eGPU;
+        }
     #endif
 
     m_pScene = m_pPhysics->createScene(sceneDesc);

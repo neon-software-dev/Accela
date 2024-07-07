@@ -7,6 +7,8 @@
 #ifndef LIBACCELARENDERER_INCLUDE_ACCELA_RENDER_RENDERSETTINGS_H
 #define LIBACCELARENDERER_INCLUDE_ACCELA_RENDER_RENDERSETTINGS_H
 
+#include "Eye.h"
+
 #include "Util/Rect.h"
 
 #include <glm/glm.hpp>
@@ -39,6 +41,12 @@ namespace Accela::Render
         Maximum
     };
 
+    enum class HighlightMode
+    {
+        Fill,
+        Outline
+    };
+
     /**
      * Parameters which control rendering
      */
@@ -51,17 +59,15 @@ namespace Accela::Render
         PresentScaling presentScaling{PresentScaling::CenterInside};
         bool presentToHeadset{false};
         glm::vec3 presentClearColor{0.1f, 0.1f, 0.1f};
+        Eye presentEye{Eye::Left}; // Eye render presented to the window (only relevant when in VR mode)
 
         //
         // General
         //
         uint8_t framesInFlight{3};
-
         // Note: This is render resolution, which is different from window resolution and virtual resolution
         USize resolution{1920, 1080};
-
         float maxRenderDistance{1000.0f};
-
         float globalViewScale{1.0f};
 
         //
@@ -100,6 +106,7 @@ namespace Accela::Render
         //
         float gamma{2.2f};
         bool fxaa{true};
+        HighlightMode highlightMode{HighlightMode::Fill};
     };
 }
 

@@ -46,8 +46,8 @@ namespace Accela::Render
                 return true;
             }
 
-            // TODO Perf:: Sort updates by position, combine adjacent updates into one buffer update?
-            // TODO Perf:: Update whole buffer if more than X% of items need update?
+            // TODO Perf: Sort updates by position, combine adjacent updates into one buffer update?
+            // TODO Perf: Update whole buffer if more than X% of items need update?
             bool Update(const ExecutionContext& context, const std::vector<ItemUpdate<T>>& updates)
             {
                 std::vector<BufferUpdate> bufferUpdates(updates.size());

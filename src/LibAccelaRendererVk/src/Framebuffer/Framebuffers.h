@@ -26,21 +26,21 @@ namespace Accela::Render
             Framebuffers(Common::ILogger::Ptr logger,
                          Ids::Ptr ids,
                          VulkanObjsPtr vulkanObjs,
-                         ITexturesPtr textures,
+                         IImagesPtr images,
                          PostExecutionOpsPtr postExecutionOps);
 
             void Destroy() override;
 
             bool CreateFramebuffer(FrameBufferId id,
                                    const VulkanRenderPassPtr& renderPass,
-                                   const std::vector<std::pair<TextureDefinition, std::string>>& attachments,
+                                   const std::vector<std::pair<ImageDefinition, std::string>>& attachments,
                                    const USize& size,
                                    const uint32_t& layers,
                                    const std::string& tag) override;
 
             bool CreateFramebuffer(FrameBufferId id,
                                    const VulkanRenderPassPtr& renderPass,
-                                   const std::vector<std::pair<TextureId, std::string>>& attachmentTextureViews,
+                                   const std::vector<std::pair<ImageId, std::string>>& attachmentImageViews,
                                    const USize& size,
                                    const uint32_t& layers,
                                    const std::string& tag) override;
@@ -58,7 +58,7 @@ namespace Accela::Render
             Common::ILogger::Ptr m_logger;
             Ids::Ptr m_ids;
             VulkanObjsPtr m_vulkanObjs;
-            ITexturesPtr m_textures;
+            IImagesPtr m_images;
             PostExecutionOpsPtr m_postExecutionOps;
 
             std::unordered_map<FrameBufferId, FramebufferObjs> m_framebuffers;

@@ -56,6 +56,7 @@ namespace Accela::Render
                            IPipelineFactoryPtr pipelines,
                            IBuffersPtr buffers,
                            IMaterialsPtr materials,
+                           IImagesPtr images,
                            ITexturesPtr textures,
                            IMeshesPtr meshes,
                            ILightsPtr lights,
@@ -72,7 +73,7 @@ namespace Accela::Render
                         const VulkanRenderPassPtr& renderPass,
                         const VulkanFramebufferPtr& framebuffer,
                         const std::vector<ViewProjection>& viewProjections,
-                        const std::unordered_map<LightId, TextureId>& shadowMaps,
+                        const std::unordered_map<LightId, ImageId>& shadowMaps,
                         const std::optional<ShadowRenderData>& shadowRenderData);
 
         private:
@@ -167,7 +168,7 @@ namespace Accela::Render
                              const VulkanRenderPassPtr& renderPass,
                              const VulkanFramebufferPtr& framebuffer,
                              const std::vector<ViewProjection>& viewProjections,
-                             const std::unordered_map<LightId, TextureId>& shadowMaps,
+                             const std::unordered_map<LightId, ImageId>& shadowMaps,
                              const std::optional<ShadowRenderData>& shadowRenderData);
 
             //
@@ -195,7 +196,7 @@ namespace Accela::Render
                                                   const RenderParams& renderParams,
                                                   const VulkanCommandBufferPtr& commandBuffer,
                                                   const std::vector<ViewProjection>& viewProjections,
-                                                  const std::unordered_map<LightId, TextureId>& shadowMaps);
+                                                  const std::unordered_map<LightId, ImageId>& shadowMaps);
 
             [[nodiscard]] bool BindDescriptorSet0_Global(BindState& bindState,
                                                          const RenderParams& renderParams,
@@ -209,11 +210,11 @@ namespace Accela::Render
             [[nodiscard]] bool BindDescriptorSet0_Lights(const BindState& bindState,
                                                          const VulkanDescriptorSetPtr& globalDataDescriptorSet,
                                                          const std::vector<LoadedLight>& lights,
-                                                         const std::unordered_map<LightId, TextureId>& shadowMaps) const;
+                                                         const std::unordered_map<LightId, ImageId>& shadowMaps) const;
 
             [[nodiscard]] bool BindDescriptorSet0_ShadowMapTextures(const BindState& bindState,
                                                                     const VulkanDescriptorSetPtr& globalDataDescriptorSet,
-                                                                    const std::unordered_map<ShadowMapType, std::vector<TextureId>>& shadowMapTextureIds) const;
+                                                                    const std::unordered_map<ShadowMapType, std::vector<ImageId>>& shadowMapTextureIds) const;
 
             //
             // DescriptorSet 1

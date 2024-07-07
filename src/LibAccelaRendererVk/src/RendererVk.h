@@ -43,6 +43,8 @@ namespace Accela::Render
                        IVulkanCallsPtr vulkanCalls,
                        IVulkanContextPtr vulkanContext);
 
+            [[nodiscard]] std::optional<ObjectId> GetTopObjectAtRenderPoint(const glm::vec2& renderPoint) const override;
+
         protected:
 
             void OnIdle() override;
@@ -99,16 +101,16 @@ namespace Accela::Render
                                 const RenderTarget& renderTarget,
                                 const RenderParams& renderParams,
                                 const std::vector<ViewProjection>& viewProjections,
-                                const std::unordered_map<LightId, TextureId>& shadowMaps);
+                                const std::unordered_map<LightId, ImageId>& shadowMaps);
 
             void RenderObjects(const std::string& sceneName,
                                const FramebufferObjs& framebufferObjs,
                                const RenderParams& renderParams,
                                const std::vector<ViewProjection>& viewProjections,
-                               const std::unordered_map<LightId, TextureId>& shadowMaps);
+                               const std::unordered_map<LightId, ImageId>& shadowMaps);
 
-            void RunPostProcessing(const LoadedTexture& inputTexture,
-                                   const LoadedTexture& outputTexture,
+            void RunPostProcessing(const LoadedImage& inputImage,
+                                   const LoadedImage& outputImage,
                                    const PostProcessEffect& effect);
 
             void RenderScreen(const std::string& sceneName,
@@ -116,8 +118,12 @@ namespace Accela::Render
                               const RenderParams& renderParams);
 
             void RunSwapChainBlitPass(const VulkanFramebufferPtr& framebuffer,
-                                      const LoadedTexture& renderTexture,
-                                      const LoadedTexture& screenTexture);
+                                      const LoadedImage& renderImage,
+                                      const LoadedImage& screenImage);
+
+            void TransferObjectDetailImage(const LoadedImage& gPassObjectDetailImage,
+                                           const LoadedImage& frameObjectDetailImage,
+                                           const VulkanCommandBufferPtr& commandBuffer);
 
         private:
 
@@ -127,6 +133,7 @@ namespace Accela::Render
             IPipelineFactoryPtr m_pipelines;
             PostExecutionOpsPtr m_postExecutionOps;
             IBuffersPtr m_buffers;
+            IImagesPtr m_images;
             ITexturesPtr m_textures;
             IMeshesPtr m_meshes;
             IFramebuffersPtr m_framebuffers;
@@ -137,6 +144,9 @@ namespace Accela::Render
             IRenderablesPtr m_renderables;
             Frames m_frames;
             RenderState m_renderState;
+
+            std::mutex m_latestObjectDetailTextureIdMutex;
+            std::optional<ImageId> m_latestObjectDetailImageId;
 
             RendererGroup<SwapChainBlitRenderer> m_swapChainRenderers;
             RendererGroup<SpriteRenderer> m_spriteRenderers;

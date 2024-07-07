@@ -25,6 +25,7 @@ namespace Accela::Engine
             void OnSimulationStep(unsigned int timeStep) override;
             void OnKeyEvent(const Platform::KeyEvent& event) override;
             void OnMouseMoveEvent(const Platform::MouseMoveEvent& event) override;
+            void OnMouseWheelEvent(const Platform::MouseWheelEvent& event) override;
             void OnMouseButtonEvent(const Platform::MouseButtonEvent& event) override;
 
         private:

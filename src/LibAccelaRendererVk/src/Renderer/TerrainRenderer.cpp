@@ -41,6 +41,7 @@ TerrainRenderer::TerrainRenderer(Common::ILogger::Ptr logger,
                                  IPipelineFactoryPtr pipelines,
                                  IBuffersPtr buffers,
                                  IMaterialsPtr materials,
+                                 IImagesPtr images,
                                  ITexturesPtr textures,
                                  IMeshesPtr meshes,
                                  ILightsPtr lights,
@@ -57,6 +58,7 @@ TerrainRenderer::TerrainRenderer(Common::ILogger::Ptr logger,
         std::move(pipelines),
         std::move(buffers),
         std::move(materials),
+        std::move(images),
         std::move(textures),
         std::move(meshes),
         std::move(lights),
@@ -256,14 +258,14 @@ std::expected<TerrainRenderer::TerrainBatch, bool> TerrainRenderer::CreateTerrai
     //
     // Batch Height Map Texture
     //
-    const auto loadedHeightMapTextureOpt = m_textures->GetTexture(terrainRenderable.heightMapTextureId);
+    const auto loadedHeightMapTextureOpt = m_textures->GetTextureAndImage(terrainRenderable.heightMapTextureId);
     if (!loadedHeightMapTextureOpt)
     {
         m_logger->Log(Common::LogLevel::Error,
           "TerrainRenderer::CreateTerrainBatch: No such height map texture exists, {}", terrainRenderable.heightMapTextureId.id);
         return std::unexpected(false);
     }
-    terrainBatch.loadedHeightMapTexture = *loadedHeightMapTextureOpt;
+    terrainBatch.loadedHeightMapImage = loadedHeightMapTextureOpt->second;
 
     return terrainBatch;
 }
@@ -598,7 +600,7 @@ bool TerrainRenderer::BindDescriptorSet2(BindState& bindState,
     //
     for (const auto& textureBindIt : terrainBatch.loadedMaterial.textureBinds)
     {
-        std::optional<LoadedTexture> loadedTexture{};
+        std::optional<std::pair<LoadedTexture, LoadedImage>> loadedTexture{};
 
         if (textureBindIt.second == TextureId{INVALID_ID})
         {
@@ -606,7 +608,7 @@ bool TerrainRenderer::BindDescriptorSet2(BindState& bindState,
         }
         else
         {
-            loadedTexture = m_textures->GetTexture(textureBindIt.second);
+            loadedTexture = m_textures->GetTextureAndImage(textureBindIt.second);
 
             // Fallback to missing texture as needed
             if (!loadedTexture)
@@ -624,8 +626,8 @@ bool TerrainRenderer::BindDescriptorSet2(BindState& bindState,
 
         (*materialDescriptorSet)->WriteCombinedSamplerBind(
             (*bindState.programDef)->GetBindingDetailsByName(textureBindIt.first),
-            loadedTexture->vkImageViews.at(TextureView::DEFAULT),
-            loadedTexture->vkSamplers.at(TextureSampler::DEFAULT)
+            loadedTexture->second.vkImageViews.at(TextureView::DEFAULT),
+            loadedTexture->second.vkSamplers.at(TextureSampler::DEFAULT)
         );
     }
 
@@ -681,8 +683,8 @@ bool TerrainRenderer::BindDescriptorSet3(BindState& bindState,
     //
     (*drawDescriptorSet)->WriteCombinedSamplerBind(
         (*bindState.programDef)->GetBindingDetailsByName("i_heightSampler"),
-        terrainBatch.loadedHeightMapTexture.vkImageViews.at(TextureView::DEFAULT),
-        terrainBatch.loadedHeightMapTexture.vkSamplers.at(TextureSampler::DEFAULT)
+        terrainBatch.loadedHeightMapImage.vkImageViews.at(TextureView::DEFAULT),
+        terrainBatch.loadedHeightMapImage.vkSamplers.at(TextureSampler::DEFAULT)
     );
 
     //

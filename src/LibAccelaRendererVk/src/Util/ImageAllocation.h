@@ -15,15 +15,10 @@ namespace Accela::Render
 {
     struct ImageAllocation
     {
-        ImageAllocation() = default;
-
-        ImageAllocation(const VkImage& _vkImage, const VmaAllocation& _vmaAllocation)
-            : vkImage(_vkImage)
-            , vmaAllocation(_vmaAllocation)
-        { }
-
         VkImage vkImage{VK_NULL_HANDLE};
+        VmaAllocationCreateInfo vmaAllocationCreateInfo{};
         VmaAllocation vmaAllocation{nullptr};
+        VmaAllocationInfo vmaAllocationInfo{};
     };
 }
 

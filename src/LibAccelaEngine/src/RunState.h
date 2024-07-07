@@ -46,6 +46,7 @@ namespace Accela::Engine
         //
         std::shared_ptr<Scene> scene;
         std::shared_ptr<IKeyboardState> keyboardState;
+        std::shared_ptr<IMouseState> mouseState;
         std::shared_ptr<IWorldResources> worldResources;
         std::shared_ptr<IWorldState> worldState;
     };

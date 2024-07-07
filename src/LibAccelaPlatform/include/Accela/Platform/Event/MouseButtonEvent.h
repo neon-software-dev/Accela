@@ -7,25 +7,12 @@
 #ifndef LIBACCELAPLATFORM_INCLUDE_ACCELA_PLATFORM_EVENT_MOUSEBUTTONEVENT_H
 #define LIBACCELAPLATFORM_INCLUDE_ACCELA_PLATFORM_EVENT_MOUSEBUTTONEVENT_H
 
+#include "Mouse.h"
+
 #include <cstdint>
 
 namespace Accela::Platform
 {
-    enum class MouseButton
-    {
-        Left,
-        Middle,
-        Right,
-        X1,
-        X2
-    };
-
-    enum class ClickType
-    {
-        Press,
-        Release
-    };
-
     /**
      * Represents a mouse button event, as reported by the OS
      */

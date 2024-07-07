@@ -32,9 +32,9 @@ namespace Accela::Render
         public:
 
             Frames(Common::ILogger::Ptr logger,
-                   Ids::Ptr ids,
                    VulkanObjsPtr vulkanObjs,
-                   ITexturesPtr textures);
+                   IRenderTargetsPtr renderTargets,
+                   IImagesPtr images);
 
             bool Initialize(const RenderSettings& renderSettings, const VulkanSwapChainPtr& swapChain);
             void Destroy();
@@ -57,9 +57,9 @@ namespace Accela::Render
         private:
 
             Common::ILogger::Ptr m_logger;
-            Ids::Ptr m_ids;
             VulkanObjsPtr m_vulkanObjs;
-            ITexturesPtr m_textures;
+            IRenderTargetsPtr m_renderTargets;
+            IImagesPtr m_images;
 
             uint32_t m_currentFrameIndex{0};
             std::vector<FrameState> m_frames;

@@ -19,24 +19,9 @@
 
 namespace Accela::Render
 {
-    enum class TextureUsage
+    enum class Format
     {
-        Sampled,
-        InputAttachment,
-        ColorAttachment,
-        DepthStencilAttachment,
-        TransferSource,
-        Storage
-    };
-
-    enum class TextureFormat
-    {
-        R32_UINT,               // 4 byte unsigned int
-        R8G8B8_SRGB,            // RGB stored as single byte SRGB
-        R8G8B8A8_SRGB,          // RGBA stored as single byte SRGB
-        R32G32B32A32_SFLOAT,    // RGBA stored as 4 byte signed floats
-        R16G16B16A16_SFLOAT,    // RGBA stored as 2 byte signed floats
-        R8G8B8A8_UNORM          // RGBA stored as 1 byte unsigned floats
+        RGBA32
     };
 
     /**
@@ -44,56 +29,25 @@ namespace Accela::Render
      */
     struct Texture
     {
-        static Texture Empty(TextureId id,
-                             const std::vector<TextureUsage>& usages,
-                             TextureFormat format,
-                             const USize& pixelSize,
-                             const uint32_t& numLayers,
-                             bool cubicTexture,
-                             const std::string& tag)
+        static std::optional<Texture> FromImageData(TextureId id,
+                                                    const uint32_t& numLayers,
+                                                    bool cubicTexture,
+                                                    const Common::ImageData::Ptr& data,
+                                                    const std::string& tag)
         {
-            Texture texture{};
-            texture.id = id;
-            texture.usages = usages;
-            texture.format = format;
-            texture.pixelSize = pixelSize;
-            texture.numLayers = numLayers;
-            texture.cubicTexture = cubicTexture;
-            texture.data = std::nullopt;
-            texture.tag = tag;
-            return texture;
-        }
+            Format imageFormat{Format::RGBA32};
 
-        static Texture EmptyDepth(TextureId id,
-                                  const std::vector<TextureUsage>& usages,
-                                  const USize& pixelSize,
-                                  const uint32_t& numLayers,
-                                  bool cubicTexture,
-                                  const std::string& tag)
-        {
-            Texture texture{};
-            texture.id = id;
-            texture.usages = usages;
-            texture.pixelSize = pixelSize;
-            texture.numLayers = numLayers;
-            texture.cubicTexture = cubicTexture;
-            texture.data = std::nullopt;
-            texture.tag = tag;
-            return texture;
-        }
+            switch (data->GetPixelFormat())
+            {
+                case Common::ImageData::PixelFormat::RGBA32:
+                    imageFormat = Format::RGBA32;
+                break;
+                default: return std::nullopt;
+            }
 
-        static Texture FromImageData(TextureId id,
-                                     const std::vector<TextureUsage>& usages,
-                                     TextureFormat format,
-                                     const uint32_t& numLayers,
-                                     bool cubicTexture,
-                                     const Common::ImageData::Ptr& data,
-                                     const std::string& tag)
-        {
             Texture texture{};
             texture.id = id;
-            texture.usages = usages;
-            texture.format = format;
+            texture.format = imageFormat;
             texture.pixelSize = USize(data->GetPixelWidth(), data->GetPixelHeight());
             texture.numLayers = numLayers;
             texture.cubicTexture = cubicTexture;
@@ -112,13 +66,12 @@ namespace Accela::Render
         }
 
         TextureId id{INVALID_ID};
-        std::vector<TextureUsage> usages;
-        std::optional<TextureFormat> format; // Left unset for depth textures, as the renderer internally determines depth format
+        Format format;
         USize pixelSize;
         uint32_t numLayers{1};
         bool cubicTexture{false};
         std::optional<unsigned int> numMipLevels;
-        std::optional<Common::ImageData::Ptr> data;
+        Common::ImageData::Ptr data;
         std::string tag;
     };
 }

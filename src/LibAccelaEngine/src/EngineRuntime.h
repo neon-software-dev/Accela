@@ -36,6 +36,7 @@ namespace Accela::Engine
             [[nodiscard]] IWorldState::Ptr GetWorldState() const noexcept override;
             [[nodiscard]] IWorldResources::Ptr GetWorldResources() const noexcept override;
             [[nodiscard]] IKeyboardState::CPtr GetKeyboardState() const noexcept override;
+            [[nodiscard]] IMouseState::CPtr GetMouseState() const noexcept override;
 
             [[nodiscard]] std::uintmax_t GetTickIndex() const noexcept override;
             [[nodiscard]] std::uintmax_t GetSimulatedTime() const noexcept override;

@@ -131,7 +131,7 @@ layout(set = 3, binding = 0) readonly buffer DrawPayloadBuffer
 layout(location = 0) out vec4 o_fragColor; // Is set to a default black value here and overwritten by the deferred lighting shader later
 layout(location = 1) out vec4 o_vertexPosition_worldSpace;
 layout(location = 2) out vec4 o_vertexNormal_viewSpace;
-layout(location = 3) out uint o_vertexMaterial;
+layout(location = 3) out uvec2 o_vertexObjectDetail;
 layout(location = 4) out vec4 o_vertexAmbientColor;
 layout(location = 5) out vec4 o_vertexDiffuseColor;
 layout(location = 6) out vec4 o_vertexSpecularColor;
@@ -176,7 +176,8 @@ void main()
     o_fragColor = vec4(0, 0, 0, 1);
     o_vertexPosition_worldSpace = vec4(i_vertexPosition_worldSpace, 1);
     o_vertexNormal_viewSpace = vec4(fragmentNormal_viewSpace, 1);
-    o_vertexMaterial = drawPayload.materialIndex;
+    o_vertexObjectDetail.r = drawPayload.dataIndex + 1; // +1 converts from data index to object id
+    o_vertexObjectDetail.g = drawPayload.materialIndex;
     o_vertexAmbientColor = fragmentColors.ambientColor;
     o_vertexDiffuseColor = fragmentColors.diffuseColor;
     o_vertexSpecularColor = fragmentColors.specularColor;

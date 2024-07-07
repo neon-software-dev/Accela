@@ -83,27 +83,38 @@ namespace Accela::Render
 
         private:
 
-            template <typename T, typename... Args>
-            std::future<bool> Submit(Args&&... args)
+            /**
+             * Submits a RenderTask to the thread pool for processing.
+             *
+             * @tparam T The specific RenderTask subclass type for the task to be submitted
+             * @tparam Ret The result type that the RenderTask operation returns
+             * @tparam Args The argument types the RenderTask subclass is constructed with
+             * @param defaultRet Default result to return if the renderer isn't running
+             * @param args Arguments to construct the RenderTask subclass from
+             *
+             * @return A future which will contain the result of the render task operation
+             */
+            template <typename T, typename Ret, typename... Args>
+            std::future<Ret> Submit(Ret defaultRet, Args&&... args)
             {
-                // If the renderer isn't running, return an immediate false result
+                // If the renderer isn't running, return an immediate default result
                 if (m_thread == nullptr)
                 {
-                    std::promise<bool> immediatePromise;
-                    std::future<bool> immediateFuture = immediatePromise.get_future();
-                    immediatePromise.set_value(false);
+                    std::promise<Ret> immediatePromise;
+                    std::future<Ret> immediateFuture = immediatePromise.get_future();
+                    immediatePromise.set_value(defaultRet);
                     return immediateFuture;
                 }
 
                 // Otherwise, bundle the args into a task+message and send it to the thread
                 const auto task = std::make_shared<T>(std::forward<Args>(args)...);
-                const auto taskMessage = std::make_shared<RenderTaskMessage>(task);
+                const auto taskMessage = std::make_shared<RenderTaskMessage<Ret>>(task);
                 auto taskFuture = taskMessage->CreateFuture();
                 m_thread->PostMessage(taskMessage);
                 return taskFuture;
             }
 
-            void OnTaskMessageReceived(const RenderTaskMessage::Ptr& msg);
+            void OnTaskMessageReceived(const Common::Message::Ptr& msg);
 
         protected:
 

@@ -7,8 +7,6 @@
 #include "TextureResources.h"
 #include "PackageResources.h"
 
-#include "../Texture/TextureUtil.h"
-
 #include <Accela/Render/IRenderer.h>
 
 #include <Accela/Platform/Text/IText.h>
@@ -171,16 +169,21 @@ std::expected<TextRender, bool> TextureResources::OnRenderText(const std::string
     // Create and record the texture
     //
     const auto textureId = m_renderer->GetIds()->textureIds.GetId();
+
     const auto texture = Render::Texture::FromImageData(
         textureId,
-        {Render::TextureUsage::Sampled},
-        PixelFormatToTextureFormat(renderedTextExpect->imageData->GetPixelFormat()),
         1,
         false,
         renderedTextExpect->imageData,
         tag
     );
-    const auto textureView = Render::TextureView::ViewAs2D(Render::TextureView::DEFAULT, Render::TextureView::Aspect::ASPECT_COLOR_BIT);
+    if (!texture)
+    {
+        m_logger->Log(Common::LogLevel::Error, "TextureResources::OnRenderText: Failed to create texture object");
+        return std::unexpected(false);
+    }
+
+    const auto textureView = Render::TextureView::ViewAs2D(Render::TextureView::DEFAULT);
 
     auto textureSampler = Render::TextureSampler(Render::TextureSampler::DEFAULT, Render::CLAMP_ADDRESS_MODE);
 
@@ -193,13 +196,13 @@ std::expected<TextRender, bool> TextureResources::OnRenderText(const std::string
     {
         std::lock_guard<std::mutex> texturesLock(m_texturesMutex);
 
-        m_textures.insert({textureId, RegisteredTexture{texture}});
+        m_textures.insert({textureId, RegisteredTexture{*texture}});
     }
 
     //
     // Send the texture to the renderer
     //
-    std::future<bool> transferFuture = m_renderer->CreateTexture(texture, textureView, textureSampler);
+    std::future<bool> transferFuture = m_renderer->CreateTexture(*texture, textureView, textureSampler);
 
     if (resultWhen == ResultWhen::FullyLoaded && !transferFuture.get())
     {
@@ -286,7 +289,17 @@ Render::TextureId TextureResources::LoadTexture(const TextureData& textureData,
     // Create and record the texture
     //
     const auto textureId = m_renderer->GetIds()->textureIds.GetId();
-    auto texture = ToRenderTexture(textureId, textureData, tag);
+    const auto textureExpect = ToRenderTexture(textureId, textureData, tag);
+
+    if (!textureExpect)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "TextureResources::LoadTexture: Failed to create render texture: {}", tag);
+        m_renderer->GetIds()->textureIds.ReturnId(textureId);
+        return Render::TextureId::Invalid();
+    }
+
+    auto texture = *textureExpect;
 
     if (texture.numLayers == 1)
     {
@@ -301,11 +314,11 @@ Render::TextureId TextureResources::LoadTexture(const TextureData& textureData,
     Render::TextureView textureView;
     if (texture.numLayers == 1)
     {
-        textureView = Render::TextureView::ViewAs2D(Render::TextureView::DEFAULT, Render::TextureView::Aspect::ASPECT_COLOR_BIT);
+        textureView = Render::TextureView::ViewAs2D(Render::TextureView::DEFAULT);
     }
     else
     {
-        textureView = Render::TextureView::ViewAsCube(Render::TextureView::DEFAULT, Render::TextureView::Aspect::ASPECT_COLOR_BIT);
+        textureView = Render::TextureView::ViewAsCube(Render::TextureView::DEFAULT);
     }
 
     {
@@ -337,21 +350,26 @@ Render::TextureId TextureResources::LoadTexture(const TextureData& textureData,
     return textureId;
 }
 
-Render::Texture TextureResources::ToRenderTexture(Render::TextureId textureId, const TextureData& textureData, const std::string& tag)
+std::expected<Render::Texture, bool> TextureResources::ToRenderTexture(Render::TextureId textureId, const TextureData& textureData, const std::string& tag)
 {
     const auto imageData = TextureDataToImageData(textureData);
 
     const bool cubicTexture = imageData->GetNumLayers() == 6;
 
-    return Render::Texture::FromImageData(
+    const auto textureExpect = Render::Texture::FromImageData(
         textureId,
-        { Render::TextureUsage::Sampled },
-        PixelFormatToTextureFormat(imageData->GetPixelFormat()),
         imageData->GetNumLayers(),
         cubicTexture,
         imageData,
         tag
     );
+
+    if (!textureExpect)
+    {
+        return std::unexpected(false);
+    }
+
+    return *textureExpect;
 }
 
 Common::ImageData::Ptr TextureResources::TextureDataToImageData(const TextureData& textureData)

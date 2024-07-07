@@ -18,6 +18,7 @@
 
 #include <vector>
 #include <optional>
+#include <unordered_set>
 
 namespace Accela::Render
 {
@@ -35,7 +36,8 @@ namespace Accela::Render
         std::optional<TextureId> skyBoxTextureId; // SkyBox to be rendered
         std::optional<glm::mat4> skyBoxViewTransform; // Transformation to apply to skybox
 
-        std::vector<Render::Triangle> debugTriangles; // Additional raw debug triangle list to render
+        std::unordered_set<ObjectId> highlightedObjects; // Objects which to add highlight effect to
+        std::vector<Triangle> debugTriangles; // Additional raw debug triangle list to render
     };
 }
 

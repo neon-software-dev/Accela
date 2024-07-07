@@ -23,7 +23,7 @@ namespace Accela::Platform
          * @param xRel How far the mouse's x position changed, in pixels
          * @param yRel How far the mouse's y position changed, in pixels
          */
-        MouseMoveEvent(uint32_t _pointerId, unsigned int _xPos, unsigned int _yPos, int _xRel, int _yRel)
+        MouseMoveEvent(uint64_t _pointerId, float _xPos, float _yPos, float _xRel, float _yRel)
             : pointerId(_pointerId)
             , xPos(_xPos)
             , yPos(_yPos)
@@ -31,15 +31,15 @@ namespace Accela::Platform
             , yRel(_yRel)
         { }
 
-        uint32_t pointerId; // Unique id of the mouse, in multi-mouse setups
+        uint64_t pointerId; // Unique id of the mouse, in multi-mouse setups
 
         // These positions are in window space within the engine, and then overwritten with
         // virtual-space positions before being passed to the scene
-        unsigned int xPos;
-        unsigned int yPos;
+        float xPos;
+        float yPos;
 
-        int xRel;
-        int yRel;
+        float xRel;
+        float yRel;
     };
 }
 

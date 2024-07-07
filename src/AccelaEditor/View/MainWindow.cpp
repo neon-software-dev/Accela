@@ -13,6 +13,7 @@
 #include "EntityWidget.h"
 
 #include "../Util/ErrorDialog.h"
+#include "../EditorScene/EditorScene.h"
 
 #include <Accela/Platform/File/IFiles.h>
 
@@ -158,7 +159,8 @@ void MainWindow::InitWidgets()
     //
     // Central Accela Widget
     //
-    m_pAccelaWindow = new AccelaWindow(m_logger, m_metrics);
+    m_pAccelaWindow = new AccelaWindow(m_logger, m_metrics, std::make_shared<EditorScene>());
+    connect(m_pAccelaWindow, &AccelaWindow::OnSceneMessageReceived, this, &MainWindow::UI_OnSceneMessage);
     auto pAccelaWidget = QWidget::createWindowContainer(m_pAccelaWindow, this);
     setCentralWidget(pAccelaWidget);
 
@@ -372,6 +374,15 @@ void MainWindow::VM_OnPackageChanged(const std::optional<Engine::Package>& packa
     // Update available actions for the package
     m_pSavePackageAction->setEnabled(package.has_value());
     m_pClosePackageAction->setEnabled(package.has_value());
+}
+
+void MainWindow::UI_OnSceneMessage(const Common::Message::Ptr& message)
+{
+    if (message->GetTypeIdentifier() == EntityClicked::TYPE)
+    {
+        const auto entityClickedMessage = std::dynamic_pointer_cast<EntityClicked>(message);
+        m_pAccelaWindow->EnqueueSceneMessage(std::make_shared<SetEntityHighlighted>(entityClickedMessage->eid, true));
+    }
 }
 
 }

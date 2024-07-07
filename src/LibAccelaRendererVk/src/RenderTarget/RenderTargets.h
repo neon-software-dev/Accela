@@ -10,6 +10,7 @@
 #include "IRenderTargets.h"
 
 #include "../ForwardDeclares.h"
+#include "../InternalId.h"
 
 #include <Accela/Render/Ids.h>
 
@@ -27,7 +28,7 @@ namespace Accela::Render
                           VulkanObjsPtr vulkanObjs,
                           PostExecutionOpsPtr postExecutionOps,
                           IFramebuffersPtr framebuffers,
-                          ITexturesPtr textures,
+                          IImagesPtr images,
                           Ids::Ptr ids);
 
             //
@@ -37,13 +38,15 @@ namespace Accela::Render
             void DestroyRenderTarget(const RenderTargetId& renderTargetId, bool destroyImmediately) override;
             [[nodiscard]] std::optional<RenderTarget> GetRenderTarget(const RenderTargetId& renderTargetId) const override;
             [[nodiscard]] bool OnRenderSettingsChanged(const RenderSettings& renderSettings) override;
+            [[nodiscard]] VkFormat GetObjectDetailVkFormat() const override;
+            [[nodiscard]] std::size_t GetObjectDetailPerPixelByteSize() const override;
             void Destroy() override;
 
         private:
 
             [[nodiscard]] std::optional<FrameBufferId> CreateGPassFramebuffer(const std::string& tag) const;
             [[nodiscard]] std::optional<FrameBufferId> CreateScreenFramebuffer(const std::string& tag) const;
-            [[nodiscard]] std::optional<TextureId> CreatePostProcessOutputTexture(const std::string& tag) const;
+            [[nodiscard]] std::optional<ImageId> CreatePostProcessOutputImage(const std::string& tag) const;
 
         private:
 
@@ -51,7 +54,7 @@ namespace Accela::Render
             VulkanObjsPtr m_vulkanObjs;
             PostExecutionOpsPtr m_postExecutionOps;
             IFramebuffersPtr m_framebuffers;
-            ITexturesPtr m_textures;
+            IImagesPtr m_images;
             Ids::Ptr m_ids;
 
             std::unordered_map<RenderTargetId, RenderTarget> m_renderTargets;

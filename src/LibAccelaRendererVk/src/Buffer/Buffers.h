@@ -35,48 +35,51 @@ namespace Accela::Render
             std::expected<BufferPtr, BufferCreateError> CreateBuffer(
                 VkBufferUsageFlags vkUsageFlags,
                 VmaMemoryUsage vmaMemoryUsage,
+                VmaAllocationCreateFlags vmaAllocationCreateFlags,
                 const std::size_t& byteSize,
                 const std::string& tag) override;
 
-            bool DestroyBuffer(BufferId bufferId) override;
+            [[nodiscard]] bool DestroyBuffer(BufferId bufferId) override;
 
             //
             // Mapped (CPU-to-GPU) buffer operations
             //
-            bool MappedUpdateBuffer(const BufferPtr& buffer, const std::vector<BufferUpdate>& updates) const override;
+            [[nodiscard]] std::vector<std::byte> MappedReadBuffer(const BufferPtr& buffer, const BufferRead& read) const override;
 
-            bool MappedCopyBufferData(const BufferPtr& srcBuffer,
-                                      const std::size_t& srcOffset,
-                                      const std::size_t& copyByteSize,
-                                      const BufferPtr& dstBuffer,
-                                      const std::size_t& dstOffset) const override;
+            [[nodiscard]] bool MappedUpdateBuffer(const BufferPtr& buffer, const std::vector<BufferUpdate>& updates) const override;
 
-            bool MappedDeleteData(const BufferPtr& buffer, const std::vector<BufferDelete>& deletes) const override;
+            [[nodiscard]] bool MappedCopyBufferData(const BufferPtr& srcBuffer,
+                                                    const std::size_t& srcOffset,
+                                                    const std::size_t& copyByteSize,
+                                                    const BufferPtr& dstBuffer,
+                                                    const std::size_t& dstOffset) const override;
+
+            [[nodiscard]] bool MappedDeleteData(const BufferPtr& buffer, const std::vector<BufferDelete>& deletes) const override;
 
             //
             // GPU-only buffer operations
             //
-            bool StagingUpdateBuffer(const BufferPtr& buffer,
-                                     const std::vector<BufferUpdate>& updates,
-                                     VkPipelineStageFlagBits firstUsageStageFlag,
-                                     VkPipelineStageFlagBits lastUsageStageFlag,
-                                     const VulkanCommandBufferPtr& commandBuffer,
-                                     const VkFence& vkExecutionFence) override;
+            [[nodiscard]] bool StagingUpdateBuffer(const BufferPtr& buffer,
+                                                   const std::vector<BufferUpdate>& updates,
+                                                   VkPipelineStageFlagBits firstUsageStageFlag,
+                                                   VkPipelineStageFlagBits lastUsageStageFlag,
+                                                   const VulkanCommandBufferPtr& commandBuffer,
+                                                   const VkFence& vkExecutionFence) override;
 
-            bool StagingDeleteData(const BufferPtr& buffer,
-                                   const std::vector<BufferDelete>& deletes,
-                                   VkPipelineStageFlagBits firstUsageStageFlag,
-                                   VkPipelineStageFlagBits lastUsageStageFlag,
-                                   const VulkanCommandBufferPtr& commandBuffer) const override;
+            [[nodiscard]] bool StagingDeleteData(const BufferPtr& buffer,
+                                                 const std::vector<BufferDelete>& deletes,
+                                                 VkPipelineStageFlagBits firstUsageStageFlag,
+                                                 VkPipelineStageFlagBits lastUsageStageFlag,
+                                                 const VulkanCommandBufferPtr& commandBuffer) const override;
 
-            bool CopyBufferData(const BufferPtr& srcBuffer,
-                                const std::size_t& srcOffset,
-                                const std::size_t& copyByteSize,
-                                const BufferPtr& dstBuffer,
-                                const std::size_t& dstOffset,
-                                const VkPipelineStageFlagBits& firstUsageStageFlag,
-                                const VkPipelineStageFlagBits& lastUsageStageFlag,
-                                const VulkanCommandBufferPtr& commandBuffer) const override;
+            [[nodiscard]] bool CopyBufferData(const BufferPtr& srcBuffer,
+                                              const std::size_t& srcOffset,
+                                              const std::size_t& copyByteSize,
+                                              const BufferPtr& dstBuffer,
+                                              const std::size_t& dstOffset,
+                                              const VkPipelineStageFlagBits& firstUsageStageFlag,
+                                              const VkPipelineStageFlagBits& lastUsageStageFlag,
+                                              const VulkanCommandBufferPtr& commandBuffer) const override;
 
         private:
 

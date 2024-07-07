@@ -58,8 +58,11 @@ namespace Accela::Render
              */
             virtual void Shutdown() = 0;
 
+            // Synchronous
             [[nodiscard]] virtual Ids::Ptr GetIds() const = 0;
+            [[nodiscard]] virtual std::optional<ObjectId> GetTopObjectAtRenderPoint(const glm::vec2& renderPoint) const = 0;
 
+            // Asynchronous
             virtual std::future<bool> CreateTexture(const Texture& texture,
                                                     const TextureView& textureView,
                                                     const TextureSampler& textureSampler) = 0;

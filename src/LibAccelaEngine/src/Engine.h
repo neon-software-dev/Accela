@@ -8,7 +8,6 @@
 #define LIBACCELAENGINE_SRC_ENGINE_H
 
 #include "ForwardDeclares.h"
-#include "KeyboardState.h"
 #include "EngineRuntime.h"
 #include "RunState.h"
 
@@ -57,6 +56,8 @@ namespace Accela::Engine
             void ProcessEvents(const RunState::Ptr& runState);
 
             void RenderFrame(const RunState::Ptr& runState);
+
+            [[nodiscard]] static std::unordered_set<Render::ObjectId> GetHighlightedObjects(const RunState::Ptr& runState);
 
             void ReceiveRenderSettingsChange(const EngineRuntime::Ptr& runtime, const RunState::Ptr& runState);
             void ReceiveSceneChange(const EngineRuntime::Ptr& runtime, const RunState::Ptr& runState);

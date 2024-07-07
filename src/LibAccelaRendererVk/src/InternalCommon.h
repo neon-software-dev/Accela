@@ -23,7 +23,7 @@ namespace Accela::Render
     static const uint32_t Offscreen_Attachment_Color = 0;
     static const uint32_t Offscreen_Attachment_Position = 1;
     static const uint32_t Offscreen_Attachment_Normal = 2;
-    static const uint32_t Offscreen_Attachment_Material = 3;
+    static const uint32_t Offscreen_Attachment_ObjectDetail = 3;
     static const uint32_t Offscreen_Attachment_Ambient = 4;
     static const uint32_t Offscreen_Attachment_Diffuse = 5;
     static const uint32_t Offscreen_Attachment_Specular = 6;

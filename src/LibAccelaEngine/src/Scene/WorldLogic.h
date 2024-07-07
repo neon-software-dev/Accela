@@ -41,6 +41,10 @@ namespace Accela::Engine
                                                       const glm::vec2& virtualResolution,
                                                       const glm::vec2& renderPoint);
 
+    [[nodiscard]] glm::vec2 VirtualPointToRenderPoint(const Render::RenderSettings& renderSettings,
+                                                      const glm::vec2& virtualResolution,
+                                                      const glm::vec2& virtualPoint);
+
     template <typename S>
     [[nodiscard]] Render::Size<S> RenderSizeToVirtualSize(const Render::RenderSettings& renderSettings,
                                                           const glm::vec2& virtualResolution,

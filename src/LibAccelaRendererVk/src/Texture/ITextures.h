@@ -11,11 +11,11 @@
 
 #include "../ForwardDeclares.h"
 
+#include "../Image/LoadedImage.h"
+
 #include <Accela/Render/Id.h>
 #include <Accela/Render/Util/Rect.h>
-#include <Accela/Render/Texture/Texture.h>
-#include <Accela/Render/Texture/TextureView.h>
-#include <Accela/Render/Texture/TextureSampler.h>
+#include <Accela/Render/Texture/TextureDefinition.h>
 
 #include <Accela/Common/ImageData.h>
 
@@ -25,6 +25,7 @@
 #include <future>
 #include <string>
 #include <vector>
+#include <utility>
 
 namespace Accela::Render
 {
@@ -34,20 +35,14 @@ namespace Accela::Render
 
             virtual ~ITextures() = default;
 
-            virtual bool Initialize(VulkanCommandPoolPtr transferCommandPool,
-                                    VkQueue vkTransferQueue) = 0;
+            virtual bool Initialize() = 0;
             virtual void Destroy() = 0;
 
-            virtual bool CreateTextureEmpty(const Texture& texture,
-                                            const std::vector<TextureView>& textureViews,
-                                            const std::vector<TextureSampler>& textureSamplers) = 0;
-            virtual bool CreateTextureFilled(const Texture& texture,
-                                             const std::vector<TextureView>& textureViews,
-                                             const std::vector<TextureSampler>& textureSamplers,
-                                             std::promise<bool> resultPromise) = 0;
+            virtual bool CreateTexture(const TextureDefinition& textureDefinition, std::promise<bool> resultPromise) = 0;
             virtual std::optional<LoadedTexture> GetTexture(TextureId textureId) = 0;
-            virtual LoadedTexture GetMissingTexture() = 0;
-            virtual LoadedTexture GetMissingCubeTexture() = 0;
+            virtual std::optional<std::pair<LoadedTexture, LoadedImage>> GetTextureAndImage(TextureId textureId) = 0;
+            virtual std::pair<LoadedTexture, LoadedImage> GetMissingTexture() = 0;
+            virtual std::pair<LoadedTexture, LoadedImage> GetMissingCubeTexture() = 0;
             virtual void DestroyTexture(TextureId textureId, bool destroyImmediately) = 0;
     };
 }

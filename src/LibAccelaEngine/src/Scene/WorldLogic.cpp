@@ -56,6 +56,13 @@ glm::vec2 RenderPointToVirtualPoint(const Render::RenderSettings& renderSettings
     return renderPoint * GetVirtualToRenderRatio(renderSettings, virtualResolution);
 }
 
+glm::vec2 VirtualPointToRenderPoint(const Render::RenderSettings& renderSettings,
+                                    const glm::vec2& virtualResolution,
+                                    const glm::vec2& virtualPoint)
+{
+    return virtualPoint / GetVirtualToRenderRatio(renderSettings, virtualResolution);
+}
+
 // Whether the given point is "inside" the provided line. All coordinates
 // are expected to be in screen/virtual space.
 bool PointInsideLine(const glm::vec2& p, const std::array<glm::vec2, 2>& l)

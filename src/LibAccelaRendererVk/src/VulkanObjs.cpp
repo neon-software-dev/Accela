@@ -463,15 +463,15 @@ bool VulkanObjs::CreateGPassRenderPass()
 
     const ImageAccess normalAttachmentAccess = positionAttachmentAccess;
 
-    VulkanRenderPass::Attachment materialAttachment(VulkanRenderPass::AttachmentType::Color);
-    materialAttachment.description.format = VK_FORMAT_R32_UINT;
-    materialAttachment.description.samples = VK_SAMPLE_COUNT_1_BIT;
-    materialAttachment.description.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    materialAttachment.description.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    materialAttachment.description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    materialAttachment.description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    materialAttachment.description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    materialAttachment.description.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    VulkanRenderPass::Attachment objectDetailAttachment(VulkanRenderPass::AttachmentType::Color);
+    objectDetailAttachment.description.format = VK_FORMAT_R32G32_UINT;
+    objectDetailAttachment.description.samples = VK_SAMPLE_COUNT_1_BIT;
+    objectDetailAttachment.description.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    objectDetailAttachment.description.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    objectDetailAttachment.description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    objectDetailAttachment.description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    objectDetailAttachment.description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    objectDetailAttachment.description.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     const ImageAccess materialAttachmentAccess = normalAttachmentAccess;
 
@@ -542,7 +542,7 @@ bool VulkanObjs::CreateGPassRenderPass()
         {.attachment = Offscreen_Attachment_Color,    .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
         {.attachment = Offscreen_Attachment_Position, .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
         {.attachment = Offscreen_Attachment_Normal,   .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
-        {.attachment = Offscreen_Attachment_Material, .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
+        {.attachment = Offscreen_Attachment_ObjectDetail, .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
         {.attachment = Offscreen_Attachment_Ambient,  .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
         {.attachment = Offscreen_Attachment_Diffuse,  .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
         {.attachment = Offscreen_Attachment_Specular, .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
@@ -563,7 +563,7 @@ bool VulkanObjs::CreateGPassRenderPass()
     deferredLightingSubpass.inputAttachmentRefs = {
         {.attachment = Offscreen_Attachment_Position, .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
         {.attachment = Offscreen_Attachment_Normal,   .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
-        {.attachment = Offscreen_Attachment_Material, .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+        {.attachment = Offscreen_Attachment_ObjectDetail, .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
         {.attachment = Offscreen_Attachment_Ambient,  .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
         {.attachment = Offscreen_Attachment_Diffuse,  .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
         {.attachment = Offscreen_Attachment_Specular, .layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}
@@ -575,7 +575,8 @@ bool VulkanObjs::CreateGPassRenderPass()
     VulkanRenderPass::Subpass forwardLightingObjectsSubpass{};
 
     forwardLightingObjectsSubpass.colorAttachmentRefs = {
-        {.attachment = Offscreen_Attachment_Color,    .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
+        {.attachment = Offscreen_Attachment_Color,    .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL},
+        {.attachment = Offscreen_Attachment_ObjectDetail, .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}
     };
 
     forwardLightingObjectsSubpass.depthAttachmentRef =
@@ -638,7 +639,7 @@ bool VulkanObjs::CreateGPassRenderPass()
             colorAttachment,
             positionAttachment,
             normalAttachment,
-            materialAttachment,
+            objectDetailAttachment,
             ambientAttachment,
             diffuseAttachment,
             specularAttachment,
@@ -961,7 +962,7 @@ bool VulkanObjs::CreateSwapChainFrameBuffers()
             {vkImageView},
             swapChainExtent,
             1,
-            std::format("SwapChain-Image{}", imageIndex)))
+            std::format("SwapChain-RenderTexture{}", imageIndex)))
         {
             m_logger->Log(Common::LogLevel::Error, "CreateSwapChainFrameBuffers: Failed to create a swap chain framebuffer");
             return false;

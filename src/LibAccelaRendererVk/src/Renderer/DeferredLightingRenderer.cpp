@@ -14,6 +14,7 @@
 #include "../Mesh/IMeshes.h"
 #include "../Buffer/CPUItemBuffer.h"
 #include "../Texture/ITextures.h"
+#include "../Image/IImages.h"
 #include "../Light/ILights.h"
 #include "../Material/IMaterials.h"
 
@@ -40,6 +41,7 @@ DeferredLightingRenderer::DeferredLightingRenderer(
     IPipelineFactoryPtr pipelines,
     IBuffersPtr buffers,
     IMaterialsPtr materials,
+    IImagesPtr images,
     ITexturesPtr textures,
     IMeshesPtr meshes,
     ILightsPtr lights,
@@ -55,6 +57,7 @@ DeferredLightingRenderer::DeferredLightingRenderer(
                std::move(pipelines),
                std::move(buffers),
                std::move(materials),
+               std::move(images),
                std::move(textures),
                std::move(meshes),
                std::move(lights),
@@ -143,7 +146,7 @@ void DeferredLightingRenderer::Render(const std::string& sceneName,
                                       const VulkanRenderPassPtr& renderPass,
                                       const VulkanFramebufferPtr& framebuffer,
                                       const std::vector<ViewProjection>& viewProjections,
-                                      const std::unordered_map<LightId, TextureId>& shadowMaps)
+                                      const std::unordered_map<LightId, ImageId>& shadowMaps)
 {
     BindState bindState{};
 
@@ -153,25 +156,19 @@ void DeferredLightingRenderer::Render(const std::string& sceneName,
     if (!BindPipeline(bindState, commandBuffer, renderPass, framebuffer)) { return; }
 
     //
+    // Bind PushConstants
+    //
+    LightingSettingPayload payload{};
+    payload.hdr = m_renderSettings.hdr;
+
+    commandBuffer->CmdPushConstants(*bindState.pipeline, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(LightingSettingPayload), &payload);
+
+    //
     // Bind Descriptor Sets
     //
     if (!BindDescriptorSet0(sceneName, bindState, renderParams, commandBuffer, viewProjections, shadowMaps)) { return; }
     if (!BindDescriptorSet1(bindState, commandBuffer, framebuffer)) { return; }
     if (!BindDescriptorSet2(bindState, materialType, commandBuffer)) { return; }
-
-    //
-    // Bind Push Constants
-    //
-    LightingSettingPayload payload{};
-    payload.hdr = m_renderSettings.hdr;
-
-    commandBuffer->CmdPushConstants(
-        *bindState.pipeline,
-        VK_SHADER_STAGE_FRAGMENT_BIT,
-        0,
-        sizeof(LightingSettingPayload),
-        &payload
-    );
 
     //
     // Draw
@@ -241,7 +238,7 @@ bool DeferredLightingRenderer::BindDescriptorSet0(const std::string& sceneName,
                                                   const RenderParams& renderParams,
                                                   const VulkanCommandBufferPtr& commandBuffer,
                                                   const std::vector<ViewProjection>& viewProjections,
-                                                  const std::unordered_map<LightId, TextureId>& shadowMaps) const
+                                                  const std::unordered_map<LightId, ImageId>& shadowMaps) const
 {
     //
     // If the set isn't invalidated, nothing to do
@@ -376,7 +373,7 @@ bool DeferredLightingRenderer::BindDescriptorSet0_ViewProjection(BindState& bind
 bool DeferredLightingRenderer::BindDescriptorSet0_Lights(const BindState& bindState,
                                                          const VulkanDescriptorSetPtr& globalDataDescriptorSet,
                                                          const std::vector<LoadedLight>& lights,
-                                                         const std::unordered_map<LightId, TextureId>& shadowMaps) const
+                                                         const std::unordered_map<LightId, ImageId>& shadowMaps) const
 {
     //
     // Create a per-render CPU buffer for holding light data
@@ -398,11 +395,11 @@ bool DeferredLightingRenderer::BindDescriptorSet0_Lights(const BindState& bindSt
     //
     // Calculate light data
     //
-    const auto defaultLightTextures = std::vector<TextureId>(Max_Light_Count, Render::TextureId(Render::INVALID_ID));
+    const auto defaultLightImages = std::vector<ImageId>(Max_Light_Count, Render::ImageId(Render::INVALID_ID));
 
-    std::unordered_map<ShadowMapType, std::vector<TextureId>> shadowMapTextureIds {
-        {ShadowMapType::Single, defaultLightTextures},
-        {ShadowMapType::Cube, defaultLightTextures}
+    std::unordered_map<ShadowMapType, std::vector<ImageId>> shadowMapImageIds {
+        {ShadowMapType::Single, defaultLightImages},
+        {ShadowMapType::Cube, defaultLightImages}
     };
 
     // TODO Perf: Cull out lights that are a certain distance away from the camera
@@ -438,7 +435,7 @@ bool DeferredLightingRenderer::BindDescriptorSet0_Lights(const BindState& bindSt
         const auto lightShadowMapIt = shadowMaps.find(light.lightId);
         if (lightShadowMapIt != shadowMaps.cend())
         {
-            shadowMapTextureIds[loadedLight.shadowMapType][lightIndex] = lightShadowMapIt->second;
+            shadowMapImageIds[loadedLight.shadowMapType][lightIndex] = lightShadowMapIt->second;
             lightPayload.shadowMapIndex = (int)lightIndex;
         }
 
@@ -462,7 +459,7 @@ bool DeferredLightingRenderer::BindDescriptorSet0_Lights(const BindState& bindSt
     //
     // Bind shadow map textures
     //
-    if (!BindDescriptorSet0_ShadowMapTextures(bindState, globalDataDescriptorSet, shadowMapTextureIds))
+    if (!BindDescriptorSet0_ShadowMapTextures(bindState, globalDataDescriptorSet, shadowMapImageIds))
     {
         m_logger->Log(Common::LogLevel::Error, "DeferredLightingRenderer::BindDescriptorSet0_Lights: Failed to bind shadow maps");
         return false;
@@ -478,7 +475,7 @@ bool DeferredLightingRenderer::BindDescriptorSet0_Lights(const BindState& bindSt
 
 bool DeferredLightingRenderer::BindDescriptorSet0_ShadowMapTextures(const BindState& bindState,
                                                                     const VulkanDescriptorSetPtr& globalDataDescriptorSet,
-                                                                    const std::unordered_map<ShadowMapType, std::vector<TextureId>>& shadowMapTextureIds) const
+                                                                    const std::unordered_map<ShadowMapType, std::vector<ImageId>>& shadowMapImageIds) const
 {
     //
     // Cube shadow map binding details
@@ -514,42 +511,42 @@ bool DeferredLightingRenderer::BindDescriptorSet0_ShadowMapTextures(const BindSt
     VkImageView missingTextureImageView{VK_NULL_HANDLE};
     VkSampler missingTextureSampler{VK_NULL_HANDLE};
 
-    for (const auto& typeIt : shadowMapTextureIds)
+    for (const auto& typeIt : shadowMapImageIds)
     {
         switch (typeIt.first)
         {
             case ShadowMapType::Single:
             {
                 shadowBindingDetails = *shadowMapBindingDetails;
-                shadowImageViewName = TextureView::DEFAULT;
-                shadowSamplerName = TextureSampler::DEFAULT;
-                missingTextureImageView = missingTexture.vkImageViews.at(TextureView::DEFAULT);
-                missingTextureSampler = missingTexture.vkSamplers.at(TextureSampler::DEFAULT);
+                shadowImageViewName = ImageView::DEFAULT;
+                shadowSamplerName = ImageSampler::DEFAULT;
+                missingTextureImageView = missingTexture.second.vkImageViews.at(ImageView::DEFAULT);
+                missingTextureSampler = missingTexture.second.vkSamplers.at(ImageSampler::DEFAULT);
             }
                 break;
 
             case ShadowMapType::Cube:
             {
                 shadowBindingDetails = *shadowMapBindingDetails_Cube;
-                shadowImageViewName = TextureView::DEFAULT;
-                shadowSamplerName = TextureSampler::DEFAULT;
-                missingTextureImageView = missingCubeTexture.vkImageViews.at(TextureView::DEFAULT);
-                missingTextureSampler = missingCubeTexture.vkSamplers.at(TextureSampler::DEFAULT);
+                shadowImageViewName = ImageView::DEFAULT;
+                shadowSamplerName = ImageSampler::DEFAULT;
+                missingTextureImageView = missingCubeTexture.second.vkImageViews.at(ImageView::DEFAULT);
+                missingTextureSampler = missingCubeTexture.second.vkSamplers.at(ImageSampler::DEFAULT);
             }
             break;
         }
 
         std::vector<std::pair<VkImageView, VkSampler>> samplerBinds;
 
-        for (const auto& textureId : typeIt.second)
+        for (const auto& imageId : typeIt.second)
         {
-            const auto textureOpt = m_textures->GetTexture(textureId);
+            const auto imageOpt = m_images->GetImage(imageId);
 
-            if (textureOpt)
+            if (imageOpt)
             {
                 samplerBinds.emplace_back(
-                    textureOpt->vkImageViews.at(shadowImageViewName),
-                    textureOpt->vkSamplers.at(shadowSamplerName)
+                    imageOpt->vkImageViews.at(shadowImageViewName),
+                    imageOpt->vkSamplers.at(shadowSamplerName)
                 );
             }
             else
@@ -599,7 +596,7 @@ bool DeferredLightingRenderer::BindDescriptorSet1(BindState& bindState,
         framebuffer->GetAttachments()[2]
     );
     (*descriptorSet)->WriteInputAttachmentBind(
-        m_programDef->GetBindingDetailsByName("i_vertexMaterial"),
+        m_programDef->GetBindingDetailsByName("i_vertexObjectDetail"),
         framebuffer->GetAttachments()[3]
     );
     (*descriptorSet)->WriteInputAttachmentBind(

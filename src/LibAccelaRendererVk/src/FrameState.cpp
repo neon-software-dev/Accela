@@ -7,6 +7,10 @@
 #include "FrameState.h"
 #include "VulkanObjs.h"
 
+#include "Image/IImages.h"
+
+#include "RenderTarget/IRenderTargets.h"
+
 #include "Vulkan/VulkanDevice.h"
 #include "Vulkan/VulkanPhysicalDevice.h"
 #include "Vulkan/VulkanDebug.h"
@@ -21,20 +25,20 @@ namespace Accela::Render
 {
 
 FrameState::FrameState(Common::ILogger::Ptr logger,
-                       Ids::Ptr ids,
                        VulkanObjsPtr vulkanObjs,
-                       ITexturesPtr textures,
+                       IRenderTargetsPtr renderTargets,
+                       IImagesPtr images,
                        uint8_t frameIndex)
     : m_logger(std::move(logger))
-    , m_ids(std::move(ids))
     , m_vulkanObjs(std::move(vulkanObjs))
-    , m_textures(std::move(textures))
+    , m_renderTargets(std::move(renderTargets))
+    , m_images(std::move(images))
     , m_frameIndex(frameIndex)
 {
 
 }
 
-bool FrameState::Initialize(const RenderSettings&)
+bool FrameState::Initialize(const RenderSettings& renderSettings)
 {
     m_logger->Log(Common::LogLevel::Info, "FrameState: Initializing frame {}", m_frameIndex);
 
@@ -84,7 +88,7 @@ bool FrameState::Initialize(const RenderSettings&)
     m_swapChainBlitCommandBuffer = swapChainBlitCommandBufferOpt.value();
 
     //
-    // Image Available Semaphore
+    // RenderTexture Available Semaphore
     //
     VkSemaphoreCreateInfo semaphoreInfo{};
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -158,12 +162,45 @@ bool FrameState::Initialize(const RenderSettings&)
         std::format("Fence-PipelineFinished-Frame{}", m_frameIndex)
     );
 
+    //
+    // Buffer to receive object detail image data
+    //
+    const auto image = Image{
+        .tag = std::format("ObjectDetail-Frame-{}", m_frameIndex),
+        .vkImageType = VK_IMAGE_TYPE_2D,
+        .vkFormat = m_renderTargets->GetObjectDetailVkFormat(),
+        .vkImageTiling = VK_IMAGE_TILING_LINEAR,
+        .vkImageUsageFlags = VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+        .size = renderSettings.resolution,
+        .numLayers = 1,
+        .vmaAllocationCreateFlags =
+            VMA_ALLOCATION_CREATE_MAPPED_BIT
+            | VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT
+            | VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
+    };
+
+    const auto objectDetailImageExpect = m_images->CreateEmptyImage(ImageDefinition(image, {}, {}));
+    if (!objectDetailImageExpect)
+    {
+        m_logger->Log(Common::LogLevel::Fatal,
+          "FrameState: Failed to create object detail image for frame: {}", m_frameIndex);
+        return false;
+    }
+
+    m_objectDetailImageId = *objectDetailImageExpect;
+
     return true;
 }
 
 void FrameState::Destroy()
 {
     m_logger->Log(Common::LogLevel::Info, "FrameState: Destroying frame {}", m_frameIndex);
+
+    if (m_objectDetailImageId.IsValid())
+    {
+        m_images->DestroyImage(m_objectDetailImageId, true);
+        m_objectDetailImageId = {};
+    }
 
     if (m_pipelineFence != VK_NULL_HANDLE)
     {

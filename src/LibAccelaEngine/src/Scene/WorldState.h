@@ -55,6 +55,7 @@ namespace Accela::Engine
             void MarkSpritesDirty();
             [[nodiscard]] Render::RenderSettings GetRenderSettings() const noexcept;
             void SetRenderSettings(const Render::RenderSettings& renderSettings) noexcept;
+            [[nodiscard]] std::unordered_set<EntityId> GetHighlightedEntities() const noexcept;
 
             //
             // Entity
@@ -65,8 +66,12 @@ namespace Accela::Engine
 
             [[nodiscard]] std::vector<EntityId> GetSpriteEntitiesAt(const glm::vec2& virtualPoint) const override;
             [[nodiscard]] std::optional<EntityId> GetTopSpriteEntityAt(const glm::vec2& virtualPoint) const override;
+            [[nodiscard]] std::optional<EntityId> GetTopObjectEntityAt(const glm::vec2& virtualPoint) const override;
 
             void CreateConstructEntities(const Construct::Ptr& construct) override;
+
+            void HighlightEntity(EntityId entityId, bool isHighlighted) override;
+            void ToggleHighlightEntity(EntityId entityId) override;
 
             template <typename T>
             bool HasComponent(EntityId entityId)
@@ -217,6 +222,7 @@ namespace Accela::Engine
             Render::RenderSettings m_renderSettings;
             glm::vec2 m_virtualResolution;
             std::unordered_map<std::string, SceneState> m_sceneState;
+            std::unordered_set<EntityId> m_highlightedEntities;
     };
 }
 

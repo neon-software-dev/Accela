@@ -14,6 +14,7 @@
 #include "../Program/IPrograms.h"
 #include "../Pipeline/IPipelineFactory.h"
 #include "../Pipeline/PipelineUtil.h"
+#include "../Image/IImages.h"
 #include "../Texture/ITextures.h"
 
 #include "../Vulkan/VulkanFramebuffer.h"
@@ -39,6 +40,7 @@ SkyBoxRenderer::SkyBoxRenderer(Common::ILogger::Ptr logger,
                                IPipelineFactoryPtr pipelines,
                                IBuffersPtr buffers,
                                IMaterialsPtr materials,
+                               IImagesPtr images,
                                ITexturesPtr textures,
                                IMeshesPtr meshes,
                                ILightsPtr lights,
@@ -54,6 +56,7 @@ SkyBoxRenderer::SkyBoxRenderer(Common::ILogger::Ptr logger,
                std::move(pipelines),
                std::move(buffers),
                std::move(materials),
+               std::move(images),
                std::move(textures),
                std::move(meshes),
                std::move(lights),
@@ -403,7 +406,7 @@ bool SkyBoxRenderer::BindMaterialDescriptorSet(const RenderParams& renderParams,
     //
     // Update the Descriptor Set
     //
-    const auto skyBoxTexture = m_textures->GetTexture(*renderParams.skyBoxTextureId);
+    const auto skyBoxTexture = m_textures->GetTextureAndImage(*renderParams.skyBoxTextureId);
     if (!skyBoxTexture)
     {
         m_logger->Log(Common::LogLevel::Error,
@@ -413,8 +416,8 @@ bool SkyBoxRenderer::BindMaterialDescriptorSet(const RenderParams& renderParams,
 
     (*materialDescriptorSet)->WriteCombinedSamplerBind(
         m_programDef->GetBindingDetailsByName("i_skyboxSampler"),
-        skyBoxTexture->vkImageViews.at(TextureView::DEFAULT),
-        skyBoxTexture->vkSamplers.at(TextureSampler::DEFAULT)
+        skyBoxTexture->second.vkImageViews.at(TextureView::DEFAULT),
+        skyBoxTexture->second.vkSamplers.at(TextureSampler::DEFAULT)
     );
 
     //

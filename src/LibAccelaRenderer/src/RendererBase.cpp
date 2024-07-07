@@ -25,15 +25,20 @@ bool RendererBase::Startup(const RenderSettings& renderSettings, const std::vect
     m_thread = std::make_unique<Common::MessageDrivenThreadPool>(
         "Renderer",
         1,
-        [this](const Common::Message::Ptr& message){
-            OnTaskMessageReceived(std::static_pointer_cast<RenderTaskMessage>(message));
+        [this](const Common::Message::Ptr& message)
+        {
+            if (message->GetTypeIdentifier() == RenderTaskMessage<bool>::TYPE)
+            {
+                OnTaskMessageReceived(message);
+            }
         },
-        [this](){
+        [this]()
+        {
             OnIdle();
         }
     );
 
-    if (!Submit<RenderTask_Initialize>(renderSettings, shaders).get())
+    if (!Submit<RenderTask_Initialize, bool>(false, renderSettings, shaders).get())
     {
         Shutdown();
         return false;
@@ -46,8 +51,8 @@ void RendererBase::Shutdown()
 {
     m_logger->Log(Common::LogLevel::Info, "RendererBase: Shutting down");
 
-    // Message the renderer to tell it to stop rendering and clean up resources
-    Submit<RenderTask_Shutdown>().get();
+    // Message the renderer to tell it to stop rendering and clean up resources, wait for the result
+    Submit<RenderTask_Shutdown, bool>(false).get();
 
     // Stop the render thread. (Note that destructing the thread object stops and joins the thread)
     m_thread = nullptr;
@@ -65,133 +70,137 @@ std::future<bool> RendererBase::CreateTexture(const Texture& texture,
                                               const TextureView& textureView,
                                               const TextureSampler& textureSampler)
 {
-    return Submit<RenderTask_CreateTexture>(texture, textureView, textureSampler);
+    return Submit<RenderTask_CreateTexture, bool>(false, texture, textureView, textureSampler);
 }
 
 std::future<bool> RendererBase::DestroyTexture(TextureId textureId)
 {
-    return Submit<RenderTask_DestroyTexture>(textureId);
+    return Submit<RenderTask_DestroyTexture, bool>(false, textureId);
 }
 
 std::future<bool> RendererBase::CreateMesh(const Mesh::Ptr& mesh, MeshUsage usage)
 {
-    return Submit<RenderTask_CreateMesh>(mesh, usage);
+    return Submit<RenderTask_CreateMesh, bool>(false, mesh, usage);
 }
 
 std::future<bool> RendererBase::DestroyMesh(MeshId meshId)
 {
-    return Submit<RenderTask_DestroyMesh>(meshId);
+    return Submit<RenderTask_DestroyMesh, bool>(false, meshId);
 }
 
 std::future<bool> RendererBase::CreateMaterial(const Material::Ptr& material)
 {
-    return Submit<RenderTask_CreateMaterial>(material);
+    return Submit<RenderTask_CreateMaterial, bool>(false, material);
 }
 
 std::future<bool> RendererBase::DestroyMaterial(MaterialId materialId)
 {
-    return Submit<RenderTask_DestroyMaterial>(materialId);
+    return Submit<RenderTask_DestroyMaterial, bool>(false, materialId);
 }
 
 std::future<bool> RendererBase::CreateRenderTarget(RenderTargetId renderTargetId, const std::string& tag)
 {
-    return Submit<RenderTask_CreateRenderTarget>(renderTargetId, tag);
+    return Submit<RenderTask_CreateRenderTarget, bool>(false, renderTargetId, tag);
 }
 
 std::future<bool> RendererBase::DestroyRenderTarget(RenderTargetId renderTargetId)
 {
-    return Submit<RenderTask_DestroyRenderTarget>(renderTargetId);
+    return Submit<RenderTask_DestroyRenderTarget, bool>(false, renderTargetId);
 }
 
 std::future<bool> RendererBase::UpdateWorld(const WorldUpdate& update)
 {
-    return Submit<RenderTask_WorldUpdate>(update);
+    return Submit<RenderTask_WorldUpdate, bool>(false, update);
 }
 
 std::future<bool> RendererBase::RenderFrame(const RenderGraph::Ptr& renderGraph)
 {
-    return Submit<RenderTask_RenderFrame>(renderGraph);
+    return Submit<RenderTask_RenderFrame, bool>(false, renderGraph);
 }
 
 std::future<bool> RendererBase::SurfaceChanged()
 {
-    return Submit<RenderTask_SurfaceChanged>();
+    return Submit<RenderTask_SurfaceChanged, bool>(false);
 }
 
 std::future<bool> RendererBase::ChangeRenderSettings(const RenderSettings& renderSettings)
 {
-    return Submit<RenderTask_ChangeRenderSettings>(renderSettings);
+    return Submit<RenderTask_ChangeRenderSettings, bool>(false, renderSettings);
 }
 
 // Fulfills a render task message's promise by setting the message's result to the value returned
 // by applying the data arguments within the message to the provided func, as arguments.
-template <typename TaskType, typename Func>
-void FulfillDirect(const RenderTaskMessage::Ptr& msg, Func func)
+template <typename TaskType, typename Ret, typename Func>
+void FulfillDirect(const Common::Message::Ptr& msg, Func func)
 {
-    msg->SetResult(
-        std::apply(func, std::static_pointer_cast<TaskType>(msg->GetTask())->data)
+    const auto specificRenderTaskMessage = std::dynamic_pointer_cast<RenderTaskMessage<Ret>>(msg);
+
+    specificRenderTaskMessage->SetResult(
+        std::apply(func, std::static_pointer_cast<TaskType>(specificRenderTaskMessage->GetTask())->data)
     );
 }
 
 // Similar to FulfillDirect, but does not set the message's result directly and instead
 // relies on passing the message's promise to the func, where the func itself is responsible
 // for eventually manually setting the promise's result.
-template <typename TaskType, typename Func>
-void FulfillManual(const RenderTaskMessage::Ptr& msg, Func func)
+template <typename TaskType, typename Ret, typename Func>
+void FulfillManual(const Common::Message::Ptr& msg, Func func)
 {
+    const auto specificRenderTaskMessage = std::dynamic_pointer_cast<RenderTaskMessage<Ret>>(msg);
+
     std::apply(func, std::tuple_cat(
-        std::make_tuple(msg->StealPromise()),
-        std::static_pointer_cast<TaskType>(msg->GetTask())->data)
+        std::make_tuple(specificRenderTaskMessage->StealPromise()),
+        std::static_pointer_cast<TaskType>(specificRenderTaskMessage->GetTask())->data)
     );
 }
 
-void RendererBase::OnTaskMessageReceived(const RenderTaskMessage::Ptr& msg)
+void RendererBase::OnTaskMessageReceived(const Common::Message::Ptr& msg)
 {
-    const auto taskType = msg->GetTask()->GetTaskType();
+    const auto taskType = std::dynamic_pointer_cast<RenderTaskMessageBase>(msg)->GetTask()->GetTaskType();
 
     switch (taskType)
     {
         case RenderTaskType::Initialize:
-            FulfillDirect<RenderTask_Initialize>(msg, std::bind_front(&RendererBase::OnInitialize, this));
+            FulfillDirect<RenderTask_Initialize, bool>(msg, std::bind_front(&RendererBase::OnInitialize, this));
         break;
         case RenderTaskType::Shutdown:
-            FulfillDirect<RenderTask_Shutdown>(msg, std::bind_front(&RendererBase::OnShutdown, this));
+            FulfillDirect<RenderTask_Shutdown, bool>(msg, std::bind_front(&RendererBase::OnShutdown, this));
         break;
         case RenderTaskType::RenderFrame:
-            FulfillDirect<RenderTask_RenderFrame>(msg, std::bind_front(&RendererBase::OnRenderFrame, this));
+            FulfillDirect<RenderTask_RenderFrame, bool>(msg, std::bind_front(&RendererBase::OnRenderFrame, this));
         break;
         case RenderTaskType::CreateTexture:
-            FulfillManual<RenderTask_CreateTexture>(msg, std::bind_front(&RendererBase::OnCreateTexture, this));
+            FulfillManual<RenderTask_CreateTexture, bool>(msg, std::bind_front(&RendererBase::OnCreateTexture, this));
         break;
         case RenderTaskType::DestroyTexture:
-            FulfillDirect<RenderTask_DestroyTexture>(msg, std::bind_front(&RendererBase::OnDestroyTexture, this));
+            FulfillDirect<RenderTask_DestroyTexture, bool>(msg, std::bind_front(&RendererBase::OnDestroyTexture, this));
         break;
         case RenderTaskType::CreateMesh:
-            FulfillManual<RenderTask_CreateMesh>(msg, std::bind_front(&RendererBase::OnCreateMesh, this));
+            FulfillManual<RenderTask_CreateMesh, bool>(msg, std::bind_front(&RendererBase::OnCreateMesh, this));
         break;
         case RenderTaskType::DestroyMesh:
-            FulfillDirect<RenderTask_DestroyMesh>(msg, std::bind_front(&RendererBase::OnDestroyMesh, this));
+            FulfillDirect<RenderTask_DestroyMesh, bool>(msg, std::bind_front(&RendererBase::OnDestroyMesh, this));
         break;
         case RenderTaskType::CreateMaterial:
-            FulfillManual<RenderTask_CreateMaterial>(msg, std::bind_front(&RendererBase::OnCreateMaterial, this));
+            FulfillManual<RenderTask_CreateMaterial, bool>(msg, std::bind_front(&RendererBase::OnCreateMaterial, this));
         break;
         case RenderTaskType::DestroyMaterial:
-            FulfillDirect<RenderTask_DestroyMaterial>(msg, std::bind_front(&RendererBase::OnDestroyMaterial, this));
+            FulfillDirect<RenderTask_DestroyMaterial, bool>(msg, std::bind_front(&RendererBase::OnDestroyMaterial, this));
         break;
         case RenderTaskType::CreateRenderTarget:
-            FulfillDirect<RenderTask_CreateRenderTarget>(msg, std::bind_front(&RendererBase::OnCreateRenderTarget, this));
+            FulfillDirect<RenderTask_CreateRenderTarget, bool>(msg, std::bind_front(&RendererBase::OnCreateRenderTarget, this));
         break;
         case RenderTaskType::DestroyRenderTarget:
-            FulfillDirect<RenderTask_DestroyRenderTarget>(msg, std::bind_front(&RendererBase::OnDestroyRenderTarget, this));
+            FulfillDirect<RenderTask_DestroyRenderTarget, bool>(msg, std::bind_front(&RendererBase::OnDestroyRenderTarget, this));
         break;
         case RenderTaskType::WorldUpdate:
-            FulfillDirect<RenderTask_WorldUpdate>(msg, std::bind_front(&RendererBase::OnWorldUpdate, this));
+            FulfillDirect<RenderTask_WorldUpdate, bool>(msg, std::bind_front(&RendererBase::OnWorldUpdate, this));
         break;
         case RenderTaskType::SurfaceChanged:
-            FulfillDirect<RenderTask_SurfaceChanged>(msg, std::bind_front(&RendererBase::OnSurfaceChanged, this));
+            FulfillDirect<RenderTask_SurfaceChanged, bool>(msg, std::bind_front(&RendererBase::OnSurfaceChanged, this));
         break;
         case RenderTaskType::ChangeRenderSettings:
-            FulfillDirect<RenderTask_ChangeRenderSettings>(msg, std::bind_front(&RendererBase::OnChangeRenderSettings, this));
+            FulfillDirect<RenderTask_ChangeRenderSettings, bool>(msg, std::bind_front(&RendererBase::OnChangeRenderSettings, this));
         break;
     }
 }

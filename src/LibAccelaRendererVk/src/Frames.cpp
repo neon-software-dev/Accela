@@ -16,13 +16,13 @@ namespace Accela::Render
 {
 
 Frames::Frames(Common::ILogger::Ptr logger,
-               Ids::Ptr ids,
                VulkanObjsPtr vulkanObjs,
-               ITexturesPtr textures)
+               IRenderTargetsPtr renderTargets,
+               IImagesPtr images)
     : m_logger(std::move(logger))
-    , m_ids(std::move(ids))
     , m_vulkanObjs(std::move(vulkanObjs))
-    , m_textures(std::move(textures))
+    , m_renderTargets(std::move(renderTargets))
+    , m_images(std::move(images))
 {
 
 }
@@ -76,7 +76,7 @@ bool Frames::CreateFrames(const RenderSettings& renderSettings)
 {
     for (uint32_t frameIndex = 0; frameIndex < renderSettings.framesInFlight; ++frameIndex)
     {
-        m_frames.emplace_back(m_logger, m_ids, m_vulkanObjs, m_textures, frameIndex);
+        m_frames.emplace_back(m_logger, m_vulkanObjs, m_renderTargets, m_images, frameIndex);
         if (!m_frames[frameIndex].Initialize(renderSettings))
         {
             Destroy();

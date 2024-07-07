@@ -98,9 +98,9 @@ namespace Accela::Engine
                                                         const std::string& tag,
                                                         ResultWhen resultWhen);
 
-            [[nodiscard]] static Render::Texture ToRenderTexture(Render::TextureId textureId,
-                                                                 const TextureData& textureData,
-                                                                 const std::string& tag);
+            [[nodiscard]] std::expected<Render::Texture, bool> ToRenderTexture(Render::TextureId textureId,
+                                                                               const TextureData& textureData,
+                                                                               const std::string& tag);
             [[nodiscard]] static Common::ImageData::Ptr TextureDataToImageData(const TextureData& textureData);
 
         private:

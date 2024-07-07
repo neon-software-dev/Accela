@@ -6,10 +6,12 @@
  
 #include "PostProcessingRenderer.h"
 
+#include "../PostExecutionOp.h"
+
 #include "../Program/IPrograms.h"
 #include "../Mesh/IMeshes.h"
 #include "../Pipeline/IPipelineFactory.h"
-#include "../Buffer/DataBuffer.h"
+#include "../Buffer/CPUDataBuffer.h"
 #include "../Pipeline/PipelineUtil.h"
 
 #include "../Vulkan/VulkanCommandBuffer.h"
@@ -21,7 +23,6 @@
 #include <Accela/Render/RenderLogic.h>
 
 #include <Accela/Render/Mesh/StaticMesh.h>
-#include <Accela/Render/Texture/TextureView.h>
 
 #include <format>
 #include <vector>
@@ -39,6 +40,7 @@ PostProcessingRenderer::PostProcessingRenderer(Common::ILogger::Ptr logger,
                                                IPipelineFactoryPtr pipelines,
                                                IBuffersPtr buffers,
                                                IMaterialsPtr materials,
+                                               IImagesPtr images,
                                                ITexturesPtr textures,
                                                IMeshesPtr meshes,
                                                ILightsPtr lights,
@@ -54,6 +56,7 @@ PostProcessingRenderer::PostProcessingRenderer(Common::ILogger::Ptr logger,
                std::move(pipelines),
                std::move(buffers),
                std::move(materials),
+               std::move(images),
                std::move(textures),
                std::move(meshes),
                std::move(lights),
@@ -85,8 +88,8 @@ void PostProcessingRenderer::Destroy()
 }
 
 void PostProcessingRenderer::Render(const VulkanCommandBufferPtr& commandBuffer,
-                                    const LoadedTexture& inputTexture,
-                                    const LoadedTexture& outputTexture,
+                                    const LoadedImage& inputImage,
+                                    const LoadedImage& outputImage,
                                     const PostProcessEffect& effect)
 {
     //
@@ -138,26 +141,78 @@ void PostProcessingRenderer::Render(const VulkanCommandBufferPtr& commandBuffer,
     //
 
     //
-    // Bind Descriptor Set 0
+    // Bind Input Samplers
     //
+    auto inputSamplers = effect.additionalSamplers;
+    inputSamplers.emplace_back("i_inputImage", inputImage, VK_IMAGE_ASPECT_COLOR_BIT, effect.inputImageView, effect.inputImageSampler);
 
-    // Bind Input Image
+    for (const auto& inputSampler : inputSamplers)
     {
-        const auto samplerBindingDetails = programDef->GetBindingDetailsByName("i_inputImage");
+        const auto& bindingName = std::get<0>(inputSampler);
+        const auto& texture = std::get<1>(inputSampler);
+        const auto& textureViewName = std::get<3>(inputSampler);
+        const auto& textureSamplerName = std::get<4>(inputSampler);
+
+        const auto samplerBindingDetails = programDef->GetBindingDetailsByName(bindingName);
         if (!samplerBindingDetails)
         {
-            m_logger->Log(Common::LogLevel::Error, "PostProcessingRenderer: Failed to retrieve input sampler binding details");
+            m_logger->Log(Common::LogLevel::Error,
+              "PostProcessingRenderer: Failed to retrieve input sampler binding details: {}", bindingName);
             return;
         }
 
         (*descriptorSet)->WriteCombinedSamplerBind(
             (*samplerBindingDetails),
-            inputTexture.vkImageViews.at(TextureView::DEFAULT),
-            inputTexture.vkSamplers.at(effect.inputSamplerName)
+            texture.vkImageViews.at(textureViewName),
+            texture.vkSamplers.at(textureSamplerName)
         );
     }
 
-    // Bind Output Image
+    //
+    // Bind Input Buffers
+    //
+    unsigned int inputBufferIndex = 0;
+
+    for (const auto& bufferPayload : effect.bufferPayloads)
+    {
+        const auto bufferBindingDetails = programDef->GetBindingDetailsByName(bufferPayload.first);
+        if (!bufferBindingDetails)
+        {
+            m_logger->Log(Common::LogLevel::Error,
+              "PostProcessingRenderer: Failed to retrieve input buffer binding details: {}", bufferPayload.first);
+            return;
+        }
+
+        const auto inputBuffer = CPUDataBuffer::Create(
+            m_buffers,
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            bufferPayload.second.size(),
+            std::format("PostProcessInput-{}-{}", effect.tag, inputBufferIndex)
+        );
+
+        BufferUpdate bufferUpdate{};
+        bufferUpdate.pData = bufferPayload.second.data();
+        bufferUpdate.updateOffset = 0;
+        bufferUpdate.dataByteSize = bufferPayload.second.size();
+
+        (*inputBuffer)->Update(ExecutionContext::CPU(), {bufferUpdate});
+
+        (*descriptorSet)->WriteBufferBind(
+            bufferBindingDetails,
+            VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            (*inputBuffer)->GetBuffer()->GetVkBuffer(),
+            0,
+            0
+        );
+
+        m_postExecutionOps->Enqueue_Current(BufferDeleteOp(m_buffers, (*inputBuffer)->GetBuffer()->GetBufferId()));
+
+        inputBufferIndex++;
+    }
+
+    //
+    // Bind Output RenderTexture
+    //
     {
         const auto samplerBindingDetails = programDef->GetBindingDetailsByName("i_outputImage");
         if (!samplerBindingDetails)
@@ -168,8 +223,8 @@ void PostProcessingRenderer::Render(const VulkanCommandBufferPtr& commandBuffer,
 
         (*descriptorSet)->WriteCombinedSamplerBind(
             (*samplerBindingDetails),
-            outputTexture.vkImageViews.at(TextureView::DEFAULT),
-            outputTexture.vkSamplers.at(TextureSampler::DEFAULT)
+            outputImage.vkImageViews.at(ImageView::DEFAULT),
+            outputImage.vkSamplers.at(ImageSampler::DEFAULT)
         );
     }
 

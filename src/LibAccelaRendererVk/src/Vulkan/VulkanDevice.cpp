@@ -59,6 +59,7 @@ bool VulkanDevice::Create(const VulkanPhysicalDevicePtr& physicalDevice, const V
     deviceFeatures.pNext = &vkPhysicalDeviceMultiviewFeatures;
     deviceFeatures.features.tessellationShader = VK_TRUE;
     deviceFeatures.features.independentBlend = VK_TRUE;
+    deviceFeatures.features.shaderImageGatherExtended = VK_TRUE;
 
     if (physicalDevice->GetPhysicalDeviceFeatures().samplerAnisotropy)
     {

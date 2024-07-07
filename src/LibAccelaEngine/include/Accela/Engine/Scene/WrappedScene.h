@@ -27,6 +27,7 @@ namespace Accela::Engine
             void OnKeyEvent(const Platform::KeyEvent& event) override { return m_scene->OnKeyEvent(event); }
             void OnMouseMoveEvent(const Platform::MouseMoveEvent& event) override { return m_scene->OnMouseMoveEvent(event); }
             void OnMouseButtonEvent(const Platform::MouseButtonEvent& event) override { return m_scene->OnMouseButtonEvent(event); }
+            void OnMouseWheelEvent(const Platform::MouseWheelEvent& event) override { return m_scene->OnMouseWheelEvent(event); }
             void OnPhysicsTriggerEvent(const PhysicsTriggerEvent& event) override { return m_scene->OnPhysicsTriggerEvent(event); }
 
         private:

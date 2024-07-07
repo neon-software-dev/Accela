@@ -24,21 +24,21 @@ std::optional<RenderOperation> RenderOperation::FromRenderPass(const Framebuffer
     const auto attachmentInitialLayouts = renderPass->GetAttachmentInitialLayouts();
     const auto attachmentFinalLayouts = renderPass->GetAttachmentFinalLayouts();
 
-    const auto attachmentTextures = frameBufferObjs.GetAttachmentTextures();
+    const auto attachmentImages = frameBufferObjs.GetAttachmentImages();
 
-    if (!attachmentTextures)
+    if (!attachmentImages)
     {
         return std::nullopt;
     }
 
-    if (attachmentInitialLayouts.size() != attachmentTextures->size())
+    if (attachmentInitialLayouts.size() != attachmentImages->size())
     {
         return std::nullopt;
     }
 
-    for (unsigned int attachmentIndex = 0; attachmentIndex < attachmentTextures->size(); ++attachmentIndex)
+    for (unsigned int attachmentIndex = 0; attachmentIndex < attachmentImages->size(); ++attachmentIndex)
     {
-        const auto attachmentVkImage = attachmentTextures->at(attachmentIndex).first.allocation.vkImage;
+        const auto attachmentVkImage = attachmentImages->at(attachmentIndex).first.allocation.vkImage;
 
         const auto imageAccessIt = imageAccesses.find(attachmentVkImage);
         if (imageAccessIt != imageAccesses.cend())

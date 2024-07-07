@@ -20,7 +20,7 @@
 
 namespace Accela::Engine
 {
-    // Texture FileName -> Image data (for non-embedded textures)
+    // Texture FileName -> RenderTexture data (for non-embedded textures)
     using ModelTextures = std::unordered_map<std::string, Common::ImageData::Ptr>;
 
     class IModelResources

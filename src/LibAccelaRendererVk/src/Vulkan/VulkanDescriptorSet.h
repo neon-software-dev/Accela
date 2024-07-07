@@ -53,7 +53,7 @@ namespace Accela::Render
                                  std::size_t bufferByteSize);
 
             /**
-             * Updates the descriptor set to bind a combined Image/Sampler to a binding index
+             * Updates the descriptor set to bind a combined RenderTexture/Sampler to a binding index
              *
              * @param bindingIndex The binding index to bind to
              * @param vkImageView The image view to be bound
@@ -64,7 +64,7 @@ namespace Accela::Render
                                           VkSampler vkSampler);
 
             /**
-             * Updates the descriptor set to bind an array of Image/Samplers to a binding index
+             * Updates the descriptor set to bind an array of RenderTexture/Samplers to a binding index
              *
              * @param bindingIndex The binding index to bind to
              * @param samplers The image/samplers to be bound
@@ -73,7 +73,7 @@ namespace Accela::Render
                                           const std::vector<std::pair<VkImageView, VkSampler>>& samplers);
 
             /**
-             * Updates the descriptor set to bind an input attachment Image
+             * Updates the descriptor set to bind an input attachment RenderTexture
              *
              * @param bindingIndex The binding index to bind to
              * @param vkImageView The image view to be bound

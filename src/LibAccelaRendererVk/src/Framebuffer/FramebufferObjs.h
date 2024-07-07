@@ -9,13 +9,13 @@
 
 #include "../ForwardDeclares.h"
 
-#include "../Texture/LoadedTexture.h"
+#include "../Image/LoadedImage.h"
+#include "../Image/ImageDefinition.h"
 
 #include "../Vulkan/VulkanRenderPass.h"
 
 #include <Accela/Render/Ids.h>
 #include <Accela/Render/Util/Rect.h>
-#include <Accela/Render/Texture/TextureDefinition.h>
 
 #include <Accela/Common/Log/ILogger.h>
 
@@ -31,22 +31,22 @@ namespace Accela::Render
     {
         public:
 
-            FramebufferObjs(Common::ILogger::Ptr logger, Ids::Ptr ids, VulkanObjsPtr vulkanObjs, ITexturesPtr textures);
+            FramebufferObjs(Common::ILogger::Ptr logger, Ids::Ptr ids, VulkanObjsPtr vulkanObjs, IImagesPtr images);
 
             bool CreateOwning(const VulkanRenderPassPtr& renderPass,
-                              const std::vector<std::pair<TextureDefinition, std::string>>& attachments,
+                              const std::vector<std::pair<ImageDefinition, std::string>>& attachments,
                               const USize& size,
                               const uint32_t& layers,
                               const std::string& tag);
 
             bool CreateFromExisting(const VulkanRenderPassPtr& renderPass,
-                                    const std::vector<std::pair<TextureId, std::string>>& attachmentTextureViews,
+                                    const std::vector<std::pair<ImageId, std::string>>& attachmentImageViews,
                                     const USize& size,
                                     const uint32_t& layers,
                                     const std::string& tag);
 
             bool CreateFromExistingDefaultViews(const VulkanRenderPassPtr& renderPass,
-                                                const std::vector<TextureId>& attachmentTextures,
+                                                const std::vector<ImageId>& attachmentImages,
                                                 const USize& size,
                                                 const uint32_t& layers,
                                                 const std::string& tag);
@@ -54,19 +54,19 @@ namespace Accela::Render
             void Destroy();
 
             [[nodiscard]] VulkanFramebufferPtr GetFramebuffer() const noexcept { return m_framebuffer; }
-            [[nodiscard]] std::size_t GetNumAttachments() const noexcept { return m_attachmentTextureViews.size(); }
-            [[nodiscard]] std::optional<std::vector<std::pair<LoadedTexture, std::string>>> GetAttachmentTextures() const;
-            [[nodiscard]] std::optional<std::pair<LoadedTexture, std::string>> GetAttachmentTexture(uint8_t attachmentIndex) const;
+            [[nodiscard]] std::size_t GetNumAttachments() const noexcept { return m_attachmentImageViews.size(); }
+            [[nodiscard]] std::optional<std::vector<std::pair<LoadedImage, std::string>>> GetAttachmentImages() const;
+            [[nodiscard]] std::optional<std::pair<LoadedImage, std::string>> GetAttachmentImage(uint8_t attachmentIndex) const;
 
         private:
 
             Common::ILogger::Ptr m_logger;
             Ids::Ptr m_ids;
             VulkanObjsPtr m_vulkanObjs;
-            ITexturesPtr m_textures;
+            IImagesPtr m_images;
 
             bool m_ownsAttachments{false};
-            std::vector<std::pair<TextureId, std::string>> m_attachmentTextureViews;
+            std::vector<std::pair<ImageId, std::string>> m_attachmentImageViews;
             VulkanFramebufferPtr m_framebuffer;
     };
 }

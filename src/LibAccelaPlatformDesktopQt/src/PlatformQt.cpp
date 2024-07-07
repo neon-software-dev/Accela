@@ -7,7 +7,7 @@
 #include <Accela/Platform/PlatformQt.h>
 #include <Accela/Platform/Window/QtWindow.h>
 
-#include "Event/QtEvents.h"
+#include "Accela/Platform/Event/QtEvents.h"
 
 namespace Accela::Platform
 {

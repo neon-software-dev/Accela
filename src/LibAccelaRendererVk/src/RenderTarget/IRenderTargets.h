@@ -12,6 +12,8 @@
 #include <Accela/Render/Id.h>
 #include <Accela/Render/RenderSettings.h>
 
+#include <vulkan/vulkan.h>
+
 #include <optional>
 #include <string>
 
@@ -29,6 +31,9 @@ namespace Accela::Render
             [[nodiscard]] virtual std::optional<RenderTarget> GetRenderTarget(const RenderTargetId& renderTargetId) const = 0;
 
             [[nodiscard]] virtual bool OnRenderSettingsChanged(const RenderSettings& renderSettings) = 0;
+
+            [[nodiscard]] virtual VkFormat GetObjectDetailVkFormat() const = 0;
+            [[nodiscard]] virtual std::size_t GetObjectDetailPerPixelByteSize() const = 0;
 
             virtual void Destroy() = 0;
     };

@@ -9,6 +9,8 @@
 #include "Metrics.h"
 #include "EngineRuntime.h"
 #include "RunState.h"
+#include "KeyboardState.h"
+#include "MouseState.h"
 
 #include "Scene/WorldState.h"
 #include "Scene/WorldLogic.h"
@@ -16,6 +18,7 @@
 #include "Scene/TextureResources.h"
 #include "Audio/AudioManager.h"
 #include "Physics/PhysXPhysics.h"
+#include "Component/RenderableStateComponent.h"
 
 #include <Accela/Engine/Scene/SceneCommon.h>
 
@@ -372,7 +375,7 @@ void Engine::ProcessEvents(const RunState::Ptr& runState)
             // Tell the scene that a key event happened
             runState->scene->OnKeyEvent(keyEvent);
         }
-        if (std::holds_alternative<Platform::MouseMoveEvent>(event))
+        else if (std::holds_alternative<Platform::MouseMoveEvent>(event))
         {
             auto mouseMoveEvent = std::get<Platform::MouseMoveEvent>(event);
 
@@ -390,14 +393,17 @@ void Engine::ProcessEvents(const RunState::Ptr& runState)
             const auto virtualPoint = RenderPointToVirtualPoint(renderSettings, runState->worldState->GetVirtualResolution(), *renderPointOpt);
 
             // Rewrite the mouse move event's coordinates to be relative to virtual space
-            mouseMoveEvent.xPos = (unsigned int)virtualPoint.x;
-            mouseMoveEvent.yPos = (unsigned int)virtualPoint.y;
+            mouseMoveEvent.xPos = virtualPoint.x;
+            mouseMoveEvent.yPos = virtualPoint.y;
 
             runState->scene->OnMouseMoveEvent(mouseMoveEvent);
         }
         else if (std::holds_alternative<Platform::MouseButtonEvent>(event))
         {
             auto mouseButtonEvent = std::get<Platform::MouseButtonEvent>(event);
+
+            // Update our internal state around which mouse buttons are currently pressed
+            std::dynamic_pointer_cast<MouseState>(runState->mouseState)->ProcessMouseButtonEvent(mouseButtonEvent);
 
             // Convert the clicked point from window space to render space
             const auto renderPointOpt = WindowPointToRenderPoint(
@@ -417,6 +423,12 @@ void Engine::ProcessEvents(const RunState::Ptr& runState)
             mouseButtonEvent.yPos = (unsigned int)virtualPoint.y;
 
             runState->scene->OnMouseButtonEvent(mouseButtonEvent);
+        }
+        else if (std::holds_alternative<Platform::MouseWheelEvent>(event))
+        {
+            auto mouseWheelEvent = std::get<Platform::MouseWheelEvent>(event);
+
+            runState->scene->OnMouseWheelEvent(mouseWheelEvent);
         }
         else if (std::holds_alternative<Platform::WindowResizeEvent>(event))
         {
@@ -471,6 +483,7 @@ void Engine::RenderFrame(const RunState::Ptr& runState)
     renderParams.ambientLightColor = sceneState.ambientLightColor;
     renderParams.skyBoxTextureId = sceneState.skyBoxTextureId;
     renderParams.skyBoxViewTransform = sceneState.skyBoxViewTransform;
+    renderParams.highlightedObjects = GetHighlightedObjects(runState);
     renderParams.debugTriangles = physics->GetDebugTriangles();
 
     PresentConfig presentConfig{};
@@ -483,6 +496,36 @@ void Engine::RenderFrame(const RunState::Ptr& runState)
         ->AndThen<RenderGraphNode_Present>(m_renderTargetId, presentConfig);
 
     runState->previousFrameRenderedFuture = m_renderer->RenderFrame(renderGraph);
+}
+
+std::unordered_set<Render::ObjectId> Engine::GetHighlightedObjects(const RunState::Ptr& runState)
+{
+    const auto worldState = std::dynamic_pointer_cast<WorldState>(runState->worldState);
+
+    const auto highlightedEntities = worldState->GetHighlightedEntities();
+
+    std::unordered_set<Render::ObjectId> highlightedObjects;
+    highlightedObjects.reserve(highlightedEntities.size());
+
+    for (const auto& entity : highlightedEntities)
+    {
+        const auto stateComponent = worldState->GetComponent<RenderableStateComponent>(entity);
+        if (stateComponent)
+        {
+            if (stateComponent->type != RenderableStateComponent::Type::Object &&
+                stateComponent->type != RenderableStateComponent::Type::Model)
+            {
+                continue;
+            }
+
+            for (const auto& renderableId : stateComponent->renderableIds)
+            {
+                highlightedObjects.insert(Render::ObjectId(renderableId.second.id));
+            }
+        }
+    }
+
+    return highlightedObjects;
 }
 
 }

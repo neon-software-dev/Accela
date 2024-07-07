@@ -13,48 +13,53 @@
 
 #include <Accela/Render/Util/Vector.h>
 
+#include <QMetaObject>
+#include <QString>
+
 namespace Accela
 {
 
 void EditorScene::OnSceneStart(const Engine::IEngineRuntime::Ptr& _engine)
 {
-    Scene::OnSceneStart(_engine);
+    MessageBasedScene::OnSceneStart(_engine);
 
     engine->GetWorldState()->SetAmbientLighting(Engine::DEFAULT_SCENE, 0.5f, glm::vec3(1));
 
     InitCamera();
 }
 
-void EditorScene::OnSimulationStep(unsigned int timeStep)
+void EditorScene::OnMouseMoveEvent(const Platform::MouseMoveEvent& event)
 {
-    Scene::OnSimulationStep(timeStep);
+    MessageBasedScene::OnMouseMoveEvent(event);
 
-    ProcessMessages();
-    m_messageFulfiller.FulfillFinished();
-}
-
-void EditorScene::OnSceneStop()
-{
-    m_messageFulfiller.BlockingWaitForAll();
-
-    Scene::OnSceneStop();
-}
-
-void EditorScene::EnqueueMessage(const Common::Message::Ptr& message)
-{
-    std::lock_guard<std::mutex> commandsLock(m_messagesMutex);
-    m_messages.push(message);
-}
-
-void EditorScene::ProcessMessages()
-{
-    std::lock_guard<std::mutex> lock(m_messagesMutex);
-
-    while (!m_messages.empty())
+    if (engine->GetMouseState()->IsMouseButtonPressed(Platform::MouseButton::Middle))
     {
-        ProcessMessage(m_messages.front());
-        m_messages.pop();
+        if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::Shift))
+        {
+            PanCamera(event.xRel, event.yRel);
+        }
+        else
+        {
+            RotateCamera(event.xRel, event.yRel);
+        }
     }
+}
+
+void EditorScene::OnMouseButtonEvent(const Platform::MouseButtonEvent& event)
+{
+    MessageBasedScene::OnMouseButtonEvent(event);
+
+    if (event.clickType != Platform::ClickType::Press) { return; }
+
+    const auto clickedEntityId = engine->GetWorldState()->GetTopObjectEntityAt({event.xPos, event.yPos});
+    if (!clickedEntityId) { return; }
+
+    SendMessageToListener(std::make_shared<EntityClicked>(*clickedEntityId));
+}
+
+void EditorScene::OnMouseWheelEvent(const Platform::MouseWheelEvent& event)
+{
+    ScaleCamera(event.scrollY);
 }
 
 void EditorScene::ProcessMessage(const Common::Message::Ptr& message)
@@ -81,6 +86,8 @@ void EditorScene::ProcessMessage(const Common::Message::Ptr& message)
         ProcessPanCameraCommand(std::dynamic_pointer_cast<PanCameraCommand>(message));
     } else if (message->GetTypeIdentifier() == ScaleCommand::TYPE) {
         ProcessScaleCommand(std::dynamic_pointer_cast<ScaleCommand>(message));
+    } else if (message->GetTypeIdentifier() == SetEntityHighlighted::TYPE) {
+        ProcessSetEntityHighlightedCommand(std::dynamic_pointer_cast<SetEntityHighlighted>(message));
     }
 }
 
@@ -183,23 +190,41 @@ void EditorScene::ProcessRemoveEntityComponentCommand(const RemoveEntityComponen
 
 void EditorScene::ProcessRotateCameraCommand(const RotateCameraCommand::Ptr& cmd)
 {
-    const float rotateSensitivityFactor = 0.2f;
-
-    RotateCamera(
-        (float)cmd->xRot * rotateSensitivityFactor,
-        (float)cmd->yRot * rotateSensitivityFactor
-    );
+    RotateCamera((float)cmd->xRot, (float)cmd->yRot);
 }
 
 void EditorScene::ProcessPanCameraCommand(const PanCameraCommand::Ptr& cmd)
 {
+    PanCamera((float)cmd->xPan , (float)cmd->yPan);
+}
+
+void EditorScene::ProcessScaleCommand(const ScaleCommand::Ptr& cmd)
+{
+    ScaleCamera(cmd->scaleDeltaDegrees);
+}
+
+void EditorScene::ProcessSetEntityHighlightedCommand(const SetEntityHighlighted::Ptr& cmd)
+{
+    engine->GetWorldState()->HighlightEntity(cmd->eid, cmd->highlighted);
+}
+
+void EditorScene::InitCamera()
+{
+    const auto camera = engine->GetWorldState()->GetWorldCamera(Engine::DEFAULT_SCENE);
+
+    camera->SetPosition({0,0,1});
+    RotateCamera(0.0f, 0.0f);
+}
+
+void EditorScene::PanCamera(float xPanScalar, float yPanScalar)
+{
     const auto camera = engine->GetWorldState()->GetWorldCamera(Engine::DEFAULT_SCENE);
     const auto renderSettings = engine->GetRenderSettings();
 
-    const float panSensitivityFactor = 0.002f;
+    const float panSensitivityFactor = 0.0005f;
 
-    const float xPanAmount = (float)cmd->xPan * (1.0f / renderSettings.globalViewScale) * panSensitivityFactor;
-    const float yPanAmount = (float)cmd->yPan * (1.0f / renderSettings.globalViewScale) * panSensitivityFactor;
+    const float xPanAmount = (float)xPanScalar * (1.0f / renderSettings.globalViewScale) * panSensitivityFactor;
+    const float yPanAmount = (float)yPanScalar * (1.0f / renderSettings.globalViewScale) * panSensitivityFactor;
 
     const auto xPan = xPanAmount * -camera->GetRightUnit();
     const auto yPan = yPanAmount * camera->GetUpUnit();
@@ -211,26 +236,10 @@ void EditorScene::ProcessPanCameraCommand(const PanCameraCommand::Ptr& cmd)
     RotateCamera(0.0f, 0.0f);
 }
 
-void EditorScene::ProcessScaleCommand(const ScaleCommand::Ptr& cmd)
-{
-    const float scaleSensitivityFactor = 0.01f;
-
-    auto renderSettings = engine->GetRenderSettings();
-    renderSettings.globalViewScale *= (1.0f + (cmd->scaleDeltaDegrees * scaleSensitivityFactor));
-
-    engine->SetRenderSettings(renderSettings);
-}
-
-void EditorScene::InitCamera()
-{
-    const auto camera = engine->GetWorldState()->GetWorldCamera(Engine::DEFAULT_SCENE);
-
-    camera->SetPosition({0,0,1});
-    RotateCamera(0.0f, 0.0f);
-}
-
 void EditorScene::RotateCamera(float yRotDegrees, float rightRotDegrees)
 {
+    const float rotateSensitivityFactor = 0.2f;
+
     const auto camera = engine->GetWorldState()->GetWorldCamera(Engine::DEFAULT_SCENE);
 
     // Current camera rotation
@@ -247,11 +256,11 @@ void EditorScene::RotateCamera(float yRotDegrees, float rightRotDegrees)
     }
 
     // Update rotation angles
-    m_yRot += yRotDegrees;
+    m_yRot += (rotateSensitivityFactor * yRotDegrees);
     if (m_yRot >= 360.0f) { m_yRot -= 360.0f; }
     if (m_yRot <= -360.0f) { m_yRot += 360.0f; }
 
-    m_rightRot += rightRotDegrees;
+    m_rightRot += (rotateSensitivityFactor * rightRotDegrees);
     if (m_rightRot >= 360.0f) { m_rightRot -= 360.0f; }
     if (m_rightRot <= -360.0f) { m_rightRot += 360.0f; }
 
@@ -280,6 +289,20 @@ void EditorScene::RotateCamera(float yRotDegrees, float rightRotDegrees)
     // Up
     const auto newCameraUpUnit = newCameraRot * glm::vec3(0,1,0);
     camera->SetUpUnit(newCameraUpUnit);
+}
+
+void EditorScene::ScaleCamera(float scaleChange)
+{
+    const float scaleSensitivityFactor = 0.002f;
+    float scaleAdjustment = (1.0f + (scaleChange * scaleSensitivityFactor));
+
+    // Ensure scale never goes below zero, which would flip the view
+    scaleAdjustment = std::max(0.1f, scaleAdjustment);
+
+    auto renderSettings = engine->GetRenderSettings();
+    renderSettings.globalViewScale *= scaleAdjustment;
+
+    engine->SetRenderSettings(renderSettings);
 }
 
 }

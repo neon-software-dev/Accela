@@ -140,6 +140,7 @@ void RendererSyncSystem::CompleteObjectRenderable(entt::registry& registry, entt
     // Record side effects
     stateComponent.renderableIds[0] = Render::RenderableId(renderable.objectId.id);
     update.toAddObjectRenderables.push_back(renderable);
+    m_objectsToEntities.insert({renderable.objectId, entity});
 }
 
 void RendererSyncSystem::CompleteModelRenderable(entt::registry& registry, entt::entity entity, Render::WorldUpdate& update)
@@ -170,8 +171,8 @@ void RendererSyncSystem::CompleteModelRenderable(entt::registry& registry, entt:
 
         // Record side effects
         stateComponent.renderableIds[it.first] = Render::RenderableId(it.second.objectId.id);
-
         update.toAddObjectRenderables.push_back(it.second);
+        m_objectsToEntities.insert({it.second.objectId, entity});
     }
 }
 
@@ -317,7 +318,8 @@ void RendererSyncSystem::ProcessRenderablesToDestroy(const RunState::Ptr&, entt:
     });
     m_spriteRenderablesToDestroy.clear();
 
-    std::ranges::transform(m_objectRenderablesToDestroy, std::back_inserter(update.toDeleteObjectIds), [](const auto& renderableId){
+    std::ranges::transform(m_objectRenderablesToDestroy, std::back_inserter(update.toDeleteObjectIds), [this](const auto& renderableId){
+        m_objectsToEntities.erase(Render::ObjectId(renderableId.id));
         return Render::ObjectId(renderableId.id);
     });
     m_objectRenderablesToDestroy.clear();
@@ -535,6 +537,17 @@ glm::vec3 RendererSyncSystem::GetVirtualToRenderRatio(const RunState::Ptr& runSt
 
     return virtualToRenderRatio;
 
+}
+
+std::optional<entt::entity> RendererSyncSystem::GetObjectEntity(const Render::ObjectId& objectId) const
+{
+    const auto it = m_objectsToEntities.find(objectId);
+    if (it == m_objectsToEntities.cend())
+    {
+        return std::nullopt;
+    }
+
+    return it->second;
 }
 
 }

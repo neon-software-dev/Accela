@@ -33,22 +33,6 @@ VulkanFuncs::VulkanFuncs(Common::ILogger::Ptr logger,
 
 }
 
-std::optional<VkFormat> VulkanFuncs::TextureFormatToVkFormat(const Accela::Render::TextureFormat& textureFormat)
-{
-    switch (textureFormat)
-    {
-        case TextureFormat::R32_UINT: return VK_FORMAT_R32_UINT;
-        case TextureFormat::R8G8B8_SRGB: return VK_FORMAT_R8G8B8_SRGB;
-        case TextureFormat::R8G8B8A8_SRGB: return VK_FORMAT_R8G8B8A8_SRGB;
-        case TextureFormat::R32G32B32A32_SFLOAT: return VK_FORMAT_R32G32B32A32_SFLOAT;
-        case TextureFormat::R16G16B16A16_SFLOAT: return VK_FORMAT_R16G16B16A16_SFLOAT;
-        case TextureFormat::R8G8B8A8_UNORM: return VK_FORMAT_R8G8B8A8_UNORM;
-    }
-
-    assert(false);
-    return std::nullopt;
-}
-
 VkFormatProperties VulkanFuncs::GetVkFormatProperties(const VkFormat& vkFormat) const
 {
     VkFormatProperties vkFormatProperties{};
@@ -180,7 +164,8 @@ bool VulkanFuncs::TransferImageData(const IBuffersPtr& buffers,
     //
     const auto stagingBuffer = buffers->CreateBuffer(
         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-        VMA_MEMORY_USAGE_CPU_ONLY,
+        VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
+        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
         imageData->GetTotalByteSize(),
         std::format("TransferStaging-{}", (uint64_t)vkDestImage)
     );
@@ -225,6 +210,7 @@ bool VulkanFuncs::TransferImageData(const IBuffersPtr& buffers,
     imageBarrierToTransfer.srcAccessMask = 0;
     imageBarrierToTransfer.dstAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
 
+    // TODO Perf
     m_vulkanObjs->GetCalls()->vkCmdPipelineBarrier(
         vkCommandBuffer,
         VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,

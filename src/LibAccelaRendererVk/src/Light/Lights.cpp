@@ -11,6 +11,8 @@
 #include "../Framebuffer/IFramebuffers.h"
 #include "../Renderer/RendererCommon.h"
 
+#include "../Vulkan/VulkanPhysicalDevice.h"
+
 #include <format>
 #include <algorithm>
 #include <cassert>
@@ -322,49 +324,78 @@ std::expected<FrameBufferId, bool> Lights::CreateShadowFramebuffer(const Light& 
     const auto shadowFramebufferSize = GetShadowFramebufferSize(renderSettings);
     const auto tag = std::format("Shadow-{}", light.lightId.id);
 
-    std::vector<std::pair<TextureDefinition, std::string>> attachments;
+    std::vector<std::pair<ImageDefinition, std::string>> attachments;
 
-    // Depth Attachment
-    Texture texture{};
-    TextureView textureView{};
-    TextureSampler textureSampler{TextureSampler::DEFAULT, CLAMP_ADDRESS_MODE};
+    Image image{};
+    ImageView imageView{};
+
+    ImageSampler imageSampler{
+        .name = ImageSampler::DEFAULT,
+        .vkMagFilter = VK_FILTER_LINEAR,
+        .vkMinFilter = VK_FILTER_LINEAR,
+        .vkSamplerAddressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+        .vkSamplerAddressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+        .vkSamplerMipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR
+    };
+
     VulkanRenderPassPtr renderPass{};
 
     switch (GetShadowMapType(light))
     {
         case ShadowMapType::Single:
         {
-            texture = Texture::EmptyDepth(
-                Render::TextureId::Invalid(),
-                {TextureUsage::DepthStencilAttachment, TextureUsage::Sampled},
-                shadowFramebufferSize,
-                1,
-                false,
-                std::format("ShadowDepth-{}", tag)
-            );
-            textureView = TextureView::ViewAs2D(TextureView::DEFAULT, TextureView::Aspect::ASPECT_DEPTH_BIT);
+            image = Image{
+                .tag = std::format("ShadowDepth-{}", tag),
+                .vkImageType = VK_IMAGE_TYPE_2D,
+                .vkFormat = m_vulkanObjs->GetPhysicalDevice()->GetDepthBufferFormat(),
+                .vkImageTiling = VK_IMAGE_TILING_OPTIMAL,
+                .vkImageUsageFlags = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                .size = shadowFramebufferSize,
+                .numLayers = 1,
+                .vmaAllocationCreateFlags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
+            };
+
+            imageView = ImageView{
+                .name = ImageView::DEFAULT,
+                .vkImageViewType = VK_IMAGE_VIEW_TYPE_2D,
+                .vkImageAspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT,
+                .baseLayer = 0,
+                .layerCount = 1
+            };
+
             renderPass = m_vulkanObjs->GetShadow2DRenderPass();
         }
         break;
         case ShadowMapType::Cube:
         {
-            texture = Texture::EmptyDepth(
-                Render::TextureId::Invalid(),
-                {TextureUsage::DepthStencilAttachment, TextureUsage::Sampled},
-                shadowFramebufferSize,
-                6,
-                true,
-                std::format("ShadowDepthCube-{}", tag)
-            );
-            textureView = TextureView::ViewAsCube(TextureView::DEFAULT, TextureView::Aspect::ASPECT_DEPTH_BIT);
+            image = Image{
+                .tag = std::format("ShadowDepthCube-{}", tag),
+                .vkImageType = VK_IMAGE_TYPE_2D,
+                .vkFormat = m_vulkanObjs->GetPhysicalDevice()->GetDepthBufferFormat(),
+                .vkImageTiling = VK_IMAGE_TILING_OPTIMAL,
+                .vkImageUsageFlags = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                .size = shadowFramebufferSize,
+                .numLayers = 6,
+                .cubeCompatible = true,
+                .vmaAllocationCreateFlags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
+            };
+
+            imageView = ImageView{
+                .name = ImageView::DEFAULT,
+                .vkImageViewType = VK_IMAGE_VIEW_TYPE_CUBE,
+                .vkImageAspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT,
+                .baseLayer = 0,
+                .layerCount = 6
+            };
+
             renderPass = m_vulkanObjs->GetShadowCubeRenderPass();
         }
         break;
     }
 
     attachments.emplace_back(
-        TextureDefinition(texture, {textureView}, {textureSampler}),
-        TextureView::DEFAULT
+        ImageDefinition(image, {imageView}, {imageSampler}),
+        ImageView::DEFAULT
     );
 
     if (!m_framebuffers->CreateFramebuffer(

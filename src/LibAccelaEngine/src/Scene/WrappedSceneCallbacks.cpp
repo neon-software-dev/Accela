@@ -45,4 +45,9 @@ void WrappedSceneCallbacks::OnMouseButtonEvent(const Platform::MouseButtonEvent&
     m_pWrappedCallbacks->OnMouseButtonEvent(event);
 }
 
+void WrappedSceneCallbacks::OnMouseWheelEvent(const Platform::MouseWheelEvent& event)
+{
+    m_pWrappedCallbacks->OnMouseWheelEvent(event);
+}
+
 }

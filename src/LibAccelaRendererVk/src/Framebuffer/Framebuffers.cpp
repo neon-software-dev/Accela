@@ -16,12 +16,12 @@ namespace Accela::Render
 Framebuffers::Framebuffers(Common::ILogger::Ptr logger,
                            Ids::Ptr ids,
                            VulkanObjsPtr vulkanObjs,
-                           ITexturesPtr textures,
+                           IImagesPtr images,
                            PostExecutionOpsPtr postExecutionOps)
    : m_logger(std::move(logger))
    , m_ids(std::move(ids))
    , m_vulkanObjs(std::move(vulkanObjs))
-   , m_textures(std::move(textures))
+   , m_images(std::move(images))
    , m_postExecutionOps(std::move(postExecutionOps))
 {
 
@@ -39,7 +39,7 @@ void Framebuffers::Destroy()
 
 bool Framebuffers::CreateFramebuffer(FrameBufferId id,
                                      const VulkanRenderPassPtr& renderPass,
-                                     const std::vector<std::pair<TextureDefinition, std::string>>& attachments,
+                                     const std::vector<std::pair<ImageDefinition, std::string>>& attachments,
                                      const USize& size,
                                      const uint32_t& layers,
                                      const std::string& tag)
@@ -52,7 +52,7 @@ bool Framebuffers::CreateFramebuffer(FrameBufferId id,
         return false;
     }
 
-    FramebufferObjs framebufferObjs(m_logger, m_ids, m_vulkanObjs, m_textures);
+    FramebufferObjs framebufferObjs(m_logger, m_ids, m_vulkanObjs, m_images);
     if (!framebufferObjs.CreateOwning(renderPass, attachments, size, layers, tag))
     {
         return false;
@@ -65,7 +65,7 @@ bool Framebuffers::CreateFramebuffer(FrameBufferId id,
 
 bool Framebuffers::CreateFramebuffer(FrameBufferId id,
                                      const VulkanRenderPassPtr& renderPass,
-                                     const std::vector<std::pair<TextureId, std::string>>& attachmentTextureViews,
+                                     const std::vector<std::pair<ImageId, std::string>>& attachmentImageViews,
                                      const USize& size,
                                      const uint32_t& layers,
                                      const std::string& tag)
@@ -78,8 +78,8 @@ bool Framebuffers::CreateFramebuffer(FrameBufferId id,
         return false;
     }
 
-    FramebufferObjs framebufferObjs(m_logger, m_ids, m_vulkanObjs, m_textures);
-    if (!framebufferObjs.CreateFromExisting(renderPass, attachmentTextureViews, size, layers, tag))
+    FramebufferObjs framebufferObjs(m_logger, m_ids, m_vulkanObjs, m_images);
+    if (!framebufferObjs.CreateFromExisting(renderPass, attachmentImageViews, size, layers, tag))
     {
         return false;
     }

@@ -24,6 +24,7 @@
 #include "RenderTarget/RenderTargets.h"
 #include "Renderer/PostProcessingEffects.h"
 #include "VMA/IVMA.h"
+#include "Image/Images.h"
 
 #include "Vulkan/VulkanDebug.h"
 #include "Vulkan/VulkanSwapChain.h"
@@ -46,6 +47,7 @@
 #include <format>
 #include <algorithm>
 #include <stack>
+#include <array>
 
 namespace Accela::Render
 {
@@ -63,23 +65,24 @@ RendererVk::RendererVk(std::string appName,
     , m_pipelines(std::make_shared<PipelineFactory>(m_logger, m_vulkanObjs, m_shaders))
     , m_postExecutionOps(std::make_shared<PostExecutionOps>(m_logger, m_vulkanObjs))
     , m_buffers(std::make_shared<Buffers>(m_logger, m_metrics, m_vulkanObjs, m_postExecutionOps))
-    , m_textures(std::make_shared<Textures>(m_logger, m_metrics, m_vulkanObjs, m_buffers, m_postExecutionOps, m_ids))
+    , m_images(std::make_shared<Images>(m_logger, m_metrics, m_vulkanObjs, m_buffers, m_postExecutionOps))
+    , m_textures(std::make_shared<Textures>(m_logger, m_metrics, m_vulkanObjs, m_images, m_buffers, m_postExecutionOps, m_ids))
     , m_meshes(std::make_shared<Meshes>(m_logger, m_metrics, m_vulkanObjs, m_ids, m_postExecutionOps, m_buffers))
-    , m_framebuffers(std::make_shared<Framebuffers>(m_logger, m_ids, m_vulkanObjs, m_textures, m_postExecutionOps))
+    , m_framebuffers(std::make_shared<Framebuffers>(m_logger, m_ids, m_vulkanObjs, m_images, m_postExecutionOps))
     , m_materials(std::make_shared<Materials>(m_logger, m_metrics, m_vulkanObjs, m_postExecutionOps, m_ids, m_textures, m_buffers))
     , m_lights(std::make_shared<Lights>(m_logger, m_metrics, m_vulkanObjs, m_framebuffers, m_ids))
-    , m_renderTargets(std::make_shared<RenderTargets>(m_logger, m_vulkanObjs, m_postExecutionOps, m_framebuffers, m_textures, m_ids))
+    , m_renderTargets(std::make_shared<RenderTargets>(m_logger, m_vulkanObjs, m_postExecutionOps, m_framebuffers, m_images, m_ids))
     , m_renderables(std::make_shared<Renderables>(m_logger, m_ids, m_postExecutionOps, m_textures, m_buffers, m_meshes, m_lights))
-    , m_frames(m_logger, m_ids, m_vulkanObjs, m_textures)
+    , m_frames(m_logger, m_vulkanObjs, m_renderTargets, m_images)
     , m_renderState(m_logger, m_vulkanObjs->GetCalls())
-    , m_swapChainRenderers(m_logger, m_metrics, m_ids, m_postExecutionOps, m_vulkanObjs, m_programs, m_shaders, m_pipelines, m_buffers, m_materials, m_textures, m_meshes, m_lights, m_renderables)
-    , m_spriteRenderers(m_logger, m_metrics, m_ids, m_postExecutionOps, m_vulkanObjs, m_programs, m_shaders, m_pipelines, m_buffers, m_materials, m_textures, m_meshes, m_lights, m_renderables)
-    , m_objectRenderers(m_logger, m_metrics, m_ids, m_postExecutionOps, m_vulkanObjs, m_programs, m_shaders, m_pipelines, m_buffers, m_materials, m_textures, m_meshes, m_lights, m_renderables)
-    , m_terrainRenderers(m_logger, m_metrics, m_ids, m_postExecutionOps, m_vulkanObjs, m_programs, m_shaders, m_pipelines, m_buffers, m_materials, m_textures, m_meshes, m_lights, m_renderables)
-    , m_skyBoxRenderers(m_logger, m_metrics, m_ids, m_postExecutionOps, m_vulkanObjs, m_programs, m_shaders, m_pipelines, m_buffers, m_materials, m_textures, m_meshes, m_lights, m_renderables)
-    , m_differedLightingRenderers(m_logger, m_metrics, m_ids, m_postExecutionOps, m_vulkanObjs, m_programs, m_shaders, m_pipelines, m_buffers, m_materials, m_textures, m_meshes, m_lights, m_renderables)
-    , m_rawTriangleRenderers(m_logger, m_metrics, m_ids, m_postExecutionOps, m_vulkanObjs, m_programs, m_shaders, m_pipelines, m_buffers, m_materials, m_textures, m_meshes, m_lights, m_renderables)
-    , m_postProcessingRenderers(m_logger, m_metrics, m_ids, m_postExecutionOps, m_vulkanObjs, m_programs, m_shaders, m_pipelines, m_buffers, m_materials, m_textures, m_meshes, m_lights, m_renderables)
+    , m_swapChainRenderers(m_logger, m_metrics, m_ids, m_postExecutionOps, m_vulkanObjs, m_programs, m_shaders, m_pipelines, m_buffers, m_materials, m_images, m_textures, m_meshes, m_lights, m_renderables)
+    , m_spriteRenderers(m_logger, m_metrics, m_ids, m_postExecutionOps, m_vulkanObjs, m_programs, m_shaders, m_pipelines, m_buffers, m_materials, m_images, m_textures, m_meshes, m_lights, m_renderables)
+    , m_objectRenderers(m_logger, m_metrics, m_ids, m_postExecutionOps, m_vulkanObjs, m_programs, m_shaders, m_pipelines, m_buffers, m_materials, m_images, m_textures, m_meshes, m_lights, m_renderables)
+    , m_terrainRenderers(m_logger, m_metrics, m_ids, m_postExecutionOps, m_vulkanObjs, m_programs, m_shaders, m_pipelines, m_buffers, m_materials, m_images, m_textures, m_meshes, m_lights, m_renderables)
+    , m_skyBoxRenderers(m_logger, m_metrics, m_ids, m_postExecutionOps, m_vulkanObjs, m_programs, m_shaders, m_pipelines, m_buffers, m_materials, m_images, m_textures, m_meshes, m_lights, m_renderables)
+    , m_differedLightingRenderers(m_logger, m_metrics, m_ids, m_postExecutionOps, m_vulkanObjs, m_programs, m_shaders, m_pipelines, m_buffers, m_materials, m_images, m_textures, m_meshes, m_lights, m_renderables)
+    , m_rawTriangleRenderers(m_logger, m_metrics, m_ids, m_postExecutionOps, m_vulkanObjs, m_programs, m_shaders, m_pipelines, m_buffers, m_materials, m_images, m_textures, m_meshes, m_lights, m_renderables)
+    , m_postProcessingRenderers(m_logger, m_metrics, m_ids, m_postExecutionOps, m_vulkanObjs, m_programs, m_shaders, m_pipelines, m_buffers, m_materials, m_images, m_textures, m_meshes, m_lights, m_renderables)
 { }
 
 bool RendererVk::OnInitialize(const RenderSettings& renderSettings, const std::vector<ShaderSpec>& shaders)
@@ -89,13 +92,18 @@ bool RendererVk::OnInitialize(const RenderSettings& renderSettings, const std::v
     if (renderSettings.presentToHeadset && !m_vulkanObjs->GetContext()->VR_InitOutput()) { return false; }
 
     if (!m_vulkanObjs->Initialize(Common::BuildInfo::IsDebugBuild(), renderSettings)) { return false; }
+
+    const auto transferCommandPool = m_vulkanObjs->GetTransferCommandPool();
+    const auto transferQueue = m_vulkanObjs->GetDevice()->GetVkGraphicsQueue(); // TODO Perf: Separate transfer queue than graphics queue
+
     if (!m_postExecutionOps->Initialize(renderSettings)) { return false; }
     if (!LoadShaders(shaders)) { return false; }
     if (!CreatePrograms()) { return false; }
     if (!m_buffers->Initialize()) { return false; }
-    if (!m_textures->Initialize(m_vulkanObjs->GetTransferCommandPool(), m_vulkanObjs->GetDevice()->GetVkGraphicsQueue())) { return false; }
-    if (!m_meshes->Initialize(m_vulkanObjs->GetTransferCommandPool(), m_vulkanObjs->GetDevice()->GetVkGraphicsQueue())) { return false; }
-    if (!m_materials->Initialize(m_vulkanObjs->GetTransferCommandPool(), m_vulkanObjs->GetDevice()->GetVkGraphicsQueue())) { return false; }
+    if (!m_images->Initialize(transferCommandPool, transferQueue)) { return false; }
+    if (!m_textures->Initialize()) { return false; }
+    if (!m_meshes->Initialize(transferCommandPool, transferQueue)) { return false; }
+    if (!m_materials->Initialize(transferCommandPool, transferQueue)) { return false; }
     if (!m_renderables->Initialize()) { return false; }
     if (!m_frames.Initialize(renderSettings, m_vulkanObjs->GetSwapChain())) { return false; }
     if (!m_swapChainRenderers.Initialize(renderSettings)) { return false; }
@@ -115,6 +123,8 @@ bool RendererVk::OnShutdown()
     m_logger->Log(Common::LogLevel::Info, "RendererVk: Shutting down");
 
     m_vulkanObjs->WaitForDeviceIdle();
+
+    m_latestObjectDetailImageId = std::nullopt;
 
     m_vulkanObjs->GetContext()->VR_DestroyOutput();
 
@@ -138,6 +148,7 @@ bool RendererVk::OnShutdown()
     m_framebuffers->Destroy();
     m_meshes->Destroy();
     m_textures->Destroy();
+    m_images->Destroy();
     m_buffers->Destroy();
     m_pipelines->Destroy();
     m_programs->Destroy();
@@ -163,97 +174,34 @@ bool RendererVk::LoadShaders(const std::vector<ShaderSpec>& shaders)
 
 bool RendererVk::CreatePrograms()
 {
-    if (!m_programs->CreateProgram("Sprite", {"Sprite.vert.spv", "Sprite.frag.spv"}))
-    {
-        m_logger->Log(Common::LogLevel::Error, "CreatePrograms: Failed to create Sprite program");
-        return false;
-    }
+    const std::unordered_map<std::string, std::vector<std::string>> programs = {
+        {"Sprite", {"Sprite.vert.spv", "Sprite.frag.spv"}},
+        {"ObjectDeferred", {"Object.vert.spv", "ObjectDeferred.frag.spv"}},
+        {"ObjectForward", {"Object.vert.spv", "ObjectForward.frag.spv"}},
+        {"ObjectShadow", {"ObjectShadow.vert.spv", "Shadow.frag.spv"}},
+        {"BoneObjectDeferred", {"BoneObject.vert.spv", "ObjectDeferred.frag.spv"}},
+        {"BoneObjectForward", {"BoneObject.vert.spv", "ObjectForward.frag.spv"}},
+        {"BoneObjectShadow", {"BoneObjectShadow.vert.spv", "Shadow.frag.spv"}},
+        {"TerrainDeferred", {"Terrain.tesc.spv", "Terrain.tese.spv", "Terrain.vert.spv", "ObjectDeferred.frag.spv"}},
+        {"SkyBox", {"SkyBox.vert.spv", "SkyBox.frag.spv"}},
+        {"DeferredLighting", {"DeferredLighting.vert.spv", "DeferredLighting.frag.spv"}},
+        {"RawTriangle", {"RawTriangle.vert.spv", "RawTriangle.frag.spv"}},
+        {"SwapChainBlit", {"SwapChainBlit.vert.spv", "SwapChainBlit.frag.spv"}},
+        {"ToneMapping", {"ToneMapping.comp.spv"}},
+        {"GammaCorrection", {"GammaCorrection.comp.spv"}},
+        {"FXAA", {"FXAA.comp.spv"}},
+        {"ObjectHighlight", {"ObjectHighlight.comp.spv"}}
+    };
 
-    if (!m_programs->CreateProgram("ObjectDeferred", {"Object.vert.spv", "ObjectDeferred.frag.spv"}))
-    {
-        m_logger->Log(Common::LogLevel::Error, "CreatePrograms: Failed to create Object program");
-        return false;
-    }
+    return std::ranges::all_of(programs, [this](const auto& program){
+        if (!m_programs->CreateProgram(program.first, program.second))
+        {
+            m_logger->Log(Common::LogLevel::Error, "CreatePrograms: Failed to create program: {}", program.first);
+            return false;
+        }
 
-    if (!m_programs->CreateProgram("ObjectForward", {"Object.vert.spv", "ObjectForward.frag.spv"}))
-    {
-        m_logger->Log(Common::LogLevel::Error, "CreatePrograms: Failed to create ObjectForward program");
-        return false;
-    }
-
-    if (!m_programs->CreateProgram("ObjectShadow", {"ObjectShadow.vert.spv", "Shadow.frag.spv"}))
-    {
-        m_logger->Log(Common::LogLevel::Error, "CreatePrograms: Failed to create ObjectShadow program");
-        return false;
-    }
-
-    if (!m_programs->CreateProgram("BoneObjectDeferred", {"BoneObject.vert.spv", "ObjectDeferred.frag.spv"}))
-    {
-        m_logger->Log(Common::LogLevel::Error, "CreatePrograms: Failed to create BoneObject program");
-        return false;
-    }
-
-    if (!m_programs->CreateProgram("BoneObjectForward", {"BoneObject.vert.spv", "ObjectForward.frag.spv"}))
-    {
-        m_logger->Log(Common::LogLevel::Error, "CreatePrograms: Failed to create BoneObject program");
-        return false;
-    }
-
-    if (!m_programs->CreateProgram("BoneObjectShadow", {"BoneObjectShadow.vert.spv", "Shadow.frag.spv"}))
-    {
-        m_logger->Log(Common::LogLevel::Error, "CreatePrograms: Failed to create BoneObjectShadow program");
-        return false;
-    }
-
-    if (!m_programs->CreateProgram("TerrainDeferred", {"Terrain.tesc.spv", "Terrain.tese.spv", "Terrain.vert.spv", "ObjectDeferred.frag.spv"}))
-    {
-        m_logger->Log(Common::LogLevel::Error, "CreatePrograms: Failed to create Terrain program");
-        return false;
-    }
-
-    if (!m_programs->CreateProgram("SkyBox", {"SkyBox.vert.spv", "SkyBox.frag.spv"}))
-    {
-        m_logger->Log(Common::LogLevel::Error, "CreatePrograms: Failed to create SkyBox program");
-        return false;
-    }
-
-    if (!m_programs->CreateProgram("DeferredLighting", {"DeferredLighting.vert.spv", "DeferredLighting.frag.spv"}))
-    {
-        m_logger->Log(Common::LogLevel::Error, "CreatePrograms: Failed to create DeferredLighting program");
-        return false;
-    }
-
-    if (!m_programs->CreateProgram("RawTriangle", {"RawTriangle.vert.spv", "RawTriangle.frag.spv"}))
-    {
-        m_logger->Log(Common::LogLevel::Error, "CreatePrograms: Failed to create RawTriangle program");
-        return false;
-    }
-
-    if (!m_programs->CreateProgram("SwapChainBlit", {"SwapChainBlit.vert.spv", "SwapChainBlit.frag.spv"}))
-    {
-        m_logger->Log(Common::LogLevel::Error, "CreatePrograms: Failed to create SwapChainBlit program");
-        return false;
-    }
-
-    if (!m_programs->CreateProgram("ToneMapping", {"ToneMapping.comp.spv"}))
-    {
-        m_logger->Log(Common::LogLevel::Error, "CreatePrograms: Failed to create ToneMapping program");
-        return false;
-    }
-
-    if (!m_programs->CreateProgram("GammaCorrection", {"GammaCorrection.comp.spv"}))
-    {
-        m_logger->Log(Common::LogLevel::Error, "CreatePrograms: Failed to create GammaCorrection program");
-        return false;
-    }
-
-    if (!m_programs->CreateProgram("FXAA", {"FXAA.comp.spv"}))
-    {
-        m_logger->Log(Common::LogLevel::Error, "CreatePrograms: Failed to create FXAA program");
-        return false;
-    }
-
-    return true;
+        return true;
+    });
 }
 
 void RendererVk::OnIdle()
@@ -269,14 +217,7 @@ void RendererVk::OnCreateTexture(std::promise<bool> resultPromise,
                                  const TextureView& textureView,
                                  const TextureSampler& textureSampler)
 {
-    if (texture.data.has_value())
-    {
-        m_textures->CreateTextureFilled(texture, {textureView}, {textureSampler}, std::move(resultPromise));
-    }
-    else
-    {
-        resultPromise.set_value(m_textures->CreateTextureEmpty(texture, {textureView}, {textureSampler}));
-    }
+    m_textures->CreateTexture(TextureDefinition(texture, {textureView}, {textureSampler}), std::move(resultPromise));
 }
 
 bool RendererVk::OnDestroyTexture(TextureId textureId)
@@ -349,9 +290,9 @@ bool RendererVk::OnRenderFrame(RenderGraph::Ptr renderGraph)
     Common::Timer frameRenderWorkTimer(Renderer_FrameRenderWork_Time);
 
     auto& currentFrame = m_frames.GetCurrentFrame();
-    auto framePipelineFence = currentFrame.GetPipelineFence();
-    auto graphicsCommandPool = currentFrame.GetGraphicsCommandPool();
-    auto renderCommandBuffer = currentFrame.GetRenderCommandBuffer();
+    const auto framePipelineFence = currentFrame.GetPipelineFence();
+    const auto graphicsCommandPool = currentFrame.GetGraphicsCommandPool();
+    const auto renderCommandBuffer = currentFrame.GetRenderCommandBuffer();
 
     //
     // Initialize frame state
@@ -376,6 +317,15 @@ bool RendererVk::OnRenderFrame(RenderGraph::Ptr renderGraph)
     // Reset the frame's command buffers, to prepare for recording new commands
     graphicsCommandPool->ResetCommandBuffer(renderCommandBuffer, false);
     graphicsCommandPool->ResetCommandBuffer(currentFrame.GetSwapChainBlitCommandBuffer(), false);
+
+    //////////////////////////////////////////
+    // Update the latest object detail buffer
+    //////////////////////////////////////////
+
+    {
+        std::lock_guard<std::mutex> lock(m_latestObjectDetailTextureIdMutex);
+        m_latestObjectDetailImageId = currentFrame.GetObjectDetailImageId();
+    }
 
     ////////////////////////////////////
     // Query the VR headset for input, if needed
@@ -518,16 +468,16 @@ bool RendererVk::RenderGraphFunc_RenderScene(const RenderGraphNode::Ptr& node)
     RefreshShadowMapsAsNeeded(renderParams, renderCommandBuffer, viewProjections);
 
     // Create a mapping of light -> shadow map texture
-    std::unordered_map<LightId, TextureId> shadowMaps;
+    std::unordered_map<LightId, ImageId> shadowMaps;
 
     for (const auto& renderLight : renderLights)
     {
         if (!renderLight.light.castsShadows || !renderLight.shadowFrameBufferId) { continue; }
 
         const auto shadowFramebuffer = m_framebuffers->GetFramebufferObjs(*renderLight.shadowFrameBufferId);
-        const auto shadowTextureId = shadowFramebuffer->GetAttachmentTexture(0)->first.textureId;
+        const auto shadowImageId = shadowFramebuffer->GetAttachmentImage(0)->first.id;
 
-        shadowMaps.insert({renderLight.light.lightId, shadowTextureId});
+        shadowMaps.insert({renderLight.light.lightId, shadowImageId});
     }
 
     m_metrics->SetCounterValue(Renderer_Scene_Shadow_Map_Count, shadowMaps.size());
@@ -545,7 +495,7 @@ void RendererVk::RunSceneRender(const std::string& sceneName,
                                 const RenderTarget& renderTarget,
                                 const RenderParams& renderParams,
                                 const std::vector<ViewProjection>& viewProjections,
-                                const std::unordered_map<LightId, TextureId>& shadowMaps)
+                                const std::unordered_map<LightId, ImageId>& shadowMaps)
 {
     ////////////////////
     // Setup
@@ -573,16 +523,21 @@ void RendererVk::RunSceneRender(const std::string& sceneName,
         return;
     }
 
-    const auto gPassColorAttachment = gPassFramebufferObjs->GetAttachmentTexture(Offscreen_Attachment_Color);
-    const auto gPassColorTexture = gPassColorAttachment->first;
+    const auto gPassColorAttachment = gPassFramebufferObjs->GetAttachmentImage(Offscreen_Attachment_Color);
+    const auto gPassColorImage = gPassColorAttachment->first;
 
-    const auto gPassDepthAttachment = gPassFramebufferObjs->GetAttachmentTexture(Offscreen_Attachment_Depth);
-    const auto gPassDepthTexture = gPassDepthAttachment->first;
+    const auto gPassDepthAttachment = gPassFramebufferObjs->GetAttachmentImage(Offscreen_Attachment_Depth);
+    const auto gPassDepthImage = gPassDepthAttachment->first;
 
-    const auto screenColorAttachment = screenFramebufferObjs->GetAttachmentTexture(Screen_Attachment_Color);
-    const auto screenColorTexture = screenColorAttachment->first;
+    const auto gPassObjectDetailAttachment = gPassFramebufferObjs->GetAttachmentImage(Offscreen_Attachment_ObjectDetail);
+    const auto gPassObjectDetailImage = gPassObjectDetailAttachment->first;
 
-    const auto postProcessingOutputTexture = *m_textures->GetTexture(renderTarget.postProcessOutputTexture);
+    const auto screenColorAttachment = screenFramebufferObjs->GetAttachmentImage(Screen_Attachment_Color);
+    const auto screenColorImage = screenColorAttachment->first;
+
+    const auto postProcessingOutputImage = *m_images->GetImage(renderTarget.postProcessOutputImage);
+
+    const auto frameObjectDetailResultImage = *m_images->GetImage(currentFrame.GetObjectDetailImageId());
 
     ////////////////////
     // GPass Render Pass
@@ -591,6 +546,20 @@ void RendererVk::RunSceneRender(const std::string& sceneName,
     StartRenderPass(gPassRenderPass, *gPassFramebufferObjs, commandBuffer);
         RenderObjects(sceneName, *gPassFramebufferObjs, renderParams, viewProjections, shadowMaps);
     EndRenderPass(commandBuffer);
+
+    // Post-process the gpass color output to highlight objects
+    if (!renderParams.highlightedObjects.empty())
+    {
+        RunPostProcessing(gPassColorImage,
+                          postProcessingOutputImage,
+                          ObjectHighlightEffect(
+                              m_vulkanObjs->GetRenderSettings(),
+                              gPassObjectDetailImage,
+                              renderParams.highlightedObjects));
+    }
+
+    // Transfer the object detail image into CPU-visible memory for client-access
+    TransferObjectDetailImage(gPassObjectDetailImage, frameObjectDetailResultImage, commandBuffer);
 
     ///////////////////
     // Screen Render Pass
@@ -606,15 +575,15 @@ void RendererVk::RunSceneRender(const std::string& sceneName,
 
     if (renderSettings.hdr)
     {
-        RunPostProcessing(gPassColorTexture, postProcessingOutputTexture, ToneMappingEffect(m_vulkanObjs->GetRenderSettings()));
+        RunPostProcessing(gPassColorImage, postProcessingOutputImage, ToneMappingEffect(m_vulkanObjs->GetRenderSettings()));
     }
 
     //////////////////////////
     // Gamma Correction
     //////////////////////////
 
-    RunPostProcessing(gPassColorTexture, postProcessingOutputTexture, GammaCorrectionEffect(m_vulkanObjs->GetRenderSettings()));
-    RunPostProcessing(screenColorTexture, postProcessingOutputTexture, GammaCorrectionEffect(m_vulkanObjs->GetRenderSettings()));
+    RunPostProcessing(gPassColorImage, postProcessingOutputImage, GammaCorrectionEffect(m_vulkanObjs->GetRenderSettings()));
+    RunPostProcessing(screenColorImage, postProcessingOutputImage, GammaCorrectionEffect(m_vulkanObjs->GetRenderSettings()));
 
     //////////////////////////
     // FXAA
@@ -622,7 +591,7 @@ void RendererVk::RunSceneRender(const std::string& sceneName,
 
     if (renderSettings.fxaa)
     {
-        RunPostProcessing(gPassColorTexture, postProcessingOutputTexture, FXAAEffect(m_vulkanObjs->GetRenderSettings()));
+        RunPostProcessing(gPassColorImage, postProcessingOutputImage, FXAAEffect(m_vulkanObjs->GetRenderSettings()));
     }
 }
 
@@ -669,13 +638,13 @@ bool RendererVk::RenderGraphFunc_Present(const uint32_t& swapChainImageIndex, co
         return false;
     }
 
-    const auto offscreenColorTexture =
-        gPassFramebufferObjs->GetAttachmentTexture(Offscreen_Attachment_Color)->first;
-    const auto offscreenColorVkImage = offscreenColorTexture.allocation.vkImage;
+    const auto offscreenColorImage =
+        gPassFramebufferObjs->GetAttachmentImage(Offscreen_Attachment_Color)->first;
+    const auto offscreenColorVkImage = offscreenColorImage.allocation.vkImage;
 
-    const auto screenColorTexture =
-        screenFramebufferObjs->GetAttachmentTexture(Screen_Attachment_Color)->first;
-    const auto screenColorVkImage = screenColorTexture.allocation.vkImage;
+    const auto screenColorImage =
+        screenFramebufferObjs->GetAttachmentImage(Screen_Attachment_Color)->first;
+    const auto screenColorVkImage = screenColorImage.allocation.vkImage;
 
     ////////////////////////////////////////////////////
     // Finish the Render work command buffer and submit it
@@ -716,7 +685,7 @@ bool RendererVk::RenderGraphFunc_Present(const uint32_t& swapChainImageIndex, co
            BarrierPoint(
                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
                VK_ACCESS_SHADER_READ_BIT),
-           Layers(0, offscreenColorTexture.numLayers),
+           Layers(0, offscreenColorImage.image.numLayers),
            Levels(0, 1),
            VK_IMAGE_ASPECT_COLOR_BIT
        )},
@@ -737,7 +706,7 @@ bool RendererVk::RenderGraphFunc_Present(const uint32_t& swapChainImageIndex, co
     } ));
 
     StartRenderPass(swapChainBlitRenderPass, swapChainFrameBuffer, swapChainBlitCommandBuffer, swapChainBlitClearColor);
-        RunSwapChainBlitPass(swapChainFrameBuffer, offscreenColorTexture, screenColorTexture);
+        RunSwapChainBlitPass(swapChainFrameBuffer, offscreenColorImage, screenColorImage);
     EndRenderPass(swapChainBlitCommandBuffer);
 
     // If outputting to a headset, insert one last operation that will record that when we
@@ -749,14 +718,13 @@ bool RendererVk::RenderGraphFunc_Present(const uint32_t& swapChainImageIndex, co
             {offscreenColorVkImage, ImageAccess(
                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-               BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_SHADER_READ_BIT),
                BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT),
-               Layers(0, offscreenColorTexture.numLayers),
+               BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT),
+               Layers(0, offscreenColorImage.image.numLayers),
                Levels(0,1),
                VK_IMAGE_ASPECT_COLOR_BIT
             )}
-        }
-        ));
+        }));
     }
 
     swapChainBlitCommandBuffer->End();
@@ -789,11 +757,11 @@ bool RendererVk::RenderGraphFunc_Present(const uint32_t& swapChainImageIndex, co
         eyeRenderData.vkPhysicalDevice = m_vulkanObjs->GetPhysicalDevice()->GetVkPhysicalDevice();
         eyeRenderData.vkDevice = m_vulkanObjs->GetDevice()->GetVkDevice();
         eyeRenderData.vkQueue = m_vulkanObjs->GetDevice()->GetVkGraphicsQueue();
-        eyeRenderData.vkImage = offscreenColorTexture.allocation.vkImage;
+        eyeRenderData.vkImage = offscreenColorImage.allocation.vkImage;
         eyeRenderData.queueFamilyIndex = m_vulkanObjs->GetPhysicalDevice()->GetGraphicsQueueFamilyIndex().value();
-        eyeRenderData.width = offscreenColorTexture.pixelSize.w;
-        eyeRenderData.height = offscreenColorTexture.pixelSize.h;
-        eyeRenderData.format = offscreenColorTexture.vkFormat;
+        eyeRenderData.width = offscreenColorImage.image.size.w;
+        eyeRenderData.height = offscreenColorImage.image.size.h;
+        eyeRenderData.format = offscreenColorImage.image.vkFormat;
         eyeRenderData.sampleCount = 0;
 
         m_vulkanObjs->GetContext()->VR_SubmitEyeRender(Eye::Left, eyeRenderData);
@@ -837,7 +805,7 @@ void RendererVk::RenderObjects(const std::string& sceneName,
                                const FramebufferObjs& framebufferObjs,
                                const RenderParams& renderParams,
                                const std::vector<ViewProjection>& viewProjections,
-                               const std::unordered_map<LightId, TextureId>& shadowMaps)
+                               const std::unordered_map<LightId, ImageId>& shadowMaps)
 {
     auto& currentFrame = m_frames.GetCurrentFrame();
     const auto commandBuffer = currentFrame.GetRenderCommandBuffer();
@@ -960,89 +928,119 @@ void RendererVk::RenderObjects(const std::string& sceneName,
     }
 }
 
-void RendererVk::RunPostProcessing(const LoadedTexture& inputTexture, const LoadedTexture& outputTexture, const PostProcessEffect& effect)
+void RendererVk::RunPostProcessing(const LoadedImage& inputImage, const LoadedImage& outputImage, const PostProcessEffect& effect)
 {
     auto& currentFrame = m_frames.GetCurrentFrame();
     const auto commandBuffer = currentFrame.GetRenderCommandBuffer();
 
     //
-    // Execute the post-processing effect shader
+    // Prepare post-processing memory access
     //
-    m_renderState.PrepareOperation(commandBuffer, RenderOperation({
+    std::unordered_map<VkImage, ImageAccess> imageAccesses = {
         // We're going to read from the input texture
-        {inputTexture.allocation.vkImage, ImageAccess(
+        {inputImage.allocation.vkImage, ImageAccess(
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             BarrierPoint(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT),
             BarrierPoint(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT),
-            Layers(0, inputTexture.numLayers),
+            Layers(0, inputImage.image.numLayers),
             Levels(0,1),
             VK_IMAGE_ASPECT_COLOR_BIT
         )},
         // We're going to write to the output texture
-        {outputTexture.allocation.vkImage, ImageAccess(
+        {outputImage.allocation.vkImage, ImageAccess(
             VK_IMAGE_LAYOUT_GENERAL,
             VK_IMAGE_LAYOUT_GENERAL,
             BarrierPoint(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT),
             BarrierPoint(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT),
-            Layers(0, outputTexture.numLayers),
+            Layers(0, outputImage.image.numLayers),
             Levels(0,1),
             VK_IMAGE_ASPECT_COLOR_BIT
         )}
-    }));
+    };
 
+    for (const auto& inputSampler : effect.additionalSamplers)
     {
-        CmdBufferSectionLabel sectionLabel(m_vulkanObjs->GetCalls(), commandBuffer, effect.tag);
+        const auto& loadedImage = std::get<1>(inputSampler);
+        const auto& vkImageAspectFlags = std::get<2>(inputSampler);
 
-        m_postProcessingRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
-            .Render(commandBuffer, inputTexture, outputTexture, effect);
+        imageAccesses.insert({
+            loadedImage.allocation.vkImage,
+            ImageAccess(
+                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                BarrierPoint(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT),
+                BarrierPoint(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT),
+                Layers(0, loadedImage.image.numLayers),
+                Levels(0, 1),
+                vkImageAspectFlags
+            )
+        });
     }
+
+    m_renderState.PrepareOperation(commandBuffer, RenderOperation(imageAccesses));
+
+    //
+    // Execute the post-processing effect shader
+    //
+    CmdBufferSectionLabel sectionLabel(m_vulkanObjs->GetCalls(), commandBuffer, effect.tag);
+
+    m_postProcessingRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
+        .Render(commandBuffer, inputImage, outputImage, effect);
 
     //
     // Blit the post-process output back to the input texture
     //
     m_renderState.PrepareOperation(commandBuffer, RenderOperation({
-        // We're going to transfer/blit the result to the input texture
-        {inputTexture.allocation.vkImage, ImageAccess(
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT),
-            BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT),
-            Layers(0, inputTexture.numLayers),
-            Levels(0,1),
-            VK_IMAGE_ASPECT_COLOR_BIT
-        )},
-        // We're going to transfer/blit the result from the output texture
-        {outputTexture.allocation.vkImage, ImageAccess(
-            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-            BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT),
-            BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT),
-            Layers(0, outputTexture.numLayers),
-            Levels(0,1),
-            VK_IMAGE_ASPECT_COLOR_BIT
-        )}
-    }));
+          // We're going to transfer/blit the result to the input texture
+          {inputImage.allocation.vkImage,  ImageAccess(
+              VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+              VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+              BarrierPoint(
+                  VK_PIPELINE_STAGE_TRANSFER_BIT,
+                  VK_ACCESS_TRANSFER_WRITE_BIT),
+              BarrierPoint(
+                  VK_PIPELINE_STAGE_TRANSFER_BIT,
+                  VK_ACCESS_TRANSFER_WRITE_BIT),
+              Layers(0, inputImage.image.numLayers),
+              Levels(0, 1),
+              VK_IMAGE_ASPECT_COLOR_BIT
+          )},
+          // We're going to transfer/blit the result from the output texture
+          {outputImage.allocation.vkImage, ImageAccess(
+              VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+              VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+              BarrierPoint(
+                  VK_PIPELINE_STAGE_TRANSFER_BIT,
+                  VK_ACCESS_TRANSFER_READ_BIT),
+              BarrierPoint(
+                  VK_PIPELINE_STAGE_TRANSFER_BIT,
+                  VK_ACCESS_TRANSFER_READ_BIT),
+              Layers(0, outputImage.image.numLayers),
+              Levels(0, 1),
+              VK_IMAGE_ASPECT_COLOR_BIT
+          )}
+      }));
 
     VkImageBlit blit{};
-    blit.srcOffsets[0] = { 0, 0, 0 };
-    blit.srcOffsets[1] = { (int)outputTexture.pixelSize.w, (int)outputTexture.pixelSize.h, 1 };
+    blit.srcOffsets[0] = {0, 0, 0};
+    blit.srcOffsets[1] = {(int)outputImage.image.size.w, (int)outputImage.image.size.h, 1};
     blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     blit.srcSubresource.mipLevel = 0;
     blit.srcSubresource.baseArrayLayer = 0;
-    blit.srcSubresource.layerCount = outputTexture.numLayers;
-    blit.dstOffsets[0] = { 0, 0, 0 };
-    blit.dstOffsets[1] = { (int)inputTexture.pixelSize.w, (int)inputTexture.pixelSize.h, 1 };
+    blit.srcSubresource.layerCount = outputImage.image.numLayers;
+    blit.dstOffsets[0] = {0, 0, 0};
+    blit.dstOffsets[1] = {(int)inputImage.image.size.w, (int)inputImage.image.size.h, 1};
     blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     blit.dstSubresource.mipLevel = 0;
     blit.dstSubresource.baseArrayLayer = 0;
-    blit.dstSubresource.layerCount = inputTexture.numLayers;
+    blit.dstSubresource.layerCount = inputImage.image.numLayers;
 
     m_vulkanObjs->GetCalls()->vkCmdBlitImage(
         commandBuffer->GetVkCommandBuffer(),
-        outputTexture.allocation.vkImage,
+        outputImage.allocation.vkImage,
         VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        inputTexture.allocation.vkImage,
+        inputImage.allocation.vkImage,
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         1,
         &blit,
@@ -1078,8 +1076,8 @@ void RendererVk::RenderScreen(const std::string& sceneName,
 }
 
 void RendererVk::RunSwapChainBlitPass(const VulkanFramebufferPtr& framebuffer,
-                                      const LoadedTexture& renderTexture,
-                                      const LoadedTexture& screenTexture)
+                                      const LoadedImage& renderImage,
+                                      const LoadedImage& screenImage)
 {
     auto& currentFrame = m_frames.GetCurrentFrame();
     const auto commandBuffer = currentFrame.GetSwapChainBlitCommandBuffer();
@@ -1096,8 +1094,8 @@ void RendererVk::RunSwapChainBlitPass(const VulkanFramebufferPtr& framebuffer,
                 commandBuffer,
                 renderPass,
                 framebuffer,
-                renderTexture,
-                screenTexture
+                renderImage,
+                screenImage
             );
     }
 }
@@ -1197,6 +1195,70 @@ bool RendererVk::OnWorldUpdate(const WorldUpdate& update)
     return true;
 }
 
+void RendererVk::TransferObjectDetailImage(const LoadedImage& gPassObjectDetailImage,
+                                           const LoadedImage& frameObjectDetailImage,
+                                           const VulkanCommandBufferPtr& commandBuffer)
+{
+    CmdBufferSectionLabel sectionLabel(m_vulkanObjs->GetCalls(), commandBuffer, "TransferObjectDetailImage");
+
+    const auto renderSettings = m_vulkanObjs->GetRenderSettings();
+
+    const auto presentLayerIndex = (uint32_t)renderSettings.presentEye;
+
+    // Prepare access to the object detail images
+    m_renderState.PrepareOperation(commandBuffer, RenderOperation({
+        // We're going to transfer from the gpass object detail image
+        {gPassObjectDetailImage.allocation.vkImage, ImageAccess(
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT),
+            BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT),
+            Layers(presentLayerIndex, 1),
+            Levels(0,1),
+            VK_IMAGE_ASPECT_COLOR_BIT
+        )},
+        // We're going to transfer to the frame object detail result image
+        {frameObjectDetailImage.allocation.vkImage, ImageAccess(
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT),
+            BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT),
+            Layers(presentLayerIndex, 1),
+            Levels(0,1),
+            VK_IMAGE_ASPECT_COLOR_BIT
+        )}
+    }));
+
+    //
+    // Copy the gpass object detail image to the linearly tiled, host-accessible, per-frame object
+    // detail image.
+    //
+    VkImageCopy vkImageCopy{};
+    vkImageCopy.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    vkImageCopy.srcSubresource.mipLevel = 0;
+    vkImageCopy.srcSubresource.baseArrayLayer = presentLayerIndex;
+    vkImageCopy.srcSubresource.layerCount = 1;
+    vkImageCopy.srcOffset = {0, 0, 0};
+    vkImageCopy.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    vkImageCopy.dstSubresource.mipLevel = 0;
+    vkImageCopy.dstSubresource.baseArrayLayer = presentLayerIndex;
+    vkImageCopy.dstSubresource.layerCount = 1;
+    vkImageCopy.dstOffset = {0, 0, 0};
+    vkImageCopy.extent.width = gPassObjectDetailImage.image.size.w;
+    vkImageCopy.extent.height = gPassObjectDetailImage.image.size.h;
+    vkImageCopy.extent.depth = 1;
+
+    m_vulkanObjs->GetCalls()->vkCmdCopyImage(
+        commandBuffer->GetVkCommandBuffer(),
+        gPassObjectDetailImage.allocation.vkImage,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        frameObjectDetailImage.allocation.vkImage,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1,
+        &vkImageCopy
+    );
+}
+
 bool RendererVk::OnSurfaceChanged()
 {
     m_logger->Log(Common::LogLevel::Info, "OnSurfaceChanged: Notified surface changed");
@@ -1240,7 +1302,40 @@ bool RendererVk::OnChangeRenderSettings(const RenderSettings& renderSettings)
     if (!m_lights->OnRenderSettingsChanged(renderSettings)) { allSuccessful = false; }
     if (!m_renderTargets->OnRenderSettingsChanged(renderSettings)) { allSuccessful = false; }
 
+    m_latestObjectDetailImageId = std::nullopt;
+
     return allSuccessful;
+}
+
+std::optional<ObjectId> RendererVk::GetTopObjectAtRenderPoint(const glm::vec2& renderPoint) const
+{
+    if (!m_latestObjectDetailImageId)
+    {
+        return std::nullopt;
+    }
+
+    const auto objectDetailImage = m_images->GetImage(*m_latestObjectDetailImageId);
+    if (!objectDetailImage)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "RendererVk::GetTopObjectAtRenderPoint: Failed to fetch latest object detail iamge");
+        return std::nullopt;
+    }
+
+    const auto pObjectDetailImage = (unsigned char*)objectDetailImage->allocation.vmaAllocationInfo.pMappedData;
+
+    const auto pixelByteStartOffset =
+        ((unsigned int)renderPoint.x +
+        ((unsigned int)renderPoint.y * m_vulkanObjs->GetRenderSettings().resolution.w))
+        * m_renderTargets->GetObjectDetailPerPixelByteSize();
+
+    std::vector<unsigned char> test(50, '-');
+    memcpy(test.data(), pObjectDetailImage + pixelByteStartOffset, 50);
+
+    // Note that ObjectId is stored in the first 4 of 8 bytes of each object detail pixel (material id is the second half)
+    const IdType objectId = *(pObjectDetailImage + pixelByteStartOffset);
+
+    return ObjectId(objectId);
 }
 
 void RendererVk::RefreshShadowMapsAsNeeded(const RenderParams& renderParams,
@@ -1303,7 +1398,7 @@ bool RendererVk::RefreshShadowMap(const RenderParams& renderParams,
     const auto shadowFramebufferId = *loadedLight.shadowFrameBufferId;
     const auto shadowFramebuffer = m_framebuffers->GetFramebufferObjs(shadowFramebufferId);
 
-    if (!shadowFramebuffer || shadowFramebuffer->GetAttachmentTextures()->size() != 1)
+    if (!shadowFramebuffer || shadowFramebuffer->GetAttachmentImages()->size() != 1)
     {
         m_logger->Log(Common::LogLevel::Error,
           "RendererVk::RefreshShadowMap: Shadow framebuffer doesn't exist or wrong attachment count, light id: {}, fb id: {}",
@@ -1311,7 +1406,7 @@ bool RendererVk::RefreshShadowMap(const RenderParams& renderParams,
         return false;
     }
 
-    const auto shadowMapTexture = shadowFramebuffer->GetAttachmentTextures()->at(0).first;
+    const auto shadowMapImage = shadowFramebuffer->GetAttachmentImages()->at(0).first;
 
     const float lightMaxAffectRange = GetLightMaxAffectRange(m_vulkanObjs->GetRenderSettings(), loadedLight.light);
 
@@ -1332,7 +1427,7 @@ bool RendererVk::RefreshShadowMap(const RenderParams& renderParams,
             vkClearAttachment.clearValue.depthStencil.stencil = 0.0f;
 
             VkClearRect vkClearRect = {};
-            vkClearRect.rect = {{0, 0}, {shadowMapTexture.pixelSize.w, shadowMapTexture.pixelSize.h}};
+            vkClearRect.rect = {{0, 0}, {shadowMapImage.image.size.w, shadowMapImage.image.size.h}};
             vkClearRect.baseArrayLayer = 0;
             vkClearRect.layerCount = 1;
 

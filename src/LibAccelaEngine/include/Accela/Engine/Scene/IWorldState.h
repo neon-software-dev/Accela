@@ -82,13 +82,22 @@ namespace Accela::Engine
             [[nodiscard]] virtual std::vector<EntityId> GetSpriteEntitiesAt(const glm::vec2& virtualPoint) const = 0;
 
             /**
-             * Return the top-most sprite, if any, underneath the provided virtual point
+             * Return the entity id of the top-most entity with a sprite renderable, if any, underneath the provided virtual point
              *
              * @param virtualPoint The virtual point in question
              *
-             * @return The EntityId of the top-most sprite underneath the virtual point, or std::nullopt if no such sprite
+             * @return The EntityId of the top-most sprite underneath the virtual point, or std::nullopt if no such entity
              */
             [[nodiscard]] virtual std::optional<EntityId> GetTopSpriteEntityAt(const glm::vec2& virtualPoint) const = 0;
+
+            /**
+             * Return the entity id of the top-most entity with an object/model renderable, if any, underneath the provided virtual point
+             *
+             * @param virtualPoint The virtual point in question
+             *
+             * @return The EntityId of the top-most object/model underneath the virtual point, or std::nullopt if no such entity
+             */
+            [[nodiscard]] virtual std::optional<EntityId> GetTopObjectEntityAt(const glm::vec2& virtualPoint) const = 0;
 
             /**
              * Create entities/components for all of the entities listed in a provided Construct
@@ -96,6 +105,9 @@ namespace Accela::Engine
              * @param construct The construct from which to create entities
              */
             virtual void CreateConstructEntities(const Construct::Ptr& construct) = 0;
+
+            virtual void HighlightEntity(EntityId entityId, bool isHighlighted) = 0;
+            virtual void ToggleHighlightEntity(EntityId entityId) = 0;
 
             //
             // Windowing

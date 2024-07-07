@@ -12,7 +12,7 @@
 
 namespace Accela::Render
 {
-    using IdType = std::uintmax_t;
+    using IdType = std::uint32_t;
 
     constexpr IdType INVALID_ID = 0;
 

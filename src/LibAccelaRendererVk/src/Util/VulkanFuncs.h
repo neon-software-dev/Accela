@@ -36,8 +36,6 @@ namespace Accela::Render
 
             VulkanFuncs(Common::ILogger::Ptr logger, VulkanObjsPtr vulkanObjs);
 
-            static std::optional<VkFormat> TextureFormatToVkFormat(const TextureFormat& textureFormat);
-
             [[nodiscard]] VkFormatProperties GetVkFormatProperties(const VkFormat& vkFormat) const;
 
             /**

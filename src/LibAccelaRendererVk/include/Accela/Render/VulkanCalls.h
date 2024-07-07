@@ -142,6 +142,7 @@ namespace Accela::Render
             void vkCmdBindDescriptorSets(VkCommandBuffer commandBuffer, VkPipelineBindPoint pipelineBindPoint, VkPipelineLayout layout, uint32_t firstSet, uint32_t descriptorSetCount, const VkDescriptorSet* pDescriptorSets, uint32_t dynamicOffsetCount, const uint32_t* pDynamicOffsets) const override;
             void vkCmdPipelineBarrier(VkCommandBuffer commandBuffer, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkDependencyFlags dependencyFlags, uint32_t memoryBarrierCount, const VkMemoryBarrier* pMemoryBarriers, uint32_t bufferMemoryBarrierCount, const VkBufferMemoryBarrier* pBufferMemoryBarriers, uint32_t imageMemoryBarrierCount, const VkImageMemoryBarrier* pImageMemoryBarriers) const override;
             void vkCmdCopyBufferToImage(VkCommandBuffer commandBuffer, VkBuffer srcBuffer, VkImage dstImage, VkImageLayout dstImageLayout, uint32_t regionCount, const VkBufferImageCopy* pRegions) const override;
+            void vkCmdCopyImageToBuffer(VkCommandBuffer commandBuffer, VkImage srcImage, VkImageLayout srcImageLayout, VkBuffer dstBuffer, uint32_t regionCount, const VkBufferImageCopy* pRegions) const override;
             VkResult vkResetDescriptorPool(VkDevice device, VkDescriptorPool descriptorPool, VkDescriptorPoolResetFlags flags) const override;
             VkResult vkCreateSampler(VkDevice device, const VkSamplerCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSampler* pSampler) const override;
             void vkDestroySampler(VkDevice device, VkSampler sampler, const VkAllocationCallbacks* pAllocator) const override;
@@ -286,6 +287,7 @@ namespace Accela::Render
             PFN_vkCmdBindDescriptorSets m_vkCmdBindDescriptorSets{nullptr};
             PFN_vkCmdPipelineBarrier m_vkCmdPipelineBarrier{nullptr};
             PFN_vkCmdCopyBufferToImage m_vkCmdCopyBufferToImage{nullptr};
+            PFN_vkCmdCopyImageToBuffer m_vkCmdCopyImageToBuffer{nullptr};
             PFN_vkResetDescriptorPool m_vkResetDescriptorPool{nullptr};
             PFN_vkCreateSampler m_vkCreateSampler{nullptr};
             PFN_vkDestroySampler m_vkDestroySampler{nullptr};

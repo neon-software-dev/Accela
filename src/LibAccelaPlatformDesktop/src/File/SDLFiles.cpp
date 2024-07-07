@@ -173,25 +173,14 @@ std::string SDLFiles::GetSubdirPath(const std::string& root, const std::string& 
 
 std::string SDLFiles::EnsureEndsWithSeparator(const std::string& source) const
 {
-    std::string pathSeparator;
+    const char pathSeparator = std::filesystem::path::preferred_separator;
 
-    const Common::OS os = Common::BuildInfo::GetOS();
-    switch (os)
+    if (source.empty())
     {
-        case Common::OS::Windows:
-            pathSeparator = "\\";
-        break;
-        default:
-            pathSeparator = "/";
-        break;
+        return std::string{pathSeparator};
     }
 
-    if (source.length() < pathSeparator.length())
-    {
-        return source;
-    }
-
-    const bool endsWithSeparator = source.compare(source.length() - pathSeparator.length(), pathSeparator.length(), pathSeparator) == 0;
+    const bool endsWithSeparator = source.at(source.length() - 1) == pathSeparator;
     if (endsWithSeparator)
     {
         return source;

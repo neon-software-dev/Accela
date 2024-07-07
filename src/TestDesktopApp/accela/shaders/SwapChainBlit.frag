@@ -9,6 +9,11 @@
 //
 // INPUTS
 //
+layout(push_constant) uniform constants
+{
+    uint presentEyeIndex;
+} PushConstants;
+
 layout(location = 0) in vec2 i_fragTexCoord;            // The fragment's tex coord
 
 layout(set = 0, binding = 0) uniform sampler2DArray i_renderSampler;
@@ -21,13 +26,10 @@ layout(location = 0) out vec4 o_fragColor;
 
 void main()
 {
-    // TODO: We're choosing to blit/present from the left eye in VR mode; make configurable
-    uint eyeIndex = 0;
-
     // Sample from the world render output
-    const vec4 renderColor = texture(i_renderSampler, vec3(i_fragTexCoord, eyeIndex));
+    const vec4 renderColor = texture(i_renderSampler, vec3(i_fragTexCoord, PushConstants.presentEyeIndex));
 
-    // Sample from the screen/sprite output
+    // Sample from the screen/sprite output. Note that screen image only ever has 1 layer.
     const vec4 screenColor = texture(i_screenSampler, vec3(i_fragTexCoord, 0));
 
     // Combine sprite output on top of the render output using additive one-minus blending

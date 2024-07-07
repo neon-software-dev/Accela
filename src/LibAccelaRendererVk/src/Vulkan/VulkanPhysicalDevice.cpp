@@ -163,6 +163,14 @@ bool VulkanPhysicalDevice::IsDeviceSuitable(const VulkanSurfacePtr& surface) con
         return false;
     }
 
+    // Device must support shaderImageGatherExtended feature (used in highlight compute shader)
+    if (m_vkPhysicalDeviceFeatures.shaderImageGatherExtended == VK_FALSE)
+    {
+        m_logger->Log(Common::LogLevel::Info,
+          "Rejecting device due to no shader image gather support: {}", m_vkPhysicalDeviceProperties.deviceName);
+        return false;
+    }
+
     return true;
 }
 

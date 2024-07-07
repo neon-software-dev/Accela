@@ -19,9 +19,12 @@
 #include <string>
 #include <cstdint>
 #include <vector>
+#include <optional>
 
 namespace Accela::Render
 {
+    // TODO: Why is there no GetBufferById() or such? Ensure places aren't holding onto
+    //  BufferPtr references which can be destroyed underneath them.
     class IBuffers
     {
         public:
@@ -52,6 +55,7 @@ namespace Accela::Render
             virtual std::expected<BufferPtr, BufferCreateError> CreateBuffer(
                 VkBufferUsageFlags vkUsageFlags,
                 VmaMemoryUsage vmaMemoryUsage,
+                VmaAllocationCreateFlags vmaAllocationCreateFlags,
                 const std::size_t& byteSize,
                 const std::string& tag) = 0;
 
@@ -59,6 +63,17 @@ namespace Accela::Render
              * Destroy the specified buffer
              */
             virtual bool DestroyBuffer(BufferId bufferId) = 0;
+
+            /**
+            * Maps the buffer into memory and reads data out of it.
+            * The buffer must be a CPU-mappable buffer.
+            *
+            * @param buffer The buffer to be read
+            * @param read The details of the read
+            *
+            * @return The read bytes, or empty on error
+            */
+            [[nodiscard]] virtual std::vector<std::byte> MappedReadBuffer(const BufferPtr& buffer, const BufferRead& read) const = 0;
 
             /**
              * Updates a buffer by mapping it into memory and copying data into it.

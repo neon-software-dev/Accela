@@ -25,14 +25,28 @@ ImageData::ImageData(std::vector<std::byte> pixelBytes,
     assert(SanityCheckValues());
 }
 
+Common::ImageData::Ptr ImageData::Clone() const
+{
+    return std::make_shared<ImageData>(
+        m_pixelBytes,
+        m_numLayers,
+        m_pixelWidth,
+        m_pixelHeight,
+        m_pixelFormat
+    );
+}
+
 uint8_t ImageData::GetBytesPerPixel() const
 {
     switch (m_pixelFormat)
     {
         case PixelFormat::RGB24: return 3;
+        case PixelFormat::R32G32: return 8;
         case PixelFormat::RGBA32: return 4;
-        default: return 0; // Will cause SanityCheckValues() to fail
     }
+
+    assert(false);
+    return 0;
 }
 
 std::vector<std::byte> ImageData::GetPixelBytes(const uint32_t& layerIndex, const uintmax_t& pixelIndex) const

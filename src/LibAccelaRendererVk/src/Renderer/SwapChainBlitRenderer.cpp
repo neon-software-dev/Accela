@@ -21,7 +21,6 @@
 #include <Accela/Render/RenderLogic.h>
 
 #include <Accela/Render/Mesh/StaticMesh.h>
-#include <Accela/Render/Texture/TextureView.h>
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -41,6 +40,7 @@ SwapChainBlitRenderer::SwapChainBlitRenderer(Common::ILogger::Ptr logger,
                                              IPipelineFactoryPtr pipelines,
                                              IBuffersPtr buffers,
                                              IMaterialsPtr materials,
+                                             IImagesPtr images,
                                              ITexturesPtr textures,
                                              IMeshesPtr meshes,
                                              ILightsPtr lights,
@@ -56,6 +56,7 @@ SwapChainBlitRenderer::SwapChainBlitRenderer(Common::ILogger::Ptr logger,
                std::move(pipelines),
                std::move(buffers),
                std::move(materials),
+               std::move(images),
                std::move(textures),
                std::move(meshes),
                std::move(lights),
@@ -136,8 +137,8 @@ void SwapChainBlitRenderer::Destroy()
 void SwapChainBlitRenderer::Render(const VulkanCommandBufferPtr& commandBuffer,
                                    const VulkanRenderPassPtr& renderPass,
                                    const VulkanFramebufferPtr& swapChainFramebuffer,
-                                   const LoadedTexture& renderTexture,
-                                   const LoadedTexture& screenTexture)
+                                   const LoadedImage& renderImage,
+                                   const LoadedImage& screenImage)
 {
     //
     // Update our mesh to blit the render into the swap chain framebuffer
@@ -177,6 +178,12 @@ void SwapChainBlitRenderer::Render(const VulkanCommandBufferPtr& commandBuffer,
 
     const auto viewport = Viewport(0, 0, swapChainFramebuffer->GetSize()->w, swapChainFramebuffer->GetSize()->h);
 
+    std::vector<PushConstantRange> pushConstantRanges;
+
+    pushConstantRanges = {
+        {VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SwapChainBlitPushPayload)}
+    };
+
     const auto pipeline = GetGraphicsPipeline(
         m_logger,
         m_vulkanObjs,
@@ -189,7 +196,7 @@ void SwapChainBlitRenderer::Render(const VulkanCommandBufferPtr& commandBuffer,
         CullFace::Back,
         PolygonFillMode::Fill,
         DepthBias::Disabled,
-        PushConstantRange::None(),
+        pushConstantRanges,
         m_frameIndex,
         m_pipelineHash
     );
@@ -207,17 +214,21 @@ void SwapChainBlitRenderer::Render(const VulkanCommandBufferPtr& commandBuffer,
 
     m_descriptorSet->WriteCombinedSamplerBind(
         (*renderSamplerBindingDetails),
-        renderTexture.vkImageViews.at(TextureView::DEFAULT),
-        renderTexture.vkSamplers.at(TextureSampler::DEFAULT)
+        renderImage.vkImageViews.at(ImageView::DEFAULT),
+        renderImage.vkSamplers.at(ImageSampler::DEFAULT)
     );
 
     m_descriptorSet->WriteCombinedSamplerBind(
         (*screenSamplerBindingDetails),
-        screenTexture.vkImageViews.at(TextureView::DEFAULT),
-        screenTexture.vkSamplers.at(TextureSampler::DEFAULT)
+        screenImage.vkImageViews.at(ImageView::DEFAULT),
+        screenImage.vkSamplers.at(ImageSampler::DEFAULT)
     );
 
+    SwapChainBlitPushPayload pushPayload{};
+    pushPayload.presentEyeIndex = (uint32_t)m_vulkanObjs->GetRenderSettings().presentEye;
+
     commandBuffer->CmdBindPipeline(*pipeline);
+    commandBuffer->CmdPushConstants(*pipeline, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SwapChainBlitPushPayload), &pushPayload);
     commandBuffer->CmdBindDescriptorSets(*pipeline, 0, {vkDescriptorSet});
     commandBuffer->CmdBindVertexBuffers(0, 1, {vkVerticesBuffer}, {VkDeviceSize{0}});
     commandBuffer->CmdBindIndexBuffer(vkIndicesBuffer, 0, VK_INDEX_TYPE_UINT32);

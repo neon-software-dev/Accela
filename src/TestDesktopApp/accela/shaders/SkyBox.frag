@@ -18,8 +18,11 @@ layout(set = 2, binding = 0) uniform samplerCube i_skyboxSampler;
 // OUTPUTS
 //
 layout(location = 0) out vec4 o_fragColor;
+layout(location = 1) out uvec2 o_vertexObjectDetail;
 
 void main()
 {
     o_fragColor = texture(i_skyboxSampler, i_fragTexCoord);
+    o_vertexObjectDetail.r = 0;
+    o_vertexObjectDetail.g = 0;
 }

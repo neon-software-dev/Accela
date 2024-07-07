@@ -37,6 +37,10 @@ std::queue<SystemEvent> SDLEvents::PopSystemEvents()
             case SDL_MOUSEBUTTONUP:
                 systemEvent = ProcessMouseButtonEvent(sdlEvent);
             break;
+
+            case SDL_MOUSEWHEEL:
+                systemEvent = ProcessMouseWheelEvent(sdlEvent);
+            break;
         }
 
         if (systemEvent)
@@ -61,8 +65,10 @@ Key SDLEvents::SDLKeysymToKey(const SDL_Keysym& keysym) noexcept
     switch (keysym.sym)
     {
         case SDLK_ESCAPE: return Key::Escape;
-        case SDLK_LCTRL: return Key::LeftControl;
-        case SDLK_LSHIFT: return Key::LeftShift;
+        case SDLK_LCTRL: return Key::Control;
+        case SDLK_RCTRL: return Key::Control;
+        case SDLK_LSHIFT: return Key::Shift;
+        case SDLK_RSHIFT: return Key::Shift;
         case SDLK_BACKSPACE: return Key::Backspace;
         case SDLK_KP_ENTER: return Key::Keypad_Enter;
         case SDLK_RETURN: return Key::Return;
@@ -155,6 +161,11 @@ std::optional<SystemEvent> SDLEvents::ProcessMouseButtonEvent(const SDL_Event& s
     if (sdlEvent.type == SDL_MOUSEBUTTONUP) { clickType = ClickType::Release; }
 
     return MouseButtonEvent(sdlEvent.button.which, button, clickType, sdlEvent.button.clicks, sdlEvent.button.x, sdlEvent.button.y);
+}
+
+std::optional<SystemEvent> SDLEvents::ProcessMouseWheelEvent(const SDL_Event& sdlEvent) noexcept
+{
+    return MouseWheelEvent(sdlEvent.button.which, sdlEvent.wheel.preciseX, sdlEvent.wheel.preciseY);
 }
 
 }

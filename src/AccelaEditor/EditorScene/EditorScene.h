@@ -9,6 +9,10 @@
 
 #include "Messages.h"
 
+#include "../MessageBasedScene.h"
+
+#include "../SceneMessageListener.h"
+
 #include "../Util/PollingMessageFulfiller.h"
 
 #include <Accela/Engine/Scene/Scene.h>
@@ -23,8 +27,11 @@ namespace Accela
 {
     /**
      * Scene run by the editor accela instance
+     *
+     * TODO: EditorScene becomes base interface with EnqueueMessage, subclasses for
+     *  different usages (construct view / model view / etc)
      */
-    class EditorScene : public Engine::Scene
+    class EditorScene : public MessageBasedScene
     {
         public:
 
@@ -38,23 +45,16 @@ namespace Accela
             [[nodiscard]] std::string GetName() const override { return "EditorScene"; };
 
             void OnSceneStart(const Engine::IEngineRuntime::Ptr& engine) override;
-            void OnSimulationStep(unsigned int) override;
-            void OnSceneStop() override;
+            void OnMouseMoveEvent(const Platform::MouseMoveEvent& event) override;
+            void OnMouseButtonEvent(const Platform::MouseButtonEvent& event) override;
+            void OnMouseWheelEvent(const Platform::MouseWheelEvent& event) override;
 
-            //
-            // Internal
-            //
+        protected:
 
-            /**
-             * Enqueues a message for processing. Thread safe. The messages are popped
-             * and consumed during OnSimulationStep callbacks.
-             */
-            void EnqueueMessage(const Common::Message::Ptr& command);
+            void ProcessMessage(const Common::Message::Ptr& message) override;
 
         private:
 
-            void ProcessMessages();
-            void ProcessMessage(const Common::Message::Ptr& message);
             void ProcessSceneQuitCommand(const SceneQuitCommand::Ptr& cmd);
             void ProcessLoadPackageResourcesCommand(const LoadPackageResourcesCommand::Ptr& cmd);
             void ProcessDestroySceneResourcesCommand(const DestroySceneResourcesCommand::Ptr& cmd);
@@ -66,16 +66,14 @@ namespace Accela
             void ProcessRotateCameraCommand(const RotateCameraCommand::Ptr& cmd);
             void ProcessPanCameraCommand(const PanCameraCommand::Ptr& cmd);
             void ProcessScaleCommand(const ScaleCommand::Ptr& cmd);
+            void ProcessSetEntityHighlightedCommand(const SetEntityHighlighted::Ptr& cmd);
 
             void InitCamera();
+            void PanCamera(float xPanScalar, float yPanScalar);
             void RotateCamera(float yRotDegrees, float rightRotDegrees);
+            void ScaleCamera(float scaleChange);
 
         private:
-
-            std::mutex m_messagesMutex;
-            std::queue<Common::Message::Ptr> m_messages;
-
-            PollingMessageFulfiller m_messageFulfiller;
 
             // TODO! Reset on package change
             glm::vec3 m_focusPoint{0,0,0};

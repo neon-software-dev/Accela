@@ -8,7 +8,7 @@
 
 #include "../VulkanObjs.h"
 
-#include "../Texture/ITextures.h"
+#include "../Image/IImages.h"
 
 #include "../Vulkan/VulkanFramebuffer.h"
 
@@ -19,17 +19,17 @@
 namespace Accela::Render
 {
 
-FramebufferObjs::FramebufferObjs(Common::ILogger::Ptr logger, Ids::Ptr ids, VulkanObjsPtr vulkanObjs, ITexturesPtr textures)
+FramebufferObjs::FramebufferObjs(Common::ILogger::Ptr logger, Ids::Ptr ids, VulkanObjsPtr vulkanObjs, IImagesPtr images)
     : m_logger(std::move(logger))
     , m_ids(std::move(ids))
     , m_vulkanObjs(std::move(vulkanObjs))
-    , m_textures(std::move(textures))
+    , m_images(std::move(images))
 {
 
 }
 
 bool FramebufferObjs::CreateOwning(const VulkanRenderPassPtr& renderPass,
-                                   const std::vector<std::pair<TextureDefinition, std::string>>& attachments,
+                                   const std::vector<std::pair<ImageDefinition, std::string>>& attachments,
                                    const USize& size,
                                    const uint32_t& layers,
                                    const std::string& tag)
@@ -37,62 +37,58 @@ bool FramebufferObjs::CreateOwning(const VulkanRenderPassPtr& renderPass,
     m_logger->Log(Common::LogLevel::Info, "FramebufferObjs::CreateOwning: Creating framebuffer objects for {}", tag);
 
     //
-    // Create textures as requested to supply the framebuffer's attachments
+    // Create images as requested to supply the framebuffer's attachments
     //
-    std::vector<std::pair<TextureId, std::string>> textureViews;
+    std::vector<std::pair<ImageId, std::string>> imageViews;
 
     for (auto& attachment : attachments)
     {
-        auto texture = attachment.first.texture;
+        auto imageDefinition = attachment.first;
 
-        Assert(!texture.id.IsValid(), m_logger, "FramebufferObjs::CreateOwning: Texture id was already valid");
+        const auto imageIdExpect = m_images->CreateEmptyImage(imageDefinition);
 
-        texture.id = m_ids->textureIds.GetId();
-
-        if (!m_textures->CreateTextureEmpty(texture, attachment.first.textureViews, attachment.first.textureSamplers))
+        if (!imageIdExpect)
         {
-            m_logger->Log(Common::LogLevel::Error, "Framebuffer: Create: Failed to create texture");
+            m_logger->Log(Common::LogLevel::Error, "Framebuffer: Create: Failed to create image");
 
-            m_ids->textureIds.ReturnId(texture.id);
-
-            for (const auto& it : textureViews)
+            for (const auto& it : imageViews)
             {
-                m_textures->DestroyTexture(it.first, false);
+                m_images->DestroyImage(it.first, false);
             }
             return false;
         }
 
-        textureViews.emplace_back(texture.id, attachment.second);
+        imageViews.emplace_back(*imageIdExpect, attachment.second);
     }
 
     //
-    // Create a framebuffer that references the texture image views
+    // Create a framebuffer that references the image views
     //
     std::vector<VkImageView> vkImageViews;
 
-    for (const auto& textureView : textureViews)
+    for (const auto& imageView : imageViews)
     {
-        const auto loadedTextureOpt = m_textures->GetTexture(textureView.first);
-        if (!loadedTextureOpt)
+        const auto loadedImageOpt = m_images->GetImage(imageView.first);
+        if (!loadedImageOpt)
         {
-            m_logger->Log(Common::LogLevel::Error, "Framebuffer: Create: Failed to get created texture");
-            for (const auto& it : textureViews)
+            m_logger->Log(Common::LogLevel::Error, "Framebuffer: Create: Failed to get created image");
+            for (const auto& it : imageViews)
             {
-                m_textures->DestroyTexture(it.first, true);
+                m_images->DestroyImage(it.first, false);
             }
             return false;
         }
 
-        vkImageViews.push_back(loadedTextureOpt->vkImageViews.at(textureView.second));
+        vkImageViews.push_back(loadedImageOpt->vkImageViews.at(imageView.second));
     }
 
     const auto framebuffer = std::make_shared<VulkanFramebuffer>(m_logger, m_vulkanObjs->GetCalls(), m_vulkanObjs->GetDevice());
     if (!framebuffer->Create(renderPass, vkImageViews, size, layers, tag))
     {
         m_logger->Log(Common::LogLevel::Error, "Framebuffer: Create: Failed to create framebuffer");
-        for (const auto& it : textureViews)
+        for (const auto& it : imageViews)
         {
-            m_textures->DestroyTexture(it.first, true);
+            m_images->DestroyImage(it.first, false);
         }
         return false;
     }
@@ -101,14 +97,14 @@ bool FramebufferObjs::CreateOwning(const VulkanRenderPassPtr& renderPass,
     // Update internal state
     //
     m_ownsAttachments = true;
-    m_attachmentTextureViews = textureViews;
+    m_attachmentImageViews = imageViews;
     m_framebuffer = framebuffer;
 
     return true;
 }
 
 bool FramebufferObjs::CreateFromExisting(const VulkanRenderPassPtr& renderPass,
-                                         const std::vector<std::pair<TextureId, std::string>>& attachmentTextureViews,
+                                         const std::vector<std::pair<ImageId, std::string>>& attachmentImageViews,
                                          const USize& size,
                                          const uint32_t& layers,
                                          const std::string& tag)
@@ -117,26 +113,26 @@ bool FramebufferObjs::CreateFromExisting(const VulkanRenderPassPtr& renderPass,
       "FramebufferObjs: Creating framebuffer from objects for {}, resolution: {}x{}", tag, size.w, size.h);
 
     //
-    // Create a framebuffer that references the textures
+    // Create a framebuffer that references the images
     //
     std::vector<VkImageView> attachments;
 
-    for (const auto& it : attachmentTextureViews)
+    for (const auto& it : attachmentImageViews)
     {
-        const auto loadedTextureOpt = m_textures->GetTexture(it.first);
-        if (!loadedTextureOpt)
+        const auto loadedImageOpt = m_images->GetImage(it.first);
+        if (!loadedImageOpt)
         {
-            m_logger->Log(Common::LogLevel::Error, "Framebuffer: Create: No such attachment texture exists: {}", it.first.id);
+            m_logger->Log(Common::LogLevel::Error, "Framebuffer: Create: No such attachment image exists: {}", it.first.id);
             return false;
         }
 
-        if (!loadedTextureOpt->vkImageViews.contains(it.second))
+        if (!loadedImageOpt->vkImageViews.contains(it.second))
         {
-            m_logger->Log(Common::LogLevel::Error, "Framebuffer: Create: No such attachment texture view exists: {}", it.second);
+            m_logger->Log(Common::LogLevel::Error, "Framebuffer: Create: No such attachment image view exists: {}", it.second);
             return false;
         }
 
-        attachments.push_back(loadedTextureOpt->vkImageViews.at(it.second));
+        attachments.push_back(loadedImageOpt->vkImageViews.at(it.second));
     }
 
     const auto framebuffer = std::make_shared<VulkanFramebuffer>(m_logger, m_vulkanObjs->GetCalls(), m_vulkanObjs->GetDevice());
@@ -150,37 +146,37 @@ bool FramebufferObjs::CreateFromExisting(const VulkanRenderPassPtr& renderPass,
     // Update internal state
     //
     m_ownsAttachments = false;
-    m_attachmentTextureViews = attachmentTextureViews;
+    m_attachmentImageViews = attachmentImageViews;
     m_framebuffer = framebuffer;
 
     return true;
 }
 
 bool FramebufferObjs::CreateFromExistingDefaultViews(const VulkanRenderPassPtr& renderPass,
-                                                     const std::vector<TextureId>& attachmentTextures,
+                                                     const std::vector<ImageId>& attachmentImages,
                                                      const USize& size,
                                                      const uint32_t& layers,
                                                      const std::string& tag)
 {
-    std::vector<std::pair<TextureId, std::string>> attachmentTextureViews;
+    std::vector<std::pair<ImageId, std::string>> attachmentImageViews;
 
-    for (const auto& textureId : attachmentTextures)
+    for (const auto& imageId : attachmentImages)
     {
-        attachmentTextureViews.emplace_back(textureId, TextureView::DEFAULT);
+        attachmentImageViews.emplace_back(imageId, ImageView::DEFAULT);
     }
 
-    return CreateFromExisting(renderPass, attachmentTextureViews, size, layers, tag);
+    return CreateFromExisting(renderPass, attachmentImageViews, size, layers, tag);
 }
 
 void FramebufferObjs::Destroy()
 {
     if (m_ownsAttachments)
     {
-        for (const auto& it : m_attachmentTextureViews)
+        for (const auto& it : m_attachmentImageViews)
         {
-            m_textures->DestroyTexture(it.first, true);
+            m_images->DestroyImage(it.first, true);
         }
-        m_attachmentTextureViews.clear();
+        m_attachmentImageViews.clear();
     }
 
     if (m_framebuffer != nullptr)
@@ -192,42 +188,42 @@ void FramebufferObjs::Destroy()
     m_ownsAttachments = false;
 }
 
-std::optional<std::vector<std::pair<LoadedTexture, std::string>>> FramebufferObjs::GetAttachmentTextures() const
+std::optional<std::vector<std::pair<LoadedImage, std::string>>> FramebufferObjs::GetAttachmentImages() const
 {
-    std::vector<std::pair<LoadedTexture, std::string>> results;
+    std::vector<std::pair<LoadedImage, std::string>> results;
 
-    for (unsigned int x = 0; x < m_attachmentTextureViews.size(); ++x)
+    for (unsigned int x = 0; x < m_attachmentImageViews.size(); ++x)
     {
-        const auto textureView = GetAttachmentTexture(x);
-        if (!textureView)
+        const auto imageView = GetAttachmentImage(x);
+        if (!imageView)
         {
             return std::nullopt;
         }
 
-        results.push_back(*textureView);
+        results.push_back(*imageView);
     }
 
     return results;
 }
 
-std::optional<std::pair<LoadedTexture, std::string>> FramebufferObjs::GetAttachmentTexture(uint8_t attachmentIndex) const
+std::optional<std::pair<LoadedImage, std::string>> FramebufferObjs::GetAttachmentImage(uint8_t attachmentIndex) const
 {
-    if (attachmentIndex >= m_attachmentTextureViews.size())
+    if (attachmentIndex >= m_attachmentImageViews.size())
     {
         return std::nullopt;
     }
 
-    const auto attachmentTextureView = m_attachmentTextureViews.at(attachmentIndex);
+    const auto attachmentImageView = m_attachmentImageViews.at(attachmentIndex);
 
-    const auto loadedTexture = m_textures->GetTexture(attachmentTextureView.first);
-    if (!loadedTexture)
+    const auto loadedImage = m_images->GetImage(attachmentImageView.first);
+    if (!loadedImage)
     {
         m_logger->Log(Common::LogLevel::Error,
-          "GetAttachmentTexture: No such texture exits: {}", attachmentTextureView.first.id);
+          "GetAttachmentImage: No such image exits: {}", attachmentImageView.first.id);
         return std::nullopt;
     }
 
-    return std::make_pair(*loadedTexture, attachmentTextureView.second);
+    return std::make_pair(*loadedImage, attachmentImageView.second);
 }
 
 }

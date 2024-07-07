@@ -29,6 +29,7 @@ namespace Accela::Platform
             static std::optional<SystemEvent> ProcessWindowEvent(const SDL_Event& sdlEvent) noexcept;
             static std::optional<SystemEvent> ProcessMouseMoveEvent(const SDL_Event& sdlEvent) noexcept;
             static std::optional<SystemEvent> ProcessMouseButtonEvent(const SDL_Event& sdlEvent) noexcept;
+            static std::optional<SystemEvent> ProcessMouseWheelEvent(const SDL_Event& sdlEvent) noexcept;
     };
 }
 

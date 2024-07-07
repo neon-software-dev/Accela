@@ -316,6 +316,27 @@ std::optional<EntityId> WorldState::GetTopSpriteEntityAt(const glm::vec2& virtua
     return allEntities.front();
 }
 
+std::optional<EntityId> WorldState::GetTopObjectEntityAt(const glm::vec2& virtualPoint) const
+{
+    const auto renderPoint = VirtualPointToRenderPoint(m_renderSettings, m_virtualResolution, virtualPoint);
+
+    const auto objectId = m_renderer->GetTopObjectAtRenderPoint(renderPoint);
+    if (!objectId || !objectId->IsValid())
+    {
+        return std::nullopt;
+    }
+
+    const auto entity = std::dynamic_pointer_cast<RendererSyncSystem>(m_rendererSyncSystem)->GetObjectEntity(*objectId);
+    if (!entity)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "WorldState::GetTopObjectEntityAt: Found an object, but unable to determine its entity: {}", objectId->id);
+        return std::nullopt;
+    }
+
+    return EntityId(*entity);
+}
+
 void WorldState::CreateConstructEntities(const Construct::Ptr& construct)
 {
     const auto& entities = construct->GetEntities();
@@ -344,6 +365,30 @@ void WorldState::CreateConstructEntities(const Construct::Ptr& construct)
                 break;
             }
         }
+    }
+}
+
+void WorldState::HighlightEntity(EntityId entityId, bool isHighlighted)
+{
+    if (isHighlighted)
+    {
+        m_highlightedEntities.insert(entityId);
+    }
+    else
+    {
+        m_highlightedEntities.erase(entityId);
+    }
+}
+
+void WorldState::ToggleHighlightEntity(EntityId entityId)
+{
+    if (m_highlightedEntities.contains(entityId))
+    {
+        m_highlightedEntities.erase(entityId);
+    }
+    else
+    {
+        m_highlightedEntities.insert(entityId);
     }
 }
 
@@ -603,6 +648,11 @@ Render::RenderSettings WorldState::GetRenderSettings() const noexcept
 void WorldState::SetRenderSettings(const Render::RenderSettings& renderSettings) noexcept
 {
     m_renderSettings = renderSettings;
+}
+
+std::unordered_set<EntityId> WorldState::GetHighlightedEntities() const noexcept
+{
+    return m_highlightedEntities;
 }
 
 }

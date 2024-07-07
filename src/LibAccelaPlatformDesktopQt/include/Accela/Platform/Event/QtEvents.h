@@ -7,9 +7,13 @@
 #ifndef LIBACCELAPLATFORMDESKTOPQT_SRC_EVENT_QTEVENTS_H
 #define LIBACCELAPLATFORMDESKTOPQT_SRC_EVENT_QTEVENTS_H
 
-#include <Accela/Platform/Event/IEvents.h>
+#include "Accela/Platform/Event/IEvents.h"
 
-#include <Accela/Common/Log/ILogger.h>
+#include "Accela/Common/Log/ILogger.h"
+
+#include <QKeyCombination>
+
+#include <mutex>
 
 namespace Accela::Platform
 {
@@ -21,9 +25,16 @@ namespace Accela::Platform
 
             [[nodiscard]] std::queue<SystemEvent> PopSystemEvents() override;
 
+            void EnqueueSystemEvent(const SystemEvent& systemEvent);
+
+            [[nodiscard]] static Platform::Key QtKeyComboToKey(QKeyCombination keyCombo);
+
         private:
 
             Common::ILogger::Ptr m_logger;
+
+            std::mutex m_systemEventsMutex;
+            std::queue<SystemEvent> m_systemEvents;
     };
 }
 

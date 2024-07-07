@@ -22,13 +22,18 @@
 #include <cstdint>
 #include <cstddef>
 #include <optional>
+#include <unordered_map>
+#include <utility>
 
 namespace Accela::Render
 {
     struct PostProcessEffect
     {
         std::string programName;
-        std::string inputSamplerName;
+        ImageViewName inputImageView;
+        ImageSamplerName inputImageSampler;
+        std::vector<std::tuple<std::string, LoadedImage, VkImageAspectFlags, ImageViewName, ImageSamplerName>> additionalSamplers;
+        std::unordered_map<std::string, std::vector<std::byte>> bufferPayloads;
         std::vector<std::byte> pushPayload;
         std::string tag;
     };
@@ -50,6 +55,7 @@ namespace Accela::Render
                                    IPipelineFactoryPtr pipelines,
                                    IBuffersPtr buffers,
                                    IMaterialsPtr materials,
+                                   IImagesPtr images,
                                    ITexturesPtr textures,
                                    IMeshesPtr meshes,
                                    ILightsPtr lights,
@@ -60,8 +66,8 @@ namespace Accela::Render
             void Destroy() override;
 
             void Render(const VulkanCommandBufferPtr& commandBuffer,
-                        const LoadedTexture& inputTexture,
-                        const LoadedTexture& outputTexture,
+                        const LoadedImage& inputImage,
+                        const LoadedImage& outputImage,
                         const PostProcessEffect& effect);
 
         private:

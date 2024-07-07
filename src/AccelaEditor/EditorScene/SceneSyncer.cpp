@@ -5,6 +5,7 @@
  */
  
 #include "SceneSyncer.h"
+#include "Messages.h"
 
 #include "../View/AccelaWindow.h"
 
