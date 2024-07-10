@@ -120,6 +120,7 @@ namespace Accela::Render
 
         // Effect-specific
         alignas(4) uint32_t highlightMode{0};
+        alignas(16) glm::vec3 highlightColor{0};
         alignas(4) uint32_t numHighlightedObjects{0};
     };
 
@@ -154,6 +155,7 @@ namespace Accela::Render
         pushPayload.renderWidth = renderSettings.resolution.w;
         pushPayload.renderHeight = renderSettings.resolution.h;
         pushPayload.highlightMode = static_cast<uint32_t>(renderSettings.highlightMode);
+        pushPayload.highlightColor = renderSettings.highlightColor;
         pushPayload.numHighlightedObjects = highlightedObjectIds.size();
 
         std::vector<std::byte> pushPayloadBytes(sizeof(ObjectHighlightPushPayload));

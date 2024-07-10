@@ -5,18 +5,17 @@
  */
  
 #include "RunState.h"
-#include "KeyboardState.h"
-#include "MouseState.h"
 
 namespace Accela::Engine
 {
 
 RunState::RunState(std::shared_ptr<Scene> _initialScene,
                    std::shared_ptr<IWorldResources> _worldResources,
-                   std::shared_ptr<IWorldState> _worldState)
+                   std::shared_ptr<IWorldState> _worldState,
+                   std::shared_ptr<Platform::IPlatform> _platform)
     : scene(std::move(_initialScene))
-    , keyboardState(std::make_shared<KeyboardState>())
-    , mouseState(std::make_shared<MouseState>())
+    , keyboardState(_platform->GetEvents()->GetKeyboardState())
+    , mouseState(_platform->GetEvents()->GetMouseState())
     , worldResources(std::move(_worldResources))
     , worldState(std::move(_worldState))
 {

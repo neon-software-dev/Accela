@@ -52,6 +52,9 @@ namespace Accela::Engine
             /** Called when a keypress event occurs */
             void OnKeyEvent(const Platform::KeyEvent& event) override;
 
+            /** Called when a text input event occurs */
+            void OnTextInputEvent(const Platform::TextInputEvent& event) override;
+
             /** Called when a mouse movement event occurs */
             void OnMouseMoveEvent(const Platform::MouseMoveEvent& event) override;
 

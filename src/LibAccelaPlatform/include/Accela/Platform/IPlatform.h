@@ -8,6 +8,8 @@
 #define LIBACCELAPLATFORM_INCLUDE_ACCELA_PLATFORM_IPLATFORM_H
 
 #include "Event/IEvents.h"
+#include "Event/IKeyboardState.h"
+#include "Event/IMouseState.h"
 #include "File/IFiles.h"
 #include "Text/IText.h"
 #include "Window/IWindow.h"

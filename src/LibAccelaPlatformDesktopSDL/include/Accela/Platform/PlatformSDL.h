@@ -15,6 +15,16 @@ namespace Accela::Platform
 {
     /**
      * SDL-based implementation of IPlatform system for use on desktop (Linux and Windows) environments.
+     *
+     * Platform Notes:
+     *
+     * [Input Handling]
+     *
+     * 1) PhysicalKeyPair::key will always be set to a value for supported keys for English keyboards, and set to Unknown
+     * otherwise. PhysicalKeyPair::scanCode will always be set to an SDL-specific scancode value (SDL_SCANCODE_{X}).
+     *
+     * 2) LogicalKeyPair::key will always be set to a value for supported keys for English keyboards, and set to Unknown
+     * otherwise. LogicalKeyPair::virtualCode will always be set to an SDL-specific virtual key code (SDLK_{x})
      */
     class PlatformSDL : public PlatformDesktop
     {
@@ -33,6 +43,7 @@ namespace Accela::Platform
             [[nodiscard]] IWindow::Ptr GetWindow() const noexcept override;
 
         private:
+
 
             IEvents::Ptr m_events;
             IWindow::Ptr m_window;

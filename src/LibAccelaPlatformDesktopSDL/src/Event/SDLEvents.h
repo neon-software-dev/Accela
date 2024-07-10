@@ -19,17 +19,26 @@ namespace Accela::Platform
     {
         public:
 
-            [[nodiscard]] std::queue<SystemEvent> PopSystemEvents() override;
+            SDLEvents();
+
+            [[nodiscard]] std::queue<SystemEvent> PopLocalEvents() override;
+
+            [[nodiscard]] std::shared_ptr<const IKeyboardState> GetKeyboardState() override;
+            [[nodiscard]] std::shared_ptr<const IMouseState> GetMouseState() override;
 
         private:
-
-            [[nodiscard]] static Key SDLKeysymToKey(const SDL_Keysym& keysym) noexcept;
 
             static std::optional<SystemEvent> ProcessKeyPressEvent(const SDL_Event& sdlEvent) noexcept;
             static std::optional<SystemEvent> ProcessWindowEvent(const SDL_Event& sdlEvent) noexcept;
             static std::optional<SystemEvent> ProcessMouseMoveEvent(const SDL_Event& sdlEvent) noexcept;
             static std::optional<SystemEvent> ProcessMouseButtonEvent(const SDL_Event& sdlEvent) noexcept;
             static std::optional<SystemEvent> ProcessMouseWheelEvent(const SDL_Event& sdlEvent) noexcept;
+            static std::optional<SystemEvent> ProcessTextInputEvent(const SDL_Event& sdlEvent) noexcept;
+
+        private:
+
+            std::shared_ptr<IKeyboardState> m_keyboardState;
+            std::shared_ptr<IMouseState> m_mouseState;
     };
 }
 

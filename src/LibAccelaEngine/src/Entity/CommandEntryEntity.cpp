@@ -18,20 +18,23 @@ static const std::string PROMPT = "> ";
 
 CommandEntryEntity::UPtr CommandEntryEntity::Create(const std::shared_ptr<IEngineRuntime>& engine,
                                                     const Platform::TextProperties& textProperties,
+                                                    bool ignoreFirstAppend,
                                                     const std::string& sceneName)
 {
     const auto eid = engine->GetWorldState()->CreateEntity();
 
-    return std::make_unique<CommandEntryEntity>(ConstructTag{}, engine, textProperties, sceneName, eid);
+    return std::make_unique<CommandEntryEntity>(ConstructTag{}, engine, textProperties, sceneName, eid, ignoreFirstAppend);
 }
 
 CommandEntryEntity::CommandEntryEntity(ConstructTag, std::shared_ptr<IEngineRuntime> engine,
                                        Platform::TextProperties textProperties,
                                        std::string sceneName,
-                                       EntityId eid)
+                                       EntityId eid,
+                                       bool ignoreFirstAppend)
     : Entity(std::move(engine), std::move(sceneName))
     , m_textProperties(std::move(textProperties))
     , m_eid(eid)
+    , m_ignoreNextAppend(ignoreFirstAppend)
 {
     SyncText();
 }
@@ -74,6 +77,12 @@ void CommandEntryEntity::SetEntry(const std::string& entry)
 
 void CommandEntryEntity::AppendToEntry(const std::string& text)
 {
+    if (m_ignoreNextAppend)
+    {
+        m_ignoreNextAppend = false;
+        return;
+    }
+
     m_entry += text;
     (void)SyncText();
 }

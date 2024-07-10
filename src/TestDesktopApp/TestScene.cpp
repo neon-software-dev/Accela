@@ -360,33 +360,33 @@ void TestScene::OnKeyEvent(const Platform::KeyEvent& event)
     if (event.action == Platform::KeyEvent::Action::KeyPress)
     {
         // Exit the app when escape is pressed
-        if (event.key == Platform::Key::Escape)
+        if (event.action == Platform::KeyEvent::Action::KeyPress && event.logicalKey == Platform::LogicalKey::Escape)
         {
             engine->StopEngine();
             return;
         }
 
         // Fullscreen and cursor lock is enabled when 1 is pressed
-        if (event.key == Platform::Key::One)
+        if (event.logicalKey == Platform::LogicalKey::_1)
         {
             engine->SetWindowFullscreen(true);
             engine->SetWindowCursorLock(true);
         }
 
         // Fullscreen and cursor lock is disabled when 2 is pressed
-        if (event.key == Platform::Key::Two)
+        if (event.logicalKey == Platform::LogicalKey::_2)
         {
             engine->SetWindowFullscreen(false);
             engine->SetWindowCursorLock(false);
         }
 
         // When C is pressed, sync the primary light's position to the camera's position
-        if (event.key == Platform::Key::C)
+        if (event.logicalKey == Platform::LogicalKey::C)
         {
             SyncLightToCamera();
         }
 
-        if (event.key == Platform::Key::P)
+        if (event.logicalKey == Platform::LogicalKey::P)
         {
             if (m_perfMonitor)
             {
@@ -434,25 +434,25 @@ Engine::PlayerMovement TestScene::GetActiveMovementCommands() const
 {
     Engine::PlayerMovement movementCommands{};
 
-    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::A)) {
+    if (engine->GetKeyboardState()->IsPhysicalKeyPressed(Platform::PhysicalKey::A)) {
         movementCommands.left = true;
     }
-    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::D)) {
+    if (engine->GetKeyboardState()->IsPhysicalKeyPressed(Platform::PhysicalKey::D)) {
         movementCommands.right = true;
     }
-    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::W)) {
+    if (engine->GetKeyboardState()->IsPhysicalKeyPressed(Platform::PhysicalKey::W)) {
         movementCommands.forward = true;
     }
-    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::S)) {
+    if (engine->GetKeyboardState()->IsPhysicalKeyPressed(Platform::PhysicalKey::S)) {
         movementCommands.backward = true;
     }
-    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::Control)) {
+    if (engine->GetKeyboardState()->IsPhysicalKeyPressed(Platform::PhysicalKey::LControl)) {
         movementCommands.down = true;
     }
-    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::Space)) {
+    if (engine->GetKeyboardState()->IsPhysicalKeyPressed(Platform::PhysicalKey::Space)) {
         movementCommands.up = true;
     }
-    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::Shift)) {
+    if (engine->GetKeyboardState()->IsPhysicalKeyPressed(Platform::PhysicalKey::LShift)) {
         movementCommands.sprint = true;
     }
 

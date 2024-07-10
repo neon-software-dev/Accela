@@ -106,7 +106,8 @@ namespace Accela::Render
         //
         float gamma{2.2f};
         bool fxaa{true};
-        HighlightMode highlightMode{HighlightMode::Fill};
+        HighlightMode highlightMode{HighlightMode::Outline};
+        glm::vec3 highlightColor{0,1,0};
     };
 }
 

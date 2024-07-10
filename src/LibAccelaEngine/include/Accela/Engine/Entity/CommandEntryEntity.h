@@ -37,13 +37,15 @@ namespace Accela::Engine
 
             static CommandEntryEntity::UPtr Create(const std::shared_ptr<IEngineRuntime>& engine,
                                                    const Platform::TextProperties& textProperties,
+                                                   bool ignoreFirstAppend,
                                                    const std::string& sceneName = DEFAULT_SCENE);
 
             CommandEntryEntity(ConstructTag,
                                std::shared_ptr<IEngineRuntime> engine,
                                Platform::TextProperties textProperties,
                                std::string sceneName,
-                               EntityId eid);
+                               EntityId eid,
+                               bool ignoreFirstAppend);
             ~CommandEntryEntity() override;
 
             void Destroy() override;
@@ -65,6 +67,11 @@ namespace Accela::Engine
 
             Platform::TextProperties m_textProperties;
             std::optional<EntityId> m_eid;
+
+            // Kind of a hack to just account for pressing a button to open the entry spawning both
+            // a key event and a text input event; we don't want to type that initial key into
+            // the now opened command entry if it's processed second, we want to just ignore it.
+            bool m_ignoreNextAppend{false};
 
             std::optional<TextRender> m_textRender;
             std::string m_entry;

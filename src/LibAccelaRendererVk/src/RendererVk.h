@@ -145,7 +145,7 @@ namespace Accela::Render
             Frames m_frames;
             RenderState m_renderState;
 
-            std::mutex m_latestObjectDetailTextureIdMutex;
+            mutable std::mutex m_latestObjectDetailTextureIdMutex;
             std::optional<ImageId> m_latestObjectDetailImageId;
 
             RendererGroup<SwapChainBlitRenderer> m_swapChainRenderers;

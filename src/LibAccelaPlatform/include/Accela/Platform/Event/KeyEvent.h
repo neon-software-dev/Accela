@@ -9,6 +9,8 @@
 
 #include "Key.h"
 
+#include <vector>
+
 namespace Accela::Platform
 {
     /**
@@ -22,16 +24,17 @@ namespace Accela::Platform
             KeyRelease
         };
 
-        KeyEvent(Action _action, Key _key)
+        KeyEvent(Action _action, PhysicalKeyPair _physicalKey, LogicalKeyPair _logicalKey, std::vector<KeyMod> _keyMods)
             : action(_action)
-            , key(_key)
+            , physicalKey(_physicalKey)
+            , logicalKey(_logicalKey)
+            , keyMods(std::move(_keyMods))
         { }
 
-        // Whether the key was pressed or released
         Action action;
-
-        // The key in question
-        Key key;
+        PhysicalKeyPair physicalKey;
+        LogicalKeyPair logicalKey;
+        std::vector<KeyMod> keyMods;
     };
 }
 

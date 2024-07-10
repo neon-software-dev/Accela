@@ -9,8 +9,6 @@
 #include "Metrics.h"
 #include "EngineRuntime.h"
 #include "RunState.h"
-#include "KeyboardState.h"
-#include "MouseState.h"
 
 #include "Scene/WorldState.h"
 #include "Scene/WorldLogic.h"
@@ -63,7 +61,7 @@ void Engine::Run(Scene::UPtr initialScene, bool supportVRHeadset, const std::fun
     auto physics = std::make_shared<PhysXPhysics>(m_logger, m_metrics, worldResources);
     const auto worldState = std::make_shared<WorldState>(m_logger, m_metrics, worldResources, m_platform->GetWindow(), m_renderer, m_audioManager, physics, renderSettings, virtualResolution);
 
-    const auto runState = std::make_shared<RunState>(std::move(initialScene), worldResources, worldState);
+    const auto runState = std::make_shared<RunState>(std::move(initialScene), worldResources, worldState, m_platform);
     const auto runtime = std::make_shared<EngineRuntime>(m_logger, m_metrics, m_renderer, runState);
 
     if (!InitializeRun(runState))
@@ -359,7 +357,7 @@ void Engine::ProcessEvents(const RunState::Ptr& runState)
     const auto worldState = std::dynamic_pointer_cast<WorldState>(runState->worldState);
     const auto renderSettings = worldState->GetRenderSettings();
 
-    std::queue<Platform::SystemEvent> events = m_platform->GetEvents()->PopSystemEvents();
+    std::queue<Platform::SystemEvent> events = m_platform->GetEvents()->PopLocalEvents();
 
     while (!events.empty())
     {
@@ -369,11 +367,12 @@ void Engine::ProcessEvents(const RunState::Ptr& runState)
         if (std::holds_alternative<Platform::KeyEvent>(event))
         {
             const auto keyEvent = std::get<Platform::KeyEvent>(event);
-
-            // Update our internal state around which keys are currently pressed
-            std::dynamic_pointer_cast<KeyboardState>(runState->keyboardState)->ProcessKeyEvent(keyEvent);
-            // Tell the scene that a key event happened
             runState->scene->OnKeyEvent(keyEvent);
+        }
+        else if (std::holds_alternative<Platform::TextInputEvent>(event))
+        {
+            const auto textInputEvent = std::get<Platform::TextInputEvent>(event);
+            runState->scene->OnTextInputEvent(textInputEvent);
         }
         else if (std::holds_alternative<Platform::MouseMoveEvent>(event))
         {
@@ -401,9 +400,6 @@ void Engine::ProcessEvents(const RunState::Ptr& runState)
         else if (std::holds_alternative<Platform::MouseButtonEvent>(event))
         {
             auto mouseButtonEvent = std::get<Platform::MouseButtonEvent>(event);
-
-            // Update our internal state around which mouse buttons are currently pressed
-            std::dynamic_pointer_cast<MouseState>(runState->mouseState)->ProcessMouseButtonEvent(mouseButtonEvent);
 
             // Convert the clicked point from window space to render space
             const auto renderPointOpt = WindowPointToRenderPoint(

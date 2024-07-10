@@ -36,6 +36,7 @@ namespace Accela
             void OnSceneStart(const Engine::IEngineRuntime::Ptr& engine) override;
             void OnSimulationStep(unsigned int timeStep) override;
             void OnKeyEvent(const Platform::KeyEvent& event) override;
+            void OnTextInputEvent(const Platform::TextInputEvent& event) override;
             void OnMouseMoveEvent(const Platform::MouseMoveEvent& event) override;
             void OnMouseButtonEvent(const Platform::MouseButtonEvent& event) override;
 

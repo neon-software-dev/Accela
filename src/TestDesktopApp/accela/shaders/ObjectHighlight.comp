@@ -20,6 +20,7 @@ layout(push_constant) uniform constants
     uint renderHeight;
 
     uint highlightMode;
+    vec3 highlightColor;
     uint numHighlightedObjects;
 } PushConstants;
 
@@ -38,8 +39,7 @@ layout (local_size_x = POST_EFFECT_LOCAL_SIZE_X,
 
 vec4 HighlightPixel(vec4 inPixel)
 {
-    inPixel.g = min(1.0f, inPixel.g + 0.3f);
-    return inPixel;
+    return vec4(PushConstants.highlightColor, 1);
 }
 
 vec4 DoWork(int layerIndex)
@@ -86,7 +86,10 @@ vec4 DoWork(int layerIndex)
         return HighlightPixel(inPixel);
     }
 
-    // Otherwise, check the pixel is within range of any other object
+    // Otherwise, check if the pixel is within range of any other object.
+    // TODO: Could also attach depth image and only highlight if we're within range of another object which
+    // is BEHIND the object. This prevents the scenario with displaying "inner" edge highlights when an object
+    // is partially in front of the highlighted object.
     bool pixelIsWithinRangeOfAnotherObject = false;
 
     for (int offsetX = -2; offsetX <= 2; offsetX = offsetX + 2)

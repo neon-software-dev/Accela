@@ -4,14 +4,14 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
  
-#ifndef LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_IMOUSESTATE_H
-#define LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_IMOUSESTATE_H
+#ifndef LIBACCELAPLATFORM_INCLUDE_ACCELA_PLATFORM_EVENT_IMOUSESTATE_H
+#define LIBACCELAPLATFORM_INCLUDE_ACCELA_PLATFORM_EVENT_IMOUSESTATE_H
 
 #include <Accela/Platform/Event/Mouse.h>
 
 #include <memory>
 
-namespace Accela::Engine
+namespace Accela::Platform
 {
     /**
      * User-facing interface to answering mouse related queries
@@ -33,4 +33,4 @@ namespace Accela::Engine
     };
 }
 
-#endif //LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_IMOUSESTATE_H
+#endif //LIBACCELAPLATFORM_INCLUDE_ACCELA_PLATFORM_EVENT_IMOUSESTATE_H

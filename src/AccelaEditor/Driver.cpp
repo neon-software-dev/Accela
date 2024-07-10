@@ -15,7 +15,7 @@ int main(int argc, char *argv[])
 {
     using namespace Accela;
 
-    QApplication a(argc, argv);
+    QApplication app(argc, argv);
 
     const auto logger= std::make_shared<Common::StdLogger>(Common::LogLevel::Warning);
     const auto metrics= std::make_shared<Common::InMemoryMetrics>();
@@ -23,7 +23,5 @@ int main(int argc, char *argv[])
     auto pMainWindow = new MainWindow(logger, metrics);
     pMainWindow->show();
 
-    QCoreApplication::exec();
-
-    return 0;
+    return app.exec();
 }

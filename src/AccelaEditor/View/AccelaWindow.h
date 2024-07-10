@@ -7,6 +7,7 @@
 #ifndef ACCELAEDITOR_VIEW_ACCELAWINDOW_H
 #define ACCELAEDITOR_VIEW_ACCELAWINDOW_H
 
+#include "../GlobalEventFilter.h"
 #include "../MessageBasedScene.h"
 
 #include <Accela/Common/Log/ILogger.h>
@@ -58,26 +59,17 @@ namespace Accela
 
         protected:
 
+            bool eventFilter(QObject *obj, QEvent *ev) override;
             void showEvent(QShowEvent* e) override;
-            void keyPressEvent(QKeyEvent* pKeyEvent) override;
-            void keyReleaseEvent(QKeyEvent* pKeyEvent) override;
-            void mousePressEvent(QMouseEvent* pMouseEvent) override;
-            void mouseReleaseEvent(QMouseEvent* pMouseEvent) override;
-            void mouseMoveEvent(QMouseEvent* pMouseEvent) override;
-            void wheelEvent(QWheelEvent* pWheelEvent) override;
-
-            void OnKeyEvent(Platform::KeyEvent::Action action, QKeyEvent* pKeyEvent);
-            void OnMouseButtonEvent(QMouseEvent* pMouseEvent);
 
         private:
 
             Common::ILogger::Ptr m_logger;
             std::shared_ptr<MessageBasedScene> m_scene;
             std::shared_ptr<Platform::PlatformQt> m_platform;
+            std::unique_ptr<GlobalEventFilter> m_globalEventFilter;
 
             std::unique_ptr<AccelaThread> m_accelaThread;
-
-            std::optional<QPointF> m_lastMousePoint;
     };
 }
 

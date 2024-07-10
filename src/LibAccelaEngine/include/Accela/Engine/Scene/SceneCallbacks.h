@@ -10,11 +10,7 @@
 #include <Accela/Engine/IEngineRuntime.h>
 #include <Accela/Engine/Physics/PhysicsCommon.h>
 
-#include <Accela/Platform/Event/KeyEvent.h>
-#include <Accela/Platform/Event/MouseMoveEvent.h>
-#include <Accela/Platform/Event/MouseButtonEvent.h>
-#include <Accela/Platform/Event/MouseWheelEvent.h>
-
+#include <Accela/Platform/Event/SystemEvent.h>
 #include <memory>
 
 namespace Accela::Engine
@@ -36,6 +32,7 @@ namespace Accela::Engine
             virtual void OnSceneStop() { };
             virtual void OnSimulationStep(unsigned int timeStep) { (void)timeStep; };
             virtual void OnKeyEvent(const Platform::KeyEvent& event) { (void)event; }
+            virtual void OnTextInputEvent(const Platform::TextInputEvent& event) { (void)event; }
             virtual void OnMouseMoveEvent(const Platform::MouseMoveEvent& event) { (void)event; }
             virtual void OnMouseButtonEvent(const Platform::MouseButtonEvent& event) { (void)event; }
             virtual void OnMouseWheelEvent(const Platform::MouseWheelEvent& event) { (void)event; }

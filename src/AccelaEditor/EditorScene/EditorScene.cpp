@@ -34,7 +34,7 @@ void EditorScene::OnMouseMoveEvent(const Platform::MouseMoveEvent& event)
 
     if (engine->GetMouseState()->IsMouseButtonPressed(Platform::MouseButton::Middle))
     {
-        if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::Shift))
+        if (engine->GetKeyboardState()->IsModifierPressed(Platform::KeyMod::Shift))
         {
             PanCamera(event.xRel, event.yRel);
         }
@@ -59,7 +59,10 @@ void EditorScene::OnMouseButtonEvent(const Platform::MouseButtonEvent& event)
 
 void EditorScene::OnMouseWheelEvent(const Platform::MouseWheelEvent& event)
 {
-    ScaleCamera(event.scrollY);
+    if (event.scrollY != 0)
+    {
+        ScaleCamera(event.scrollY);
+    }
 }
 
 void EditorScene::ProcessMessage(const Common::Message::Ptr& message)

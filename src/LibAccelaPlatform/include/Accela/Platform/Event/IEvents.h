@@ -14,6 +14,9 @@
 
 namespace Accela::Platform
 {
+    class IKeyboardState;
+    class IMouseState;
+
     /**
      * Provides access to system/OS events that have occurred
      */
@@ -28,11 +31,14 @@ namespace Accela::Platform
             virtual ~IEvents() = default;
 
             /**
-             * Pop the system/OS events that have occurred since the last call to this method.
+             * Pop the system/OS events that have occurred, local to the Accela window, since the last call to this method.
              *
              * @return The time-sorted queue of system events
              */
-            [[nodiscard]] virtual std::queue<SystemEvent> PopSystemEvents() = 0;
+            [[nodiscard]] virtual std::queue<SystemEvent> PopLocalEvents() = 0;
+
+            [[nodiscard]] virtual std::shared_ptr<const IKeyboardState> GetKeyboardState() = 0;
+            [[nodiscard]] virtual std::shared_ptr<const IMouseState> GetMouseState() = 0;
     };
 }
 

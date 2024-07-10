@@ -41,6 +41,11 @@ void Scene::OnKeyEvent(const Platform::KeyEvent& event)
     m_events->OnKeyEvent(event);
 }
 
+void Scene::OnTextInputEvent(const Platform::TextInputEvent& event)
+{
+    m_events->OnTextInputEvent(event);
+}
+
 void Scene::OnMouseMoveEvent(const Platform::MouseMoveEvent& event)
 {
     m_events->OnMouseMoveEvent(event);

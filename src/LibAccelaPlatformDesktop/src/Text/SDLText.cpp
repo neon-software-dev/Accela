@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
  
-#include <Accela/Platform/Text/SDLText.h>
+#include <Accela/Platform/SDLUtil.h>
 
-#include "../SDLUtil.h"
+#include <Accela/Platform/Text/SDLText.h>
 
 #include <algorithm>
 

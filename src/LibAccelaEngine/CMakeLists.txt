@@ -68,8 +68,6 @@ project(LibAccelaEngine VERSION 0.0.1 LANGUAGES CXX)
 		set(PhysXGpuOptional PhysXGpu)
 	endif()
 
-	# TODO! Update README with instructions to build it static, and version
-
 	set(PHYSX_TARGETS
 		PhysXCharacterKinematic
 		PhysXExtensions

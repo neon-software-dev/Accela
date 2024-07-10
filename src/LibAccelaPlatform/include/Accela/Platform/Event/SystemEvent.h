@@ -13,6 +13,7 @@
 #include "MouseMoveEvent.h"
 #include "MouseButtonEvent.h"
 #include "MouseWheelEvent.h"
+#include "TextInputEvent.h"
 
 #include <variant>
 
@@ -25,7 +26,8 @@ namespace Accela::Platform
         WindowCloseEvent,
         MouseMoveEvent,
         MouseButtonEvent,
-        MouseWheelEvent
+        MouseWheelEvent,
+        TextInputEvent
     >;
 }
 

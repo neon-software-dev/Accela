@@ -168,7 +168,7 @@ bool DevScene::LoadResources()
         Render::USize(40,40), // How many data points to create from the height map image
         Render::FSize(10.0f,10.0f), // World-space x/z size of the resulting terrain mesh
         20.0f, // Constant that's multiplied against height map height values
-        1.0f, // Repeat the material texture every 1 unit in world space
+        0.1f, // World-space texture repeat size
         Render::MeshUsage::Immutable,
         Engine::ResultWhen::Ready).get();
     if (!m_terrainHeightMapMeshId.IsValid()) { return false; }
@@ -541,22 +541,24 @@ void DevScene::OnKeyEvent(const Platform::KeyEvent& event)
 {
     Scene::OnKeyEvent(event);
 
-    // Exit the app whenever escape is pressed
-    if (event.action == Platform::KeyEvent::Action::KeyPress && event.key == Platform::Key::Escape)
-    {
-        engine->StopEngine();
-        return;
-    }
-
-    // If the command entry prompt is open, funnel key events into typing into it
     if (m_commandEntryEntity)
     {
         OnCommandEntryKeyEvent(event);
     }
-    // Otherwise if command entry prompt is not open, handle key presses normally
     else
     {
         OnNormalKeyEvent(event);
+    }
+}
+
+void DevScene::OnTextInputEvent(const Platform::TextInputEvent& event)
+{
+    Scene::OnTextInputEvent(event);
+
+    // If the command entry prompt is open, funnel text input events into typing into it
+    if (m_commandEntryEntity)
+    {
+        (*m_commandEntryEntity)->AppendToEntry(event.text);
     }
 }
 
@@ -589,25 +591,25 @@ Engine::PlayerMovement DevScene::GetActiveMovementCommands()
 {
     Engine::PlayerMovement movementCommands{};
 
-    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::A)) {
+    if (engine->GetKeyboardState()->IsPhysicalKeyPressed(Platform::PhysicalKey::A)) {
         movementCommands.left = true;
     }
-    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::D)) {
+    if (engine->GetKeyboardState()->IsPhysicalKeyPressed(Platform::PhysicalKey::D)) {
         movementCommands.right = true;
     }
-    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::W)) {
+    if (engine->GetKeyboardState()->IsPhysicalKeyPressed(Platform::PhysicalKey::W)) {
         movementCommands.forward = true;
     }
-    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::S)) {
+    if (engine->GetKeyboardState()->IsPhysicalKeyPressed(Platform::PhysicalKey::S)) {
         movementCommands.backward = true;
     }
-    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::Control)) {
+    if (engine->GetKeyboardState()->IsPhysicalKeyPressed(Platform::PhysicalKey::LControl)) {
         movementCommands.down = true;
     }
-    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::Space)) {
+    if (engine->GetKeyboardState()->IsPhysicalKeyPressed(Platform::PhysicalKey::Space)) {
         movementCommands.up = true;
     }
-    if (engine->GetKeyboardState()->IsKeyPressed(Platform::Key::Shift)) {
+    if (engine->GetKeyboardState()->IsPhysicalKeyPressed(Platform::PhysicalKey::LShift)) {
         movementCommands.sprint = true;
     }
 
@@ -668,31 +670,21 @@ void DevScene::OnCommandEntryKeyEvent(const Platform::KeyEvent& event)
 {
     if (event.action == Platform::KeyEvent::Action::KeyPress)
     {
-        // Close the command entry on tilde presses
-        if (event.key == Platform::Key::BackQuote)
+        // Close the command entry when tilde/grave or escape is pressed
+        if ((event.logicalKey == Platform::LogicalKey::Grave) || (event.logicalKey == Platform::LogicalKey::Escape))
         {
             m_commandEntryEntity = std::nullopt;
-            return;
         }
-
-        // Close and process the command entry on enter press
-        if (event.key == Platform::Key::Return)
+        // Submit and close the command entry when return is pressed
+        else if (event.logicalKey == Platform::LogicalKey::Return)
         {
             HandleCommand((*m_commandEntryEntity)->GetEntry());
             m_commandEntryEntity = std::nullopt;
-            return;
         }
         // Clear last command char on backspace press
-        else if (event.key == Platform::Key::Backspace)
+        else if (event.logicalKey == Platform::LogicalKey::Backspace)
         {
             (*m_commandEntryEntity)->DeleteLastEntryChar();
-        }
-        // Otherwise, append the pressed key to the command, if its a typed key
-        else if (Platform::IsTypedKey(event.key))
-        {
-            const auto typedKeyChar = Platform::ToTypedChar(event.key);
-
-            (*m_commandEntryEntity)->AppendToEntry({typedKeyChar});
         }
     }
 }
@@ -702,33 +694,33 @@ void DevScene::OnNormalKeyEvent(const Platform::KeyEvent& event)
     if (event.action == Platform::KeyEvent::Action::KeyPress)
     {
         // Exit the app when escape is pressed
-        if (event.key == Platform::Key::Escape)
+        if (event.logicalKey == Platform::LogicalKey::Escape)
         {
             engine->StopEngine();
             return;
         }
 
         // Fullscreen and cursor lock is enabled when 1 is pressed
-        if (event.key == Platform::Key::One)
+        if (event.logicalKey == Platform::LogicalKey::_1)
         {
             engine->SetWindowFullscreen(true);
             engine->SetWindowCursorLock(true);
         }
 
         // Fullscreen and cursor lock is disabled when 2 is pressed
-        if (event.key == Platform::Key::Two)
+        if (event.logicalKey == Platform::LogicalKey::_2)
         {
             engine->SetWindowFullscreen(false);
             engine->SetWindowCursorLock(false);
         }
 
         // When C is pressed, sync the primary light's position to the camera's position
-        if (event.key == Platform::Key::C)
+        if (event.logicalKey == Platform::LogicalKey::C)
         {
             SyncLightToCamera();
         }
 
-        if (event.key == Platform::Key::E)
+        if (event.logicalKey == Platform::LogicalKey::E)
         {
             int sideLength = 5;
 
@@ -750,7 +742,7 @@ void DevScene::OnNormalKeyEvent(const Platform::KeyEvent& event)
             }
         }
 
-        if (event.key == Platform::Key::P)
+        if (event.logicalKey == Platform::LogicalKey::P)
         {
             if (m_perfMonitor)
             {
@@ -762,7 +754,7 @@ void DevScene::OnNormalKeyEvent(const Platform::KeyEvent& event)
             }
         }
 
-        if (event.key == Platform::Key::BackQuote)
+        if (event.logicalKey == Platform::LogicalKey::Grave)
         {
             if (m_commandEntryEntity)
             {
@@ -770,13 +762,16 @@ void DevScene::OnNormalKeyEvent(const Platform::KeyEvent& event)
             }
             else
             {
-                m_commandEntryEntity = Engine::CommandEntryEntity::Create(engine, Platform::TextProperties(
-                    FONT_FILE_NAME,
-                    64,
-                    0,
-                    Platform::Color::Green(),
-                    Platform::Color(0,0,0,80)
-                ));
+                m_commandEntryEntity = Engine::CommandEntryEntity::Create(
+                    engine,
+                    Platform::TextProperties(
+                        FONT_FILE_NAME,
+                        64,
+                        0,
+                        Platform::Color::Green(),
+                        Platform::Color(0,0,0,80)
+                    ),
+                    true);
             }
         }
     }

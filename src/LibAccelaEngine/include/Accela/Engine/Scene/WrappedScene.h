@@ -25,6 +25,7 @@ namespace Accela::Engine
             void OnSceneStop() override { return m_scene->OnSceneStop(); }
             void OnSimulationStep(unsigned int timeStep) override { return m_scene->OnSimulationStep(timeStep); }
             void OnKeyEvent(const Platform::KeyEvent& event) override { return m_scene->OnKeyEvent(event); }
+            void OnTextInputEvent(const Platform::TextInputEvent& event) override { return m_scene->OnTextInputEvent(event); }
             void OnMouseMoveEvent(const Platform::MouseMoveEvent& event) override { return m_scene->OnMouseMoveEvent(event); }
             void OnMouseButtonEvent(const Platform::MouseButtonEvent& event) override { return m_scene->OnMouseButtonEvent(event); }
             void OnMouseWheelEvent(const Platform::MouseWheelEvent& event) override { return m_scene->OnMouseWheelEvent(event); }

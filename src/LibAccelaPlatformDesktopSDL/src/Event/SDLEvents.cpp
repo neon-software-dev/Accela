@@ -5,11 +5,21 @@
  */
  
 #include "SDLEvents.h"
+#include "SDLEventState.h"
+
+#include <Accela/Platform/SDLUtil.h>
 
 namespace Accela::Platform
 {
 
-std::queue<SystemEvent> SDLEvents::PopSystemEvents()
+SDLEvents::SDLEvents()
+    : m_keyboardState(std::make_shared<SDLKeyboardState>())
+    , m_mouseState(std::make_shared<SDLMouseState>())
+{
+
+}
+
+std::queue<SystemEvent> SDLEvents::PopLocalEvents()
 {
     std::queue<SystemEvent> events{};
 
@@ -41,6 +51,10 @@ std::queue<SystemEvent> SDLEvents::PopSystemEvents()
             case SDL_MOUSEWHEEL:
                 systemEvent = ProcessMouseWheelEvent(sdlEvent);
             break;
+
+            case SDL_TEXTINPUT:
+                systemEvent = ProcessTextInputEvent(sdlEvent);
+            break;
         }
 
         if (systemEvent)
@@ -52,72 +66,19 @@ std::queue<SystemEvent> SDLEvents::PopSystemEvents()
     return events;
 }
 
-std::optional<SystemEvent> SDLEvents::ProcessKeyPressEvent(const SDL_Event& sdlEvent) noexcept
+std::shared_ptr<const IKeyboardState> SDLEvents::GetKeyboardState()
 {
-    const auto keyAction = sdlEvent.type == SDL_KEYDOWN ? KeyEvent::Action::KeyPress : KeyEvent::Action::KeyRelease;
-    const auto key = SDLKeysymToKey(sdlEvent.key.keysym);
-
-    return KeyEvent(keyAction, key);
+    return m_keyboardState;
 }
 
-Key SDLEvents::SDLKeysymToKey(const SDL_Keysym& keysym) noexcept
+std::shared_ptr<const IMouseState> SDLEvents::GetMouseState()
 {
-    switch (keysym.sym)
-    {
-        case SDLK_ESCAPE: return Key::Escape;
-        case SDLK_LCTRL: return Key::Control;
-        case SDLK_RCTRL: return Key::Control;
-        case SDLK_LSHIFT: return Key::Shift;
-        case SDLK_RSHIFT: return Key::Shift;
-        case SDLK_BACKSPACE: return Key::Backspace;
-        case SDLK_KP_ENTER: return Key::Keypad_Enter;
-        case SDLK_RETURN: return Key::Return;
+    return m_mouseState;
+}
 
-        case SDLK_a: return Key::A;
-        case SDLK_b: return Key::B;
-        case SDLK_c: return Key::C;
-        case SDLK_d: return Key::D;
-        case SDLK_e: return Key::E;
-        case SDLK_f: return Key::F;
-        case SDLK_g: return Key::G;
-        case SDLK_h: return Key::H;
-        case SDLK_i: return Key::I;
-        case SDLK_j: return Key::J;
-        case SDLK_k: return Key::K;
-        case SDLK_l: return Key::L;
-        case SDLK_m: return Key::M;
-        case SDLK_n: return Key::N;
-        case SDLK_o: return Key::O;
-        case SDLK_p: return Key::P;
-        case SDLK_q: return Key::Q;
-        case SDLK_r: return Key::R;
-        case SDLK_s: return Key::S;
-        case SDLK_t: return Key::T;
-        case SDLK_u: return Key::U;
-        case SDLK_v: return Key::V;
-        case SDLK_w: return Key::W;
-        case SDLK_x: return Key::X;
-        case SDLK_y: return Key::Y;
-        case SDLK_z: return Key::Z;
-        case SDLK_0: return Key::Zero;
-        case SDLK_1: return Key::One;
-        case SDLK_2: return Key::Two;
-        case SDLK_3: return Key::Three;
-        case SDLK_4: return Key::Four;
-        case SDLK_5: return Key::Five;
-        case SDLK_6: return Key::Six;
-        case SDLK_7: return Key::Seven;
-        case SDLK_8: return Key::Eight;
-        case SDLK_9: return Key::Nine;
-        case SDLK_SPACE: return Key::Space;
-        case SDLK_PERIOD: return Key::Period;
-        case SDLK_QUESTION: return Key::Question;
-        case SDLK_COMMA: return Key::Comma;
-        case SDLK_BACKQUOTE: return Key::BackQuote;
-        case SDLK_MINUS: return keysym.mod & KMOD_LSHIFT ? Key::Underscore :Key::Minus;
-
-        default: return Key::Unknown;
-    }
+std::optional<SystemEvent> SDLEvents::ProcessKeyPressEvent(const SDL_Event& sdlEvent) noexcept
+{
+    return SDLUtil::SDLKeyEventToKeyEvent(sdlEvent);
 }
 
 std::optional<SystemEvent> SDLEvents::ProcessWindowEvent(const SDL_Event& sdlEvent) noexcept
@@ -137,10 +98,10 @@ std::optional<SystemEvent> SDLEvents::ProcessMouseMoveEvent(const SDL_Event& sdl
 {
     return MouseMoveEvent(
         sdlEvent.motion.which,
-        sdlEvent.motion.x,
-        sdlEvent.motion.y,
-        sdlEvent.motion.xrel,
-        sdlEvent.motion.yrel
+        (float)sdlEvent.motion.x,
+        (float)sdlEvent.motion.y,
+        (float)sdlEvent.motion.xrel,
+        (float)sdlEvent.motion.yrel
     );
 }
 
@@ -166,6 +127,17 @@ std::optional<SystemEvent> SDLEvents::ProcessMouseButtonEvent(const SDL_Event& s
 std::optional<SystemEvent> SDLEvents::ProcessMouseWheelEvent(const SDL_Event& sdlEvent) noexcept
 {
     return MouseWheelEvent(sdlEvent.button.which, sdlEvent.wheel.preciseX, sdlEvent.wheel.preciseY);
+}
+
+std::optional<SystemEvent> SDLEvents::ProcessTextInputEvent(const SDL_Event& sdlEvent) noexcept
+{
+    const auto text = std::string(sdlEvent.text.text);
+    if (text.empty())
+    {
+        return std::nullopt;
+    }
+
+    return TextInputEvent(text);
 }
 
 }

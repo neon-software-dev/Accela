@@ -9,6 +9,10 @@
 
 #include "ForwardDeclares.h"
 
+#include <Accela/Platform/IPlatform.h>
+#include <Accela/Platform/Event/IKeyboardState.h>
+#include <Accela/Platform/Event/IMouseState.h>
+
 #include <Accela/Render/RenderSettings.h>
 
 #include <memory>
@@ -25,7 +29,8 @@ namespace Accela::Engine
 
         RunState(std::shared_ptr<Scene> _initialScene,
                  std::shared_ptr<IWorldResources> worldResources,
-                 std::shared_ptr<IWorldState> worldState);
+                 std::shared_ptr<IWorldState> worldState,
+                 std::shared_ptr<Platform::IPlatform> platform);
 
         //
         // Execution State
@@ -45,8 +50,8 @@ namespace Accela::Engine
         // Engine State
         //
         std::shared_ptr<Scene> scene;
-        std::shared_ptr<IKeyboardState> keyboardState;
-        std::shared_ptr<IMouseState> mouseState;
+        Platform::IKeyboardState::CPtr keyboardState;
+        Platform::IMouseState::CPtr mouseState;
         std::shared_ptr<IWorldResources> worldResources;
         std::shared_ptr<IWorldState> worldState;
     };

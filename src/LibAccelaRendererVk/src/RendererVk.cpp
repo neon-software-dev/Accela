@@ -558,9 +558,6 @@ void RendererVk::RunSceneRender(const std::string& sceneName,
                               renderParams.highlightedObjects));
     }
 
-    // Transfer the object detail image into CPU-visible memory for client-access
-    TransferObjectDetailImage(gPassObjectDetailImage, frameObjectDetailResultImage, commandBuffer);
-
     ///////////////////
     // Screen Render Pass
     ///////////////////
@@ -638,13 +635,23 @@ bool RendererVk::RenderGraphFunc_Present(const uint32_t& swapChainImageIndex, co
         return false;
     }
 
-    const auto offscreenColorImage =
-        gPassFramebufferObjs->GetAttachmentImage(Offscreen_Attachment_Color)->first;
-    const auto offscreenColorVkImage = offscreenColorImage.allocation.vkImage;
+    const auto gPassColorImage = gPassFramebufferObjs->GetAttachmentImage(Offscreen_Attachment_Color)->first;
+    const auto gPassColorVkImage = gPassColorImage.allocation.vkImage;
 
-    const auto screenColorImage =
-        screenFramebufferObjs->GetAttachmentImage(Screen_Attachment_Color)->first;
+    const auto gPassObjectDetailAttachment = gPassFramebufferObjs->GetAttachmentImage(Offscreen_Attachment_ObjectDetail);
+    const auto gPassObjectDetailImage = gPassObjectDetailAttachment->first;
+
+    const auto screenColorImage = screenFramebufferObjs->GetAttachmentImage(Screen_Attachment_Color)->first;
     const auto screenColorVkImage = screenColorImage.allocation.vkImage;
+
+    const auto frameObjectDetailResultImage = *m_images->GetImage(currentFrame.GetObjectDetailImageId());
+
+    //////////////////////////
+    // Object Detail Transfer
+    //////////////////////////
+
+    // The final object detail image is transferred to per-frame CPU-mapped image for client access
+    TransferObjectDetailImage(gPassObjectDetailImage, frameObjectDetailResultImage, renderCommandBuffer);
 
     ////////////////////////////////////////////////////
     // Finish the Render work command buffer and submit it
@@ -676,7 +683,7 @@ bool RendererVk::RenderGraphFunc_Present(const uint32_t& swapChainImageIndex, co
     // Prepare the input textures for read by the swap chain blit pass
     m_renderState.PrepareOperation(swapChainBlitCommandBuffer, RenderOperation({
        // We're going to read from the offscreen texture
-       {offscreenColorVkImage, ImageAccess(
+       {gPassColorVkImage, ImageAccess(
            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
            BarrierPoint(
@@ -685,7 +692,7 @@ bool RendererVk::RenderGraphFunc_Present(const uint32_t& swapChainImageIndex, co
            BarrierPoint(
                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
                VK_ACCESS_SHADER_READ_BIT),
-           Layers(0, offscreenColorImage.image.numLayers),
+           Layers(0, gPassColorImage.image.numLayers),
            Levels(0, 1),
            VK_IMAGE_ASPECT_COLOR_BIT
        )},
@@ -706,7 +713,7 @@ bool RendererVk::RenderGraphFunc_Present(const uint32_t& swapChainImageIndex, co
     } ));
 
     StartRenderPass(swapChainBlitRenderPass, swapChainFrameBuffer, swapChainBlitCommandBuffer, swapChainBlitClearColor);
-        RunSwapChainBlitPass(swapChainFrameBuffer, offscreenColorImage, screenColorImage);
+        RunSwapChainBlitPass(swapChainFrameBuffer, gPassColorImage, screenColorImage);
     EndRenderPass(swapChainBlitCommandBuffer);
 
     // If outputting to a headset, insert one last operation that will record that when we
@@ -715,12 +722,12 @@ bool RendererVk::RenderGraphFunc_Present(const uint32_t& swapChainImageIndex, co
     {
         m_renderState.PrepareOperation(swapChainBlitCommandBuffer, RenderOperation({
             // OpenVR is going to transfer from the present texture when we submit eye renders below
-            {offscreenColorVkImage, ImageAccess(
+            {gPassColorVkImage, ImageAccess(
                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT),
                BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT),
-               Layers(0, offscreenColorImage.image.numLayers),
+               Layers(0, gPassColorImage.image.numLayers),
                Levels(0,1),
                VK_IMAGE_ASPECT_COLOR_BIT
             )}
@@ -757,11 +764,11 @@ bool RendererVk::RenderGraphFunc_Present(const uint32_t& swapChainImageIndex, co
         eyeRenderData.vkPhysicalDevice = m_vulkanObjs->GetPhysicalDevice()->GetVkPhysicalDevice();
         eyeRenderData.vkDevice = m_vulkanObjs->GetDevice()->GetVkDevice();
         eyeRenderData.vkQueue = m_vulkanObjs->GetDevice()->GetVkGraphicsQueue();
-        eyeRenderData.vkImage = offscreenColorImage.allocation.vkImage;
+        eyeRenderData.vkImage = gPassColorImage.allocation.vkImage;
         eyeRenderData.queueFamilyIndex = m_vulkanObjs->GetPhysicalDevice()->GetGraphicsQueueFamilyIndex().value();
-        eyeRenderData.width = offscreenColorImage.image.size.w;
-        eyeRenderData.height = offscreenColorImage.image.size.h;
-        eyeRenderData.format = offscreenColorImage.image.vkFormat;
+        eyeRenderData.width = gPassColorImage.image.size.w;
+        eyeRenderData.height = gPassColorImage.image.size.h;
+        eyeRenderData.format = gPassColorImage.image.vkFormat;
         eyeRenderData.sampleCount = 0;
 
         m_vulkanObjs->GetContext()->VR_SubmitEyeRender(Eye::Left, eyeRenderData);
@@ -1202,10 +1209,9 @@ void RendererVk::TransferObjectDetailImage(const LoadedImage& gPassObjectDetailI
     CmdBufferSectionLabel sectionLabel(m_vulkanObjs->GetCalls(), commandBuffer, "TransferObjectDetailImage");
 
     const auto renderSettings = m_vulkanObjs->GetRenderSettings();
-
     const auto presentLayerIndex = (uint32_t)renderSettings.presentEye;
 
-    // Prepare access to the object detail images
+    // Prepare access to the object detail image
     m_renderState.PrepareOperation(commandBuffer, RenderOperation({
         // We're going to transfer from the gpass object detail image
         {gPassObjectDetailImage.allocation.vkImage, ImageAccess(
@@ -1309,6 +1315,11 @@ bool RendererVk::OnChangeRenderSettings(const RenderSettings& renderSettings)
 
 std::optional<ObjectId> RendererVk::GetTopObjectAtRenderPoint(const glm::vec2& renderPoint) const
 {
+    // Warning! All of this in run on engine thread, not render thread, to provide an instant answer
+    // rather than an asynchronous answer. Can fail in scenarios such as parallel render settings change.
+
+    std::lock_guard<std::mutex> lock(m_latestObjectDetailTextureIdMutex);
+
     if (!m_latestObjectDetailImageId)
     {
         return std::nullopt;
@@ -1318,7 +1329,7 @@ std::optional<ObjectId> RendererVk::GetTopObjectAtRenderPoint(const glm::vec2& r
     if (!objectDetailImage)
     {
         m_logger->Log(Common::LogLevel::Error,
-          "RendererVk::GetTopObjectAtRenderPoint: Failed to fetch latest object detail iamge");
+          "RendererVk::GetTopObjectAtRenderPoint: Failed to fetch latest object detail image: {}", m_latestObjectDetailImageId->id);
         return std::nullopt;
     }
 
@@ -1328,9 +1339,6 @@ std::optional<ObjectId> RendererVk::GetTopObjectAtRenderPoint(const glm::vec2& r
         ((unsigned int)renderPoint.x +
         ((unsigned int)renderPoint.y * m_vulkanObjs->GetRenderSettings().resolution.w))
         * m_renderTargets->GetObjectDetailPerPixelByteSize();
-
-    std::vector<unsigned char> test(50, '-');
-    memcpy(test.data(), pObjectDetailImage + pixelByteStartOffset, 50);
 
     // Note that ObjectId is stored in the first 4 of 8 bytes of each object detail pixel (material id is the second half)
     const IdType objectId = *(pObjectDetailImage + pixelByteStartOffset);

@@ -24,6 +24,8 @@ project(LibAccelaPlatformDesktop VERSION 0.0.1 LANGUAGES CXX)
 	file(GLOB AccelaPlatformDesktop_Headers_VR "src/VR/*.h")
 	file(GLOB AccelaPlatformDesktop_Sources_Package "src/Package/*.cpp")
 	file(GLOB AccelaPlatformDesktop_Headers_Package "src/Package/*.h")
+	file(GLOB AccelaPlatformDesktop_Sources_Event "src/Event/*.cpp")
+	file(GLOB AccelaPlatformDesktop_Headers_Event "src/Event/*.h")
 
 add_library(AccelaPlatformDesktop STATIC
 	${AccelaPlatformDesktop_Include_Headers}
@@ -42,6 +44,8 @@ add_library(AccelaPlatformDesktop STATIC
 	${AccelaPlatformDesktop_Headers_VR}
 	${AccelaPlatformDesktop_Sources_Package}
 	${AccelaPlatformDesktop_Headers_Package}
+	${AccelaPlatformDesktop_Sources_Event}
+	${AccelaPlatformDesktop_Headers_Event}
 )
 
 target_compile_features(AccelaPlatformDesktop

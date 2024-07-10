@@ -4,14 +4,16 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
  
-#ifndef LIBACCELAPLATFORMSDL_SRC_SDLUTIL_H
-#define LIBACCELAPLATFORMSDL_SRC_SDLUTIL_H
+#ifndef LIBACCELAPLATFORMDESKTOP_INCLUDE_ACCELA_PLATFORM_SDLUTIL_H
+#define LIBACCELAPLATFORMDESKTOP_INCLUDE_ACCELA_PLATFORM_SDLUTIL_H
 
 #include <Accela/Platform/Color.h>
+#include <Accela/Platform/Event/KeyEvent.h>
 
 #include <Accela/Common/ImageData.h>
 #include <Accela/Common/Log/ILogger.h>
 
+#include <SDL2/SDL_events.h>
 #include <SDL2/SDL_surface.h>
 
 namespace Accela::Platform
@@ -49,7 +51,11 @@ namespace Accela::Platform
              * surface's pixel data, or null on error.
              */
             [[nodiscard]] static SDL_Surface* ResizeToPow2Dimensions(const Common::ILogger::Ptr& logger, SDL_Surface *pSurface, SDL_Color fillColor);
+
+            [[nodiscard]] static std::optional<KeyEvent> SDLKeyEventToKeyEvent(const SDL_Event& event);
+
+            [[nodiscard]] static std::optional<ScanCode> PhysicalKeyToScanCode(const PhysicalKey& physicalKey);
     };
 }
 
-#endif //LIBACCELAPLATFORMSDL_SRC_SDLUTIL_H
+#endif //LIBACCELAPLATFORMDESKTOP_INCLUDE_ACCELA_PLATFORM_SDLUTIL_H

@@ -4,87 +4,99 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
  
+#include "QtKeyboardState.h"
+#include "QtMouseState.h"
+
 #include <Accela/Platform/Event/QtEvents.h>
+#include <Accela/Platform/QtUtil.h>
+
+#include <QEvent>
+#include <QKeyEvent>
 
 namespace Accela::Platform
 {
 
 QtEvents::QtEvents(Common::ILogger::Ptr logger)
     : m_logger(std::move(logger))
+    , m_keyboardState(std::make_shared<QtKeyboardState>())
+    , m_mouseState(std::make_shared<QtMouseState>())
 {
 
 }
 
-std::queue<SystemEvent> QtEvents::PopSystemEvents()
+std::queue<SystemEvent> QtEvents::PopLocalEvents()
 {
-    std::lock_guard<std::mutex> lock(m_systemEventsMutex);
-    const auto systemEvents = m_systemEvents;
-    m_systemEvents = {};
+    std::lock_guard<std::mutex> lock(m_localEventsMutex);
+    const auto systemEvents = m_localEvents;
+    m_localEvents = {};
     return systemEvents;
 }
 
-void QtEvents::EnqueueSystemEvent(const SystemEvent& systemEvent)
+std::shared_ptr<const IKeyboardState> QtEvents::GetKeyboardState()
 {
-    std::lock_guard<std::mutex> lock(m_systemEventsMutex);
-    m_systemEvents.push(systemEvent);
+    return m_keyboardState;
 }
 
-Platform::Key QtEvents::QtKeyComboToKey(QKeyCombination keyCombo)
+std::shared_ptr<const IMouseState> QtEvents::GetMouseState()
 {
-    switch (keyCombo.key())
+    return m_mouseState;
+}
+
+void QtEvents::OnLocalEvent(QEvent* pEvent)
+{
+    std::vector<SystemEvent> localEvents;
+
+    // Map Qt event to an Accela system event
+    const auto systemEvent = QtUtil::QtEventToSystemEvent(pEvent, m_lastMousePoint);
+    if (!systemEvent)
     {
-        case Qt::Key_Escape: return Key::Escape;
-        case Qt::Key_Control: return Key::Control;
-        case Qt::Key_Shift: return Key::Shift;
-        case Qt::Key_Backspace: return Key::Backspace;
-        case Qt::Key_Enter: return Key::Keypad_Enter;
-        case Qt::Key_Return: return Key::Return;
-
-        case Qt::Key_A: return Key::A;
-        case Qt::Key_B: return Key::B;
-        case Qt::Key_C: return Key::C;
-        case Qt::Key_D: return Key::D;
-        case Qt::Key_E: return Key::E;
-        case Qt::Key_F: return Key::F;
-        case Qt::Key_G: return Key::G;
-        case Qt::Key_H: return Key::H;
-        case Qt::Key_I: return Key::I;
-        case Qt::Key_J: return Key::J;
-        case Qt::Key_K: return Key::K;
-        case Qt::Key_L: return Key::L;
-        case Qt::Key_M: return Key::M;
-        case Qt::Key_N: return Key::N;
-        case Qt::Key_O: return Key::O;
-        case Qt::Key_P: return Key::P;
-        case Qt::Key_Q: return Key::Q;
-        case Qt::Key_R: return Key::R;
-        case Qt::Key_S: return Key::S;
-        case Qt::Key_T: return Key::T;
-        case Qt::Key_U: return Key::U;
-        case Qt::Key_V: return Key::V;
-        case Qt::Key_W: return Key::W;
-        case Qt::Key_X: return Key::X;
-        case Qt::Key_Y: return Key::Y;
-        case Qt::Key_Z: return Key::Z;
-        case Qt::Key_0: return Key::Zero;
-        case Qt::Key_1: return Key::One;
-        case Qt::Key_2: return Key::Two;
-        case Qt::Key_3: return Key::Three;
-        case Qt::Key_4: return Key::Four;
-        case Qt::Key_5: return Key::Five;
-        case Qt::Key_6: return Key::Six;
-        case Qt::Key_7: return Key::Seven;
-        case Qt::Key_8: return Key::Eight;
-        case Qt::Key_9: return Key::Nine;
-        case Qt::Key_Space: return Key::Space;
-        case Qt::Key_Period: return Key::Period;
-        case Qt::Key_Question: return Key::Question;
-        case Qt::Key_Comma: return Key::Comma;
-        case Qt::Key_QuoteLeft: return Key::BackQuote;
-        case Qt::Key_Minus: return keyCombo.keyboardModifiers() & Qt::KeyboardModifier::ShiftModifier ? Key::Underscore :Key::Minus;
-
-        default: return Key::Unknown;
+        return;
     }
+
+    // Special-handling: Qt doesn't give us relative mouse movement data like SDL does, so manually keep track of the
+    // last seen mouse point, so we can calculate it ourselves as we go
+    if (std::holds_alternative<MouseMoveEvent>((*systemEvent)))
+    {
+        const auto mouseMoveEvent = std::get<MouseMoveEvent>(*systemEvent);
+        m_lastMousePoint = QPointF(mouseMoveEvent.xPos, mouseMoveEvent.yPos);
+    }
+
+    localEvents.push_back(*systemEvent);
+
+    // Special-handling: Qt combines key press and text input into one "key event" event, unlike SDL which has separate
+    // events, so if we're processing  a key press event, also create a fake text input event which contains the text
+    // portion of that event
+    if (pEvent->type() == QEvent::Type::KeyPress)
+    {
+        const auto text = ((QKeyEvent*)(pEvent))->text().toStdString();
+        if (!text.empty())
+        {
+            localEvents.emplace_back(TextInputEvent(text));
+        }
+    }
+
+    std::lock_guard<std::mutex> lock(m_localEventsMutex);
+
+    for (const auto& event : localEvents)
+    {
+        m_localEvents.push(event);
+    }
+}
+
+void QtEvents::OnGlobalEvent(QEvent* pEvent)
+{
+    // WARNING! All local events get passed to both OnLocalEvent and OnGlobalEvent, so need to be careful not to
+    // do anything in this method which would cause duplicate processing of the same event on top of OnLocalEvent
+
+    const auto systemEvent = QtUtil::QtEventToSystemEvent(pEvent, m_lastMousePoint);
+    if (!systemEvent)
+    {
+        return;
+    }
+
+    // All we do with global events is pass them to QtKeyboardState, so it can update its mapping of what keys
+    // are actively pressed
+    std::dynamic_pointer_cast<QtKeyboardState>(m_keyboardState)->OnGlobalEvent(*systemEvent);
 }
 
 }
