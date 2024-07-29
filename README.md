@@ -11,11 +11,11 @@ Accela is a cross-platform C++23 game and render engine utilizing Vulkan 1.3.
 
 - Builds and runs on both Windows and Linux (Mac support planned)
 - Create 2D, 3D and VR (via OpenVR) applications
-- Multiple, configurable, frames in flight rendered in parallel
 - ECS system for entity management
 - Asset loading system for textures, audio, fonts and models
 - Loads most texture formats (16+) and 3D model formats (40+)
-- Dynamic lighting and shadows with deferred and forward lighting passes
+- Dynamic lighting with deferred and forward lighting passes
+- Dynamic shadows with cascaded and point-based shadow maps
 - Compute-based post-processing: HDR Tone Mapping, Gamma Correction, FXAA
 - Node-based and skeleton/bone-based model animations
 - Realistic 3D physics simulation via PhysX
