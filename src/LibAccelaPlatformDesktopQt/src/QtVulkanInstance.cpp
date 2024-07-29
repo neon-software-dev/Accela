@@ -17,7 +17,7 @@ QtVulkanInstance::QtVulkanInstance(Common::ILogger::Ptr logger)
 
 bool QtVulkanInstance::Init()
 {
-    m_pVulkanInstance = new QVulkanInstance();
+    m_pVulkanInstance = std::make_unique<QVulkanInstance>();
 
     if (!m_pVulkanInstance->create())
     {
@@ -39,12 +39,9 @@ void QtVulkanInstance::Destroy()
 
 bool QtVulkanInstance::CreateFromVkInstance(VkInstance vkInstance)
 {
-    if (m_pVulkanInstance != nullptr)
-    {
-        m_pVulkanInstance->destroy();
-    }
+    Destroy();
 
-    m_pVulkanInstance = new QVulkanInstance();
+    m_pVulkanInstance = std::make_unique<QVulkanInstance>();
     m_pVulkanInstance->setVkInstance(vkInstance);
 
     if (!m_pVulkanInstance->create())
@@ -59,7 +56,7 @@ bool QtVulkanInstance::CreateFromVkInstance(VkInstance vkInstance)
 
 QVulkanInstance *QtVulkanInstance::GetQVulkanInstance() const noexcept
 {
-    return m_pVulkanInstance;
+    return m_pVulkanInstance.get();
 }
 
 }

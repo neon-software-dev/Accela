@@ -57,7 +57,7 @@ VulkanFramebufferPtr VulkanObjs::GetSwapChainFrameBuffer(const uint32_t& imageIn
 VulkanRenderPassPtr VulkanObjs::GetGPassRenderPass() const noexcept { return m_gPassRenderPass; }
 VulkanRenderPassPtr VulkanObjs::GetScreenRenderPass() const noexcept { return m_screenRenderPass; }
 VulkanRenderPassPtr VulkanObjs::GetSwapChainBlitRenderPass() const noexcept { return m_swapChainBlitRenderPass; }
-VulkanRenderPassPtr VulkanObjs::GetShadow2DRenderPass() const noexcept { return m_shadow2DRenderPass; }
+VulkanRenderPassPtr VulkanObjs::GetShadowCascadedRenderPass() const noexcept { return m_shadowCascadedRenderPass; }
 VulkanRenderPassPtr VulkanObjs::GetShadowCubeRenderPass() const noexcept { return m_shadowCubeRenderPass; }
 
 bool VulkanObjs::Initialize(bool enableValidationLayers, const RenderSettings& renderSettings)
@@ -132,9 +132,9 @@ bool VulkanObjs::Initialize(bool enableValidationLayers, const RenderSettings& r
         return false;
     }
 
-    if (!CreateShadow2DRenderPass())
+    if (!CreateShadowCascadedRenderPass())
     {
-        m_logger->Log(Common::LogLevel::Error, "VulkanObjs: Failed to create shadow 2d render pass");
+        m_logger->Log(Common::LogLevel::Error, "VulkanObjs: Failed to create shadow cascaded render pass");
         return false;
     }
 
@@ -152,7 +152,7 @@ void VulkanObjs::Destroy()
     m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Destroying Vulkan objects");
 
     DestroyShadowCubeRenderPass();
-    DestroyShadow2DRenderPass();
+    DestroyShadowCascadedRenderPass();
     DestroyScreenRenderPass();
     DestroyGPassRenderPass();
     DestroySwapChainFrameBuffers();
@@ -836,22 +836,31 @@ void VulkanObjs::DestroySwapChainBlitRenderPass()
     }
 }
 
-bool VulkanObjs::CreateShadow2DRenderPass()
+bool VulkanObjs::CreateShadowCascadedRenderPass()
 {
-    m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Creating shadow 2d render pass");
+    m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Creating shadow cascaded render pass");
 
-    m_shadow2DRenderPass = CreateShadowRenderPass(std::nullopt, std::nullopt, 1, "Shadow");
+    if (!m_renderSettings) { return false; }
 
-    return m_shadow2DRenderPass != nullptr;
+    const auto numLayers = Shadow_Cascade_Count;
+
+    const uint32_t layerMask = (uint32_t)std::pow(2, numLayers) - 1;
+
+    const std::vector<uint32_t> viewMasks = {layerMask};
+    const uint32_t correlationMask = layerMask;
+
+    m_shadowCascadedRenderPass = CreateShadowRenderPass(viewMasks, correlationMask, numLayers, "ShadowCascaded");
+
+    return m_shadowCascadedRenderPass != nullptr;
 }
 
-void VulkanObjs::DestroyShadow2DRenderPass()
+void VulkanObjs::DestroyShadowCascadedRenderPass()
 {
-    if (m_shadow2DRenderPass != nullptr)
+    if (m_shadowCascadedRenderPass != nullptr)
     {
-        m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Destroying shadow 2d render pass");
-        m_shadow2DRenderPass->Destroy();
-        m_shadow2DRenderPass = nullptr;
+        m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Destroying shadow cascaded render pass");
+        m_shadowCascadedRenderPass->Destroy();
+        m_shadowCascadedRenderPass = nullptr;
     }
 }
 

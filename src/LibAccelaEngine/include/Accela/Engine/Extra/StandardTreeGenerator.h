@@ -23,8 +23,8 @@ namespace Accela::Engine
     {
         // General
         float maturity{1.0f};                       // Specifies tree "maturity"; 0 = none, 1 = mature
-        //  Impacts factors such as number of and size of branches and
-        //  leaves (also, leaves only start to appear at maturity > 0.75)
+                                                    //  Impacts factors such as number of and size of branches and
+                                                    //  leaves (also, leaves only start to appear at maturity > 0.75)
 
         // Sun
         glm::vec3 sun_directionUnit{0,1,0};   // Unit vector from the tree's origin to a hypothetical sun
@@ -33,7 +33,7 @@ namespace Accela::Engine
 
         // Geometry
         float trunk_baseLength{4.0f};               // Length of the initial trunk branch (note that additional branch levels
-        //  will cause more branches to be appended to the trunk and it will end up taller)
+                                                    //  will cause more branches to be appended to the trunk and it will end up taller)
         float trunk_baseRadius{0.5f};               // Radius of the initial trunk branch
         float trunk_flarePercent{1.3f};             // Extra outwards flare applied to the root trunk segment
 

@@ -9,7 +9,7 @@
 
 #include "Projection.h"
 #include "AABB.h"
-#include "SpaceTests.h"
+#include "GeometryUtil.h"
 
 #include <glm/glm.hpp>
 
@@ -19,6 +19,8 @@ namespace Accela::Render
 {
     struct ViewProjection
     {
+        ViewProjection() = default;
+
         ViewProjection(const glm::mat4& _viewTransform, Projection::Ptr _projectionTransform)
             : viewTransform(_viewTransform)
             , projectionTransform(std::move(_projectionTransform))
@@ -64,6 +66,14 @@ namespace Accela::Render
         [[nodiscard]] AABB GetWorldSpaceAABB() const
         {
             return AABBForTransformedProjection(
+                projectionTransform,
+                glm::inverse(viewTransform)
+            );
+        }
+
+        [[nodiscard]] std::vector<glm::vec3> GetWorldSpaceBoundingPoints() const
+        {
+            return TransformedProjectionBounds(
                 projectionTransform,
                 glm::inverse(viewTransform)
             );

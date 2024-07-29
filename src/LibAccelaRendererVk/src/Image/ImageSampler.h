@@ -15,10 +15,10 @@ namespace Accela::Render
 
     struct ImageSampler
     {
-        static constexpr ImageSamplerName DEFAULT{"DEFAULT"};
-        static constexpr ImageSamplerName NEAREST{"NEAREST"};
+        static ImageViewName DEFAULT() { return "DEFAULT"; };
+        static ImageViewName NEAREST() { return "NEAREST"; };
 
-        ImageSamplerName name{DEFAULT};
+        ImageSamplerName name{DEFAULT()};
         VkFilter vkMagFilter{VK_FILTER_LINEAR};
         VkFilter vkMinFilter{VK_FILTER_LINEAR};
         VkSamplerAddressMode vkSamplerAddressModeU{VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE};

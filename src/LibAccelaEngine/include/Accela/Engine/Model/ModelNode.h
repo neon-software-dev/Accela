@@ -31,7 +31,7 @@ namespace Accela::Engine
         glm::mat4 localTransform{1};
         glm::mat4 bindGlobalTransform{1};
 
-        std::optional<ModelNode::Ptr> parent;
+        std::weak_ptr<ModelNode> parent;
         std::vector<ModelNode::Ptr> children;
 
         std::vector<unsigned int> meshIndices;

@@ -480,8 +480,8 @@ std::optional<VulkanDescriptorSetPtr> SpriteRenderer::UpdateMaterialDescriptorSe
 
     (*materialDescriptorSet)->WriteCombinedSamplerBind(
         m_programDef->GetBindingDetailsByName("i_spriteSampler"),
-        loadedTexture.second.vkImageViews.at(TextureView::DEFAULT),
-        loadedTexture.second.vkSamplers.at(TextureSampler::DEFAULT)
+        loadedTexture.second.vkImageViews.at(TextureView::DEFAULT()),
+        loadedTexture.second.vkSamplers.at(TextureSampler::DEFAULT())
     );
 
     return *materialDescriptorSet;

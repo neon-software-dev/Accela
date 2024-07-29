@@ -5,7 +5,7 @@
  */
  
 #include "KDTree.h"
-#include "SpaceTests.h"
+#include "GeometryUtil.h"
 
 #include <queue>
 

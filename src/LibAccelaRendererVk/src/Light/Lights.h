@@ -39,6 +39,7 @@ namespace Accela::Render
             void ProcessUpdate(const WorldUpdate& update, const VulkanCommandBufferPtr& commandBuffer, VkFence vkFence) override;
             [[nodiscard]] bool OnRenderSettingsChanged(const RenderSettings& renderSettings) override;
             void InvalidateShadowMapsByBounds(const std::vector<AABB>& boundingBoxes_worldSpace) override;
+            void UpdateShadowMapsForCamera(const RenderCamera& renderCamera) override;
             void OnShadowMapSynced(const LightId& lightId) override;
 
         private:
@@ -47,15 +48,16 @@ namespace Accela::Render
             void ProcessUpdatedLights(const WorldUpdate& update, const VulkanCommandBufferPtr& commandBuffer, VkFence vkFence);
             void ProcessDeletedLights(const WorldUpdate& update, const VulkanCommandBufferPtr& commandBuffer, VkFence vkFence);
 
+            [[nodiscard]] std::expected<std::vector<ShadowRender>, bool> DetermineLightShadowRenders(const LoadedLight& loadedLight, const RenderCamera& renderCamera);
+
             [[nodiscard]] std::expected<FrameBufferId, bool> CreateShadowFramebuffer(const Light& light, const RenderSettings& renderSettings) const;
             [[nodiscard]] bool RecreateShadowFramebuffer(LoadedLight& loadedLight, const RenderSettings& renderSettings) const;
-            [[nodiscard]] static Render::USize GetShadowFramebufferSize(const RenderSettings& renderSettings);
 
             [[nodiscard]] inline bool LightAffectsViewProjections(const LoadedLight& loadedLight,
                                                                   const std::vector<ViewProjection>& viewProjections) const;
 
-            [[nodiscard]] bool IsVolumeTriviallyOutsideLight_Single(const LoadedLight& loadedLight, const Volume& volume_worldSpace);
-            [[nodiscard]] bool IsVolumeTriviallyOutsideLight_Cube(const LoadedLight& loadedLight, const Volume& volume_worldSpace);
+            static void InvalidateShadowMapsByBounds_Cascaded(LoadedLight& loadedLight, const Volume& volume_worldSpace);
+            static void InvalidateShadowMapsByBounds_Cube(LoadedLight& loadedLight, const Volume& volume_worldSpace);
 
         private:
 

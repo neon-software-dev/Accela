@@ -9,73 +9,62 @@
 
 #include "PostProcessingRenderer.h"
 
+#include <unordered_set>
+
 namespace Accela::Render
 {
     //
-    // Tone Mapping Effect
+    // Color Correction Effect
     //
-    struct ToneMappingPushPayload
+    struct ColorCorrectionPushPayload
     {
         // Required
         alignas(4) uint32_t renderWidth{0};
         alignas(4) uint32_t renderHeight{0};
 
         // Effect-specific
-        alignas(4) float hdr_exposure{1.0f};
+
+        // Tone Mapping
+        alignas(4) uint32_t doToneMapping{0};
+        alignas(4) float exposure{1.0f};
+
+        // Gamma Correction
+        alignas(4) uint32_t doGammaCorrection{0};
+        alignas(4) float gamma{2.2f};
     };
 
-    [[nodiscard]] [[maybe_unused]] static PostProcessEffect ToneMappingEffect(const RenderSettings& renderSettings)
+    enum class ColorCorrection
     {
-        ToneMappingPushPayload pushPayload{};
-        pushPayload.renderWidth = renderSettings.resolution.w;
-        pushPayload.renderHeight = renderSettings.resolution.h;
-        pushPayload.hdr_exposure = renderSettings.exposure;
-
-        std::vector<std::byte> pushPayloadBytes(sizeof(ToneMappingPushPayload));
-        memcpy(pushPayloadBytes.data(), &pushPayload, sizeof(ToneMappingPushPayload));
-
-        return {
-            .programName = "ToneMapping",
-            .inputImageView = ImageView::DEFAULT,
-            .inputImageSampler = ImageSampler::NEAREST,
-            .additionalSamplers = {},
-            .bufferPayloads = {},
-            .pushPayload = pushPayloadBytes,
-            .tag = "ToneMapping"
-        };
-    }
-
-    //
-    // Gamma Correction Effect
-    //
-    struct GammaCorrectionPushPayload
-    {
-        // Required
-        alignas(4) uint32_t renderWidth{0};
-        alignas(4) uint32_t renderHeight{0};
-
-        // Effect-specific
-        alignas(4) float gamma{1.0f};
+        ToneMapping,
+        GammaCorrection
     };
 
-    [[nodiscard]] [[maybe_unused]] static PostProcessEffect GammaCorrectionEffect(const RenderSettings& renderSettings)
+    [[nodiscard]] [[maybe_unused]] static PostProcessEffect ColorCorrectionEffect(const RenderSettings& renderSettings,
+                                                                                  const std::unordered_set<ColorCorrection>& corrections)
     {
-        GammaCorrectionPushPayload pushPayload{};
+        ColorCorrectionPushPayload pushPayload{};
         pushPayload.renderWidth = renderSettings.resolution.w;
         pushPayload.renderHeight = renderSettings.resolution.h;
+
+        // Tone Mapping
+        pushPayload.doToneMapping = corrections.contains(ColorCorrection::ToneMapping);
+        pushPayload.exposure = renderSettings.exposure;
+
+        // Gamma Correction
+        pushPayload.doGammaCorrection = corrections.contains(ColorCorrection::GammaCorrection);
         pushPayload.gamma = renderSettings.gamma;
 
-        std::vector<std::byte> pushPayloadBytes(sizeof(GammaCorrectionPushPayload));
-        memcpy(pushPayloadBytes.data(), &pushPayload, sizeof(GammaCorrectionPushPayload));
+        std::vector<std::byte> pushPayloadBytes(sizeof(ColorCorrectionPushPayload));
+        memcpy(pushPayloadBytes.data(), &pushPayload, sizeof(ColorCorrectionPushPayload));
 
         return {
-            .programName = "GammaCorrection",
-            .inputImageView = ImageView::DEFAULT,
-            .inputImageSampler = ImageSampler::NEAREST,
+            .programName = "ColorCorrection",
+            .inputImageView = ImageView::DEFAULT(),
+            .inputImageSampler = ImageSampler::NEAREST(),
             .additionalSamplers = {},
             .bufferPayloads = {},
             .pushPayload = pushPayloadBytes,
-            .tag = "GammaCorrection"
+            .tag = "ColorCorrection"
         };
     }
 
@@ -100,8 +89,8 @@ namespace Accela::Render
 
         return {
             .programName = "FXAA",
-            .inputImageView = ImageView::DEFAULT,
-            .inputImageSampler = ImageSampler::DEFAULT,
+            .inputImageView = ImageView::DEFAULT(),
+            .inputImageSampler = ImageSampler::DEFAULT(),
             .additionalSamplers = {},
             .bufferPayloads = {},
             .pushPayload = pushPayloadBytes,
@@ -126,6 +115,7 @@ namespace Accela::Render
 
     [[nodiscard]] [[maybe_unused]] static PostProcessEffect ObjectHighlightEffect(const RenderSettings& renderSettings,
                                                                                   const LoadedImage& objectDetailImage,
+                                                                                  const LoadedImage& depthImage,
                                                                                   const std::unordered_set<ObjectId>& highlightedObjects)
     {
         //
@@ -163,10 +153,11 @@ namespace Accela::Render
 
         return {
             .programName = "ObjectHighlight",
-            .inputImageView = ImageView::DEFAULT,
-            .inputImageSampler = ImageSampler::DEFAULT,
+            .inputImageView = ImageView::DEFAULT(),
+            .inputImageSampler = ImageSampler::NEAREST(),
             .additionalSamplers = {
-                {"i_objectDetail", objectDetailImage, VK_IMAGE_ASPECT_COLOR_BIT, ImageView::DEFAULT, ImageSampler::NEAREST}
+                {"i_objectDetail", objectDetailImage, VK_IMAGE_ASPECT_COLOR_BIT, ImageView::DEFAULT(), ImageSampler::NEAREST()},
+                {"i_depthDetail", depthImage, VK_IMAGE_ASPECT_DEPTH_BIT, ImageView::DEFAULT(), ImageSampler::NEAREST()}
              },
             .bufferPayloads = {
                 {"i_highlightedObjects", highlightedObjectsPayload}

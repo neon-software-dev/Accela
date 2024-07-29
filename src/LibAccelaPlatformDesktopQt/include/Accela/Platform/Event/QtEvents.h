@@ -30,7 +30,15 @@ namespace Accela::Platform
             [[nodiscard]] std::shared_ptr<const IKeyboardState> GetKeyboardState() override;
             [[nodiscard]] std::shared_ptr<const IMouseState> GetMouseState() override;
 
+            /**
+             * Should be called when a Qt event has arrived to an accela-powered QWidget/QWindow.
+             */
             void OnLocalEvent(QEvent* pEvent);
+
+            /**
+             * Should be called when a Qt event has been delivered to a Qt window in general, irregardless
+             * of the widget that ultimately handles the event.
+             */
             void OnGlobalEvent(QEvent* pEvent);
 
         private:

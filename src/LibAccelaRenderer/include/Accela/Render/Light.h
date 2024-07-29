@@ -16,6 +16,7 @@
 
 namespace Accela::Render
 {
+    // Maximum active lights in a scene
     constexpr uint32_t Max_Light_Count = 16;
 
     // Warning - Can't change the order of these values without syncing shaders to the changed values
@@ -26,25 +27,44 @@ namespace Accela::Render
         Exponential
     };
 
-    enum class LightProjection
+    enum class LightType
     {
-        Perspective,
-        Orthographic
+        Point,
+        Directional
     };
 
     struct LightProperties
     {
+        LightType type{LightType::Point};
         AttenuationMode attenuationMode{AttenuationMode::Exponential};
-        LightProjection projection{LightProjection::Perspective};
 
         glm::vec3 diffuseColor{0};
         glm::vec3 diffuseIntensity{0};
-
         glm::vec3 specularColor{0};
         glm::vec3 specularIntensity{0};
 
+        /**
+         * The world-space unit vector which describes the direction the light is pointed.
+         * For an omni-directional light, the value doesn't matter.
+         */
         glm::vec3 directionUnit{0,0,-1};
-        float coneFovDegrees{360.0f};
+
+        /**
+         * Value to specify in which way the emitted light is restricted. Means something
+         * different for each light type.
+         *
+         * [Point Lights]
+         * Represents the degree width of the cone of light that the light emits, pointing in
+         * the light's direction. Should be set to 360.0f for an omni-directional light. Valid
+         * values are [0.0..360.0f].
+         *
+         * [Directional Lights]
+         * Represents the world-space light plane disk radius of the emitted light. Should be set
+         * to the special case value of 0.0f to represent no limitation of area of effect.
+         * Any non-(sufficiently)zero value represents a disk radius from which to emit light from
+         * the light's plane.
+         */
+        float areaOfEffect{360.0f};
     };
 
     /**

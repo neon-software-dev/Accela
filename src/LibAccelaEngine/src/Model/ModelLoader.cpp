@@ -636,6 +636,7 @@ void ModelLoader::ProcessSkeletons(const Model::Ptr& model)
     for (const auto& nodeId : model->nodesWithMeshes)
     {
         const ModelNode::Ptr node = model->nodeMap[nodeId];
+        const ModelNode::Ptr nodeParent = node->parent.lock();
 
         for (const auto& meshIndex : node->meshIndices)
         {
@@ -660,23 +661,24 @@ void ModelLoader::ProcessSkeletons(const Model::Ptr& model)
 
             while (curNode != nullptr)
             {
-                ModelNode::Ptr parentNode = *curNode->parent;
-                if (parentNode != nullptr)
+                const auto curNodeParent = curNode->parent.lock();
+
+                if (curNodeParent)
                 {
-                    if (parentNode->id == node->id)
+                    if (curNodeParent->id == node->id)
                     {
                         skeletonRootFound = true;
                         break;
                     }
 
-                    if (node->parent.has_value() && parentNode->id == (*node->parent)->id)
+                    if (nodeParent && curNodeParent->id == nodeParent->id)
                     {
                         skeletonRootFound = true;
                         break;
                     }
                 }
 
-                curNode = *curNode->parent;
+                curNode = curNodeParent;
             }
 
             if (skeletonRootFound)

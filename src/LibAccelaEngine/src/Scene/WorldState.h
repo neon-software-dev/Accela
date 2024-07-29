@@ -72,6 +72,7 @@ namespace Accela::Engine
 
             void HighlightEntity(EntityId entityId, bool isHighlighted) override;
             void ToggleHighlightEntity(EntityId entityId) override;
+            void ClearEntityHighlights() override;
 
             template <typename T>
             bool HasComponent(EntityId entityId)

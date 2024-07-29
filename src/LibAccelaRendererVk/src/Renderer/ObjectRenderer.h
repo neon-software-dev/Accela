@@ -37,10 +37,12 @@ namespace Accela::Render
 
             struct ShadowRenderData
             {
-                explicit ShadowRenderData(float _lightMaxAffectRange)
-                    : lightMaxAffectRange(_lightMaxAffectRange)
+                ShadowRenderData(ShadowMapType _shadowMapType, float _lightMaxAffectRange)
+                    : shadowMapType(_shadowMapType)
+                    , lightMaxAffectRange(_lightMaxAffectRange)
                 { }
 
+                ShadowMapType shadowMapType;
                 float lightMaxAffectRange;
             };
 
@@ -277,6 +279,7 @@ namespace Accela::Render
 
             struct ShadowLayerIndexPayload
             {
+                alignas(4) uint32_t shadowMapType{0};
                 alignas(4) float lightMaxAffectRange{0.0f};
             };
 

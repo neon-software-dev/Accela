@@ -275,7 +275,7 @@ bool RawTriangleRenderer::UpdateGlobalDescriptorSet_Global(const RenderParams& r
     // Update the global data buffer with the global data
     //
 
-    GlobalPayload globalPayload = GetGlobalPayload(renderParams, 0);
+    GlobalPayload globalPayload = GetGlobalPayload(renderParams, m_renderSettings, 0);
 
     (*globalDataBuffer)->PushBack(ExecutionContext::CPU(), {globalPayload});
 

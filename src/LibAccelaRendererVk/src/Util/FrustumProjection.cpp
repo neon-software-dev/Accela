@@ -160,7 +160,22 @@ AABB FrustumProjection::GetAABB() const noexcept
 
 std::vector<glm::vec3> FrustumProjection::GetBoundingPoints() const noexcept
 {
-    return {m_nearMin, m_nearMax, m_farMin, m_farMax};
+    std::vector<glm::vec3> points;
+    points.reserve(8);
+
+    // Four bounding points of near plane
+    points.push_back(m_nearMin);
+    points.push_back(m_nearMax);
+    points.emplace_back(m_nearMin.x, m_nearMax.y, m_nearMax.z);
+    points.emplace_back(m_nearMax.x, m_nearMin.y, m_nearMax.z);
+
+    // Four bounding points of far plane
+    points.push_back(m_farMin);
+    points.push_back(m_farMax);
+    points.emplace_back(m_farMin.x, m_farMax.y, m_farMax.z);
+    points.emplace_back(m_farMax.x, m_farMin.y, m_farMax.z);
+
+    return points;
 }
 
 glm::vec3 FrustumProjection::GetNearPlaneMin() const noexcept

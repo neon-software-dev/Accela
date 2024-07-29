@@ -15,9 +15,10 @@ namespace Accela::Render
 
     struct ImageView
     {
-        static constexpr ImageViewName DEFAULT{"DEFAULT"};
+        static ImageViewName DEFAULT() { return "DEFAULT"; };
+        static ImageViewName ARRAY() { return "ARRAY"; };
 
-        ImageViewName name{DEFAULT};
+        ImageViewName name{DEFAULT()};
         VkImageViewType vkImageViewType{VK_IMAGE_VIEW_TYPE_2D};
         VkImageAspectFlags vkImageAspectFlags{VK_IMAGE_ASPECT_COLOR_BIT};
         uint32_t baseLayer{0};

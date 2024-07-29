@@ -19,6 +19,7 @@ struct GlobalPayload
     uint numLights;
     float ambientLightIntensity;
     vec3 ambientLightColor;
+    float shadowCascadeOverlap;
 };
 
 struct ViewProjectionPayload
@@ -94,6 +95,7 @@ layout(set = 3, binding = 2) readonly buffer MeshPayloadBuffer
 // Push Constants
 layout(push_constant) uniform constants
 {
+    uint shadowMapType;
     float lightMaxAffectRange;
 } PushConstants;
 

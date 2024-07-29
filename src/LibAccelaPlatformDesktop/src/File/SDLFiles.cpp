@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
  
+#include <Accela/Platform/SDLUtil.h>
 #include <Accela/Platform/File/SDLFiles.h>
 #include <Accela/Platform/Package/DiskPackageSource.h>
 
@@ -68,12 +69,13 @@ SDLFiles::LoadTexture(const std::vector<std::byte>& data,
         return std::unexpected(false);
     }
 
-    auto imageData = SDLSurfaceToImageData(m_logger, pSurface);
+    auto imageData = SDLUtil::SDLSurfaceToImageData(m_logger, pSurface);
     if (imageData == nullptr)
     {
         m_logger->Log(Common::LogLevel::Error, "LoadTexture: SDLSurfaceToImageData failed");
         return std::unexpected(false);
     }
+    SDL_FreeSurface(pSurface);
 
     return imageData;
 }
@@ -87,12 +89,13 @@ std::expected<Common::ImageData::Ptr, unsigned int> SDLFiles::LoadTexture(const 
         return std::unexpected(1);
     }
 
-    auto imageData = SDLSurfaceToImageData(m_logger, pSurface);
+    auto imageData = SDLUtil::SDLSurfaceToImageData(m_logger, pSurface);
     if (imageData == nullptr)
     {
         m_logger->Log(Common::LogLevel::Error, "LoadAssetTexture: SDLSurfaceToImageData failed");
         return std::unexpected(2);
     }
+    SDL_FreeSurface(pSurface);
 
     return imageData;
 }
@@ -117,7 +120,11 @@ std::expected<Common::ImageData::Ptr, unsigned int> SDLFiles::LoadTexture(const 
 
 std::string SDLFiles::GetExecutableDirectory()
 {
-    return SDL_GetBasePath();
+    auto basePath = SDL_GetBasePath(); // TODO Perf: Documentation says this is a heavy call, only call once and cache
+    auto basePathStr = std::string(basePath);
+    SDL_free(basePath);
+
+    return basePathStr;
 }
 
 std::string SDLFiles::GetAccelaDirectory() const
@@ -189,57 +196,6 @@ std::string SDLFiles::EnsureEndsWithSeparator(const std::string& source) const
     {
         return source + pathSeparator;
     }
-}
-
-Common::ImageData::Ptr SDLFiles::SDLSurfaceToImageData(const Common::ILogger::Ptr& logger, SDL_Surface *pSurface)
-{
-    SDL_LockSurface(pSurface);
-
-    SDL_Surface* pFormattedSurface = nullptr;
-
-    if (pSurface->format->format == SDL_PIXELFORMAT_RGBA32)
-    {
-        pFormattedSurface = pSurface;
-    }
-    else
-    {
-        // Convert the surface to RGBA32 as that's what the Renderer wants for textures
-        pFormattedSurface = SDL_ConvertSurfaceFormat(pSurface, SDL_PIXELFORMAT_RGBA32, 0);
-
-        // Unlock the old surface
-        SDL_UnlockSurface(pSurface);
-
-        if (pFormattedSurface == nullptr)
-        {
-            logger->Log(Common::LogLevel::Error,
-            "SDLSurfaceToImageData: Surface could not be converted to a supported pixel format");
-            return nullptr;
-        }
-
-        // Lock the new surface for reading its pixels
-        SDL_LockSurface(pFormattedSurface);
-    }
-
-    // Byte size of the pixel data
-    const uint32_t pixelDataByteSize = pFormattedSurface->w * pFormattedSurface->h * pFormattedSurface->format->BytesPerPixel;
-
-    // Copy the surface's pixel data into a vector
-    std::vector<std::byte> imageBytes;
-    imageBytes.reserve(pixelDataByteSize);
-    imageBytes.insert(imageBytes.end(), (std::byte*)pFormattedSurface->pixels, (std::byte*)pFormattedSurface->pixels + pixelDataByteSize);
-
-    Common::ImageData::Ptr loadResult = std::make_shared<Common::ImageData>(
-        imageBytes,
-        1,
-        static_cast<unsigned int>(pFormattedSurface->w),
-        static_cast<unsigned int>(pFormattedSurface->h),
-        Common::ImageData::PixelFormat::RGBA32
-    );
-
-    SDL_UnlockSurface(pFormattedSurface);
-    SDL_FreeSurface(pSurface);
-
-    return loadResult;
 }
 
 }

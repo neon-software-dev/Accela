@@ -15,6 +15,7 @@
 #include "../Util/ViewProjection.h"
 
 #include <Accela/Render/Light.h>
+#include <Accela/Render/RenderCamera.h>
 
 #include <Accela/Render/Task/WorldUpdate.h>
 #include <Accela/Render/RenderSettings.h>
@@ -52,6 +53,8 @@ namespace Accela::Render
              * @param boundingBoxes_worldSpace The world-space bounding boxes of areas to be invalidated
              */
             virtual void InvalidateShadowMapsByBounds(const std::vector<AABB>& boundingBoxes_worldSpace) = 0;
+
+            virtual void UpdateShadowMapsForCamera(const RenderCamera& renderCamera) = 0;
 
             /**
              * Marks a shadow map for the specified light as in-sync (not invalidated)

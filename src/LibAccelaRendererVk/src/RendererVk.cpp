@@ -187,8 +187,7 @@ bool RendererVk::CreatePrograms()
         {"DeferredLighting", {"DeferredLighting.vert.spv", "DeferredLighting.frag.spv"}},
         {"RawTriangle", {"RawTriangle.vert.spv", "RawTriangle.frag.spv"}},
         {"SwapChainBlit", {"SwapChainBlit.vert.spv", "SwapChainBlit.frag.spv"}},
-        {"ToneMapping", {"ToneMapping.comp.spv"}},
-        {"GammaCorrection", {"GammaCorrection.comp.spv"}},
+        {"ColorCorrection", {"ColorCorrection.comp.spv"}},
         {"FXAA", {"FXAA.comp.spv"}},
         {"ObjectHighlight", {"ObjectHighlight.comp.spv"}}
     };
@@ -465,7 +464,7 @@ bool RendererVk::RenderGraphFunc_RenderScene(const RenderGraphNode::Ptr& node)
     //
 
     // Run shadow passes to render any shadow maps which are invalidated
-    RefreshShadowMapsAsNeeded(renderParams, renderCommandBuffer, viewProjections);
+    RefreshShadowMapsAsNeeded(renderParams, renderCommandBuffer);
 
     // Create a mapping of light -> shadow map texture
     std::unordered_map<LightId, ImageId> shadowMaps;
@@ -539,9 +538,9 @@ void RendererVk::RunSceneRender(const std::string& sceneName,
 
     const auto frameObjectDetailResultImage = *m_images->GetImage(currentFrame.GetObjectDetailImageId());
 
-    ////////////////////
+    //////////////////////////
     // GPass Render Pass
-    ////////////////////
+    //////////////////////////
 
     StartRenderPass(gPassRenderPass, *gPassFramebufferObjs, commandBuffer);
         RenderObjects(sceneName, *gPassFramebufferObjs, renderParams, viewProjections, shadowMaps);
@@ -555,32 +554,36 @@ void RendererVk::RunSceneRender(const std::string& sceneName,
                           ObjectHighlightEffect(
                               m_vulkanObjs->GetRenderSettings(),
                               gPassObjectDetailImage,
+                              gPassDepthImage,
                               renderParams.highlightedObjects));
     }
 
-    ///////////////////
+    //////////////////////////
     // Screen Render Pass
-    ///////////////////
+    //////////////////////////
 
     StartRenderPass(screenRenderPass, *screenFramebufferObjs, commandBuffer);
         RenderScreen(sceneName, *screenFramebufferObjs, renderParams);
     EndRenderPass(commandBuffer);
 
     //////////////////////////
-    // Tone-Mapping
+    // GPass Color Correction
     //////////////////////////
+
+    std::unordered_set<ColorCorrection> colorCorrections{ColorCorrection::GammaCorrection};
 
     if (renderSettings.hdr)
     {
-        RunPostProcessing(gPassColorImage, postProcessingOutputImage, ToneMappingEffect(m_vulkanObjs->GetRenderSettings()));
+        colorCorrections.insert(ColorCorrection::ToneMapping);
     }
 
+    RunPostProcessing(gPassColorImage, postProcessingOutputImage, ColorCorrectionEffect(m_vulkanObjs->GetRenderSettings(), colorCorrections));
+
     //////////////////////////
-    // Gamma Correction
+    // Screen Color Correction
     //////////////////////////
 
-    RunPostProcessing(gPassColorImage, postProcessingOutputImage, GammaCorrectionEffect(m_vulkanObjs->GetRenderSettings()));
-    RunPostProcessing(screenColorImage, postProcessingOutputImage, GammaCorrectionEffect(m_vulkanObjs->GetRenderSettings()));
+    RunPostProcessing(screenColorImage, postProcessingOutputImage, ColorCorrectionEffect(m_vulkanObjs->GetRenderSettings(), {ColorCorrection::GammaCorrection}));
 
     //////////////////////////
     // FXAA
@@ -1346,33 +1349,39 @@ std::optional<ObjectId> RendererVk::GetTopObjectAtRenderPoint(const glm::vec2& r
     return ObjectId(objectId);
 }
 
-void RendererVk::RefreshShadowMapsAsNeeded(const RenderParams& renderParams,
-                                           const VulkanCommandBufferPtr& commandBuffer,
-                                           const std::vector<ViewProjection>& viewProjections)
+void RendererVk::RefreshShadowMapsAsNeeded(const RenderParams& renderParams, const VulkanCommandBufferPtr& commandBuffer)
 {
     CmdBufferSectionLabel sectionLabel(m_vulkanObjs->GetCalls(), commandBuffer, "ShadowMapRenders");
 
-    const auto loadedLights = m_lights->GetAllLights();
+    //
+    // Let the lighting system invalidate shadow maps as needed, given the render camera parameters
+    //
+    m_lights->UpdateShadowMapsForCamera(renderParams.worldRenderCamera);
 
-    for (const auto& loadedLight : loadedLights)
+    //
+    // Loop over all lights and run shadow renders for any which cast shadows and which have an
+    // invalidated shadow map
+    //
+    for (const auto& loadedLight : m_lights->GetAllLights())
     {
         const bool lightCastsShadows = loadedLight.light.castsShadows && loadedLight.shadowFrameBufferId;
-        const auto lightShadowInvalidated = loadedLight.shadowInvalidated;
+        const bool needsRefresh = lightCastsShadows && loadedLight.shadowInvalidated;
 
-        if (lightCastsShadows && lightShadowInvalidated)
+        if (!needsRefresh)
         {
-            if (!RefreshShadowMap(renderParams, commandBuffer, viewProjections, loadedLight))
-            {
-                m_logger->Log(Common::LogLevel::Error,
-                  "RefreshShadowMaps: Failed to refresh shadow map for light id: {}", loadedLight.light.lightId.id);
-            }
+            continue;
+        }
+
+        if (!RefreshShadowMap(renderParams, commandBuffer, loadedLight))
+        {
+            m_logger->Log(Common::LogLevel::Error,
+              "RefreshShadowMapsAsNeeded: Failed to refresh shadow map for light id: {}", loadedLight.light.lightId.id);
         }
     }
 }
 
 bool RendererVk::RefreshShadowMap(const RenderParams& renderParams,
                                   const VulkanCommandBufferPtr& commandBuffer,
-                                  const std::vector<ViewProjection>&,
                                   const LoadedLight& loadedLight)
 {
     //
@@ -1384,11 +1393,11 @@ bool RendererVk::RefreshShadowMap(const RenderParams& renderParams,
 
     switch (loadedLight.shadowMapType)
     {
-        case ShadowMapType::Single:
+        case ShadowMapType::Cascaded:
         {
-            shadowRenderPass = m_vulkanObjs->GetShadow2DRenderPass();
+            shadowRenderPass = m_vulkanObjs->GetShadowCascadedRenderPass();
         }
-            break;
+        break;
         case ShadowMapType::Cube:
         {
             shadowRenderPass = m_vulkanObjs->GetShadowCubeRenderPass();
@@ -1446,35 +1455,9 @@ bool RendererVk::RefreshShadowMap(const RenderParams& renderParams,
             //
             std::vector<ViewProjection> shadowViewProjections;
 
-            switch (loadedLight.shadowMapType)
+            for (const auto& shadowRender : loadedLight.shadowRenders)
             {
-                case ShadowMapType::Single:
-                {
-                    const auto viewProjection = GetShadowMapViewProjection(m_vulkanObjs->GetRenderSettings(), loadedLight);
-                    if (!viewProjection)
-                    {
-                        m_logger->Log(Common::LogLevel::Error, "RendererVk::RefreshShadowMap: Failed to generate shadow map ViewProjection");
-                        return false;
-                    }
-
-                    shadowViewProjections.push_back(*viewProjection);
-                }
-                break;
-                case ShadowMapType::Cube:
-                {
-                    for (unsigned int cubeFaceIndex = 0; cubeFaceIndex < 6; ++cubeFaceIndex)
-                    {
-                        const auto viewProjection = GetShadowMapCubeViewProjection(m_vulkanObjs->GetRenderSettings(), loadedLight, static_cast<CubeFace>(cubeFaceIndex));
-                        if (!viewProjection)
-                        {
-                            m_logger->Log(Common::LogLevel::Error, "RendererVk::RefreshShadowMap: Failed to generate shadow map ViewProjection");
-                            return false;
-                        }
-
-                        shadowViewProjections.push_back(*viewProjection);
-                    }
-                }
-                break;
+                shadowViewProjections.push_back(shadowRender.viewProjection);
             }
 
             m_objectRenderers.GetRendererForFrame(currentFrame.GetFrameIndex())
@@ -1487,7 +1470,7 @@ bool RendererVk::RefreshShadowMap(const RenderParams& renderParams,
                     shadowFramebuffer->GetFramebuffer(),
                     shadowViewProjections,
                     {},
-                    ObjectRenderer::ShadowRenderData(lightMaxAffectRange)
+                    ObjectRenderer::ShadowRenderData(loadedLight.shadowMapType, lightMaxAffectRange)
                 );
 
         EndRenderPass(commandBuffer);

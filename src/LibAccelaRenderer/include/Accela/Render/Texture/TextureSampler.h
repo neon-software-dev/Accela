@@ -34,12 +34,12 @@ namespace Accela::Render
 
     struct TextureSampler
     {
-        static constexpr TextureSamplerName DEFAULT{"DEFAULT"};
-        static constexpr TextureSamplerName NEAREST{"NEAREST"};
+        static TextureSamplerName DEFAULT() { return "DEFAULT"; };
+        static TextureSamplerName NEAREST() { return "NEAREST"; };
 
-        explicit TextureSampler(std::string_view _name, UVAddressMode _uvAddressMode)
-            : name(_name)
-            , uvAddressMode(std::move(_uvAddressMode))
+        explicit TextureSampler(TextureSamplerName _name, UVAddressMode _uvAddressMode)
+            : name(std::move(_name))
+            , uvAddressMode(_uvAddressMode)
         { }
 
         TextureSamplerName name;

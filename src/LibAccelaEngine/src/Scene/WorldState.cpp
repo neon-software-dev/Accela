@@ -254,6 +254,7 @@ void WorldState::DestroyEntity(EntityId entityId)
 
     m_logger->Log(Common::LogLevel::Debug, "WorldState::DestroyEntity: Destroying entity id: {}", entityId);
     m_registry.destroy((entt::entity)entityId);
+    m_highlightedEntities.erase(entityId);
 }
 
 void WorldState::DestroyAllEntities()
@@ -264,6 +265,8 @@ void WorldState::DestroyAllEntities()
     {
         m_registry.destroy(entity);
     }
+
+    m_highlightedEntities.clear();
 }
 
 std::vector<EntityId> WorldState::GetSpriteEntitiesAt(const glm::vec2& virtualPoint) const
@@ -390,6 +393,11 @@ void WorldState::ToggleHighlightEntity(EntityId entityId)
     {
         m_highlightedEntities.insert(entityId);
     }
+}
+
+void WorldState::ClearEntityHighlights()
+{
+    m_highlightedEntities.clear();
 }
 
 void WorldState::OnModelRenderableComponentCreated(entt::registry& registry, entt::entity entity)

@@ -99,6 +99,7 @@ void MainWindowVM::OnClosePackage()
             UpdateAndEmit(m_model.entity, {}, this, &MainWindowVM::VM_OnEntityChanged);
             UpdateAndEmit(m_model.construct, {}, this, &MainWindowVM::VM_OnConstructChanged);
             UpdateAndEmit(m_model.package, {}, this, &MainWindowVM::VM_OnPackageChanged);
+            UpdateAndEmit(m_model.selectedEntities, {}, this, &MainWindowVM::VM_OnSelectedEntitiesChanged);
         });
 }
 
@@ -139,6 +140,9 @@ void MainWindowVM::OnLoadConstruct(const std::optional<std::string>& constructNa
 
             // Unset the current entity now that we've changed constructs
             UpdateAndEmit(m_model.entity, {}, this, &MainWindowVM::VM_OnEntityChanged);
+
+            // Clear out any selected entities from previous construct
+            UpdateAndEmit(m_model.selectedEntities, {}, this, &MainWindowVM::VM_OnSelectedEntitiesChanged);
         });
 }
 
@@ -253,6 +257,28 @@ void MainWindowVM::OnRemoveComponent(const Engine::Component::Type& type)
 
     // Notify that the entity data was invalidated
     emit VM_OnEntityInvalidated(*m_model.entity);
+}
+
+void MainWindowVM::OnEntityClicked(Engine::EntityId eid, bool multipleSelectRequested)
+{
+    auto selectedEntities = m_model.selectedEntities;
+
+    if (!multipleSelectRequested)
+    {
+        selectedEntities.clear();
+    }
+
+    selectedEntities.insert(eid);
+
+    UpdateAndEmit(m_model.selectedEntities, selectedEntities, this, &MainWindowVM::VM_OnSelectedEntitiesChanged);
+}
+
+void MainWindowVM::OnNothingClicked()
+{
+    auto selectedEntities = m_model.selectedEntities;
+    selectedEntities.clear();
+
+    UpdateAndEmit(m_model.selectedEntities, selectedEntities, this, &MainWindowVM::VM_OnSelectedEntitiesChanged);
 }
 
 void MainWindowVM::PLT_ProgressUpdate(unsigned int progress, unsigned int total, const std::string& progressText)

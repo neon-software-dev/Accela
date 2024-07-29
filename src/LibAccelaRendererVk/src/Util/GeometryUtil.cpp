@@ -4,10 +4,9 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
  
-#include "SpaceTests.h"
+#include "GeometryUtil.h"
 
 #include <algorithm>
-#include <iterator>
 
 namespace Accela::Render
 {
@@ -101,16 +100,65 @@ bool Intersects(const Sphere& sphere, const Volume& volume) noexcept
     return DistanceToVolume(sphere.center, volume) <= sphere.radius;
 }
 
-AABB AABBForTransformedProjection(const Projection::Ptr& projection, const glm::mat4& transform)
+std::optional<float> DistanceToPlane(const Ray& ray, const Plane& plane)
+{
+    const float d = glm::dot(plane.point, plane.normalUnit);
+    const float dn = glm::dot(ray.dirUnit, plane.normalUnit);
+
+    // Ray and plane are (sufficiently) parallel
+    if (std::abs(dn) <= .0001f)
+    {
+        return std::nullopt;
+    }
+
+    const float distance = (d - (glm::dot(ray.originPoint, plane.normalUnit))) / dn;
+
+    return distance;
+}
+
+std::optional<glm::vec3> Intersection(const Ray& ray, const Plane& plane, bool allowedBackwardsTravel)
+{
+    const auto distance = DistanceToPlane(ray, plane);
+    if (!distance)
+    {
+        return std::nullopt;
+    }
+
+    if (*distance < 0 && !allowedBackwardsTravel)
+    {
+        return std::nullopt;
+    }
+
+    return ray.originPoint + (ray.dirUnit * *distance);
+}
+
+std::vector<glm::vec3> TransformedProjectionBounds(const Projection::Ptr& projection, const glm::mat4& transform)
 {
     std::vector<glm::vec3> transformedPoints;
 
     std::ranges::transform(projection->GetBoundingPoints(), std::back_inserter(transformedPoints),
-       [&](const auto& point){
-            return transform * glm::vec4(point, 1.0f);
+   [&](const auto& point){
+        return transform * glm::vec4(point, 1.0f);
     });
 
-    return AABB(transformedPoints);
+    return transformedPoints;
+}
+
+AABB AABBForTransformedProjection(const Projection::Ptr& projection, const glm::mat4& transform)
+{
+    return AABB(TransformedProjectionBounds(projection, transform));
+}
+
+glm::vec3 GetCenterPoint(const std::vector<glm::vec3>& points)
+{
+    glm::vec3 total(0);
+
+    for (const auto& point : points)
+    {
+        total += point;
+    }
+
+    return total / (float)points.size();
 }
 
 }

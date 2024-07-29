@@ -222,6 +222,7 @@ void MainWindow::BindVM()
     connect(m_vm.get(), &MainWindowVM::VM_ProgressDialogUpdate, this, &MainWindow::VM_ProgressDialogUpdate);
     connect(m_vm.get(), &MainWindowVM::VM_ProgressDialogClose, this, &MainWindow::VM_ProgressDialogClose);
     connect(m_vm.get(), &MainWindowVM::VM_OnPackageChanged, this, &MainWindow::VM_OnPackageChanged);
+    connect(m_vm.get(), &MainWindowVM::VM_OnSelectedEntitiesChanged, this, &MainWindow::VM_OnSelectedEntitiesChanged);
 }
 
 void MainWindow::closeEvent(QCloseEvent *e)
@@ -324,9 +325,9 @@ void MainWindow::VM_ErrorDialogShow(const std::string& title, const std::string&
     DisplayError(tr(title.c_str()), tr(message.c_str()));
 }
 
-void MainWindow::VM_ProgressDialogShow(const std::string& title)
+void MainWindow::VM_ProgressDialogShow(const std::string&)
 {
-    assert(m_pProgressDialog == nullptr);
+    /*assert(m_pProgressDialog == nullptr);
     if (m_pProgressDialog != nullptr)
     {
         return;
@@ -340,30 +341,30 @@ void MainWindow::VM_ProgressDialogShow(const std::string& title)
     m_pProgressDialog->setMaximum(1);
     m_pProgressDialog->setValue(0);
 
-    connect(m_pProgressDialog, &QProgressDialog::canceled, m_vm.get(), &MainWindowVM::OnProgressCancelled);
+    connect(m_pProgressDialog, &QProgressDialog::canceled, m_vm.get(), &MainWindowVM::OnProgressCancelled);*/
 }
 
-void MainWindow::VM_ProgressDialogUpdate(unsigned int progress, unsigned int total, const std::string& status)
+void MainWindow::VM_ProgressDialogUpdate(unsigned int, unsigned int, const std::string&)
 {
-    assert(m_pProgressDialog != nullptr);
+    /*assert(m_pProgressDialog != nullptr);
 
     if (m_pProgressDialog)
     {
         m_pProgressDialog->setValue((int)progress);
         m_pProgressDialog->setMaximum((int)total);
         m_pProgressDialog->setLabelText(tr(status.c_str()));
-    }
+    }*/
 }
 
 void MainWindow::VM_ProgressDialogClose()
 {
-    assert(m_pProgressDialog != nullptr);
+    /*assert(m_pProgressDialog != nullptr);
 
     if (m_pProgressDialog)
     {
         m_pProgressDialog->close();
         m_pProgressDialog = nullptr;
-    }
+    }*/
 }
 
 void MainWindow::VM_OnPackageChanged(const std::optional<Engine::Package>& package)
@@ -376,13 +377,26 @@ void MainWindow::VM_OnPackageChanged(const std::optional<Engine::Package>& packa
     m_pClosePackageAction->setEnabled(package.has_value());
 }
 
+void MainWindow::VM_OnSelectedEntitiesChanged(const std::unordered_set<Engine::EntityId>& eids)
+{
+    m_pAccelaWindow->EnqueueSceneMessage(std::make_shared<SetEntitiesHighlightedCommand>(eids));
+}
+
 void MainWindow::UI_OnSceneMessage(const Common::Message::Ptr& message)
 {
-    if (message->GetTypeIdentifier() == EntityClicked::TYPE)
-    {
-        const auto entityClickedMessage = std::dynamic_pointer_cast<EntityClicked>(message);
-        m_pAccelaWindow->EnqueueSceneMessage(std::make_shared<SetEntityHighlighted>(entityClickedMessage->eid, true));
-    }
+    if (message->GetTypeIdentifier() == EntityClicked::TYPE) { OnEntityClickedSceneMessage(message); }
+    else if (message->GetTypeIdentifier() == NothingClicked::TYPE) { OnNothingClickedSceneMessage(message); }
+}
+
+void MainWindow::OnEntityClickedSceneMessage(const Common::Message::Ptr& message)
+{
+    const auto entityClickedMessage = std::dynamic_pointer_cast<EntityClicked>(message);
+    m_vm->OnEntityClicked(entityClickedMessage->eid, entityClickedMessage->requestingMultipleSelect);
+}
+
+void MainWindow::OnNothingClickedSceneMessage(const Common::Message::Ptr&)
+{
+    m_vm->OnNothingClicked();
 }
 
 }

@@ -440,7 +440,7 @@ bool TerrainRenderer::BindDescriptorSet0_Global(const BindState& bindState,
     //
     // Update the global data buffer with the global data
     //
-    const GlobalPayload globalPayload = GetGlobalPayload(renderParams, 0);
+    const GlobalPayload globalPayload = GetGlobalPayload(renderParams, m_renderSettings, 0);
     (*globalDataBuffer)->PushBack(ExecutionContext::CPU(), {globalPayload});
 
     //
@@ -626,8 +626,8 @@ bool TerrainRenderer::BindDescriptorSet2(BindState& bindState,
 
         (*materialDescriptorSet)->WriteCombinedSamplerBind(
             (*bindState.programDef)->GetBindingDetailsByName(textureBindIt.first),
-            loadedTexture->second.vkImageViews.at(TextureView::DEFAULT),
-            loadedTexture->second.vkSamplers.at(TextureSampler::DEFAULT)
+            loadedTexture->second.vkImageViews.at(TextureView::DEFAULT()),
+            loadedTexture->second.vkSamplers.at(TextureSampler::DEFAULT())
         );
     }
 
@@ -683,8 +683,8 @@ bool TerrainRenderer::BindDescriptorSet3(BindState& bindState,
     //
     (*drawDescriptorSet)->WriteCombinedSamplerBind(
         (*bindState.programDef)->GetBindingDetailsByName("i_heightSampler"),
-        terrainBatch.loadedHeightMapImage.vkImageViews.at(TextureView::DEFAULT),
-        terrainBatch.loadedHeightMapImage.vkSamplers.at(TextureSampler::DEFAULT)
+        terrainBatch.loadedHeightMapImage.vkImageViews.at(TextureView::DEFAULT()),
+        terrainBatch.loadedHeightMapImage.vkSamplers.at(TextureSampler::DEFAULT())
     );
 
     //

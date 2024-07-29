@@ -47,7 +47,7 @@ namespace Accela::Platform
 
             Common::ILogger::Ptr m_logger;
 
-            QVulkanInstance* m_pVulkanInstance{nullptr};
+            std::unique_ptr<QVulkanInstance> m_pVulkanInstance;
     };
 }
 

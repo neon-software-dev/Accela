@@ -9,6 +9,7 @@
 
 #include "../Thread/WorkerThread.h"
 
+#include <Accela/Engine/Common.h>
 #include <Accela/Engine/Package/Package.h>
 
 #include <Accela/Common/Log/ILogger.h>
@@ -17,6 +18,7 @@
 
 #include <optional>
 #include <filesystem>
+#include <unordered_set>
 
 namespace Accela
 {
@@ -35,6 +37,8 @@ namespace Accela
                 std::optional<Engine::Package> package;
                 std::optional<Engine::Construct::Ptr> construct;
                 std::optional<Engine::CEntity::Ptr> entity;
+
+                std::unordered_set<Engine::EntityId> selectedEntities;
 
                 template <typename ComponentType>
                 [[nodiscard]] std::optional<std::shared_ptr<ComponentType>>
@@ -67,6 +71,9 @@ namespace Accela
             void OnComponentModified(const Engine::Component::Ptr& component);
             void OnRemoveComponent(const Engine::Component::Type& type);
 
+            void OnEntityClicked(Engine::EntityId eid, bool multipleSelectRequested);
+            void OnNothingClicked();
+
         signals:
 
             void VM_ErrorDialogShow(const std::string& title, const std::string& message);
@@ -84,6 +91,8 @@ namespace Accela
             void VM_OnEntityInvalidated(const Engine::CEntity::Ptr& entity);
 
             void VM_OnComponentInvalidated(const Engine::CEntity::Ptr& entity, const Engine::Component::Ptr& component);
+
+            void VM_OnSelectedEntitiesChanged(const std::unordered_set<Engine::EntityId>& eids);
 
         private slots:
 

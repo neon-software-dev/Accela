@@ -20,10 +20,6 @@
 namespace Accela::Render
 {
 
-static const Render::USize Shadow_Low_Quality_Size{1024, 1024};
-static const Render::USize Shadow_Medium_Quality_Size{2048, 2048};
-static const Render::USize Shadow_High_Quality_Size{4096, 4096};
-
 Lights::Lights(Common::ILogger::Ptr logger,
                Common::IMetrics::Ptr metrics,
                VulkanObjsPtr vulkanObjs,
@@ -128,6 +124,7 @@ void Lights::ProcessAddedLights(const WorldUpdate& update, const VulkanCommandBu
             {
                 m_logger->Log(Common::LogLevel::Error,
                   "Lights::ProcessAddedLights: Failed to create shadow framebuffer for light, id: ", light.lightId.id);
+                return;
             }
             else
             {
@@ -135,8 +132,76 @@ void Lights::ProcessAddedLights(const WorldUpdate& update, const VulkanCommandBu
             }
         }
 
-        m_lights.insert({light.lightId, LoadedLight(light, shadowFramebufferId)});
+        auto loadedLight = LoadedLight(light, shadowFramebufferId);
+
+        const auto shadowRenders = DetermineLightShadowRenders(loadedLight, RenderCamera{});
+        if (!shadowRenders)
+        {
+            m_logger->Log(Common::LogLevel::Error,
+              "Lights::ProcessAddedLights: Failed to determine shadow renders for light, id: ", light.lightId.id);
+            return;
+        }
+
+        loadedLight.shadowRenders = *shadowRenders;
+
+        m_lights.insert({light.lightId, loadedLight});
     }
+}
+
+std::expected<std::vector<ShadowRender>, bool> Lights::DetermineLightShadowRenders(const LoadedLight& loadedLight, const RenderCamera& renderCamera)
+{
+    std::vector<ShadowRender> shadowRenders;
+
+    if (!loadedLight.light.castsShadows)
+    {
+        return shadowRenders;
+    }
+
+    switch (loadedLight.shadowMapType)
+    {
+        case ShadowMapType::Cascaded:
+        {
+            const auto directionalShadowRenders = *GetDirectionalShadowMapViewProjections(
+                m_vulkanObjs->GetRenderSettings(),
+                m_vulkanObjs->GetContext(),
+                loadedLight,
+                renderCamera
+            );
+
+            for (const auto& directionalShadowRender : directionalShadowRenders)
+            {
+                shadowRenders.push_back(ShadowRender{
+                    .worldPos = directionalShadowRender.render_worldPosition,
+                    .viewProjection = directionalShadowRender.viewProjection,
+                    .cascadeIndex = shadowRenders.size(),
+                    .cut = directionalShadowRender.cut.AsVec2()
+                });
+            }
+        }
+        break;
+        case ShadowMapType::Cube:
+        {
+            for (unsigned int cubeFaceIndex = 0; cubeFaceIndex < 6; ++cubeFaceIndex)
+            {
+                const auto viewProjection = GetPointShadowMapViewProjectionFaced(m_vulkanObjs->GetRenderSettings(), loadedLight, static_cast<CubeFace>(cubeFaceIndex));
+                if (!viewProjection)
+                {
+                    m_logger->Log(Common::LogLevel::Error, "Lights::DetermineLightShadowRenders: Failed to get point face shadow render");
+                    return std::unexpected(false);
+                }
+
+                shadowRenders.push_back(ShadowRender{
+                    .worldPos = loadedLight.light.worldPos,
+                    .viewProjection = *viewProjection,
+                    .cascadeIndex = std::nullopt,
+                    .cut = std::nullopt
+                });
+            }
+        }
+        break;
+    }
+
+    return shadowRenders;
 }
 
 void Lights::ProcessUpdatedLights(const WorldUpdate& update, const VulkanCommandBufferPtr&, VkFence)
@@ -235,74 +300,92 @@ void Lights::InvalidateShadowMapsByBounds(const std::vector<AABB>& boundingBoxes
             // Ignore bad/empty bounding boxes
             if (boundingBox.IsEmpty()) { continue; }
 
-            bool triviallyOutsideShadowMap = false;
-
             switch (lightIt.second.shadowMapType)
             {
-                case ShadowMapType::Single:
-                    triviallyOutsideShadowMap = IsVolumeTriviallyOutsideLight_Single(lightIt.second, boundingBox.GetVolume());
+                case ShadowMapType::Cascaded:
+                    InvalidateShadowMapsByBounds_Cascaded(lightIt.second, boundingBox.GetVolume());
                 break;
                 case ShadowMapType::Cube:
-                    triviallyOutsideShadowMap = IsVolumeTriviallyOutsideLight_Cube(lightIt.second, boundingBox.GetVolume());
-                break;
-            }
-
-            // If it's not trivially outside the shadow map, invalidate the shadow map
-            if (!triviallyOutsideShadowMap)
-            {
-                lightIt.second.shadowInvalidated = true;
+                    InvalidateShadowMapsByBounds_Cube(lightIt.second, boundingBox.GetVolume());
                 break;
             }
         }
     }
 }
 
-bool Lights::IsVolumeTriviallyOutsideLight_Single(const LoadedLight& loadedLight, const Volume& volume_worldSpace)
+void Lights::InvalidateShadowMapsByBounds_Cascaded(LoadedLight& loadedLight, const Volume& volume_worldSpace)
 {
-    const auto shadowMapViewProjection = GetShadowMapViewProjection(m_vulkanObjs->GetRenderSettings(), loadedLight);
-    if (!shadowMapViewProjection)
-    {
-        m_logger->Log(Common::LogLevel::Error,
-          "Lights::IsVolumeTriviallyOutsideLight_SpotLight: Failed to generate shadow map view projection for light: {}",
-          loadedLight.light.lightId.id
-        );
-        return false;
-    }
-
-    return VolumeTriviallyOutsideProjection(
-        volume_worldSpace,
-        shadowMapViewProjection->GetTransformation()
-    );
-}
-
-bool Lights::IsVolumeTriviallyOutsideLight_Cube(const LoadedLight& loadedLight, const Volume& volume_worldSpace)
-{
-    // Get the list of shadow map cube faces that the light's cone touches. We only need to invalidate
-    // shadow maps that the light can possibly affect.
-    const auto litCubeFaces = GetCubeFacesAffectedByLightCone(loadedLight.light);
-
-    // For each shadow map cube face, invalidate the light's shadow map if the bounding box isn't trivially outside the
-    // light's view projection for that face
-    return std::ranges::all_of(litCubeFaces, [&](const auto& cubeFace){
-        const auto shadowMapViewProjection = GetShadowMapCubeViewProjection(
-            m_vulkanObjs->GetRenderSettings(),
-            loadedLight,
-            static_cast<CubeFace>(cubeFace)
-        );
-        if (!shadowMapViewProjection)
-        {
-            m_logger->Log(Common::LogLevel::Error,
-                "Lights::IsRegionTriviallyOutsideLight_Point: Failed to generate shadow map view projection for light: {}",
-                loadedLight.light.lightId.id
-            );
-            return false;
-        }
-
+    const bool volumeTriviallyOutsideAllShadowRenders = std::ranges::all_of(loadedLight.shadowRenders, [&](const auto& shadowRender){
         return VolumeTriviallyOutsideProjection(
             volume_worldSpace,
-            shadowMapViewProjection->GetTransformation()
+            shadowRender.viewProjection.GetTransformation()
         );
     });
+
+    if (!volumeTriviallyOutsideAllShadowRenders)
+    {
+        loadedLight.shadowInvalidated = true;
+    }
+}
+
+void Lights::InvalidateShadowMapsByBounds_Cube(LoadedLight& loadedLight, const Volume& volume_worldSpace)
+{
+    // Get the list of shadow map cube faces that the light's cone touches. We only need to evaluate
+    // shadow renders that the light can possibly affect.
+    const auto litCubeFaces = GetCubeFacesAffectedByLightCone(loadedLight.light);
+
+    const bool volumeTriviallyOutsideAllLitFaces = std::ranges::all_of(litCubeFaces, [&](const auto& litCubeFace){
+        return VolumeTriviallyOutsideProjection(
+            volume_worldSpace,
+            loadedLight.shadowRenders.at(litCubeFace).viewProjection.GetTransformation()
+        );
+    });
+
+    if (!volumeTriviallyOutsideAllLitFaces)
+    {
+        loadedLight.shadowInvalidated = true;
+    }
+}
+
+void Lights::UpdateShadowMapsForCamera(const RenderCamera& renderCamera)
+{
+    for (auto& lightIt : m_lights)
+    {
+        switch (lightIt.second.shadowMapType)
+        {
+            case ShadowMapType::Cascaded:
+            {
+                // If the camera hasn't changed since the last time the light's shadow renders were done, then we don't
+                // need to invalidate them
+                const bool cameraIsTheSame =
+                    lightIt.second.shadowRenderCamera &&
+                    (renderCamera == *lightIt.second.shadowRenderCamera);
+
+                if (cameraIsTheSame)
+                {
+                    continue;
+                }
+
+                // Otherwise, as cascaded shadows depend on camera properties, update and invalidated the shadow renders
+                const auto shadowRenders = DetermineLightShadowRenders(lightIt.second, renderCamera);
+                if (!shadowRenders)
+                {
+                    m_logger->Log(Common::LogLevel::Error,
+                      "Lights::UpdateShadowMapsForCamera: Failed to update shadow map for light: {}", lightIt.first.id);
+                }
+
+                lightIt.second.shadowRenders = *shadowRenders;
+                lightIt.second.shadowRenderCamera = renderCamera;
+                lightIt.second.shadowInvalidated = true;
+            }
+            break;
+            case ShadowMapType::Cube:
+            {
+                // No-op - cubic shadow maps aren't affected by camera position
+            }
+            break;
+        }
+    }
 }
 
 void Lights::OnShadowMapSynced(const LightId& lightId)
@@ -330,7 +413,7 @@ std::expected<FrameBufferId, bool> Lights::CreateShadowFramebuffer(const Light& 
     ImageView imageView{};
 
     ImageSampler imageSampler{
-        .name = ImageSampler::DEFAULT,
+        .name = ImageSampler::DEFAULT(),
         .vkMagFilter = VK_FILTER_LINEAR,
         .vkMinFilter = VK_FILTER_LINEAR,
         .vkSamplerAddressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
@@ -342,34 +425,36 @@ std::expected<FrameBufferId, bool> Lights::CreateShadowFramebuffer(const Light& 
 
     switch (GetShadowMapType(light))
     {
-        case ShadowMapType::Single:
+        case ShadowMapType::Cascaded:
         {
+            const auto numLayers = Shadow_Cascade_Count;
+
             image = Image{
-                .tag = std::format("ShadowDepth-{}", tag),
+                .tag = std::format("ShadowCascaded-{}", tag),
                 .vkImageType = VK_IMAGE_TYPE_2D,
                 .vkFormat = m_vulkanObjs->GetPhysicalDevice()->GetDepthBufferFormat(),
                 .vkImageTiling = VK_IMAGE_TILING_OPTIMAL,
                 .vkImageUsageFlags = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                 .size = shadowFramebufferSize,
-                .numLayers = 1,
+                .numLayers = numLayers,
                 .vmaAllocationCreateFlags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
             };
 
             imageView = ImageView{
-                .name = ImageView::DEFAULT,
-                .vkImageViewType = VK_IMAGE_VIEW_TYPE_2D,
+                .name = ImageView::DEFAULT(),
+                .vkImageViewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY,
                 .vkImageAspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT,
                 .baseLayer = 0,
-                .layerCount = 1
+                .layerCount = numLayers
             };
 
-            renderPass = m_vulkanObjs->GetShadow2DRenderPass();
+            renderPass = m_vulkanObjs->GetShadowCascadedRenderPass();
         }
         break;
         case ShadowMapType::Cube:
         {
             image = Image{
-                .tag = std::format("ShadowDepthCube-{}", tag),
+                .tag = std::format("ShadowCube-{}", tag),
                 .vkImageType = VK_IMAGE_TYPE_2D,
                 .vkFormat = m_vulkanObjs->GetPhysicalDevice()->GetDepthBufferFormat(),
                 .vkImageTiling = VK_IMAGE_TILING_OPTIMAL,
@@ -381,7 +466,7 @@ std::expected<FrameBufferId, bool> Lights::CreateShadowFramebuffer(const Light& 
             };
 
             imageView = ImageView{
-                .name = ImageView::DEFAULT,
+                .name = ImageView::DEFAULT(),
                 .vkImageViewType = VK_IMAGE_VIEW_TYPE_CUBE,
                 .vkImageAspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT,
                 .baseLayer = 0,
@@ -395,7 +480,7 @@ std::expected<FrameBufferId, bool> Lights::CreateShadowFramebuffer(const Light& 
 
     attachments.emplace_back(
         ImageDefinition(image, {imageView}, {imageSampler}),
-        ImageView::DEFAULT
+        ImageView::DEFAULT()
     );
 
     if (!m_framebuffers->CreateFramebuffer(
@@ -435,19 +520,6 @@ bool Lights::RecreateShadowFramebuffer(LoadedLight& loadedLight, const RenderSet
     loadedLight.shadowInvalidated = true;
 
     return true;
-}
-
-Render::USize Lights::GetShadowFramebufferSize(const RenderSettings& renderSettings)
-{
-    switch (renderSettings.shadowQuality)
-    {
-        case QualityLevel::Low: return Shadow_Low_Quality_Size;
-        case QualityLevel::Medium: return Shadow_Medium_Quality_Size;
-        case QualityLevel::High: return Shadow_High_Quality_Size;
-    }
-
-    assert(false);
-    return Shadow_Low_Quality_Size;
 }
 
 bool Lights::LightAffectsViewProjections(const LoadedLight& loadedLight, const std::vector<ViewProjection>& viewProjections) const

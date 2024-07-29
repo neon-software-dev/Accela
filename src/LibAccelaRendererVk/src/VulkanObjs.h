@@ -60,7 +60,7 @@ namespace Accela::Render
             [[nodiscard]] VulkanRenderPassPtr GetGPassRenderPass() const noexcept;
             [[nodiscard]] VulkanRenderPassPtr GetScreenRenderPass() const noexcept;
             [[nodiscard]] VulkanRenderPassPtr GetSwapChainBlitRenderPass() const noexcept;
-            [[nodiscard]] VulkanRenderPassPtr GetShadow2DRenderPass() const noexcept;
+            [[nodiscard]] VulkanRenderPassPtr GetShadowCascadedRenderPass() const noexcept;
             [[nodiscard]] VulkanRenderPassPtr GetShadowCubeRenderPass() const noexcept;
 
         private:
@@ -89,8 +89,8 @@ namespace Accela::Render
             void DestroyScreenRenderPass();
             bool CreateSwapChainBlitRenderPass();
             void DestroySwapChainBlitRenderPass();
-            bool CreateShadow2DRenderPass();
-            void DestroyShadow2DRenderPass();
+            bool CreateShadowCascadedRenderPass();
+            void DestroyShadowCascadedRenderPass();
             bool CreateShadowCubeRenderPass();
             void DestroyShadowCubeRenderPass();
 
@@ -125,12 +125,11 @@ namespace Accela::Render
             VulkanSwapChainPtr m_swapChain;
             std::vector<VulkanFramebufferPtr> m_swapChainFrameBuffers;
 
-
             VulkanRenderPassPtr m_gPassRenderPass; // Renders the world into the gpass framebuffer
             VulkanRenderPassPtr m_screenRenderPass; // Renders screen sprites into the screen framebuffer
             VulkanRenderPassPtr m_swapChainBlitRenderPass; // Combines the gpass and screen output into the swap chain framebuffer
-            VulkanRenderPassPtr m_shadow2DRenderPass; // Renders a 2D shadow pass into a light framebuffer
-            VulkanRenderPassPtr m_shadowCubeRenderPass; // Renders a cubic shadow pass into a light framebuffer
+            VulkanRenderPassPtr m_shadowCascadedRenderPass; // Renders a cascaded directional shadow pass into a light framebuffer
+            VulkanRenderPassPtr m_shadowCubeRenderPass; // Renders a cubic point shadow pass into a light framebuffer
     };
 }
 

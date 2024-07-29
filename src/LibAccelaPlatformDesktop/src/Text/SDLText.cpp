@@ -199,7 +199,7 @@ SDLText::RenderText(const std::string& text, const TextProperties& properties) c
         return std::unexpected(false);
     }
 
-    renderedText.imageData = SDLUtil::SDLSurfaceToImageData(pResizedSurface);
+    renderedText.imageData = SDLUtil::SDLSurfaceToImageData(m_logger, pResizedSurface);
     SDL_FreeSurface(pResizedSurface);
 
     return renderedText;

@@ -17,11 +17,12 @@ namespace Accela::Render
 
     struct TextureView
     {
-        static constexpr TextureViewName DEFAULT{"DEFAULT"};
+        static TextureViewName DEFAULT() { return "DEFAULT"; };
 
         enum class ViewType
         {
             VIEW_TYPE_2D,
+            VIEW_TYPE_2D_ARRAY,
             VIEW_TYPE_CUBE
         };
 
@@ -40,26 +41,30 @@ namespace Accela::Render
         //
         //
 
-        static TextureView ViewAs2D(std::string_view name)
+        static TextureView ViewAs2D(const TextureViewName& name)
         {
-            return {name,
-                    ViewType::VIEW_TYPE_2D,
-                    Layer(0,1)
+            return {name, ViewType::VIEW_TYPE_2D, Layer(0,1)
             };
         }
 
-        static TextureView ViewAsCube(std::string_view name)
+        static TextureView ViewAs2DArray(const TextureViewName& name, const Layer& layer)
         {
-            return {name,
-                    ViewType::VIEW_TYPE_CUBE,
-                    Layer(0,6)
+            return {name, ViewType::VIEW_TYPE_2D_ARRAY, layer
             };
         }
 
-        TextureView() = default;
+        static TextureView ViewAsCube(const TextureViewName& name)
+        {
+            return {name, ViewType::VIEW_TYPE_CUBE, Layer(0,6)
+            };
+        }
 
-        TextureView(std::string_view _name, const ViewType& _viewType, const Layer& _layer)
-            : name(_name)
+        TextureView()
+            : name(DEFAULT())
+        { }
+
+        TextureView(TextureViewName _name, const ViewType& _viewType, const Layer& _layer)
+            : name(std::move(_name))
             , viewType(_viewType)
             , layer(_layer)
         { }

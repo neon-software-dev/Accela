@@ -214,14 +214,14 @@ void SwapChainBlitRenderer::Render(const VulkanCommandBufferPtr& commandBuffer,
 
     m_descriptorSet->WriteCombinedSamplerBind(
         (*renderSamplerBindingDetails),
-        renderImage.vkImageViews.at(ImageView::DEFAULT),
-        renderImage.vkSamplers.at(ImageSampler::DEFAULT)
+        renderImage.vkImageViews.at(ImageView::DEFAULT()),
+        renderImage.vkSamplers.at(ImageSampler::DEFAULT())
     );
 
     m_descriptorSet->WriteCombinedSamplerBind(
         (*screenSamplerBindingDetails),
-        screenImage.vkImageViews.at(ImageView::DEFAULT),
-        screenImage.vkSamplers.at(ImageSampler::DEFAULT)
+        screenImage.vkImageViews.at(ImageView::DEFAULT()),
+        screenImage.vkSamplers.at(ImageSampler::DEFAULT())
     );
 
     SwapChainBlitPushPayload pushPayload{};

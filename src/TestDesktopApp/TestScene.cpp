@@ -193,7 +193,7 @@ void TestScene::CreateLight(const glm::vec3& position)
     const auto eid = engine->GetWorldState()->CreateEntity();
 
     auto lightProperties = Render::LightProperties{};
-    lightProperties.projection = Render::LightProjection::Perspective;
+    lightProperties.type = Render::LightType::Point;
     lightProperties.attenuationMode = Render::AttenuationMode::Linear;
     lightProperties.diffuseColor = glm::vec3(1,1,1);
     lightProperties.diffuseIntensity = glm::vec3(1,1,1);

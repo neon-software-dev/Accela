@@ -16,6 +16,8 @@
 #include <SDL2/SDL_events.h>
 #include <SDL2/SDL_surface.h>
 
+#include <optional>
+
 namespace Accela::Platform
 {
     class SDLUtil
@@ -29,7 +31,7 @@ namespace Accela::Platform
             *
             * @param pSurface - The SDL surface to be converted.
             */
-            [[nodiscard]] static Common::ImageData::Ptr SDLSurfaceToImageData(SDL_Surface *pSurface);
+            [[nodiscard]] static Common::ImageData::Ptr SDLSurfaceToImageData(const Common::ILogger::Ptr& logger, SDL_Surface *pSurface);
 
             /**
              * Returns a new surface which contains the supplied surface's pixels but with the surface's

@@ -20,6 +20,8 @@
 namespace Accela::Render
 {
 
+static constexpr VkFormat COLOR_ATTACHMENT_FORMAT = VK_FORMAT_R16G16B16A16_SFLOAT;
+
 RenderTargets::RenderTargets(Common::ILogger::Ptr logger,
                              VulkanObjsPtr vulkanObjs,
                              PostExecutionOpsPtr postExecutionOps,
@@ -90,7 +92,7 @@ std::optional<Render::FrameBufferId> RenderTargets::CreateGPassFramebuffer(const
     }
 
     const auto defaultImageSampler = ImageSampler(
-        ImageSampler::DEFAULT,
+        ImageSampler::DEFAULT(),
         VK_FILTER_LINEAR,
         VK_FILTER_LINEAR,
         VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
@@ -99,7 +101,7 @@ std::optional<Render::FrameBufferId> RenderTargets::CreateGPassFramebuffer(const
     );
 
     const auto nearestImageSampler = ImageSampler(
-        ImageSampler::NEAREST,
+        ImageSampler::NEAREST(),
         VK_FILTER_NEAREST,
         VK_FILTER_NEAREST,
         VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
@@ -114,7 +116,7 @@ std::optional<Render::FrameBufferId> RenderTargets::CreateGPassFramebuffer(const
         Image{
             .tag = std::format("Color-{}", tag),
             .vkImageType = VK_IMAGE_TYPE_2D,
-            .vkFormat = VK_FORMAT_R16G16B16A16_SFLOAT,
+            .vkFormat = COLOR_ATTACHMENT_FORMAT,
             .vkImageTiling = VK_IMAGE_TILING_OPTIMAL,
             .vkImageUsageFlags = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
                                 | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT
@@ -125,7 +127,7 @@ std::optional<Render::FrameBufferId> RenderTargets::CreateGPassFramebuffer(const
         },
         {
             ImageView{
-                .name = ImageView::DEFAULT,
+                .name = ImageView::DEFAULT(),
                 .vkImageViewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY,
                 .vkImageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT,
                 .baseLayer = 0,
@@ -151,7 +153,7 @@ std::optional<Render::FrameBufferId> RenderTargets::CreateGPassFramebuffer(const
         },
         {
             ImageView{
-                .name = ImageView::DEFAULT,
+                .name = ImageView::DEFAULT(),
                 .vkImageViewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY,
                 .vkImageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT,
                 .baseLayer = 0,
@@ -188,7 +190,7 @@ std::optional<Render::FrameBufferId> RenderTargets::CreateGPassFramebuffer(const
         },
         {
             ImageView{
-                .name = ImageView::DEFAULT,
+                .name = ImageView::DEFAULT(),
                 .vkImageViewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY,
                 .vkImageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT,
                 .baseLayer = 0,
@@ -214,7 +216,7 @@ std::optional<Render::FrameBufferId> RenderTargets::CreateGPassFramebuffer(const
         },
         {
             ImageView{
-                .name = ImageView::DEFAULT,
+                .name = ImageView::DEFAULT(),
                 .vkImageViewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY,
                 .vkImageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT,
                 .baseLayer = 0,
@@ -252,7 +254,7 @@ std::optional<Render::FrameBufferId> RenderTargets::CreateGPassFramebuffer(const
         },
         {
             ImageView{
-                .name = ImageView::DEFAULT,
+                .name = ImageView::DEFAULT(),
                 .vkImageViewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY,
                 .vkImageAspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT,
                 .baseLayer = 0,
@@ -272,14 +274,14 @@ std::optional<Render::FrameBufferId> RenderTargets::CreateGPassFramebuffer(const
         gPassFramebufferId,
         m_vulkanObjs->GetGPassRenderPass(),
         {
-            {colorAttachmentImage, ImageView::DEFAULT},
-            {positionAttachmentImage, ImageView::DEFAULT},
-            {normalAttachmentImage, ImageView::DEFAULT},
-            {objectDetailAttachmentImage, ImageView::DEFAULT},
-            {ambientAttachmentImage, ImageView::DEFAULT},
-            {diffuseAttachmentImage, ImageView::DEFAULT},
-            {specularAttachmentImage, ImageView::DEFAULT},
-            {depthAttachmentImage, ImageView::DEFAULT}
+            {colorAttachmentImage, ImageView::DEFAULT()},
+            {positionAttachmentImage, ImageView::DEFAULT()},
+            {normalAttachmentImage, ImageView::DEFAULT()},
+            {objectDetailAttachmentImage, ImageView::DEFAULT()},
+            {ambientAttachmentImage, ImageView::DEFAULT()},
+            {diffuseAttachmentImage, ImageView::DEFAULT()},
+            {specularAttachmentImage, ImageView::DEFAULT()},
+            {depthAttachmentImage, ImageView::DEFAULT()}
         },
         m_vulkanObjs->GetRenderSettings().resolution,
         1,
@@ -304,7 +306,7 @@ std::optional<FrameBufferId> RenderTargets::CreateScreenFramebuffer(const std::s
     const auto renderSettings = m_vulkanObjs->GetRenderSettings();
 
     const auto defaultImageSampler = ImageSampler(
-        ImageSampler::DEFAULT,
+        ImageSampler::DEFAULT(),
         VK_FILTER_LINEAR,
         VK_FILTER_LINEAR,
         VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
@@ -313,7 +315,7 @@ std::optional<FrameBufferId> RenderTargets::CreateScreenFramebuffer(const std::s
     );
 
     const auto nearestImageSampler = ImageSampler(
-        ImageSampler::NEAREST,
+        ImageSampler::NEAREST(),
         VK_FILTER_NEAREST,
         VK_FILTER_NEAREST,
         VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
@@ -336,7 +338,7 @@ std::optional<FrameBufferId> RenderTargets::CreateScreenFramebuffer(const std::s
         },
         {
             ImageView{
-                .name = ImageView::DEFAULT,
+                .name = ImageView::DEFAULT(),
                 .vkImageViewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY,
                 .vkImageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT,
                 .baseLayer = 0,
@@ -359,7 +361,7 @@ std::optional<FrameBufferId> RenderTargets::CreateScreenFramebuffer(const std::s
         },
         {
             ImageView{
-                .name = ImageView::DEFAULT,
+                .name = ImageView::DEFAULT(),
                 .vkImageViewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY,
                 .vkImageAspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT,
                 .baseLayer = 0,
@@ -377,8 +379,8 @@ std::optional<FrameBufferId> RenderTargets::CreateScreenFramebuffer(const std::s
         screenFramebufferId,
         m_vulkanObjs->GetScreenRenderPass(),
         {
-            {colorAttachmentImage, ImageView::DEFAULT},
-            {depthAttachmentImage, ImageView::DEFAULT}
+            {colorAttachmentImage, ImageView::DEFAULT()},
+            {depthAttachmentImage, ImageView::DEFAULT()}
         },
         m_vulkanObjs->GetRenderSettings().resolution,
         1,
@@ -416,7 +418,7 @@ std::optional<ImageId> RenderTargets::CreatePostProcessOutputImage(const std::st
     const Image image{
         .tag = std::format("PostProcessOutput-{}", tag),
         .vkImageType = VK_IMAGE_TYPE_2D,
-        .vkFormat = VK_FORMAT_R8G8B8A8_UNORM,
+        .vkFormat = COLOR_ATTACHMENT_FORMAT,
         .vkImageTiling = VK_IMAGE_TILING_OPTIMAL,
         .vkImageUsageFlags = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
         .size = m_vulkanObjs->GetRenderSettings().resolution,
@@ -425,7 +427,7 @@ std::optional<ImageId> RenderTargets::CreatePostProcessOutputImage(const std::st
     };
 
     const ImageView imageView{
-        .name = ImageView::DEFAULT,
+        .name = ImageView::DEFAULT(),
         .vkImageViewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY,
         .vkImageAspectFlags = VK_IMAGE_ASPECT_COLOR_BIT,
         .baseLayer = 0,
@@ -433,7 +435,7 @@ std::optional<ImageId> RenderTargets::CreatePostProcessOutputImage(const std::st
     };
 
     const ImageSampler imageSampler{
-        .name = ImageSampler::DEFAULT,
+        .name = ImageSampler::DEFAULT(),
         .vkMagFilter = VK_FILTER_LINEAR,
         .vkMinFilter = VK_FILTER_LINEAR,
         .vkSamplerAddressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,

@@ -108,6 +108,7 @@ namespace Accela::Engine
 
             virtual void HighlightEntity(EntityId entityId, bool isHighlighted) = 0;
             virtual void ToggleHighlightEntity(EntityId entityId) = 0;
+            virtual void ClearEntityHighlights() = 0;
 
             //
             // Windowing

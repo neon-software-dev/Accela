@@ -5,7 +5,7 @@
  */
  
 #include "KDNode.h"
-#include "SpaceTests.h"
+#include "GeometryUtil.h"
 
 #include <cassert>
 

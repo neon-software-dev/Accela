@@ -23,7 +23,7 @@ void EditorScene::OnSceneStart(const Engine::IEngineRuntime::Ptr& _engine)
 {
     MessageBasedScene::OnSceneStart(_engine);
 
-    engine->GetWorldState()->SetAmbientLighting(Engine::DEFAULT_SCENE, 0.5f, glm::vec3(1));
+    engine->GetWorldState()->SetAmbientLighting(Engine::DEFAULT_SCENE, 1.0f, glm::vec3(1));
 
     InitCamera();
 }
@@ -51,10 +51,18 @@ void EditorScene::OnMouseButtonEvent(const Platform::MouseButtonEvent& event)
 
     if (event.clickType != Platform::ClickType::Press) { return; }
 
-    const auto clickedEntityId = engine->GetWorldState()->GetTopObjectEntityAt({event.xPos, event.yPos});
-    if (!clickedEntityId) { return; }
+    if (event.button == Platform::MouseButton::Left)
+    {
+        const auto clickedEntityId = engine->GetWorldState()->GetTopObjectEntityAt({event.xPos, event.yPos});
+        if (clickedEntityId)
+        {
+            const auto multipleSelectRequested = engine->GetKeyboardState()->IsModifierPressed(Platform::KeyMod::Shift);
+            SendMessageToListener(std::make_shared<EntityClicked>(*clickedEntityId, multipleSelectRequested));
+            return;
+        }
 
-    SendMessageToListener(std::make_shared<EntityClicked>(*clickedEntityId));
+        SendMessageToListener(std::make_shared<NothingClicked>());
+    }
 }
 
 void EditorScene::OnMouseWheelEvent(const Platform::MouseWheelEvent& event)
@@ -89,8 +97,10 @@ void EditorScene::ProcessMessage(const Common::Message::Ptr& message)
         ProcessPanCameraCommand(std::dynamic_pointer_cast<PanCameraCommand>(message));
     } else if (message->GetTypeIdentifier() == ScaleCommand::TYPE) {
         ProcessScaleCommand(std::dynamic_pointer_cast<ScaleCommand>(message));
-    } else if (message->GetTypeIdentifier() == SetEntityHighlighted::TYPE) {
-        ProcessSetEntityHighlightedCommand(std::dynamic_pointer_cast<SetEntityHighlighted>(message));
+    } else if (message->GetTypeIdentifier() == SetEntitiesHighlightedCommand::TYPE) {
+        ProcessSetEntitiesHighlightedCommand(std::dynamic_pointer_cast<SetEntitiesHighlightedCommand>(message));
+    } else if (message->GetTypeIdentifier() == ResetCameraCommand::TYPE) {
+        ProcessResetCameraCommand(std::dynamic_pointer_cast<ResetCameraCommand>(message));
     }
 }
 
@@ -122,27 +132,6 @@ void EditorScene::ProcessDestroyEntityCommand(const DestroyEntityCommand::Ptr& c
 void EditorScene::ProcessDestroyAllEntitiesCommand(const DestroyAllEntitiesCommand::Ptr& cmd)
 {
     engine->GetWorldState()->DestroyAllEntities();
-
-    // TODO! Remove when lights supported
-    const auto eid = engine->GetWorldState()->CreateEntity();
-
-    auto lightProperties = Render::LightProperties{};
-    lightProperties.attenuationMode = Render::AttenuationMode::Linear;
-    lightProperties.diffuseColor = glm::vec3(1,1,1);
-    lightProperties.diffuseIntensity = glm::vec3(1,1,1);
-    lightProperties.specularColor = glm::vec3(1,1,1);
-    lightProperties.specularIntensity = glm::vec3(1,1,1);
-    lightProperties.directionUnit = glm::vec3(0,0,-1);
-    lightProperties.coneFovDegrees = 360.0f;
-
-    auto lightComponent = Engine::LightComponent(lightProperties);
-    lightComponent.castsShadows = true;
-    Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, lightComponent);
-
-    auto transformComponent = Engine::TransformComponent{};
-    transformComponent.SetPosition({0,0,2});
-    Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, transformComponent);
-
     cmd->SetResult(true);
 }
 
@@ -206,9 +195,29 @@ void EditorScene::ProcessScaleCommand(const ScaleCommand::Ptr& cmd)
     ScaleCamera(cmd->scaleDeltaDegrees);
 }
 
-void EditorScene::ProcessSetEntityHighlightedCommand(const SetEntityHighlighted::Ptr& cmd)
+void EditorScene::ProcessSetEntitiesHighlightedCommand(const SetEntitiesHighlightedCommand::Ptr& cmd)
 {
-    engine->GetWorldState()->HighlightEntity(cmd->eid, cmd->highlighted);
+    engine->GetWorldState()->ClearEntityHighlights();
+
+    for (const auto& eid : cmd->eids)
+    {
+        engine->GetWorldState()->HighlightEntity(eid, true);
+    }
+}
+
+void EditorScene::ProcessResetCameraCommand(const ResetCameraCommand::Ptr&)
+{
+    // Reset camera
+    m_focusPoint = {0,0,0};
+    m_yRot = 0.0f;
+    m_rightRot = 0.0f;
+
+    InitCamera();
+
+    // Reset zoom
+    auto renderSettings = engine->GetRenderSettings();
+    renderSettings.globalViewScale = 1.0f;
+    engine->SetRenderSettings(renderSettings);
 }
 
 void EditorScene::InitCamera()
@@ -216,7 +225,8 @@ void EditorScene::InitCamera()
     const auto camera = engine->GetWorldState()->GetWorldCamera(Engine::DEFAULT_SCENE);
 
     camera->SetPosition({0,0,1});
-    RotateCamera(0.0f, 0.0f);
+    camera->SetLookUnit(glm::normalize(m_focusPoint - camera->GetPosition()));
+    RotateCamera(m_yRot, m_rightRot);
 }
 
 void EditorScene::PanCamera(float xPanScalar, float yPanScalar)

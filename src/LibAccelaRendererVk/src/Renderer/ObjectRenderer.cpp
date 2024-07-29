@@ -163,6 +163,8 @@ std::vector<ObjectRenderable> ObjectRenderer::GetObjectsToRender(const std::stri
                                                                  const RenderType& renderType,
                                                                  const std::vector<ViewProjection>& viewProjections) const
 {
+    const auto objectRenderDistance = m_vulkanObjs->GetRenderSettings().objectRenderDistance;
+
     AABB totalViewSpaceAABB;
 
     //
@@ -174,7 +176,12 @@ std::vector<ObjectRenderable> ObjectRenderer::GetObjectsToRender(const std::stri
         // Adjust the far plane of the view projection so that we're only looking at objects within the max object render distance.
         auto objectViewProjection = viewProjection;
 
-        if (!objectViewProjection.projectionTransform->SetFarPlaneDistance(m_vulkanObjs->GetRenderSettings().objectRenderDistance))
+        const auto currentNearPlaneDistance = objectViewProjection.projectionTransform->GetNearPlaneDistance();
+
+        // Ensure we don't bring the far plane in front of the near plane
+        const auto adjustedFarPlaneDistance = std::max(currentNearPlaneDistance, objectRenderDistance);
+
+        if (!objectViewProjection.projectionTransform->SetFarPlaneDistance(adjustedFarPlaneDistance))
         {
             m_logger->Log(Common::LogLevel::Error, "GetObjectsToRender: Failed to reduce far plane distance");
         }
@@ -556,6 +563,7 @@ bool ObjectRenderer::BindPushConstants(BindState& bindState,
         }
 
         ShadowLayerIndexPayload payload{};
+        payload.shadowMapType = (uint32_t)shadowRenderData->shadowMapType;
         payload.lightMaxAffectRange = shadowRenderData->lightMaxAffectRange;
 
         commandBuffer->CmdPushConstants(
@@ -661,7 +669,7 @@ bool ObjectRenderer::BindDescriptorSet0_Global(BindState& bindState,
     //
     // Update the global data buffer with the global data
     //
-    const GlobalPayload globalPayload = GetGlobalPayload(renderParams, lights.size());
+    const GlobalPayload globalPayload = GetGlobalPayload(renderParams, m_renderSettings, lights.size());
     (*globalDataBuffer)->PushBack(ExecutionContext::CPU(), {globalPayload});
 
     //
@@ -760,7 +768,7 @@ bool ObjectRenderer::BindDescriptorSet0_Lights(const BindState& bindState,
     const auto defaultLightImages = std::vector<ImageId>(Max_Light_Count, Render::ImageId(Render::INVALID_ID));
 
     std::unordered_map<ShadowMapType, std::vector<ImageId>> shadowMapImageIds {
-        {ShadowMapType::Single, defaultLightImages},
+        {ShadowMapType::Cascaded, defaultLightImages},
         {ShadowMapType::Cube, defaultLightImages}
     };
 
@@ -771,7 +779,6 @@ bool ObjectRenderer::BindDescriptorSet0_Lights(const BindState& bindState,
         const Light& light = loadedLight.light;
 
         LightPayload lightPayload{};
-        lightPayload.shadowMapType = static_cast<uint32_t>(loadedLight.shadowMapType);
         lightPayload.worldPos = light.worldPos;
         lightPayload.maxAffectRange = GetLightMaxAffectRange(m_renderSettings, light);
         lightPayload.attenuationMode = static_cast<uint32_t>(light.lightProperties.attenuationMode);
@@ -780,16 +787,19 @@ bool ObjectRenderer::BindDescriptorSet0_Lights(const BindState& bindState,
         lightPayload.specularColor = light.lightProperties.specularColor;
         lightPayload.specularIntensity = light.lightProperties.specularIntensity;
         lightPayload.directionUnit = light.lightProperties.directionUnit;
-        lightPayload.coneFovDegrees = light.lightProperties.coneFovDegrees;
+        lightPayload.areaOfEffect = light.lightProperties.areaOfEffect;
+        lightPayload.shadowMapType = static_cast<uint32_t>(loadedLight.shadowMapType);
 
-        // Single shadow maps need their light-space transform supplied to the lighting shader. Cube
-        // shadow maps don't as we can do the transformation manually.
-        if (loadedLight.shadowMapType == ShadowMapType::Single)
+        for (unsigned int x = 0; x < loadedLight.shadowRenders.size(); ++x)
         {
-            const auto lightViewProjection = GetShadowMapViewProjection(m_renderSettings, loadedLight);
-            assert(lightViewProjection);
+            const auto& shadowRender = loadedLight.shadowRenders[x];
 
-            lightPayload.lightTransform = lightViewProjection->GetTransformation();
+            lightPayload.shadowMaps[x] = {
+                .worldPos = shadowRender.worldPos,
+                .transform = shadowRender.viewProjection.GetTransformation(),
+                .cut = shadowRender.cut.has_value() ? *shadowRender.cut : glm::vec2{0,0},
+                .cascadeIndex = x
+            };
         }
 
         // If the light has a shadow map, update its payload to know about it (from its -1 default),
@@ -877,23 +887,23 @@ bool ObjectRenderer::BindDescriptorSet0_ShadowMapTextures(const BindState& bindS
     {
         switch (typeIt.first)
         {
-            case ShadowMapType::Single:
+            case ShadowMapType::Cascaded:
             {
                 shadowBindingDetails = *shadowMapBindingDetails;
-                shadowImageViewName = ImageView::DEFAULT;
-                shadowSamplerName = ImageSampler::DEFAULT;
-                missingTextureImageView = missingTexture.second.vkImageViews.at(ImageView::DEFAULT);
-                missingTextureSampler = missingTexture.second.vkSamplers.at(ImageSampler::DEFAULT);
+                shadowImageViewName = ImageView::DEFAULT();
+                shadowSamplerName = ImageSampler::DEFAULT();
+                missingTextureImageView = missingTexture.second.vkImageViews.at(ImageView::ARRAY());
+                missingTextureSampler = missingTexture.second.vkSamplers.at(ImageSampler::DEFAULT());
             }
             break;
 
             case ShadowMapType::Cube:
             {
                 shadowBindingDetails = *shadowMapBindingDetails_Cube;
-                shadowImageViewName = ImageView::DEFAULT;
-                shadowSamplerName = ImageSampler::DEFAULT;
-                missingTextureImageView = missingCubeTexture.second.vkImageViews.at(ImageView::DEFAULT);
-                missingTextureSampler = missingCubeTexture.second.vkSamplers.at(ImageSampler::DEFAULT);
+                shadowImageViewName = ImageView::DEFAULT();
+                shadowSamplerName = ImageSampler::DEFAULT();
+                missingTextureImageView = missingCubeTexture.second.vkImageViews.at(ImageView::DEFAULT());
+                missingTextureSampler = missingCubeTexture.second.vkSamplers.at(ImageSampler::DEFAULT());
             }
             break;
         }
@@ -1064,8 +1074,8 @@ void ObjectRenderer::BindDescriptorSet2_MaterialData(BindState& bindState,
 
         descriptorSet->WriteCombinedSamplerBind(
             (*bindState.programDef)->GetBindingDetailsByName(textureBindIt.first),
-            loadedTexture->second.vkImageViews.at(TextureView::DEFAULT),
-            loadedTexture->second.vkSamplers.at(TextureSampler::DEFAULT)
+            loadedTexture->second.vkImageViews.at(TextureView::DEFAULT()),
+            loadedTexture->second.vkSamplers.at(TextureSampler::DEFAULT())
         );
     }
 

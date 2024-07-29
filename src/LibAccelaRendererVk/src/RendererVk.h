@@ -89,12 +89,10 @@ namespace Accela::Render
             void EndRenderPass(const VulkanCommandBufferPtr& commandBuffer);
 
             void RefreshShadowMapsAsNeeded(const RenderParams& renderParams,
-                                           const VulkanCommandBufferPtr& commandBuffer,
-                                           const std::vector<ViewProjection>& viewProjections);
+                                           const VulkanCommandBufferPtr& commandBuffer);
 
             [[nodiscard]] bool RefreshShadowMap(const RenderParams& renderParams,
                                                 const VulkanCommandBufferPtr& commandBuffer,
-                                                const std::vector<ViewProjection>& viewProjections,
                                                 const LoadedLight& loadedLight);
 
             void RunSceneRender(const std::string& sceneName,

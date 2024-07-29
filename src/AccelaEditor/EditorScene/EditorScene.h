@@ -66,7 +66,8 @@ namespace Accela
             void ProcessRotateCameraCommand(const RotateCameraCommand::Ptr& cmd);
             void ProcessPanCameraCommand(const PanCameraCommand::Ptr& cmd);
             void ProcessScaleCommand(const ScaleCommand::Ptr& cmd);
-            void ProcessSetEntityHighlightedCommand(const SetEntityHighlighted::Ptr& cmd);
+            void ProcessSetEntitiesHighlightedCommand(const SetEntitiesHighlightedCommand::Ptr& cmd);
+            void ProcessResetCameraCommand(const ResetCameraCommand::Ptr& cmd);
 
             void InitCamera();
             void PanCamera(float xPanScalar, float yPanScalar);

@@ -38,13 +38,10 @@ std::expected<Projection::Ptr, bool> OrthoProjection::From(const float& width,
                                                            const float& nearDistance,
                                                            const float& farDistance)
 {
-    // Dimensions must be non-zero positive
     if (width <= 0.0f) { return std::unexpected(false); }
     if (height <= 0.0f) { return std::unexpected(false); }
-    if (nearDistance <= 0.0f) { return std::unexpected(false); }
+    if (nearDistance < 0.0f) { return std::unexpected(false); } // Note: allows 0.0f near plane
     if (farDistance <= 0.0f) { return std::unexpected(false); }
-
-    // Near must be closer than far
     if (nearDistance >= farDistance) { return std::unexpected(false); }
 
     const float halfWidth = width / 2.0f;

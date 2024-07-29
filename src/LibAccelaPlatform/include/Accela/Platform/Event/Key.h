@@ -12,6 +12,14 @@
 
 namespace Accela::Platform
 {
+    //
+    // See: PlatformQt.h and PlatformSDL.h for platform-specific documentation
+    // around what values various key fields are set to.
+    //
+
+    /**
+     * Accela concept - identifies a physical key on a standard US keyboard.
+     */
     enum class PhysicalKey
     {
         Unknown,
@@ -32,8 +40,14 @@ namespace Accela::Platform
         LShift, RShift
     };
 
+    /**
+     * Identifies a specific physical key by OS/hardware scancode
+     */
     using ScanCode = uint32_t;
 
+    /**
+     * Data structure which combines all available information about a physical key
+     */
     struct PhysicalKeyPair
     {
         PhysicalKeyPair(PhysicalKey _key, ScanCode _scanCode)
@@ -51,10 +65,22 @@ namespace Accela::Platform
             return scanCode == _scanCode;
         }
 
+        /**
+         * The physical key, if we could determine it, Unknown otherwise. Always
+         * set to Unknown for Qt subsystem.
+         */
         PhysicalKey key;
+
+        /**
+         * The OS/Platform scancode representing the physical key
+         */
         ScanCode scanCode;
     };
 
+    /**
+     * Identifies a logical key, irregardless of the specific physical button(s) that were pressed to produce
+     * that logical/virtual key
+     */
     enum class LogicalKey
     {
         Unknown,
@@ -75,8 +101,14 @@ namespace Accela::Platform
         Shift,
     };
 
+    /**
+     * Identifies a logical/virtual key by OS/platform virtual keycode
+     */
     using VirtualCode = uint32_t;
 
+    /**
+     * Data structure which combines all available information about a logical/virtual key
+     */
     struct LogicalKeyPair
     {
         LogicalKeyPair(LogicalKey _key, VirtualCode _virtualCode)
@@ -94,10 +126,20 @@ namespace Accela::Platform
             return virtualCode == _virtualCode;
         }
 
+        /**
+        * The logical/virtual key, if we could determine it, Unknown otherwise.
+        */
         LogicalKey key;
+
+        /**
+         * The OS/Platform virtual code representing the logical key
+         */
         VirtualCode virtualCode;
     };
 
+    /**
+     * A modifier key that can be pressed at the same time as other keys
+     */
     enum class KeyMod
     {
         Control,

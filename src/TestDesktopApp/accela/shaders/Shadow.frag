@@ -5,10 +5,29 @@
  */
  
 #version 460
+#extension GL_EXT_multiview : require
 
 //
 // Definitions
 //
+struct GlobalPayload
+{
+    // General
+    mat4 surfaceTransform;          // Projection Space -> Rotated projection space
+
+    // Lighting
+    uint numLights;
+    float ambientLightIntensity;
+    vec3 ambientLightColor;
+    float shadowCascadeOverlap;
+};
+
+struct ViewProjectionPayload
+{
+    mat4 viewTransform;             // Global World Space -> View Space transform matrix
+    mat4 projectionTransform;       // Global View Space -> Projection Space transform matrix
+};
+
 struct MaterialPayload
 {
     bool isAffectedByLighting;
@@ -45,6 +64,9 @@ const uint ALPHA_MODE_OPAQUE = 0;
 const uint ALPHA_MODE_MASK = 1;
 const uint ALPHA_MODE_BLEND = 2;
 
+const uint SHADOW_MAP_TYPE_DIRECTIONAL = 0;
+const uint SHADOW_MAP_TYPE_POINT = 1;
+
 //
 // Internal
 //
@@ -61,14 +83,20 @@ FragmentColors ProcessAlphaMode(MaterialPayload materialPayload, FragmentColors 
 //
 // Inputs
 //
-layout(push_constant) uniform constants
-{
-    float lightMaxAffectRange;
-} PushConstants;
-
 layout(location = 0) in vec3 i_vertexPosition_shadowViewSpace;
 layout(location = 1) flat in int i_instanceIndex;
 layout(location = 2) in vec2 i_fragTexCoord;
+
+// Set 0 - Global Data
+layout(set = 0, binding = 0) uniform GlobalPayloadUniform
+{
+    GlobalPayload data;
+} u_globalData;
+
+layout(set = 0, binding = 1) readonly buffer ViewProjectionPayloadUniform
+{
+    ViewProjectionPayload data[];
+} i_viewProjectionData;
 
 // Set 2 - Material Data
 layout(set = 2, binding = 0) readonly buffer MaterialPayloadBuffer
@@ -86,6 +114,12 @@ layout(set = 3, binding = 0) readonly buffer DrawPayloadBuffer
 {
     DrawPayload data[];
 } i_drawData;
+
+layout(push_constant) uniform constants
+{
+    uint shadowMapType;
+    float lightMaxAffectRange;
+} PushConstants;
 
 void main()
 {
@@ -113,12 +147,28 @@ void main()
         discard;
     }
 
-    // Distance from the light to the vertex
-    float lightDistance = length(i_vertexPosition_shadowViewSpace);
+    float lightDistance = 0.0f;
 
-    // Map world distance to linear [0,1] depth range by dividing frag distance by max light range
-    // TODO Quality: Use non-linear depth calculation. Update GetLightFragDepth in DeferredLighting.frag appropriately as well.
-    lightDistance = lightDistance / PushConstants.lightMaxAffectRange;
+    if (PushConstants.shadowMapType == SHADOW_MAP_TYPE_DIRECTIONAL)
+    {
+        const vec4 fragPosition_lightClipSpace =
+            u_globalData.data.surfaceTransform *
+            i_viewProjectionData.data[gl_ViewIndex].projectionTransform *
+            vec4(i_vertexPosition_shadowViewSpace, 1.0f);
+
+        const vec3 fragPosition_lightNDCSpace = fragPosition_lightClipSpace.xyz / fragPosition_lightClipSpace.w;
+
+        lightDistance = fragPosition_lightNDCSpace.z;
+    }
+    else
+    {
+        // Distance from the light to the vertex
+        lightDistance = length(i_vertexPosition_shadowViewSpace);
+
+        // Map world distance to linear [0,1] depth range by dividing frag distance by max light range
+        // TODO Quality: Use non-linear depth calculation. Update GetLightFragDepth in DeferredLighting.frag appropriately as well.
+        lightDistance = lightDistance / PushConstants.lightMaxAffectRange;
+    }
 
     //
     // Output

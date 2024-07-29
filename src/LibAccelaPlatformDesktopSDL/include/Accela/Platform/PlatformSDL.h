@@ -24,7 +24,8 @@ namespace Accela::Platform
      * otherwise. PhysicalKeyPair::scanCode will always be set to an SDL-specific scancode value (SDL_SCANCODE_{X}).
      *
      * 2) LogicalKeyPair::key will always be set to a value for supported keys for English keyboards, and set to Unknown
-     * otherwise. LogicalKeyPair::virtualCode will always be set to an SDL-specific virtual key code (SDLK_{x})
+     * otherwise. LogicalKeyPair::virtualCode will always be set to an SDL-specific virtual key code (SDLK_{x}) (but may
+     * be a higher, non-enumerated, key code if a non-english key is pressed).
      */
     class PlatformSDL : public PlatformDesktop
     {

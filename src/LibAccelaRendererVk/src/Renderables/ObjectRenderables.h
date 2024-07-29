@@ -54,6 +54,7 @@ namespace Accela::Render
             [[nodiscard]] std::shared_ptr<ItemBuffer<ObjectPayload>> GetObjectPayloadBuffer() const { return m_objectPayloadBuffer; };
 
             [[nodiscard]] std::vector<ObjectRenderable> GetVisibleObjects(const std::string& sceneName, const Volume& volume) const;
+            [[nodiscard]] std::vector<AABB> GetVisibleObjectsAABBs(const std::string& sceneName, const Volume& volume) const;
 
         private:
 
@@ -71,6 +72,8 @@ namespace Accela::Render
 
             static ObjectPayload ObjectToPayload(const ObjectRenderable& object);
             [[nodiscard]] std::expected<AABB, bool> GetObjectAABB(const ObjectRenderable& object) const;
+
+            [[nodiscard]] std::vector<RenderableData<ObjectRenderable>> GetVisibleRenderableData(const std::string& sceneName, const Volume& volume) const;
 
         private:
 

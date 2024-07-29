@@ -19,6 +19,7 @@ namespace Accela::Platform
      * Platform Notes:
      *
      * [Input Handling]
+     *
      * Qt is incredibly limited with regards to input handling compared to SDL. There's a number of limitations
      * affecting the client when using a Qt-based platform system. Educate yourself on physical vs logical keys,
      * scancodes vs virtual codes before reading the following:
@@ -29,7 +30,7 @@ namespace Accela::Platform
      * 2) LogicalKeyPair::key will always be set to a value for supported keys for English keyboards, and set to Unknown
      * otherwise. LogicalKeyPair::virtualCode will always be set to an an OS-specific virtual keycode.
      *
-     * 3) Qt provides no way to query for actively pressed physical or logical keys, other than logical modifier keys.
+     * 3) Qt provides no way to query for actively pressed physical or logical keys, other than for logical modifier keys.
      * That means that IKeyboardState::IsPhysicalKeyPressed(..) functionality is limited. The PhysicalKey argument
      * version will always fail (see item 1, we can't know what physical keys are pressed), but the ScanCode argument
      * version will still work correctly. One current bug/limitation of this system is that if you press a key, tab to
@@ -37,7 +38,7 @@ namespace Accela::Platform
      * say the key is pressed, until the next time the key is toggled. You may call IKeyboardState::ForceResetState to
      * clear out this erroneous state, such as when your window is re-focused. That all being said, if you specifically
      * need to test for whether a modifier (shift/control) logical key is actively pressed, then using
-     * IKeyboardState::IsModifierPressed will work for that case without any limitations.
+     * IKeyboardState::IsModifierPressed will work in that case, without any limitations.
      *
      * [Events]
      *

@@ -318,10 +318,17 @@ std::expected<AABB, bool> ObjectRenderables::GetObjectAABB(const ObjectRenderabl
     {
         for (const auto& boneTransform : *object.boneTransforms)
         {
-            objectModelSpaceAABB.AddPoints({
-               boneTransform * glm::vec4(originalObjectModelSpaceVolume.min, 1),
-               boneTransform * glm::vec4(originalObjectModelSpaceVolume.max, 1)
-            });
+            std::vector<glm::vec3> points;
+
+            std::ranges::transform(
+                originalObjectModelSpaceVolume.GetBoundingPoints(),
+                std::back_inserter(points),
+                [&](const auto& p){
+                    return boneTransform * glm::vec4(p, 1);
+                }
+            );
+
+            objectModelSpaceAABB.AddPoints(points);
         }
     }
 
@@ -329,10 +336,17 @@ std::expected<AABB, bool> ObjectRenderables::GetObjectAABB(const ObjectRenderabl
     // Convert the object model space AABB to world space by transforming its points by
     // the object's transform
     //
-    const auto objectWorldSpaceAABB = AABB(std::vector<glm::vec3>{
-        object.modelTransform * glm::vec4(objectModelSpaceAABB.GetVolume().min, 1),
-        object.modelTransform * glm::vec4(objectModelSpaceAABB.GetVolume().max, 1)
-    });
+    std::vector<glm::vec3> points;
+
+    std::ranges::transform(
+        objectModelSpaceAABB.GetVolume().GetBoundingPoints(),
+        std::back_inserter(points),
+        [&](const auto& p){
+            return object.modelTransform * glm::vec4(p, 1);
+        }
+    );
+
+    const auto objectWorldSpaceAABB = AABB(points);
 
     return objectWorldSpaceAABB;
 }
@@ -342,9 +356,38 @@ const ObjectsRTree& ObjectRenderables::GetDataRTree(const std::string& sceneName
     return m_objectsRTree.at(sceneName);
 }
 
-[[nodiscard]] std::vector<ObjectRenderable> ObjectRenderables::GetVisibleObjects(const std::string& sceneName,
-                                                                                 const Volume& volume) const
+[[nodiscard]] std::vector<ObjectRenderable> ObjectRenderables::GetVisibleObjects(const std::string& sceneName, const Volume& volume) const
 {
+    const auto visibleRenderableData = GetVisibleRenderableData(sceneName, volume);
+
+    std::vector<ObjectRenderable> visibleAABBs;
+    visibleAABBs.reserve(visibleRenderableData.size());
+
+    std::ranges::transform(visibleRenderableData, std::back_inserter(visibleAABBs), [](const auto& obj){
+        return obj.renderable;
+    });
+
+    return visibleAABBs;
+}
+
+std::vector<AABB> ObjectRenderables::GetVisibleObjectsAABBs(const std::string& sceneName, const Volume& volume) const
+{
+    const auto visibleRenderableData = GetVisibleRenderableData(sceneName, volume);
+
+    std::vector<AABB> visibleAABBs;
+    visibleAABBs.reserve(visibleRenderableData.size());
+
+    std::ranges::transform(visibleRenderableData, std::back_inserter(visibleAABBs), [](const auto& obj){
+        return obj.boundingBox_worldSpace;
+    });
+
+    return visibleAABBs;
+}
+
+std::vector<RenderableData<ObjectRenderable>> ObjectRenderables::GetVisibleRenderableData(const std::string& sceneName, const Volume& volume) const
+{
+    if (!m_objectsRTree.contains(sceneName)) { return {}; }
+
     //
     // Query the objects r-tree for the ids of the objects within the specified volume of space
     //
@@ -353,7 +396,7 @@ const ObjectsRTree& ObjectRenderables::GetDataRTree(const std::string& sceneName
     //
     // Transform the list of volume objects ids to renderables by accessing the objects list
     //
-    std::vector<ObjectRenderable> visibleRenderables;
+    std::vector<RenderableData<ObjectRenderable>> visibleRenderables;
     visibleRenderables.reserve(sceneRenderableIdsInVolume.size());
 
     for (const auto& id : sceneRenderableIdsInVolume)
@@ -366,7 +409,7 @@ const ObjectsRTree& ObjectRenderables::GetDataRTree(const std::string& sceneName
             continue;
         }
 
-        visibleRenderables.push_back(renderableObject.renderable);
+        visibleRenderables.push_back(renderableObject);
     }
 
     return visibleRenderables;

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.19.0)
+cmake_minimum_required(VERSION 3.26.0)
 
 project(Accela VERSION 0.0.1)
 
@@ -24,12 +24,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/built)
 ####
 
 add_compile_definitions(ACCELA_DLL_EXPORT)
-
-if (CMAKE_BUILD_TYPE AND CMAKE_BUILD_TYPE STREQUAL "Debug")
-	add_compile_definitions(_DEBUG)
-else()
-	add_compile_definitions(NDEBUG)
-endif()
 
 ####
 # Append custom cmake files from cmake_modules dir

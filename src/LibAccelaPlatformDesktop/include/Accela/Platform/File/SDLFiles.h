@@ -46,8 +46,6 @@ namespace Accela::Platform
 
             [[nodiscard]] std::expected<Common::ImageData::Ptr, unsigned int> LoadTexture(const std::string& filePath) const;
 
-            static Common::ImageData::Ptr SDLSurfaceToImageData(const Common::ILogger::Ptr& logger, SDL_Surface *pSurface);
-
         private:
 
             Common::ILogger::Ptr m_logger;

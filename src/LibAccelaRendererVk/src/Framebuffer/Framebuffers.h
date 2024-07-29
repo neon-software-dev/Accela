@@ -33,14 +33,14 @@ namespace Accela::Render
 
             bool CreateFramebuffer(FrameBufferId id,
                                    const VulkanRenderPassPtr& renderPass,
-                                   const std::vector<std::pair<ImageDefinition, std::string>>& attachments,
+                                   const std::vector<std::pair<ImageDefinition, ImageViewName>>& attachments,
                                    const USize& size,
                                    const uint32_t& layers,
                                    const std::string& tag) override;
 
             bool CreateFramebuffer(FrameBufferId id,
                                    const VulkanRenderPassPtr& renderPass,
-                                   const std::vector<std::pair<ImageId, std::string>>& attachmentImageViews,
+                                   const std::vector<std::pair<ImageId, ImageViewName>>& attachmentImageViews,
                                    const USize& size,
                                    const uint32_t& layers,
                                    const std::string& tag) override;

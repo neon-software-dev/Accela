@@ -36,13 +36,15 @@ void DevScene::OnSceneStart(const Engine::IEngineRuntime::Ptr& engine)
 void DevScene::ConfigureScene()
 {
     // Set the camera away from the origin, looking at the origin
-    engine->GetWorldState()->SetWorldCamera(Engine::DEFAULT_SCENE, std::make_shared<Engine::Camera3D>(glm::vec3{0,1,1}));
+    engine->GetWorldState()->SetWorldCamera(Engine::DEFAULT_SCENE, std::make_shared<Engine::Camera3D>(glm::vec3{0, 5, 0}));
+
+    engine->GetWorldState()->GetWorldCamera(Engine::DEFAULT_SCENE)->SetLookUnit({0, 0, -1});
 
     // Audio listener should be synced to the world camera's position
     engine->SyncAudioListenerToWorldCamera(Engine::DEFAULT_SCENE, true);
 
     // Configure ambient lighting levels
-    engine->GetWorldState()->SetAmbientLighting(Engine::DEFAULT_SCENE, 0.02f, glm::vec3(1));
+    engine->GetWorldState()->SetAmbientLighting(Engine::DEFAULT_SCENE, 0.1f, glm::vec3(1));
 
     // Display a skybox
     engine->GetWorldState()->SetSkyBox(Engine::DEFAULT_SCENE, m_skyBoxTextureId);
@@ -55,7 +57,7 @@ void DevScene::ConfigureScene()
         engine,
         Engine::DEFAULT_PHYSICS_SCENE,
         Engine::DEFAULT_PLAYER_NAME,
-        {0,7,0},
+        {0, 5, 0},
         .4f,
         1.8f
     );
@@ -67,21 +69,24 @@ void DevScene::CreateSceneEntities()
     // Configuration for which entities are placed in the test world
     //
 
-    //CreateSpotLight({0,1,0}, true);
-    CreatePointLight({0, 2, 2}, true);
-    CreateTerrainEntity(100.0f, {0, 0, 0});
+    CreateDirectionalLight({0, 1000, 0}, glm::normalize(glm::vec3{0,-1,0}), true);
+    //CreatePointLight({0, 2, 2}, true);
+    CreateTerrainEntity(10.0f, {0, 0, 0});
     //CreateFloorEntity({0,0,0}, 150);
 
     /*CreateModelEntity(
         Engine::PRI("TestDesktopApp", "CesiumMan.glb"),
-        {0,0.1f,-2},
+        {0,2.0f,-2},
         glm::vec3(1.0f),
         Engine::ModelAnimationState(Engine::ModelAnimationType::Looping, "")
     );*/
 
-    CreateTreeEntity(0, {5,0,-2});
+    Engine::StandardTreeParams treeParams{};
+   // treeParams.maturity = 0.85f;
+   // treeParams.trunk_baseLength = 3.0f;
+    CreateTreeEntity(0, {5,0,-2}, treeParams);
 
-    //CreateForest(m_terrainEid, 100);
+    //CreateForest(m_terrainEid, 200);
 }
 
 bool DevScene::LoadResources()
@@ -252,27 +257,29 @@ Engine::ObjectMaterialProperties DevScene::DefineColorMaterial(const glm::vec4& 
 void DevScene::CreatePointLight(const glm::vec3& position, bool drawEntity)
 {
     auto lightProperties = Render::LightProperties{};
+    lightProperties.type = Render::LightType::Point;
     lightProperties.attenuationMode = Render::AttenuationMode::Linear;
     lightProperties.diffuseColor = glm::vec3(1,1,1);
     lightProperties.diffuseIntensity = glm::vec3(1,1,1);
     lightProperties.specularColor = glm::vec3(1,1,1);
     lightProperties.specularIntensity = glm::vec3(1,1,1);
     lightProperties.directionUnit = glm::vec3(0,0,-1);
-    lightProperties.coneFovDegrees = 360.0f;
+    lightProperties.areaOfEffect = 360.0f;
 
     CreateLight(position, drawEntity, lightProperties);
 }
 
-void DevScene::CreateSpotLight(const glm::vec3& position, bool drawEntity)
+void DevScene::CreateDirectionalLight(const glm::vec3& position, const glm::vec3& dirUnit, bool drawEntity)
 {
     auto lightProperties = Render::LightProperties{};
-    lightProperties.attenuationMode = Render::AttenuationMode::Linear;
+    lightProperties.type = Render::LightType::Directional;
+    lightProperties.attenuationMode = Render::AttenuationMode::None;
     lightProperties.diffuseColor = glm::vec3(1,1,1);
-    lightProperties.diffuseIntensity = glm::vec3(1,1,1);
+    lightProperties.diffuseIntensity = glm::vec3(0.2, 0.2, 0.2);
     lightProperties.specularColor = glm::vec3(1,1,1);
-    lightProperties.specularIntensity = glm::vec3(1,1,1);
-    lightProperties.directionUnit = glm::vec3(1,0,0);
-    lightProperties.coneFovDegrees = 90.0f;
+    lightProperties.specularIntensity = glm::vec3(0.2, 0.2, 0.2);
+    lightProperties.directionUnit = dirUnit;
+    lightProperties.areaOfEffect = 0.0f;
 
     CreateLight(position, drawEntity, lightProperties);
 }

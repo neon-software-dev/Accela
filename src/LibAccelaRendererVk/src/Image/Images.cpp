@@ -381,6 +381,8 @@ bool Images::CreateVkImageSampler(const ImageSampler& imageSampler, LoadedImage&
 
 void Images::DestroyImageObjects(const LoadedImage& loadedImage)
 {
+    m_logger->Log(Common::LogLevel::Debug, "Images: Destroying image objects: {}", loadedImage.id.id);
+
     for (const auto& vkImageSamplerIt : loadedImage.vkSamplers)
     {
         RemoveDebugName(m_vulkanObjs->GetCalls(), m_vulkanObjs->GetDevice(), VK_OBJECT_TYPE_SAMPLER, (uint64_t)vkImageSamplerIt.second);

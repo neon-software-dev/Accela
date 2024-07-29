@@ -29,7 +29,7 @@ FramebufferObjs::FramebufferObjs(Common::ILogger::Ptr logger, Ids::Ptr ids, Vulk
 }
 
 bool FramebufferObjs::CreateOwning(const VulkanRenderPassPtr& renderPass,
-                                   const std::vector<std::pair<ImageDefinition, std::string>>& attachments,
+                                   const std::vector<std::pair<ImageDefinition, ImageViewName>>& attachments,
                                    const USize& size,
                                    const uint32_t& layers,
                                    const std::string& tag)
@@ -104,7 +104,7 @@ bool FramebufferObjs::CreateOwning(const VulkanRenderPassPtr& renderPass,
 }
 
 bool FramebufferObjs::CreateFromExisting(const VulkanRenderPassPtr& renderPass,
-                                         const std::vector<std::pair<ImageId, std::string>>& attachmentImageViews,
+                                         const std::vector<std::pair<ImageId, ImageViewName>>& attachmentImageViews,
                                          const USize& size,
                                          const uint32_t& layers,
                                          const std::string& tag)
@@ -162,7 +162,7 @@ bool FramebufferObjs::CreateFromExistingDefaultViews(const VulkanRenderPassPtr& 
 
     for (const auto& imageId : attachmentImages)
     {
-        attachmentImageViews.emplace_back(imageId, ImageView::DEFAULT);
+        attachmentImageViews.emplace_back(imageId, ImageView::DEFAULT());
     }
 
     return CreateFromExisting(renderPass, attachmentImageViews, size, layers, tag);
@@ -188,7 +188,7 @@ void FramebufferObjs::Destroy()
     m_ownsAttachments = false;
 }
 
-std::optional<std::vector<std::pair<LoadedImage, std::string>>> FramebufferObjs::GetAttachmentImages() const
+std::optional<std::vector<std::pair<LoadedImage, ImageViewName>>> FramebufferObjs::GetAttachmentImages() const
 {
     std::vector<std::pair<LoadedImage, std::string>> results;
 
@@ -206,7 +206,7 @@ std::optional<std::vector<std::pair<LoadedImage, std::string>>> FramebufferObjs:
     return results;
 }
 
-std::optional<std::pair<LoadedImage, std::string>> FramebufferObjs::GetAttachmentImage(uint8_t attachmentIndex) const
+std::optional<std::pair<LoadedImage, ImageViewName>> FramebufferObjs::GetAttachmentImage(uint8_t attachmentIndex) const
 {
     if (attachmentIndex >= m_attachmentImageViews.size())
     {

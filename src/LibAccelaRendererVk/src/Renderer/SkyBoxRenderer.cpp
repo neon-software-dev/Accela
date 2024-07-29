@@ -305,7 +305,7 @@ bool SkyBoxRenderer::UpdateGlobalDescriptorSet_Global(const RenderParams& render
     // Update the global data buffer with the global data
     //
 
-    GlobalPayload globalPayload = GetGlobalPayload(renderParams, 0);
+    GlobalPayload globalPayload = GetGlobalPayload(renderParams, m_renderSettings, 0);
 
     (*globalDataBuffer)->PushBack(ExecutionContext::CPU(), {globalPayload});
 
@@ -416,8 +416,8 @@ bool SkyBoxRenderer::BindMaterialDescriptorSet(const RenderParams& renderParams,
 
     (*materialDescriptorSet)->WriteCombinedSamplerBind(
         m_programDef->GetBindingDetailsByName("i_skyboxSampler"),
-        skyBoxTexture->second.vkImageViews.at(TextureView::DEFAULT),
-        skyBoxTexture->second.vkSamplers.at(TextureSampler::DEFAULT)
+        skyBoxTexture->second.vkImageViews.at(TextureView::DEFAULT()),
+        skyBoxTexture->second.vkSamplers.at(TextureSampler::DEFAULT())
     );
 
     //

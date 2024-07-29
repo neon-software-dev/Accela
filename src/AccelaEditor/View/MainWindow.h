@@ -9,6 +9,7 @@
 
 #include "../SceneMessageListener.h"
 
+#include <Accela/Engine/Common.h>
 #include <Accela/Engine/Package/Package.h>
 
 #include <Accela/Common/Log/ILogger.h>
@@ -19,6 +20,7 @@
 
 #include <memory>
 #include <filesystem>
+#include <unordered_set>
 
 class QProgressDialog;
 class QAction;
@@ -61,6 +63,7 @@ namespace Accela
             void VM_ProgressDialogUpdate(unsigned int progress, unsigned int total, const std::string& status);
             void VM_ProgressDialogClose();
             void VM_OnPackageChanged(const std::optional<Engine::Package>& package);
+            void VM_OnSelectedEntitiesChanged(const std::unordered_set<Engine::EntityId>& eids);
 
         private:
 
@@ -72,6 +75,9 @@ namespace Accela
             void closeEvent(QCloseEvent* e) override;
 
             void UpdateWindowTitle();
+
+            void OnEntityClickedSceneMessage(const Common::Message::Ptr& message);
+            void OnNothingClickedSceneMessage(const Common::Message::Ptr& message);
 
         private:
 

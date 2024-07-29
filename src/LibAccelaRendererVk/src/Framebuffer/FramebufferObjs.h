@@ -34,13 +34,13 @@ namespace Accela::Render
             FramebufferObjs(Common::ILogger::Ptr logger, Ids::Ptr ids, VulkanObjsPtr vulkanObjs, IImagesPtr images);
 
             bool CreateOwning(const VulkanRenderPassPtr& renderPass,
-                              const std::vector<std::pair<ImageDefinition, std::string>>& attachments,
+                              const std::vector<std::pair<ImageDefinition, ImageViewName>>& attachments,
                               const USize& size,
                               const uint32_t& layers,
                               const std::string& tag);
 
             bool CreateFromExisting(const VulkanRenderPassPtr& renderPass,
-                                    const std::vector<std::pair<ImageId, std::string>>& attachmentImageViews,
+                                    const std::vector<std::pair<ImageId, ImageViewName>>& attachmentImageViews,
                                     const USize& size,
                                     const uint32_t& layers,
                                     const std::string& tag);
@@ -55,8 +55,8 @@ namespace Accela::Render
 
             [[nodiscard]] VulkanFramebufferPtr GetFramebuffer() const noexcept { return m_framebuffer; }
             [[nodiscard]] std::size_t GetNumAttachments() const noexcept { return m_attachmentImageViews.size(); }
-            [[nodiscard]] std::optional<std::vector<std::pair<LoadedImage, std::string>>> GetAttachmentImages() const;
-            [[nodiscard]] std::optional<std::pair<LoadedImage, std::string>> GetAttachmentImage(uint8_t attachmentIndex) const;
+            [[nodiscard]] std::optional<std::vector<std::pair<LoadedImage, ImageViewName>>> GetAttachmentImages() const;
+            [[nodiscard]] std::optional<std::pair<LoadedImage, ImageViewName>> GetAttachmentImage(uint8_t attachmentIndex) const;
 
         private:
 
@@ -66,7 +66,7 @@ namespace Accela::Render
             IImagesPtr m_images;
 
             bool m_ownsAttachments{false};
-            std::vector<std::pair<ImageId, std::string>> m_attachmentImageViews;
+            std::vector<std::pair<ImageId, ImageViewName>> m_attachmentImageViews;
             VulkanFramebufferPtr m_framebuffer;
     };
 }

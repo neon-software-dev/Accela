@@ -83,9 +83,9 @@ ModelPose ModelView::Pose(const std::vector<glm::mat4>& localTransforms) const
     {
         const auto node = m_registeredModel.model->nodeMap[nodeId];
 
-        if (node->parent.has_value())
+        if (const auto nodeParent = node->parent.lock())
         {
-            globalTransforms[nodeId] = globalTransforms[(*node->parent)->id] * localTransforms[nodeId];
+            globalTransforms[nodeId] = globalTransforms[nodeParent->id] * localTransforms[nodeId];
         }
         else
         {

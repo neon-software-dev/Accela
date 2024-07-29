@@ -13,6 +13,8 @@
 
 #include <glm/glm.hpp>
 
+#include <optional>
+
 namespace Accela::Render
 {
     enum class PresentMode
@@ -73,7 +75,23 @@ namespace Accela::Render
         //
         // Shadows
         //
+
+        // Shadow quality level - determines shadow map texture size
         QualityLevel shadowQuality{QualityLevel::Medium};
+
+        // Allows objects not directly in the camera's view to cast shadows onto viewed geometry. Corresponds
+        // to the depth from a shadow cut center to the shadow render position. Increase as needed to allow
+        // objects further away to cast shadows into view, but keep as small as possible for highest quality
+        // shadows. (Only relevant for directional/cascaded light sources).
+        float shadowCascadeMinRadiusDepth = 50.0f;
+
+        // By what percentage cascading shadow map cuts should overlap so that the overlapping area can be
+        // blended to create a smooth transition between cascades. Valid values: [0.0..1.0]
+        float shadowCascadeOverlapRatio = 0.2f; // 20% overlap
+
+        // Maximum distance in which shadows for objects will render. If unset, shadows will render as long
+        // as the objects themselves are rendered
+        std::optional<float> shadowRenderDistance;
 
         //
         // Textures

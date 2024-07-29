@@ -183,9 +183,9 @@ std::expected<TextRender, bool> TextureResources::OnRenderText(const std::string
         return std::unexpected(false);
     }
 
-    const auto textureView = Render::TextureView::ViewAs2D(Render::TextureView::DEFAULT);
+    const auto textureView = Render::TextureView::ViewAs2D(Render::TextureView::DEFAULT());
 
-    auto textureSampler = Render::TextureSampler(Render::TextureSampler::DEFAULT, Render::CLAMP_ADDRESS_MODE);
+    auto textureSampler = Render::TextureSampler(Render::TextureSampler::DEFAULT(), Render::CLAMP_ADDRESS_MODE);
 
     // Use nearest sampling for text renders. Scenarios such as the perf monitor where the width of the text slightly
     // changes as the text at the end of a texture changes causes rasterization/sampling changes that cause text renders
@@ -314,11 +314,11 @@ Render::TextureId TextureResources::LoadTexture(const TextureData& textureData,
     Render::TextureView textureView;
     if (texture.numLayers == 1)
     {
-        textureView = Render::TextureView::ViewAs2D(Render::TextureView::DEFAULT);
+        textureView = Render::TextureView::ViewAs2D(Render::TextureView::DEFAULT());
     }
     else
     {
-        textureView = Render::TextureView::ViewAsCube(Render::TextureView::DEFAULT);
+        textureView = Render::TextureView::ViewAsCube(Render::TextureView::DEFAULT());
     }
 
     {
@@ -332,7 +332,7 @@ Render::TextureId TextureResources::LoadTexture(const TextureData& textureData,
         uvAddressMode = *loadConfig.uvAddressMode;
     }
 
-    const auto textureSampler = Render::TextureSampler(Render::TextureSampler::DEFAULT, uvAddressMode);
+    const auto textureSampler = Render::TextureSampler(Render::TextureSampler::DEFAULT(), uvAddressMode);
 
     //
     // Send the texture to the renderer

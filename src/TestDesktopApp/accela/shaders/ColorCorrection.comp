@@ -12,8 +12,16 @@ const uint POST_EFFECT_LOCAL_SIZE_Z = 1;
 //
 layout(push_constant) uniform constants
 {
+    // General Settings
     uint renderWidth;
     uint renderHeight;
+
+    // Tone Mapping Settings
+    bool doToneMapping;
+    float exposure;
+
+    // Gamma Correction Settings
+    bool doGammaCorrection;
     float gamma;
 } PushConstants;
 
@@ -31,11 +39,29 @@ vec4 DoWork(int layerIndex)
         (float(gl_GlobalInvocationID.y) + 0.5f) / float(PushConstants.renderHeight),
     };
 
-    vec4 inPixel = texture(i_inputImage, vec3(inUV, layerIndex));
+    vec4 pixel = texture(i_inputImage, vec3(inUV, layerIndex));
 
-    const vec3 srgb = pow(inPixel.rgb, vec3(1.0f / PushConstants.gamma));
+    //////////////////////////////
+    // Tone Mapping
+    // (HDR Linear -> LDR Linear)
+    //////////////////////////////
+    if (PushConstants.doToneMapping)
+    {
+        const vec3 ldr = vec3(1.0f) - exp(-pixel.xyz * PushConstants.exposure);
+        pixel.xyz = ldr;
+    }
 
-    return vec4(srgb, inPixel.a);
+    //////////////////////////////
+    // Gamma Correction
+    // (Linear -> SRGB)
+    //////////////////////////////
+    if (PushConstants.doGammaCorrection)
+    {
+        const vec3 srgb = pow(pixel.rgb, vec3(1.0f / PushConstants.gamma));
+        pixel.xyz = srgb;
+    }
+
+    return pixel;
 }
 
 void main()

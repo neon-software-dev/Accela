@@ -20,26 +20,33 @@ SDL_Color SDLUtil::ToSDLColor(const Color& color)
     return sdlColor;
 }
 
-Common::ImageData::Ptr SDLUtil::SDLSurfaceToImageData(SDL_Surface *pSurface)
+Common::ImageData::Ptr SDLUtil::SDLSurfaceToImageData(const Common::ILogger::Ptr& logger, SDL_Surface *pSurface)
 {
+    SDL_Surface* pFormattedSurface = nullptr;
+    bool surfaceConverted = false;
+
+    // Lock the provided surface to read its data
     SDL_LockSurface(pSurface);
 
-    SDL_Surface* pFormattedSurface = nullptr;
-
+    // Check if we need to convert the surface to a different format or if it can be used as-is
     if (pSurface->format->format == SDL_PIXELFORMAT_RGBA32)
     {
+        // Surface is already in a good format
         pFormattedSurface = pSurface;
     }
     else
     {
         // Convert the surface to RGBA32 as that's what the Renderer wants for textures
         pFormattedSurface = SDL_ConvertSurfaceFormat(pSurface, SDL_PIXELFORMAT_RGBA32, 0);
+        surfaceConverted = true;
 
-        // Unlock the old surface
+        // Unlock the old surface as we're not using it any longer
         SDL_UnlockSurface(pSurface);
 
         if (pFormattedSurface == nullptr)
         {
+            logger->Log(Common::LogLevel::Error,
+                "SDLSurfaceToImageData: Surface could not be converted to a supported pixel format");
             return nullptr;
         }
 
@@ -63,7 +70,14 @@ Common::ImageData::Ptr SDLUtil::SDLSurfaceToImageData(SDL_Surface *pSurface)
         Common::ImageData::PixelFormat::RGBA32
     );
 
+    // Unlock the surface
     SDL_UnlockSurface(pFormattedSurface);
+
+    // If we had to convert the surface format, free the converted surface we made
+    if (surfaceConverted)
+    {
+        SDL_FreeSurface(pFormattedSurface);
+    }
 
     return loadResult;
 }
@@ -152,7 +166,7 @@ std::optional<KeyEvent> SDLUtil::SDLKeyEventToKeyEvent(const SDL_Event& event)
     //
     // Physical Key
     //
-    PhysicalKeyPair physicalKeyPair{PhysicalKey::Unknown, event.key.keysym.scancode};
+    PhysicalKeyPair physicalKeyPair{PhysicalKey::Unknown, (Platform::ScanCode)event.key.keysym.scancode};
 
     switch (event.key.keysym.scancode)
     {

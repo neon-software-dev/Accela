@@ -223,8 +223,8 @@ void PostProcessingRenderer::Render(const VulkanCommandBufferPtr& commandBuffer,
 
         (*descriptorSet)->WriteCombinedSamplerBind(
             (*samplerBindingDetails),
-            outputImage.vkImageViews.at(ImageView::DEFAULT),
-            outputImage.vkSamplers.at(ImageSampler::DEFAULT)
+            outputImage.vkImageViews.at(ImageView::DEFAULT()),
+            outputImage.vkSamplers.at(ImageSampler::DEFAULT())
         );
     }
 

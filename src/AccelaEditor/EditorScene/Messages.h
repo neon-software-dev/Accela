@@ -13,6 +13,7 @@
 #include <Accela/Common/Thread/ResultMessage.h>
 
 #include <vector>
+#include <unordered_set>
 
 namespace Accela
 {
@@ -140,26 +141,42 @@ namespace Accela
     {
         using Ptr = std::shared_ptr<EntityClicked>;
         static constexpr auto TYPE = "EntityClicked";
-        explicit EntityClicked(Engine::EntityId _eid)
+        EntityClicked(Engine::EntityId _eid, bool _requestingMultipleSelect)
             : Common::Message(TYPE)
             , eid(_eid)
+            , requestingMultipleSelect(_requestingMultipleSelect)
         { }
 
         Engine::EntityId eid;
+        bool requestingMultipleSelect;
     };
 
-    struct SetEntityHighlighted : public Common::Message
+    struct NothingClicked : public Common::Message
     {
-        using Ptr = std::shared_ptr<SetEntityHighlighted>;
-        static constexpr auto TYPE = "SetEntityHighlighted";
-        SetEntityHighlighted(Engine::EntityId _eid, bool _highlighted)
+        using Ptr = std::shared_ptr<NothingClicked>;
+        static constexpr auto TYPE = "NothingClicked";
+        NothingClicked()
             : Common::Message(TYPE)
-            , eid(_eid)
-            , highlighted(_highlighted)
+        { }
+    };
+
+    struct SetEntitiesHighlightedCommand : public Common::Message
+    {
+        using Ptr = std::shared_ptr<SetEntitiesHighlightedCommand>;
+        static constexpr auto TYPE = "SetEntitiesHighlightedCommand";
+        explicit SetEntitiesHighlightedCommand(std::unordered_set<Engine::EntityId> _eids)
+            : Common::Message(TYPE)
+            , eids(std::move(_eids))
         { }
 
-        Engine::EntityId eid;
-        bool highlighted;
+        std::unordered_set<Engine::EntityId> eids;
+    };
+
+    struct ResetCameraCommand : public Common::Message
+    {
+        using Ptr = std::shared_ptr<ResetCameraCommand>;
+        static constexpr auto TYPE = "ResetCameraCommand";
+        ResetCameraCommand() : Common::Message(TYPE) { }
     };
 }
 

@@ -62,6 +62,11 @@ void SceneSyncer::BlockingFullSyncConstruct(const std::optional<Engine::Construc
     m_entities.clear();
 
     //
+    // Reset scene camera to default
+    //
+    (*m_accelaWindow)->EnqueueSceneMessage(std::make_shared<ResetCameraCommand>());
+
+    //
     // Create all entities
     //
     if (!construct)

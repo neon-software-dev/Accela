@@ -17,6 +17,7 @@ struct GlobalPayload
     // Lighting
     float ambientLightIntensity;
     vec3 ambientLightColor;
+    float shadowCascadeOverlap;
 };
 
 struct ViewProjectionPayload

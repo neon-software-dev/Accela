@@ -224,7 +224,8 @@ bool Textures::CreateMissingTexture()
         return false;
     }
 
-    const auto missingTextureView = TextureView::ViewAs2D(TextureView::DEFAULT);
+    const auto missingTextureView = TextureView::ViewAs2D(TextureView::DEFAULT());
+    const auto missingTextureViewArray = TextureView::ViewAs2DArray(ImageView::ARRAY(), TextureView::Layer(0,1));
 
     //
     // Missing 2D Cube Texture
@@ -260,19 +261,19 @@ bool Textures::CreateMissingTexture()
         return false;
     }
 
-    const auto missingTextureCubeView = TextureView::ViewAsCube(TextureView::DEFAULT);
+    const auto missingTextureCubeView = TextureView::ViewAsCube(TextureView::DEFAULT());
 
     //
     // Create missing textures
     //
-    const auto textureSampler = TextureSampler(TextureSampler::DEFAULT, WRAP_ADDRESS_MODE);
+    const auto textureSampler = TextureSampler(TextureSampler::DEFAULT(), WRAP_ADDRESS_MODE);
 
     // As this happens once during initialization, just create a fake promise/future for the data transfer,
     // we don't need to wait for it to finish
     std::promise<bool> createTexturePromise;
     std::future<bool> createTextureFuture = createTexturePromise.get_future();
     CreateTexture(
-        TextureDefinition(*missingTexture, {missingTextureView}, {textureSampler}),
+        TextureDefinition(*missingTexture, {missingTextureView, missingTextureViewArray}, {textureSampler}),
         std::move(createTexturePromise)
     );
 
@@ -336,10 +337,13 @@ ImageDefinition Textures::TextureDefToImageDef(const TextureDefinition& textureD
         {
             case TextureView::ViewType::VIEW_TYPE_2D:
                 vkImageViewType = VK_IMAGE_VIEW_TYPE_2D;
-                break;
+            break;
+            case TextureView::ViewType::VIEW_TYPE_2D_ARRAY:
+                vkImageViewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+            break;
             case TextureView::ViewType::VIEW_TYPE_CUBE:
                 vkImageViewType = VK_IMAGE_VIEW_TYPE_CUBE;
-                break;
+            break;
         }
 
         imageViews.push_back(ImageView{
