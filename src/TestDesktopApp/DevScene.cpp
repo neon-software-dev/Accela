@@ -44,7 +44,7 @@ void DevScene::ConfigureScene()
     engine->SyncAudioListenerToWorldCamera(Engine::DEFAULT_SCENE, true);
 
     // Configure ambient lighting levels
-    engine->GetWorldState()->SetAmbientLighting(Engine::DEFAULT_SCENE, 0.1f, glm::vec3(1));
+    engine->GetWorldState()->SetAmbientLighting(Engine::DEFAULT_SCENE, 0.5f, glm::vec3(1));
 
     // Display a skybox
     engine->GetWorldState()->SetSkyBox(Engine::DEFAULT_SCENE, m_skyBoxTextureId);
@@ -70,13 +70,14 @@ void DevScene::CreateSceneEntities()
     //
 
     CreateDirectionalLight({0, 1000, 0}, glm::normalize(glm::vec3{0,-1,0}), true);
-    //CreatePointLight({0, 2, 2}, true);
+    //CreatePointLight({0, 4, 6}, true);
+    //CreateSpotLight({0, 10, 2}, glm::normalize(glm::vec3{-1,-1,0}), 45.0f, true);
     CreateTerrainEntity(10.0f, {0, 0, 0});
     //CreateFloorEntity({0,0,0}, 150);
 
     /*CreateModelEntity(
         Engine::PRI("TestDesktopApp", "CesiumMan.glb"),
-        {0,2.0f,-2},
+        {-9,2.0f,-2},
         glm::vec3(1.0f),
         Engine::ModelAnimationState(Engine::ModelAnimationType::Looping, "")
     );*/
@@ -84,7 +85,7 @@ void DevScene::CreateSceneEntities()
     Engine::StandardTreeParams treeParams{};
    // treeParams.maturity = 0.85f;
    // treeParams.trunk_baseLength = 3.0f;
-    CreateTreeEntity(0, {5,0,-2}, treeParams);
+    CreateTreeEntity(0, {5,0,0}, treeParams);
 
     //CreateForest(m_terrainEid, 200);
 }
@@ -265,6 +266,21 @@ void DevScene::CreatePointLight(const glm::vec3& position, bool drawEntity)
     lightProperties.specularIntensity = glm::vec3(1,1,1);
     lightProperties.directionUnit = glm::vec3(0,0,-1);
     lightProperties.areaOfEffect = 360.0f;
+
+    CreateLight(position, drawEntity, lightProperties);
+}
+
+void DevScene::CreateSpotLight(const glm::vec3& position, const glm::vec3& dirUnit, float coneDegrees, bool drawEntity)
+{
+    auto lightProperties = Render::LightProperties{};
+    lightProperties.type = Render::LightType::Spotlight;
+    lightProperties.attenuationMode = Render::AttenuationMode::Linear;
+    lightProperties.diffuseColor = glm::vec3(1,1,1);
+    lightProperties.diffuseIntensity = glm::vec3(1, 1, 1);
+    lightProperties.specularColor = glm::vec3(1,1,1);
+    lightProperties.specularIntensity = glm::vec3(1, 1, 1);
+    lightProperties.directionUnit = dirUnit;
+    lightProperties.areaOfEffect = coneDegrees;
 
     CreateLight(position, drawEntity, lightProperties);
 }

@@ -54,6 +54,11 @@ namespace Accela::Render
              */
             virtual void InvalidateShadowMapsByBounds(const std::vector<AABB>& boundingBoxes_worldSpace) = 0;
 
+            /**
+             * Invalidates shadow maps for lights which depend on camera position (directional lights)
+             *
+             * @param renderCamera The latest camera being rendered with
+             */
             virtual void UpdateShadowMapsForCamera(const RenderCamera& renderCamera) = 0;
 
             /**

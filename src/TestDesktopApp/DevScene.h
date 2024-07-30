@@ -53,6 +53,7 @@ namespace Accela
 
             /** Add a light at the specified position */
             void CreatePointLight(const glm::vec3& position, bool drawEntity);
+            void CreateSpotLight(const glm::vec3& position, const glm::vec3& dirUnit, float coneDegrees, bool drawEntity);
             void CreateDirectionalLight(const glm::vec3& position, const glm::vec3& dirUnit, bool drawEntity);
             void CreateLight(const glm::vec3& position, bool drawEntity, const Render::LightProperties& properties);
 

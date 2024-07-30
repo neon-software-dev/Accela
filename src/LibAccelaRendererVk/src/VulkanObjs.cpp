@@ -58,6 +58,7 @@ VulkanRenderPassPtr VulkanObjs::GetGPassRenderPass() const noexcept { return m_g
 VulkanRenderPassPtr VulkanObjs::GetScreenRenderPass() const noexcept { return m_screenRenderPass; }
 VulkanRenderPassPtr VulkanObjs::GetSwapChainBlitRenderPass() const noexcept { return m_swapChainBlitRenderPass; }
 VulkanRenderPassPtr VulkanObjs::GetShadowCascadedRenderPass() const noexcept { return m_shadowCascadedRenderPass; }
+VulkanRenderPassPtr VulkanObjs::GetShadowSingleRenderPass() const noexcept { return m_shadowSingleRenderPass; }
 VulkanRenderPassPtr VulkanObjs::GetShadowCubeRenderPass() const noexcept { return m_shadowCubeRenderPass; }
 
 bool VulkanObjs::Initialize(bool enableValidationLayers, const RenderSettings& renderSettings)
@@ -138,6 +139,12 @@ bool VulkanObjs::Initialize(bool enableValidationLayers, const RenderSettings& r
         return false;
     }
 
+    if (!CreateShadowSingleRenderPass())
+    {
+        m_logger->Log(Common::LogLevel::Error, "VulkanObjs: Failed to create shadow single render pass");
+        return false;
+    }
+
     if (!CreateShadowCubeRenderPass())
     {
         m_logger->Log(Common::LogLevel::Error, "VulkanObjs: Failed to create shadow cube render pass");
@@ -152,6 +159,7 @@ void VulkanObjs::Destroy()
     m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Destroying Vulkan objects");
 
     DestroyShadowCubeRenderPass();
+    DestroyShadowSingleRenderPass();
     DestroyShadowCascadedRenderPass();
     DestroyScreenRenderPass();
     DestroyGPassRenderPass();
@@ -849,7 +857,12 @@ bool VulkanObjs::CreateShadowCascadedRenderPass()
     const std::vector<uint32_t> viewMasks = {layerMask};
     const uint32_t correlationMask = layerMask;
 
-    m_shadowCascadedRenderPass = CreateShadowRenderPass(viewMasks, correlationMask, numLayers, "ShadowCascaded");
+    m_shadowCascadedRenderPass = CreateShadowRenderPass(
+        viewMasks,
+        correlationMask,
+        numLayers,
+        "ShadowCascaded"
+    );
 
     return m_shadowCascadedRenderPass != nullptr;
 }
@@ -861,6 +874,32 @@ void VulkanObjs::DestroyShadowCascadedRenderPass()
         m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Destroying shadow cascaded render pass");
         m_shadowCascadedRenderPass->Destroy();
         m_shadowCascadedRenderPass = nullptr;
+    }
+}
+
+bool VulkanObjs::CreateShadowSingleRenderPass()
+{
+    m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Creating shadow single render pass");
+
+    if (!m_renderSettings) { return false; }
+
+    m_shadowSingleRenderPass = CreateShadowRenderPass(
+        std::nullopt,
+        std::nullopt,
+        1,
+        "ShadowSingle"
+    );
+
+    return m_shadowSingleRenderPass != nullptr;
+}
+
+void VulkanObjs::DestroyShadowSingleRenderPass()
+{
+    if (m_shadowSingleRenderPass != nullptr)
+    {
+        m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Destroying shadow single render pass");
+        m_shadowSingleRenderPass->Destroy();
+        m_shadowSingleRenderPass = nullptr;
     }
 }
 

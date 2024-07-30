@@ -26,6 +26,7 @@ namespace Accela::Render
     enum class ShadowMapType
     {
         Cascaded,   // Multi-viewed, cascaded, shadow map
+        Single,     // Single shadow map
         Cube        // Multi-viewed, cubic, shadow map
     };
 
@@ -46,8 +47,9 @@ namespace Accela::Render
     {
         switch (light.lightProperties.type)
         {
-            case LightType::Point: return ShadowMapType::Cube;
             case LightType::Directional: return ShadowMapType::Cascaded;
+            case LightType::Spotlight: return ShadowMapType::Single;
+            case LightType::Point: return ShadowMapType::Cube;
         }
 
         assert(false);

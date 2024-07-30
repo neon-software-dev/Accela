@@ -12,10 +12,11 @@
 // Definitions
 //
 const uint Max_Light_Count = 16;                // Maximum number of scene lights
-const uint Shadow_Cascade_Count = 4;            // Cascade count for directional light shadow maps
+const uint Shadow_Cascade_Count = 4;            // Cascade count for cascaded shadow maps
 
-const uint SHADOW_MAP_TYPE_DIRECTIONAL = 0;     // Directional, cascading, shadow maps
-const uint SHADOW_MAP_TYPE_POINT = 1;           // Cubic, single, shadow map
+const uint SHADOW_MAP_TYPE_CASCADED = 0;        // Cascaded shadow map
+const uint SHADOW_MAP_TYPE_SINGLE = 1;          // Single shadow map
+const uint SHADOW_MAP_TYPE_CUBE = 2;            // Cubic shadow map
 
 const uint ATTENUATION_MODE_NONE = 0;           // Attenuation - none
 const uint ATTENUATION_MODE_LINEAR = 1;         // Attenuation - linear decrease
@@ -117,8 +118,8 @@ bool CanLightAffectFragment(LightPayload light, vec3 point_worldSpace);
 ShadowMapPayload GetFragShadowMapPayload(LightPayload lightData, vec3 fragPosition_viewSpace);
 
 // Offsets for (point-light) PCF filtering
-const uint PCF_NUM_SAMPLES = 20;
-const vec3 SampleOffsetDirections[PCF_NUM_SAMPLES] = vec3[]
+const uint PCF_CUBIC_NUM_SAMPLES = 20;
+const vec3 SampleOffsetDirections[PCF_CUBIC_NUM_SAMPLES] = vec3[]
 (
     vec3(1, 1, 1), vec3(1, -1, 1), vec3(-1, -1, 1), vec3(-1, 1, 1),
     vec3(1, 1,-1), vec3(1,-1, -1), vec3(-1, -1, -1), vec3(-1, 1, -1),
@@ -152,8 +153,9 @@ layout(set = 0, binding = 2) readonly buffer LightPayloadBuffer
     LightPayload data[];
 } i_lightData;
 
-layout(set = 0, binding = 3) uniform sampler2DArray i_shadowSampler[Max_Light_Count]; // Samplers for directional/cascaded lights
-layout(set = 0, binding = 4) uniform samplerCube i_shadowSampler_cubeMap[Max_Light_Count]; // Samplers for point/cube lights
+layout(set = 0, binding = 3) uniform sampler2DArray i_shadowSampler_cascaded[Max_Light_Count];
+layout(set = 0, binding = 4) uniform sampler2D i_shadowSampler_single[Max_Light_Count];
+layout(set = 0, binding = 5) uniform samplerCube i_shadowSampler_cube[Max_Light_Count];
 
 // Set 2 - Material Data
 layout(set = 2, binding = 0) readonly buffer MaterialPayloadBuffer
@@ -262,7 +264,7 @@ CalculatedLight CalculateFragmentLighting(MaterialPayload fragmentMaterial)
         vec3 fragTolightUnit_viewSpace = vec3(0,0,0);
         float fragToLightDistance = 0.0f;
 
-        if (lightData.shadowMapType == SHADOW_MAP_TYPE_DIRECTIONAL)
+        if (lightData.shadowMapType == SHADOW_MAP_TYPE_CASCADED)
         {
             // Directional lights are considered to be infinitely far away with parallel rays, and thus
             // we ignore the position the light is at and just use the opposite of the light's direction
@@ -275,9 +277,9 @@ CalculatedLight CalculateFragmentLighting(MaterialPayload fragmentMaterial)
             // denominator in the ray/plane intersection is 1 in this case, and so is ignored
             fragToLightDistance = dot((lightData.worldPos - fragPosition_worldSpace), -lightData.directionUnit);
         }
-        else if (lightData.shadowMapType == SHADOW_MAP_TYPE_POINT)
+        else if (lightData.shadowMapType == SHADOW_MAP_TYPE_SINGLE || lightData.shadowMapType == SHADOW_MAP_TYPE_CUBE)
         {
-            // Point lights eminate from a specific world position, so we can draw a vector from the
+            // Point and spot lights eminate from a specific world position, so we can draw a vector from the
             // fragment to the light's position
             fragTolightUnit_viewSpace = normalize(lightPos_viewSpace - fragPosition_viewSpace);
 
@@ -392,19 +394,19 @@ uint GetFragCascadeIndex(LightPayload lightData, vec3 fragPosition_viewSpace)
 
 ShadowMapPayload GetFragShadowMapPayload(LightPayload lightData, vec3 fragPosition_viewSpace)
 {
-    if (lightData.shadowMapType == SHADOW_MAP_TYPE_DIRECTIONAL)
+    if (lightData.shadowMapType == SHADOW_MAP_TYPE_CASCADED)
     {
-        // Directional lights have multiple, cascading, shadow maps
+        // Return the shadow map render for a specific cascade, dependent on frag position
         return lightData.shadowMaps[GetFragCascadeIndex(lightData, fragPosition_viewSpace)];
     }
     else
     {
-        // Point lights only have one shadow map, and aren't cascaded
+        // Single and cube shadow maps only have one shadow map render
         return lightData.shadowMaps[0];
     }
 }
 
-float GetFragShadowLevel_Directional(LightPayload lightData, ShadowMapPayload shadowMap, vec3 fragPosition_worldSpace, float lightToFragDepth)
+float GetFragShadowLevel_Cascaded(LightPayload lightData, ShadowMapPayload shadowMap, vec3 fragPosition_worldSpace, float lightToFragDepth)
 {
     const vec4 fragPosition_lightClipSpace = shadowMap.transform * vec4(fragPosition_worldSpace, 1);
 
@@ -420,9 +422,9 @@ float GetFragShadowLevel_Directional(LightPayload lightData, ShadowMapPayload sh
     const vec3 fragPosition_lightNDCSpace = fragPosition_lightClipSpace.xyz / fragPosition_lightClipSpace.w;
     const vec2 shadowSampleCoords = fragPosition_lightNDCSpace.xy * 0.5f + 0.5f;
 
-    const vec2 texelSize = 1.0 / textureSize(i_shadowSampler[lightData.shadowMapIndex], 0).xy;
+    const vec2 texelSize = 1.0 / textureSize(i_shadowSampler_cascaded[lightData.shadowMapIndex], 0).xy;
 
-    float shadow = 0.0;
+    float shadowLevel = 0.0;
     int sampleSize = 1;
 
     // PCF filter
@@ -431,21 +433,24 @@ float GetFragShadowLevel_Directional(LightPayload lightData, ShadowMapPayload sh
         for (int y = -sampleSize; y <= sampleSize; ++y)
         {
             const float pcfFragDepth = texture(
-                i_shadowSampler[lightData.shadowMapIndex],
+                i_shadowSampler_cascaded[lightData.shadowMapIndex],
                 vec3(shadowSampleCoords + (vec2(x, y) * texelSize), shadowMap.cascadeIndex)
             ).r;
 
-            shadow += lightToFragDepth > pcfFragDepth ? 1.0 : 0.0;
+            shadowLevel += lightToFragDepth > pcfFragDepth ? 1.0 : 0.0;
         }
     }
 
-    return shadow / ((sampleSize * 2.0f + 1.0f) * 2.0f);
+    return shadowLevel / ((sampleSize * 2.0f + 1.0f) * 2.0f);
 }
 
-float GetFragShadowLevel_Directional(LightPayload lightData, vec3 fragPosition_viewSpace, vec3 fragPosition_worldSpace)
+float GetFragShadowLevel_Cascaded(LightPayload lightData, vec3 fragPosition_viewSpace, vec3 fragPosition_worldSpace)
 {
     const float fragDistance_viewSpace = abs(fragPosition_viewSpace.z);
 
+    //
+    // Get the shadow level from the cascade the fragment falls within
+    //
     ShadowMapPayload shadowMap = GetFragShadowMapPayload(lightData, fragPosition_viewSpace);
     const float cutRange = shadowMap.cut.y - shadowMap.cut.x;
     const float cutBlendRange = cutRange * u_globalData.data.shadowCascadeOverlap;
@@ -458,26 +463,86 @@ float GetFragShadowLevel_Directional(LightPayload lightData, vec3 fragPosition_v
     vec3 fragPosition_lightNDCSpace = fragPosition_lightClipSpace.xyz / fragPosition_lightClipSpace.w;
     float lightToFragDepth = fragPosition_lightNDCSpace.z;
 
-    const float fragShadowLevelMain = GetFragShadowLevel_Directional(lightData, shadowMap, fragPosition_worldSpace, lightToFragDepth);
+    const float fragShadowLevelMain = GetFragShadowLevel_Cascaded(lightData, shadowMap, fragPosition_worldSpace, lightToFragDepth);
 
+    //
+    // If the fragment doesn't fall within the cut blend band, return the shadow level that was determined
+    //
     if (!fragWithinCutBlendBand)
     {
         return fragShadowLevelMain;
     }
 
+    //
+    // Otherwise, get the shadow level from the next cascade as well, and blend the two shadow levels together
+    //
     shadowMap = lightData.shadowMaps[shadowMap.cascadeIndex + 1];
     fragPosition_lightClipSpace = shadowMap.transform * vec4(fragPosition_worldSpace, 1);
     fragPosition_lightNDCSpace = fragPosition_lightClipSpace.xyz / fragPosition_lightClipSpace.w;
     lightToFragDepth = fragPosition_lightNDCSpace.z;
 
-    const float fragShadowLevelNext = GetFragShadowLevel_Directional(lightData, shadowMap, fragPosition_worldSpace, lightToFragDepth);
+    const float fragShadowLevelNext = GetFragShadowLevel_Cascaded(lightData, shadowMap, fragPosition_worldSpace, lightToFragDepth);
 
+    //
+    // Blend the two levels together depending on progress through the blend band
+    //
     const float percentWithinBlendBand = (fragDistance_viewSpace - cutBlendStart) / cutBlendRange;
 
     return (fragShadowLevelMain * (1.0f - percentWithinBlendBand)) + (fragShadowLevelNext * percentWithinBlendBand);
 }
 
-float GetFragShadowLevel_Point(LightPayload lightData, vec3 fragPosition_worldSpace)
+float GetFragShadowLevel_Single(LightPayload lightData, vec3 fragPosition_viewSpace, vec3 fragPosition_worldSpace)
+{
+    //
+    // Calculate depth from the light to the fragment
+    //
+
+    const vec3 lightToFrag = fragPosition_worldSpace - lightData.worldPos;
+    const float lightToFragDepth = length(lightToFrag) / lightData.maxAffectRange;
+
+    //
+    // Query the shadow map for the closest fragment depth
+    //
+
+    const ShadowMapPayload shadowMap = GetFragShadowMapPayload(lightData, fragPosition_viewSpace);
+
+    const vec4 fragPosition_lightClipSpace = shadowMap.transform * vec4(fragPosition_worldSpace, 1);
+
+    // Sanity check the fragment is within the shadow map, although this method should never be called if that's the case
+    if ((abs(fragPosition_lightClipSpace.x) > fragPosition_lightClipSpace.w) ||
+        (abs(fragPosition_lightClipSpace.y) > fragPosition_lightClipSpace.w) ||
+        (fragPosition_lightClipSpace.z > fragPosition_lightClipSpace.w) ||
+        (fragPosition_lightClipSpace.z < 0.0f))
+    {
+        return 0.0f;
+    }
+
+    const vec3 fragPosition_lightNDCSpace = fragPosition_lightClipSpace.xyz / fragPosition_lightClipSpace.w;
+    const vec2 shadowSampleCoords = fragPosition_lightNDCSpace.xy * 0.5f + 0.5f;
+
+    const vec2 texelSize = 1.0 / textureSize(i_shadowSampler_single[lightData.shadowMapIndex], 0).xy;
+
+    float shadow = 0.0;
+    int sampleSize = 1;
+
+    // PCF filter
+    for (int x = -sampleSize; x <= sampleSize; ++x)
+    {
+        for (int y = -sampleSize; y <= sampleSize; ++y)
+        {
+            const float pcfFragDepth = texture(
+                i_shadowSampler_single[lightData.shadowMapIndex],
+                shadowSampleCoords + (vec2(x, y) * texelSize)
+            ).r;
+
+            shadow += lightToFragDepth > pcfFragDepth ? 1.0 : 0.0;
+        }
+    }
+
+    return shadow / ((sampleSize * 2.0f + 1.0f) * 2.0f);
+}
+
+float GetFragShadowLevel_Cube(LightPayload lightData, vec3 fragPosition_worldSpace)
 {
     //
     // Calculate depth from the light to the fragment
@@ -497,7 +562,7 @@ float GetFragShadowLevel_Point(LightPayload lightData, vec3 fragPosition_worldSp
     lightToFrag_worldSpace.z *= -1.0f;
 
     // Offsets for PCF samples
-    const uint numSamples = PCF_NUM_SAMPLES;
+    const uint numSamples = PCF_CUBIC_NUM_SAMPLES;
     const float diskRadius = (1.0 + (length(lightToFrag_worldSpace) / lightData.maxAffectRange)) / 100.0;
 
     float shadow = 0.0;
@@ -505,7 +570,7 @@ float GetFragShadowLevel_Point(LightPayload lightData, vec3 fragPosition_worldSp
     for (uint i = 0; i < numSamples; ++i)
     {
         const float pcfFragDepth = texture(
-            i_shadowSampler_cubeMap[lightData.shadowMapIndex],
+            i_shadowSampler_cube[lightData.shadowMapIndex],
             lightToFrag_worldSpace + (SampleOffsetDirections[i] * diskRadius)
         ).r;
 
@@ -522,14 +587,19 @@ float GetFragShadowLevel(LightPayload lightData, vec3 fragPosition_viewSpace, ve
 
     switch (lightData.shadowMapType)
     {
-        case SHADOW_MAP_TYPE_DIRECTIONAL:
+        case SHADOW_MAP_TYPE_CASCADED:
         {
-            return GetFragShadowLevel_Directional(lightData, fragPosition_viewSpace, fragPosition_worldSpace);
+            return GetFragShadowLevel_Cascaded(lightData, fragPosition_viewSpace, fragPosition_worldSpace);
         }
 
-        case SHADOW_MAP_TYPE_POINT:
+        case SHADOW_MAP_TYPE_SINGLE:
         {
-            return GetFragShadowLevel_Point(lightData, fragPosition_worldSpace);
+            return GetFragShadowLevel_Single(lightData, fragPosition_viewSpace, fragPosition_worldSpace);
+        }
+
+        case SHADOW_MAP_TYPE_CUBE:
+        {
+            return GetFragShadowLevel_Cube(lightData, fragPosition_worldSpace);
         }
 
         // Unsupported light type, return no shadow since we don't know how to access its shadow map
@@ -614,7 +684,7 @@ bool CanLightAffectFragment_Point(LightPayload light, vec3 fragPosition_worldSpa
 
 bool CanLightAffectFragment(LightPayload light, vec3 fragPosition_worldSpace)
 {
-    if (light.shadowMapType == SHADOW_MAP_TYPE_DIRECTIONAL)
+    if (light.shadowMapType == SHADOW_MAP_TYPE_CASCADED)
     {
         return CanLightAffectFragment_Directional(light, fragPosition_worldSpace);
     }

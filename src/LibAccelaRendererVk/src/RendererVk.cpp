@@ -1393,16 +1393,9 @@ bool RendererVk::RefreshShadowMap(const RenderParams& renderParams,
 
     switch (loadedLight.shadowMapType)
     {
-        case ShadowMapType::Cascaded:
-        {
-            shadowRenderPass = m_vulkanObjs->GetShadowCascadedRenderPass();
-        }
-        break;
-        case ShadowMapType::Cube:
-        {
-            shadowRenderPass = m_vulkanObjs->GetShadowCubeRenderPass();
-        }
-        break;
+        case ShadowMapType::Cascaded: { shadowRenderPass = m_vulkanObjs->GetShadowCascadedRenderPass(); } break;
+        case ShadowMapType::Single: { shadowRenderPass = m_vulkanObjs->GetShadowSingleRenderPass(); } break;
+        case ShadowMapType::Cube: { shadowRenderPass = m_vulkanObjs->GetShadowCubeRenderPass(); } break;
     }
 
     if (!loadedLight.shadowFrameBufferId)

@@ -83,11 +83,11 @@ namespace Accela::Render
         // to the depth from a shadow cut center to the shadow render position. Increase as needed to allow
         // objects further away to cast shadows into view, but keep as small as possible for highest quality
         // shadows. (Only relevant for directional/cascaded light sources).
-        float shadowCascadeMinRadiusDepth = 50.0f;
+        float shadowCascadeMinRadiusDepth = 25.0f;
 
         // By what percentage cascading shadow map cuts should overlap so that the overlapping area can be
         // blended to create a smooth transition between cascades. Valid values: [0.0..1.0]
-        float shadowCascadeOverlapRatio = 0.2f; // 20% overlap
+        float shadowCascadeOverlapRatio = 0.1f; // 10% overlap
 
         // Maximum distance in which shadows for objects will render. If unset, shadows will render as long
         // as the objects themselves are rendered

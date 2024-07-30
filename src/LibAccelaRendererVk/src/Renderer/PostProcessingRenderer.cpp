@@ -115,9 +115,7 @@ void PostProcessingRenderer::Render(const VulkanCommandBufferPtr& commandBuffer,
     //
     // Fetch Pipeline
     //
-    std::vector<PushConstantRange> pushConstantRanges;
-
-    pushConstantRanges = {
+    const std::vector<PushConstantRange> pushConstantRanges = {
         {VK_SHADER_STAGE_COMPUTE_BIT, 0, (uint32_t)effect.pushPayload.size()}
     };
 
@@ -228,7 +226,7 @@ void PostProcessingRenderer::Render(const VulkanCommandBufferPtr& commandBuffer,
         );
     }
 
-    // Calculate work ground sizes by fitting the local work group sizes into
+    // Calculate work group sizes by fitting the local work group sizes into
     // the render resolution
     const auto workGroupSize = CalculateWorkGroupSize();
 
@@ -254,7 +252,7 @@ std::pair<uint32_t, uint32_t> PostProcessingRenderer::CalculateWorkGroupSize() c
     std::optional<unsigned int> workGroupSizeX;
     std::optional<unsigned int> workGroupSizeY;
 
-    // Handle work cleanly divisible work group sizes with no fractional part
+    // Handle cleanly divisible work group sizes with no fractional part
     if (m_renderSettings.resolution.w % POST_PROCESS_LOCAL_SIZE_X == 0)
     {
         workGroupSizeX = m_renderSettings.resolution.w / POST_PROCESS_LOCAL_SIZE_X;

@@ -61,6 +61,7 @@ namespace Accela::Render
             [[nodiscard]] VulkanRenderPassPtr GetScreenRenderPass() const noexcept;
             [[nodiscard]] VulkanRenderPassPtr GetSwapChainBlitRenderPass() const noexcept;
             [[nodiscard]] VulkanRenderPassPtr GetShadowCascadedRenderPass() const noexcept;
+            [[nodiscard]] VulkanRenderPassPtr GetShadowSingleRenderPass() const noexcept;
             [[nodiscard]] VulkanRenderPassPtr GetShadowCubeRenderPass() const noexcept;
 
         private:
@@ -91,6 +92,8 @@ namespace Accela::Render
             void DestroySwapChainBlitRenderPass();
             bool CreateShadowCascadedRenderPass();
             void DestroyShadowCascadedRenderPass();
+            bool CreateShadowSingleRenderPass();
+            void DestroyShadowSingleRenderPass();
             bool CreateShadowCubeRenderPass();
             void DestroyShadowCubeRenderPass();
 
@@ -129,6 +132,7 @@ namespace Accela::Render
             VulkanRenderPassPtr m_screenRenderPass; // Renders screen sprites into the screen framebuffer
             VulkanRenderPassPtr m_swapChainBlitRenderPass; // Combines the gpass and screen output into the swap chain framebuffer
             VulkanRenderPassPtr m_shadowCascadedRenderPass; // Renders a cascaded directional shadow pass into a light framebuffer
+            VulkanRenderPassPtr m_shadowSingleRenderPass; // Renders a single point shadow pass into a light framebuffer
             VulkanRenderPassPtr m_shadowCubeRenderPass; // Renders a cubic point shadow pass into a light framebuffer
     };
 }

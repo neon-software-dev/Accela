@@ -769,6 +769,7 @@ bool ObjectRenderer::BindDescriptorSet0_Lights(const BindState& bindState,
 
     std::unordered_map<ShadowMapType, std::vector<ImageId>> shadowMapImageIds {
         {ShadowMapType::Cascaded, defaultLightImages},
+        {ShadowMapType::Single, defaultLightImages},
         {ShadowMapType::Cube, defaultLightImages}
     };
 
@@ -849,22 +850,27 @@ bool ObjectRenderer::BindDescriptorSet0_ShadowMapTextures(const BindState& bindS
                                                           const VulkanDescriptorSetPtr& globalDataDescriptorSet,
                                                           const std::unordered_map<ShadowMapType, std::vector<ImageId>>& shadowMapImageIds) const
 {
-    //
-    // Cube shadow map binding details
-    //
-    const auto shadowMapBindingDetails = (*bindState.programDef)->GetBindingDetailsByName("i_shadowSampler");
-    if (!shadowMapBindingDetails)
+    const auto shadowMapBindingDetails_cascaded = (*bindState.programDef)->GetBindingDetailsByName("i_shadowSampler_cascaded");
+    if (!shadowMapBindingDetails_cascaded)
     {
         m_logger->Log(Common::LogLevel::Error,
-                      "DeferredLightingRenderer::BindDescriptorSet0_ShadowMapTextures: No such shadow map binding point exists: i_shadowSampler");
+          "DeferredLightingRenderer::BindDescriptorSet0_ShadowMapTextures: No such shadow map binding point exists: i_shadowSampler_cascaded");
         return false;
     }
 
-    const auto shadowMapBindingDetails_Cube = (*bindState.programDef)->GetBindingDetailsByName("i_shadowSampler_cubeMap");
-    if (!shadowMapBindingDetails_Cube)
+    const auto shadowMapBindingDetails_single = (*bindState.programDef)->GetBindingDetailsByName("i_shadowSampler_single");
+    if (!shadowMapBindingDetails_single)
     {
         m_logger->Log(Common::LogLevel::Error,
-                      "DeferredLightingRenderer::BindDescriptorSet0_ShadowMapTextures: No such shadow map binding point exists: i_shadowSampler_cubeMap");
+          "DeferredLightingRenderer::BindDescriptorSet0_ShadowMapTextures: No such shadow map binding point exists: i_shadowSampler_single");
+        return false;
+    }
+
+    const auto shadowMapBindingDetails_cube = (*bindState.programDef)->GetBindingDetailsByName("i_shadowSampler_cube");
+    if (!shadowMapBindingDetails_cube)
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "DeferredLightingRenderer::BindDescriptorSet0_ShadowMapTextures: No such shadow map binding point exists: i_shadowSampler_cube");
         return false;
     }
 
@@ -889,17 +895,25 @@ bool ObjectRenderer::BindDescriptorSet0_ShadowMapTextures(const BindState& bindS
         {
             case ShadowMapType::Cascaded:
             {
-                shadowBindingDetails = *shadowMapBindingDetails;
+                shadowBindingDetails = *shadowMapBindingDetails_cascaded;
                 shadowImageViewName = ImageView::DEFAULT();
                 shadowSamplerName = ImageSampler::DEFAULT();
                 missingTextureImageView = missingTexture.second.vkImageViews.at(ImageView::ARRAY());
                 missingTextureSampler = missingTexture.second.vkSamplers.at(ImageSampler::DEFAULT());
             }
             break;
-
+            case ShadowMapType::Single:
+            {
+                shadowBindingDetails = *shadowMapBindingDetails_single;
+                shadowImageViewName = ImageView::DEFAULT();
+                shadowSamplerName = ImageSampler::DEFAULT();
+                missingTextureImageView = missingTexture.second.vkImageViews.at(ImageView::DEFAULT());
+                missingTextureSampler = missingTexture.second.vkSamplers.at(ImageSampler::DEFAULT());
+            }
+            break;
             case ShadowMapType::Cube:
             {
-                shadowBindingDetails = *shadowMapBindingDetails_Cube;
+                shadowBindingDetails = *shadowMapBindingDetails_cube;
                 shadowImageViewName = ImageView::DEFAULT();
                 shadowSamplerName = ImageSampler::DEFAULT();
                 missingTextureImageView = missingCubeTexture.second.vkImageViews.at(ImageView::DEFAULT());

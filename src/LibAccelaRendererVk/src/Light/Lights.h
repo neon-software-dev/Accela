@@ -56,6 +56,7 @@ namespace Accela::Render
             [[nodiscard]] inline bool LightAffectsViewProjections(const LoadedLight& loadedLight,
                                                                   const std::vector<ViewProjection>& viewProjections) const;
 
+            static void InvalidateShadowMapsByBounds_Single(LoadedLight& loadedLight, const Volume& volume_worldSpace);
             static void InvalidateShadowMapsByBounds_Cascaded(LoadedLight& loadedLight, const Volume& volume_worldSpace);
             static void InvalidateShadowMapsByBounds_Cube(LoadedLight& loadedLight, const Volume& volume_worldSpace);
 

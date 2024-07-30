@@ -23,7 +23,7 @@ namespace Accela::Render
 
         ViewProjection(const glm::mat4& _viewTransform, Projection::Ptr _projectionTransform)
             : viewTransform(_viewTransform)
-            , projectionTransform(std::move(_projectionTransform))
+            , projectionTransform(_projectionTransform->Clone())
         { }
 
         ViewProjection(const ViewProjection& other)

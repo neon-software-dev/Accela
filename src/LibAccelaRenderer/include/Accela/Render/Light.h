@@ -27,10 +27,12 @@ namespace Accela::Render
         Exponential
     };
 
+    // Warning - Can't change the order of these values without syncing shaders to the changed values
     enum class LightType
     {
-        Point,
-        Directional
+        Directional,
+        Spotlight,
+        Point
     };
 
     struct LightProperties
@@ -55,8 +57,13 @@ namespace Accela::Render
          *
          * [Point Lights]
          * Represents the degree width of the cone of light that the light emits, pointing in
-         * the light's direction. Should be set to 360.0f for an omni-directional light. Valid
-         * values are [0.0..360.0f].
+         * the light's direction. Should be set to 360.0 for an omni-directional light, and valid
+         * values are [0.0..360.0].
+         *
+         * [Spot Lights]
+         * Represents the degree width of the cone of light that the light emits, pointing in
+         * the light's direction. Should ideally be set to 90.0 or lower for decent shadow quality,
+         * and valid values are [0.0..180.0].
          *
          * [Directional Lights]
          * Represents the world-space light plane disk radius of the emitted light. Should be set

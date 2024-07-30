@@ -179,6 +179,23 @@ std::expected<std::vector<ShadowRender>, bool> Lights::DetermineLightShadowRende
             }
         }
         break;
+        case ShadowMapType::Single:
+        {
+            const auto viewProjection = GetPointShadowMapViewProjectionNonFaced(m_vulkanObjs->GetRenderSettings(), loadedLight);
+            if (!viewProjection)
+            {
+                m_logger->Log(Common::LogLevel::Error, "Lights::DetermineLightShadowRenders: Failed to get single shadow view projection");
+                return std::unexpected(false);
+            }
+
+            shadowRenders.push_back(ShadowRender{
+                .worldPos = loadedLight.light.worldPos,
+                .viewProjection = *viewProjection,
+                .cascadeIndex = std::nullopt,
+                .cut = std::nullopt
+            });
+        }
+        break;
         case ShadowMapType::Cube:
         {
             for (unsigned int cubeFaceIndex = 0; cubeFaceIndex < 6; ++cubeFaceIndex)
@@ -186,7 +203,7 @@ std::expected<std::vector<ShadowRender>, bool> Lights::DetermineLightShadowRende
                 const auto viewProjection = GetPointShadowMapViewProjectionFaced(m_vulkanObjs->GetRenderSettings(), loadedLight, static_cast<CubeFace>(cubeFaceIndex));
                 if (!viewProjection)
                 {
-                    m_logger->Log(Common::LogLevel::Error, "Lights::DetermineLightShadowRenders: Failed to get point face shadow render");
+                    m_logger->Log(Common::LogLevel::Error, "Lights::DetermineLightShadowRenders: Failed to get point face shadow view projection");
                     return std::unexpected(false);
                 }
 
@@ -305,11 +322,29 @@ void Lights::InvalidateShadowMapsByBounds(const std::vector<AABB>& boundingBoxes
                 case ShadowMapType::Cascaded:
                     InvalidateShadowMapsByBounds_Cascaded(lightIt.second, boundingBox.GetVolume());
                 break;
+                case ShadowMapType::Single:
+                    InvalidateShadowMapsByBounds_Single(lightIt.second, boundingBox.GetVolume());
+                break;
                 case ShadowMapType::Cube:
                     InvalidateShadowMapsByBounds_Cube(lightIt.second, boundingBox.GetVolume());
                 break;
             }
         }
+    }
+}
+
+void Lights::InvalidateShadowMapsByBounds_Single(LoadedLight& loadedLight, const Volume& volume_worldSpace)
+{
+    const bool volumeTriviallyOutsideAllShadowRenders = std::ranges::all_of(loadedLight.shadowRenders, [&](const auto& shadowRender){
+        return VolumeTriviallyOutsideProjection(
+            volume_worldSpace,
+            shadowRender.viewProjection.GetTransformation()
+        );
+    });
+
+    if (!volumeTriviallyOutsideAllShadowRenders)
+    {
+        loadedLight.shadowInvalidated = true;
     }
 }
 
@@ -377,6 +412,11 @@ void Lights::UpdateShadowMapsForCamera(const RenderCamera& renderCamera)
                 lightIt.second.shadowRenders = *shadowRenders;
                 lightIt.second.shadowRenderCamera = renderCamera;
                 lightIt.second.shadowInvalidated = true;
+            }
+            break;
+            case ShadowMapType::Single:
+            {
+                // No-op - single shadow maps aren't affected by camera position
             }
             break;
             case ShadowMapType::Cube:
@@ -449,6 +489,30 @@ std::expected<FrameBufferId, bool> Lights::CreateShadowFramebuffer(const Light& 
             };
 
             renderPass = m_vulkanObjs->GetShadowCascadedRenderPass();
+        }
+        break;
+        case ShadowMapType::Single:
+        {
+            image = Image{
+                .tag = std::format("ShadowSingle-{}", tag),
+                .vkImageType = VK_IMAGE_TYPE_2D,
+                .vkFormat = m_vulkanObjs->GetPhysicalDevice()->GetDepthBufferFormat(),
+                .vkImageTiling = VK_IMAGE_TILING_OPTIMAL,
+                .vkImageUsageFlags = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                .size = shadowFramebufferSize,
+                .numLayers = 1,
+                .vmaAllocationCreateFlags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
+            };
+
+            imageView = ImageView{
+                .name = ImageView::DEFAULT(),
+                .vkImageViewType = VK_IMAGE_VIEW_TYPE_2D,
+                .vkImageAspectFlags = VK_IMAGE_ASPECT_DEPTH_BIT,
+                .baseLayer = 0,
+                .layerCount = 1
+            };
+
+            renderPass = m_vulkanObjs->GetShadowSingleRenderPass();
         }
         break;
         case ShadowMapType::Cube:

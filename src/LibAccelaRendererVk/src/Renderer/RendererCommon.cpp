@@ -189,7 +189,11 @@ std::expected<ViewProjection, bool> GetPointShadowMapViewProjectionNonFaced(cons
     //
     // Projection
     //
-    const auto projection = GetPointShadowMapProjectionTransform(renderSettings, loadedLight);
+    const auto projection = GetPointShadowMapProjectionTransform(
+        renderSettings,
+        loadedLight,
+        loadedLight.light.lightProperties.areaOfEffect
+    );
     if (!projection)
     {
         return std::unexpected(false);
@@ -203,7 +207,7 @@ std::expected<ViewProjection, bool> GetPointShadowMapViewProjectionFaced(const R
                                                                          const CubeFace& cubeFace)
 {
     const auto viewTransform = GetPointShadowMapViewTransformFaced(loadedLight, cubeFace);
-    const auto projectionTransform = GetPointShadowMapProjectionTransform(renderSettings, loadedLight);
+    const auto projectionTransform = GetPointShadowMapProjectionTransform(renderSettings, loadedLight, 90.0f);
 
     if (!viewTransform) { return std::unexpected(false); }
     if (!projectionTransform) { return std::unexpected(false); }
@@ -239,12 +243,13 @@ std::expected<glm::mat4, bool> GetPointShadowMapViewTransformFaced(const LoadedL
 }
 
 std::expected<Projection::Ptr, bool> GetPointShadowMapProjectionTransform(const RenderSettings& renderSettings,
-                                                                          const LoadedLight& loadedLight)
+                                                                          const LoadedLight& loadedLight,
+                                                                          float fovYDegrees)
 {
     const float lightMaxAffectRange = GetLightMaxAffectRange(renderSettings, loadedLight.light);
 
     return FrustumProjection::From(
-        90.0f,
+        fovYDegrees,
         1.0f,
         PERSPECTIVE_CLIP_NEAR,
         lightMaxAffectRange
@@ -432,7 +437,7 @@ std::vector<CascadeCut> GetDirectionalShadowCascadeCuts(const RenderSettings& re
     //
     // Determine cut percentages that define the cascade cuts
     //
-    const float cascadeSplitLambda = 0.75f;
+    const float cascadeSplitLambda = 0.95f;
     const float nearClip = PERSPECTIVE_CLIP_NEAR;
     const float farClip = shadowRenderDistance;
     const float clipRange = farClip - nearClip;

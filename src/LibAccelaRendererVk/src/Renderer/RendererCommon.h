@@ -172,7 +172,8 @@ namespace Accela::Render
 
     [[nodiscard]] std::expected<Projection::Ptr, bool> GetPointShadowMapProjectionTransform(
         const RenderSettings& renderSettings,
-        const LoadedLight& loadedLight);
+        const LoadedLight& loadedLight,
+        float fovYDegrees);
 
     //
     // Directional Lights
