@@ -1,17 +1,16 @@
 {
   "name": "accela",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "builtin-baseline": "78ba9711d30c64a6b40462c72f356c681e2255f3",
 
   "dependencies": [
     "glm",
+    "assimp",
     "entt",
     "audiofile",
-    "assimp",
     "nlohmann-json",
     "vulkan",
     "vulkan-memory-allocator",
-    "openvr",
     "spirv-reflect",
     {
       "name": "sdl2",

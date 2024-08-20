@@ -1,0 +1,128 @@
+include(CMakeFindDependencyMacro)
+
+# Compute the installation prefix relative to this file.
+get_filename_component(_IMPORT_PREFIX "${CMAKE_CURRENT_LIST_FILE}" PATH)
+get_filename_component(_IMPORT_PREFIX "${_IMPORT_PREFIX}" PATH)
+get_filename_component(_IMPORT_PREFIX "${_IMPORT_PREFIX}" PATH)
+if(_IMPORT_PREFIX STREQUAL "/")
+  set(_IMPORT_PREFIX "")
+endif()
+
+#########
+
+set(ACCELA_INSTALL_LIB_DIR "${_IMPORT_PREFIX}/@CMAKE_INSTALL_LIBDIR@")
+set(ACCELA_INSTALL_BIN_DIR "${_IMPORT_PREFIX}/@CMAKE_INSTALL_BINDIR@")
+
+set(ACCELA_STATIC @ACCELA_STATIC@)
+
+if (ACCELA_STATIC)
+    add_compile_definitions(ACCELA_STATIC)
+endif()
+
+set(ACCELAENGINE_LIBRARIES)
+
+#########
+
+# Public-facing dependencies
+find_dependency(glm REQUIRED)
+find_dependency(SDL2 REQUIRED)
+find_dependency(Vulkan REQUIRED)
+
+# Internal dependencies
+find_dependency(assimp CONFIG REQUIRED)
+find_dependency(EnTT CONFIG REQUIRED)
+find_dependency(AudioFile CONFIG REQUIRED)
+find_dependency(SDL2_image CONFIG REQUIRED)
+find_dependency(SDL2_ttf CONFIG REQUIRED)
+find_dependency(nlohmann_json CONFIG REQUIRED)
+find_dependency(unofficial-spirv-reflect CONFIG REQUIRED)
+find_dependency(VulkanMemoryAllocator CONFIG REQUIRED)
+find_dependency(Qt6 REQUIRED COMPONENTS Widgets Gui)
+find_dependency(CUDAToolkit REQUIRED)
+find_dependency(OpenAL REQUIRED)
+find_dependency(PhysX REQUIRED)
+find_dependency(OpenVR REQUIRED)
+
+####
+# Find manually built/installed PhysX
+####
+
+#[===[
+find_library(PhysXCharacterKinematicFile NAMES PhysXCharacterKinematic_64 PhysXCharacterKinematic_static_64 HINTS "${ACCELA_INSTALL_LIB_DIR}" REQUIRED)
+add_library(PhysXCharacterKinematic IMPORTED UNKNOWN)
+set_target_properties(PhysXCharacterKinematic PROPERTIES
+    IMPORTED_LOCATION "${PhysXCharacterKinematicFile}"
+)
+
+find_library(PhysXCookingFile NAMES PhysXCooking_64 PhysXCooking_static_64 HINTS "${ACCELA_INSTALL_LIB_DIR}" REQUIRED)
+add_library(PhysXCooking IMPORTED UNKNOWN)
+set_target_properties(PhysXCooking PROPERTIES
+    IMPORTED_LOCATION "${PhysXCookingFile}"
+)
+
+find_library(PhysXExtensionsFile NAMES PhysXExtensions_64 PhysXExtensions_static_64 HINTS "${ACCELA_INSTALL_LIB_DIR}" REQUIRED)
+add_library(PhysXExtensions IMPORTED UNKNOWN)
+set_target_properties(PhysXExtensions PROPERTIES
+    IMPORTED_LOCATION "${PhysXExtensionsFile}"
+)
+
+find_library(PhysXFile NAMES PhysX_64 PhysX_static_64 HINTS "${ACCELA_INSTALL_LIB_DIR}" REQUIRED)
+add_library(PhysX IMPORTED UNKNOWN)
+set_target_properties(PhysX PROPERTIES
+    IMPORTED_LOCATION "${PhysXFile}"
+)
+
+find_library(PhysXPvdSDKFile NAMES PhysXPvdSDK_64 PhysXPvdSDK_static_64 HINTS "${ACCELA_INSTALL_LIB_DIR}" REQUIRED)
+add_library(PhysXPvdSDK IMPORTED UNKNOWN)
+set_target_properties(PhysXPvdSDK PROPERTIES
+    IMPORTED_LOCATION "${PhysXPvdSDKFile}"
+)
+
+find_library(PhysXCommonFile NAMES PhysXCommon_64 PhysXCommon_static_64 HINTS "${ACCELA_INSTALL_LIB_DIR}" REQUIRED)
+add_library(PhysXCommon IMPORTED UNKNOWN)
+set_target_properties(PhysXCommon PROPERTIES
+    IMPORTED_LOCATION "${PhysXCommonFile}"
+)
+
+find_library(PhysXFoundationFile NAMES PhysXFoundation_64 PhysXFoundation_static_64 HINTS "${ACCELA_INSTALL_LIB_DIR}" REQUIRED)
+add_library(PhysXFoundation IMPORTED UNKNOWN)
+set_target_properties(PhysXFoundation PROPERTIES
+    IMPORTED_LOCATION "${PhysXFoundationFile}"
+)
+
+find_library(PhysXGpuFile NAMES PhysXGpu_64 PhysXGpu_static_64 HINTS "${ACCELA_INSTALL_LIB_DIR}")
+add_library(PhysXGpu IMPORTED UNKNOWN)
+set_target_properties(PhysXGpu PROPERTIES
+    IMPORTED_LOCATION "${PhysXGpuFile}"
+    IMPORTED_IMPLIB "${PhysXGpuFile}"
+)
+
+####
+# Find manually built/installed OpenVR
+####
+find_library(OpenVRFile NAMES openvr_api HINTS "${ACCELA_INSTALL_LIB_DIR}" REQUIRED)
+    add_library(OpenVR::OpenVR IMPORTED UNKNOWN)
+    set_target_properties(OpenVR::OpenVR PROPERTIES
+        IMPORTED_LOCATION "${OpenVRFile}"
+)
+]===]
+
+#########
+
+list(APPEND ACCELAENGINE_LIBRARIES AccelaCommon)
+list(APPEND ACCELAENGINE_LIBRARIES AccelaRenderer)
+list(APPEND ACCELAENGINE_LIBRARIES AccelaEngine)
+
+if (@ACCELA_TARGET_PLATFORM@ STREQUAL @ACCELA_TARGET_PLATFORM_DESKTOP@)
+    list(APPEND ACCELAENGINE_LIBRARIES AccelaPlatformDesktop)
+    list(APPEND ACCELAENGINE_LIBRARIES AccelaPlatformDesktopSDL)
+    list(APPEND ACCELAENGINE_LIBRARIES AccelaPlatformDesktopQt)
+    list(APPEND ACCELAENGINE_LIBRARIES AccelaRendererVk)
+    list(APPEND ACCELAENGINE_LIBRARIES AccelaEngineDesktop)
+endif()
+
+set(ACCELAENGINE_FOUND TRUE)
+
+#########
+
+include("${CMAKE_CURRENT_LIST_DIR}/AccelaEngineTargets.cmake")

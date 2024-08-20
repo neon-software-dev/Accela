@@ -13,6 +13,7 @@
 //
 const uint Max_Light_Count = 16;                // Maximum number of scene lights
 const uint Shadow_Cascade_Count = 4;            // Cascade count for cascaded shadow maps
+const uint Max_Shadow_Render_Count = 6;         // Maximum shadow renders per light
 
 const uint SHADOW_MAP_TYPE_CASCADED = 0;        // Cascaded shadow map
 const uint SHADOW_MAP_TYPE_SINGLE = 1;          // Single shadow map
@@ -69,7 +70,7 @@ struct LightPayload
     // Shadow Map properties
     uint shadowMapType;             // SHADOW_MAP_TYPE_{X}
     int shadowMapIndex;             // Index into shadow map sampler for this light's shadow map(s)
-    ShadowMapPayload shadowMaps[Shadow_Cascade_Count]; // Data about this light's shadow map renders
+    ShadowMapPayload shadowMaps[Max_Shadow_Render_Count]; // Data about this light's shadow map renders
 };
 
 struct MaterialPayload

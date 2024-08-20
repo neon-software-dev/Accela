@@ -1,12 +1,19 @@
-# cmake/FindOpenVR.cmake
 cmake_minimum_required(VERSION 3.22)
+
+if (NOT DEFINED OPENVR_INSTALL_DEBUG_DIR)
+  set(OPENVR_INSTALL_DEBUG_DIR "${ACCELA_EXTERNAL_DIR}/build/debug")
+endif()
+
+if (NOT DEFINED OPENVR_INSTALL_RELEASE_DIR)
+  set(OPENVR_INSTALL_RELEASE_DIR "${ACCELA_EXTERNAL_DIR}/build/release")
+endif()
 
 function(_OpenVR_find)
   include(FindPackageHandleStandardArgs)
   include(SelectLibraryConfigurations)
 
   ## Find the include path
-  find_path(OpenVR_INCLUDE_DIR NAMES openvr.h)
+  find_path(OpenVR_INCLUDE_DIR NAMES openvr.h HINTS "${OPENVR_INSTALL_RELEASE_DIR}/include/openvr")
 
   ## Determine version by scanning header
   if (OpenVR_INCLUDE_DIR)
@@ -34,21 +41,18 @@ function(_OpenVR_find)
   endif ()
 
   ## Find the library
-  find_library(OpenVR_LIBRARY_RELEASE NAMES openvr_api)
-
-  # OpenVR uses a highly non-standard additional suffix to mark debug libraries
-  list(TRANSFORM CMAKE_FIND_LIBRARY_SUFFIXES APPEND ".dbg")
-  find_library(OpenVR_LIBRARY_DEBUG NAMES openvr_api)
+  find_library(OpenVR_LIBRARY_DEBUG NAMES openvr_api openvr_api64 HINTS "${OPENVR_INSTALL_DEBUG_DIR}/lib" REQUIRED)
+  find_library(OpenVR_LIBRARY_RELEASE NAMES openvr_api openvr_api64 HINTS "${OPENVR_INSTALL_RELEASE_DIR}/lib" REQUIRED)
 
   select_library_configurations(OpenVR)
 
   ## Perform all the standard required, version, etc. argument checks.
   find_package_handle_standard_args(
     OpenVR
-    REQUIRED_VARS OpenVR_LIBRARY OpenVR_INCLUDE_DIR
-    VERSION_VAR OpenVR_VERSION
-    HANDLE_VERSION_RANGE
-    HANDLE_COMPONENTS
+      REQUIRED_VARS OpenVR_LIBRARY OpenVR_INCLUDE_DIR
+      VERSION_VAR OpenVR_VERSION
+      HANDLE_VERSION_RANGE
+      HANDLE_COMPONENTS
   )
 
   ## Create OpenVR::OpenVR imported target.
@@ -70,17 +74,13 @@ function(_OpenVR_find)
         )
       endif ()
     endforeach ()
+
+    set(OpenVR_FOUND TRUE PARENT_SCOPE)
   endif ()
 
-  ## Export whitelisted variables
-  set(OpenVR_FOUND "${OpenVR_FOUND}" PARENT_SCOPE)
+  # Export variables
   set(OpenVR_VERSION "${OpenVR_VERSION}" PARENT_SCOPE)
+
 endfunction()
 
 _OpenVR_find()
-
-function(_OpenVR_find)
-endfunction()
-
-function(_OpenVR_find)
-endfunction()

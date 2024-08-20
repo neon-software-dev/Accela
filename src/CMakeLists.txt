@@ -2,28 +2,41 @@ cmake_minimum_required(VERSION 3.26.0)
 
 project(Accela VERSION 0.0.1)
 
-####
-# Global set configuration
-####
 
-set(ACCELA_TARGET_PLATFORM_DESKTOP "Desktop")
-set(ACCELA_TARGET_PLATFORM_ANDROID "Android")
+####
+# Global variables
+####
 
 set(CMAKE_DEBUG_POSTFIX d)
 
+# TODO! <0:>
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/built/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/built/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/built/bin)
+
+#set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+
+set(CMAKE_INSTALL_RPATH $ORIGIN)
+
+set(ACCELA_EXTERNAL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../external)
+set(EXTERNAL_BINARIES_DIR_DEBUG "${ACCELA_EXTERNAL_DIR}/build/debug/bin")
+set(EXTERNAL_BINARIES_DIR_RELEASE "${ACCELA_EXTERNAL_DIR}/build/release/bin")
+
+set(VCPKG_BINARIES_DIR_DEBUG "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/debug/bin")
+set(VCPKG_BINARIES_DIR_RELEASE "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin")
+
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-    # TODO: Also add -Wfloat-equal and address issues
-    set(ACCELA_WARNINGS_FLAGS -Wall -Wextra -Werror -Wpedantic -Wcast-align -Wformat=2 -Wlogical-op -Wmissing-include-dirs -Wpointer-arith -Wredundant-decls -Wsequence-point -Wshadow -Wswitch -Wunreachable-code -Wunused-but-set-parameter)
+    set(ACCELA_WARNINGS_FLAGS
+        -Wall -Wextra -Werror -Wpedantic -Wcast-align -Wformat=2 -Wlogical-op
+        -Wmissing-include-dirs -Wpointer-arith -Wredundant-decls -Wsequence-point
+        -Wshadow -Wswitch -Wunreachable-code -Wunused-but-set-parameter
+    )
+elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    # TODO: Test building with clang and add in all the clang error flags
+    set(ACCELA_WARNINGS_FLAGS
+        -Wall -Wextra -Werror
+    )
 endif()
-
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/built)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/built)
-
-####
-# Global compile definitions
-####
-
-add_compile_definitions(ACCELA_DLL_EXPORT)
 
 ####
 # Append custom cmake files from cmake_modules dir
@@ -32,123 +45,33 @@ add_compile_definitions(ACCELA_DLL_EXPORT)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules/")
 
 ####
-# Add external subprojects
+# Add projects
 ####
 
-set(ACCELA_EXTERNAL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/External)
+add_subdirectory(AccelaEngine)
+add_subdirectory(AccelaEditor)
+add_subdirectory(TestDesktopApp)
 
-# External OpenAL lib
-set(ALSOFT_UTILS OFF)
-set(ALSOFT_NO_CONFIG_UTIL ON)
-set(ALSOFT_EXAMPLES OFF)
-set(ALSOFT_TESTS OFF)
-set(ALSOFT_INSTALL_EXAMPLES OFF)
-set(ALSOFT_INSTALL_UTILS OFF)
-add_subdirectory(External/openal-soft)
-
-####
-# Configure internal subprojects
-####
-if (WIN32)
-    # We're intentionally defining these after building external libs above
-    # so as to not affect their builds
-    set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
-    set(BUILD_SHARED_LIBS TRUE)
-endif()
-
-####
-# Add internal subprojects
-####
-add_subdirectory(LibAccelaCommon)
-add_subdirectory(LibAccelaEngine)
-add_subdirectory(LibAccelaPlatform)
-add_subdirectory(LibAccelaRenderer)
-
-message(STATUS "ACCELA: Configuring for target platform: ${ACCELA_TARGET_PLATFORM}")
-
-if (ACCELA_TARGET_PLATFORM STREQUAL ${ACCELA_TARGET_PLATFORM_DESKTOP})
-    add_subdirectory(LibAccelaEngineDesktop)
-    add_subdirectory(LibAccelaPlatformDesktop)
-    add_subdirectory(LibAccelaPlatformDesktopSDL)
-    add_subdirectory(LibAccelaPlatformDesktopQt)
-    add_subdirectory(LibAccelaRendererVk)
-    add_subdirectory(TestDesktopApp)
-    add_subdirectory(AccelaEditor)
-
-elseif(ACCELA_TARGET_PLATFORM STREQUAL ${ACCELA_TARGET_PLATFORM_ANDROID})
-    # no-op
-else()
-    message(FATAL_ERROR "ACCELA: Unsupported target platform, configure with -DACCELA_TARGET_PLATFORM=[Desktop/Android]")
-
-endif()
-
-####
-# Installation
-####
-
-set(ACCELA_NAMESPACE            "${PROJECT_NAME}::")
-set(ACCELA_GENERATED_DIR        "${CMAKE_CURRENT_BINARY_DIR}/generated")
-set(ACCELA_VERSION_CONFIG_FILE  "${ACCELA_GENERATED_DIR}/${PROJECT_NAME}ConfigVersion.cmake")
-set(ACCELA_PROJECT_CONFIG_FILE  "${ACCELA_GENERATED_DIR}/${PROJECT_NAME}Config.cmake")
-set(ACCELA_CONFIG_INSTALL_DIR   "lib/cmake/${PROJECT_NAME}")
-set(ACCELA_TARGETS_EXPORT_NAME  "${PROJECT_NAME}Targets")
-
+#[===[
 # Exports
-install(
-    TARGETS
-        AccelaCommon
-        AccelaEngine
-        AccelaPlatform
-        AccelaRenderer
-    EXPORT ${ACCELA_TARGETS_EXPORT_NAME}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-)
 
-if (ACCELA_TARGET_PLATFORM STREQUAL ${ACCELA_TARGET_PLATFORM_DESKTOP})
+####
+# Install non-Accela *runtime* dependencies
 
-install(
-    TARGETS
-        AccelaEngineDesktop
-        AccelaPlatformDesktop
-        AccelaPlatformDesktopSDL
-        AccelaPlatformDesktopQt
-        AccelaRendererVk
-    EXPORT ${ACCELA_TARGETS_EXPORT_NAME}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-)
-
-elseif(ACCELA_TARGET_PLATFORM STREQUAL ${ACCELA_TARGET_PLATFORM_ANDROID})
-    # no-op
+# vcpkg-provided runtime dependencies
+if(EXISTS ${VCPKG_BINARIES_DIR_DEBUG} OR EXISTS ${VCPKG_BINARIES_DIR_RELEASE})
+    install(
+        DIRECTORY $<IF:$<CONFIG:Debug>,${VCPKG_BINARIES_DIR_DEBUG}/,${VCPKG_BINARIES_DIR_RELEASE}/>
+        DESTINATION ${CMAKE_INSTALL_BINDIR}
+    )
 endif()
 
-# Generate config version file
-include(CMakePackageConfigHelpers)
+# externally built runtime dependencies
+if(EXISTS ${EXTERNAL_BINARIES_DIR_DEBUG} OR EXISTS ${EXTERNAL_BINARIES_DIR_RELEASE})
+    install(
+        DIRECTORY $<IF:$<CONFIG:Debug>,${EXTERNAL_BINARIES_DIR_DEBUG}/,${EXTERNAL_BINARIES_DIR_RELEASE}/>
+        DESTINATION ${CMAKE_INSTALL_BINDIR}
+    )
+endif()
 
-write_basic_package_version_file(
-    "${ACCELA_VERSION_CONFIG_FILE}" VERSION ${CMAKE_PROJECT_VERSION} COMPATIBILITY SameMajorVersion
-)
-
-# Configure config.cmake.in
-configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules/Config.cmake.in" "${ACCELA_PROJECT_CONFIG_FILE}" @ONLY)
-
-# Install cmake config files
-install(
-    FILES "${ACCELA_VERSION_CONFIG_FILE}" "${ACCELA_PROJECT_CONFIG_FILE}"
-    DESTINATION "${ACCELA_CONFIG_INSTALL_DIR}"
-)
-
-# Install cmake target files
-install(
-    EXPORT "${ACCELA_TARGETS_EXPORT_NAME}" NAMESPACE "${ACCELA_NAMESPACE}"
-    DESTINATION "${ACCELA_CONFIG_INSTALL_DIR}"
-)
-
-# Install license files
-install(
-    DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../licenses"
-    DESTINATION "."
-)
+]===]

@@ -60,12 +60,13 @@ struct DrawPayload
     uint materialIndex;
 };
 
+const uint SHADOW_MAP_TYPE_CASCADED = 0;        // Cascaded shadow map
+const uint SHADOW_MAP_TYPE_SINGLE = 1;          // Single shadow map
+const uint SHADOW_MAP_TYPE_CUBE = 2;            // Cubic shadow map
+
 const uint ALPHA_MODE_OPAQUE = 0;
 const uint ALPHA_MODE_MASK = 1;
 const uint ALPHA_MODE_BLEND = 2;
-
-const uint SHADOW_MAP_TYPE_DIRECTIONAL = 0;
-const uint SHADOW_MAP_TYPE_POINT = 1;
 
 //
 // Internal
@@ -149,24 +150,24 @@ void main()
 
     float lightDistance = 0.0f;
 
-    if (PushConstants.shadowMapType == SHADOW_MAP_TYPE_DIRECTIONAL)
+    if (PushConstants.shadowMapType == SHADOW_MAP_TYPE_CASCADED)
     {
-        const vec4 fragPosition_lightClipSpace =
+        const vec4 fragPosition_shadowClipSpace =
             u_globalData.data.surfaceTransform *
             i_viewProjectionData.data[gl_ViewIndex].projectionTransform *
             vec4(i_vertexPosition_shadowViewSpace, 1.0f);
 
-        const vec3 fragPosition_lightNDCSpace = fragPosition_lightClipSpace.xyz / fragPosition_lightClipSpace.w;
+        const vec3 fragPosition_shadowNDCSpace = fragPosition_shadowClipSpace.xyz / fragPosition_shadowClipSpace.w;
 
-        lightDistance = fragPosition_lightNDCSpace.z;
+        // 0..1 within the scope of the shadow render orthograph projection depth
+        lightDistance = fragPosition_shadowNDCSpace.z;
     }
     else
     {
         // Distance from the light to the vertex
         lightDistance = length(i_vertexPosition_shadowViewSpace);
 
-        // Map world distance to linear [0,1] depth range by dividing frag distance by max light range
-        // TODO Quality: Use non-linear depth calculation. Update GetLightFragDepth in DeferredLighting.frag appropriately as well.
+        // 0..1 within the scope of the light's max affect range
         lightDistance = lightDistance / PushConstants.lightMaxAffectRange;
     }
 
