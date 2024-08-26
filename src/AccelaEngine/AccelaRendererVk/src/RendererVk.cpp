@@ -57,8 +57,10 @@ RendererVk::RendererVk(std::string appName,
                        Common::ILogger::Ptr logger,
                        Common::IMetrics::Ptr metrics,
                        IVulkanCallsPtr vulkanCalls,
-                       IVulkanContextPtr vulkanContext)
+                       IVulkanContextPtr vulkanContext,
+                       IOpenXR::Ptr openXR)
     : RendererBase(std::move(logger), std::move(metrics))
+    , m_openXR(std::move(openXR))
     , m_vulkanObjs(std::make_shared<VulkanObjs>(std::move(appName), appVersion, m_logger, std::move(vulkanCalls), std::move(vulkanContext)))
     , m_shaders(std::make_shared<Shaders>(m_logger, m_vulkanObjs))
     , m_programs(std::make_shared<Programs>(m_logger, m_vulkanObjs, m_shaders))
@@ -70,7 +72,7 @@ RendererVk::RendererVk(std::string appName,
     , m_meshes(std::make_shared<Meshes>(m_logger, m_metrics, m_vulkanObjs, m_ids, m_postExecutionOps, m_buffers))
     , m_framebuffers(std::make_shared<Framebuffers>(m_logger, m_ids, m_vulkanObjs, m_images, m_postExecutionOps))
     , m_materials(std::make_shared<Materials>(m_logger, m_metrics, m_vulkanObjs, m_postExecutionOps, m_ids, m_textures, m_buffers))
-    , m_lights(std::make_shared<Lights>(m_logger, m_metrics, m_vulkanObjs, m_framebuffers, m_ids))
+    , m_lights(std::make_shared<Lights>(m_logger, m_metrics, m_vulkanObjs, m_openXR, m_framebuffers, m_ids))
     , m_renderTargets(std::make_shared<RenderTargets>(m_logger, m_vulkanObjs, m_postExecutionOps, m_framebuffers, m_images, m_ids))
     , m_renderables(std::make_shared<Renderables>(m_logger, m_ids, m_postExecutionOps, m_textures, m_buffers, m_meshes, m_lights))
     , m_frames(m_logger, m_vulkanObjs, m_renderTargets, m_images)
@@ -85,19 +87,46 @@ RendererVk::RendererVk(std::string appName,
     , m_postProcessingRenderers(m_logger, m_metrics, m_ids, m_postExecutionOps, m_vulkanObjs, m_programs, m_shaders, m_pipelines, m_buffers, m_materials, m_images, m_textures, m_meshes, m_lights, m_renderables)
 { }
 
-bool RendererVk::OnInitialize(const RenderSettings& renderSettings, const std::vector<ShaderSpec>& shaders)
+bool RendererVk::OnInitialize(const RenderInit& renderInit, const RenderSettings& renderSettings)
 {
     m_logger->Log(Common::LogLevel::Info, "RendererVk: Initializing");
 
-    if (renderSettings.presentToHeadset && !m_vulkanObjs->GetContext()->VR_InitOutput()) { return false; }
+    //
+    // Initialize OpenXR if we're supposed to output to a headset
+    //
+    if (IsHeadsetOutputMode(renderInit.outputMode))
+    {
+        if (!m_openXR->CreateInstance() || !m_openXR->FetchSystem())
+        {
+            m_openXR->Destroy();
 
-    if (!m_vulkanObjs->Initialize(Common::BuildInfo::IsDebugBuild(), renderSettings)) { return false; }
+            if (renderInit.outputMode == OutputMode::HeadsetRequired)
+            {
+                m_logger->Log(Common::LogLevel::Fatal,
+                  "RendererVk: Output mode is HeadsetRequired but no OpenXR support or headset was detected");
+                return false;
+            }
+            else if (renderInit.outputMode == OutputMode::HeadsetOptional)
+            {
+                m_logger->Log(Common::LogLevel::Info,
+                  "RendererVk: Output mode is HeadsetOptional and no OpenXR support or headset was detected");
+            }
+        }
+    }
+
+    //
+    // Initialize internal systems
+    //
+    if (!m_vulkanObjs->Initialize(Common::BuildInfo::IsDebugBuild(), renderSettings, m_openXR))
+    {
+        return false;
+    }
 
     const auto transferCommandPool = m_vulkanObjs->GetTransferCommandPool();
     const auto transferQueue = m_vulkanObjs->GetDevice()->GetVkGraphicsQueue(); // TODO Perf: Separate transfer queue than graphics queue
 
     if (!m_postExecutionOps->Initialize(renderSettings)) { return false; }
-    if (!LoadShaders(shaders)) { return false; }
+    if (!LoadShaders(renderInit.shaders)) { return false; }
     if (!CreatePrograms()) { return false; }
     if (!m_buffers->Initialize()) { return false; }
     if (!m_images->Initialize(transferCommandPool, transferQueue)) { return false; }
@@ -115,6 +144,29 @@ bool RendererVk::OnInitialize(const RenderSettings& renderSettings, const std::v
     if (!m_rawTriangleRenderers.Initialize(renderSettings)) { return false; }
     if (!m_postProcessingRenderers.Initialize(renderSettings)) { return false; }
 
+    //
+    // Now that our internal systems are up and running, tell OpenXR, so it can do final init work that depends
+    // on vulkan objects having been created
+    //
+    if (m_openXR->IsSystemAvailable())
+    {
+        if (!m_openXR->OnVulkanInitialized(
+            m_vulkanObjs->GetInstance()->GetVkInstance(),
+            m_vulkanObjs->GetPhysicalDevice()->GetVkPhysicalDevice(),
+            m_vulkanObjs->GetDevice()->GetVkDevice(),
+            *m_vulkanObjs->GetPhysicalDevice()->GetGraphicsQueueFamilyIndex()))
+        {
+            m_logger->Log(Common::LogLevel::Fatal, "RendererVk: Failed to finish initializing OpenXR post Vulkan init");
+            return false;
+        }
+
+        if (!m_openXR->CreateSession())
+        {
+            m_logger->Log(Common::LogLevel::Fatal, "RendererVk: Failed to create OpenXR session post Vulkan init");
+            return false;
+        }
+    }
+
     return true;
 }
 
@@ -124,9 +176,7 @@ bool RendererVk::OnShutdown()
 
     m_vulkanObjs->WaitForDeviceIdle();
 
-    m_latestObjectDetailImageId = std::nullopt;
-
-    m_vulkanObjs->GetContext()->VR_DestroyOutput();
+    m_openXR->Destroy();
 
     m_postExecutionOps->Destroy();
 
@@ -155,6 +205,10 @@ bool RendererVk::OnShutdown()
     m_shaders->Destroy();
     m_vulkanObjs->Destroy();
 
+    m_latestObjectDetailImageId = std::nullopt;
+
+    m_vulkanObjs->WaitForDeviceIdle();
+
     return true;
 }
 
@@ -175,21 +229,21 @@ bool RendererVk::LoadShaders(const std::vector<ShaderSpec>& shaders)
 bool RendererVk::CreatePrograms()
 {
     const std::unordered_map<std::string, std::vector<std::string>> programs = {
-        {"Sprite", {"Sprite.vert.spv", "Sprite.frag.spv"}},
-        {"ObjectDeferred", {"Object.vert.spv", "ObjectDeferred.frag.spv"}},
-        {"ObjectForward", {"Object.vert.spv", "ObjectForward.frag.spv"}},
-        {"ObjectShadow", {"ObjectShadow.vert.spv", "Shadow.frag.spv"}},
-        {"BoneObjectDeferred", {"BoneObject.vert.spv", "ObjectDeferred.frag.spv"}},
-        {"BoneObjectForward", {"BoneObject.vert.spv", "ObjectForward.frag.spv"}},
-        {"BoneObjectShadow", {"BoneObjectShadow.vert.spv", "Shadow.frag.spv"}},
-        {"TerrainDeferred", {"Terrain.tesc.spv", "Terrain.tese.spv", "Terrain.vert.spv", "ObjectDeferred.frag.spv"}},
-        {"SkyBox", {"SkyBox.vert.spv", "SkyBox.frag.spv"}},
-        {"DeferredLighting", {"DeferredLighting.vert.spv", "DeferredLighting.frag.spv"}},
-        {"RawTriangle", {"RawTriangle.vert.spv", "RawTriangle.frag.spv"}},
-        {"SwapChainBlit", {"SwapChainBlit.vert.spv", "SwapChainBlit.frag.spv"}},
-        {"ColorCorrection", {"ColorCorrection.comp.spv"}},
-        {"FXAA", {"FXAA.comp.spv"}},
-        {"ObjectHighlight", {"ObjectHighlight.comp.spv"}}
+        {"Sprite",              {"Sprite.vert.spv", "Sprite.frag.spv"}},
+        {"ObjectDeferred",      {"Object.vert.spv", "ObjectDeferred.frag.spv"}},
+        {"ObjectForward",       {"Object.vert.spv", "ObjectForward.frag.spv"}},
+        {"ObjectShadow",        {"ObjectShadow.vert.spv", "Shadow.frag.spv"}},
+        {"BoneObjectDeferred",  {"BoneObject.vert.spv", "ObjectDeferred.frag.spv"}},
+        {"BoneObjectForward",   {"BoneObject.vert.spv", "ObjectForward.frag.spv"}},
+        {"BoneObjectShadow",    {"BoneObjectShadow.vert.spv", "Shadow.frag.spv"}},
+        {"TerrainDeferred",     {"Terrain.tesc.spv", "Terrain.tese.spv", "Terrain.vert.spv", "ObjectDeferred.frag.spv"}},
+        {"SkyBox",              {"SkyBox.vert.spv", "SkyBox.frag.spv"}},
+        {"DeferredLighting",    {"DeferredLighting.vert.spv", "DeferredLighting.frag.spv"}},
+        {"RawTriangle",         {"RawTriangle.vert.spv", "RawTriangle.frag.spv"}},
+        {"SwapChainBlit",       {"SwapChainBlit.vert.spv", "SwapChainBlit.frag.spv"}},
+        {"ColorCorrection",     {"ColorCorrection.comp.spv"}},
+        {"FXAA",                {"FXAA.comp.spv"}},
+        {"ObjectHighlight",     {"ObjectHighlight.comp.spv"}}
     };
 
     return std::ranges::all_of(programs, [this](const auto& program){
@@ -269,6 +323,12 @@ bool RendererVk::OnRenderFrame(RenderGraph::Ptr renderGraph)
     // - Waits for the frame's previous work to finish
     // - Returns the swap chain image index to render to (or an error)
     //
+    if (m_openXR->IsSessionCreated())
+    {
+        m_openXR->ProcessEvents();
+        m_openXR->BeginFrame();
+    }
+
     const auto swapChainImageIndexExpect = m_frames.StartFrame();
     if (!swapChainImageIndexExpect)
     {
@@ -281,6 +341,11 @@ bool RendererVk::OnRenderFrame(RenderGraph::Ptr renderGraph)
         return false;
     }
     const auto swapChainImageIndex = swapChainImageIndexExpect.value();
+
+    if (m_openXR->IsSessionCreated())
+    {
+        m_openXR->AcquireSwapChainImages();
+    }
 
     ///////////////
     // CPU and GPU are synchronized for the frame at this point
@@ -327,17 +392,14 @@ bool RendererVk::OnRenderFrame(RenderGraph::Ptr renderGraph)
     }
 
     ////////////////////////////////////
-    // Query the VR headset for input, if needed
-    ////////////////////////////////////
-
-    if (m_vulkanObjs->GetRenderSettings().presentToHeadset)
-    {
-        m_vulkanObjs->GetContext()->VR_WaitGetPoses();
-    }
-
-    ////////////////////////////////////
     // Start recording render commands
     ////////////////////////////////////
+
+    // Refresh latest OpenXR view data immediately before recording render commands
+    if (m_openXR->IsSessionCreated())
+    {
+        m_openXR->RefreshViewData();
+    }
 
     renderCommandBuffer->Begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
@@ -367,6 +429,16 @@ bool RendererVk::OnRenderFrame(RenderGraph::Ptr renderGraph)
     }
 
     m_frames.EndFrame();
+
+    if (m_openXR->IsSessionCreated())
+    {
+        m_openXR->ReleaseSwapChainImages();
+
+        {
+            DisableValidationErrorLogging disableValidationErrors{};
+            m_openXR->EndFrame();
+        }
+    }
 
     frameRenderWorkTimer.StopTimer(m_metrics);
     frameRenderTotalTimer.StopTimer(m_metrics);
@@ -415,10 +487,10 @@ bool RendererVk::RenderGraphFunc_RenderScene(const RenderGraphNode::Ptr& node)
 
     std::vector<ViewProjection> viewProjections;
 
-    if (m_vulkanObjs->GetRenderSettings().presentToHeadset)
+    if (m_openXR->IsSessionCreated())
     {
-        const auto leftViewProjection = GetCameraViewProjection(m_vulkanObjs->GetRenderSettings(), m_vulkanObjs->GetContext(), renderParams.worldRenderCamera, Eye::Left);
-        const auto rightViewProjection = GetCameraViewProjection(m_vulkanObjs->GetRenderSettings(), m_vulkanObjs->GetContext(), renderParams.worldRenderCamera, Eye::Right);
+        const auto leftViewProjection = GetCameraViewProjection(m_vulkanObjs->GetRenderSettings(), m_openXR, renderParams.worldRenderCamera, Eye::Left);
+        const auto rightViewProjection = GetCameraViewProjection(m_vulkanObjs->GetRenderSettings(), m_openXR, renderParams.worldRenderCamera, Eye::Right);
 
         if (!leftViewProjection || !rightViewProjection)
         {
@@ -431,7 +503,7 @@ bool RendererVk::RenderGraphFunc_RenderScene(const RenderGraphNode::Ptr& node)
     }
     else
     {
-        const auto viewProjection = GetCameraViewProjection(m_vulkanObjs->GetRenderSettings(), m_vulkanObjs->GetContext(), renderParams.worldRenderCamera);
+        const auto viewProjection = GetCameraViewProjection(m_vulkanObjs->GetRenderSettings(), m_openXR, renderParams.worldRenderCamera);
         if (!viewProjection)
         {
             m_logger->Log(Common::LogLevel::Error, "RenderGraphFunc_RenderScene: Failed to generate camera ViewProjection");
@@ -719,22 +791,10 @@ bool RendererVk::RenderGraphFunc_Present(const uint32_t& swapChainImageIndex, co
         RunSwapChainBlitPass(swapChainFrameBuffer, gPassColorImage, screenColorImage);
     EndRenderPass(swapChainBlitCommandBuffer);
 
-    // If outputting to a headset, insert one last operation that will record that when we
-    // submit the present textures to the headset it transfers data from them
-    if (m_vulkanObjs->GetRenderSettings().presentToHeadset)
+    // If outputting to a headset, also blit the rendered eye images to the OpenXR image swap chains
+    if (m_openXR->IsSessionCreated())
     {
-        m_renderState.PrepareOperation(swapChainBlitCommandBuffer, RenderOperation({
-            // OpenVR is going to transfer from the present texture when we submit eye renders below
-            {gPassColorVkImage, ImageAccess(
-               VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-               VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-               BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT),
-               BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT),
-               Layers(0, gPassColorImage.image.numLayers),
-               Levels(0,1),
-               VK_IMAGE_ASPECT_COLOR_BIT
-            )}
-        }));
+        BlitEyeRendersToOpenXR(swapChainBlitCommandBuffer, gPassColorImage);
     }
 
     swapChainBlitCommandBuffer->End();
@@ -755,28 +815,6 @@ bool RendererVk::RenderGraphFunc_Present(const uint32_t& swapChainImageIndex, co
         // This fence tracks the work submitted for this frame
         framePipelineFence
     );
-
-    /////////////////////////////////////////////////////
-    // Present the eye textures to the VR system
-    /////////////////////////////////////////////////////
-
-    if (m_vulkanObjs->GetRenderSettings().presentToHeadset)
-    {
-        HeadsetEyeRenderData eyeRenderData{};
-        eyeRenderData.vkInstance = m_vulkanObjs->GetInstance()->GetVkInstance();
-        eyeRenderData.vkPhysicalDevice = m_vulkanObjs->GetPhysicalDevice()->GetVkPhysicalDevice();
-        eyeRenderData.vkDevice = m_vulkanObjs->GetDevice()->GetVkDevice();
-        eyeRenderData.vkQueue = m_vulkanObjs->GetDevice()->GetVkGraphicsQueue();
-        eyeRenderData.vkImage = gPassColorImage.allocation.vkImage;
-        eyeRenderData.queueFamilyIndex = m_vulkanObjs->GetPhysicalDevice()->GetGraphicsQueueFamilyIndex().value();
-        eyeRenderData.width = gPassColorImage.image.size.w;
-        eyeRenderData.height = gPassColorImage.image.size.h;
-        eyeRenderData.format = gPassColorImage.image.vkFormat;
-        eyeRenderData.sampleCount = 0;
-
-        m_vulkanObjs->GetContext()->VR_SubmitEyeRender(Eye::Left, eyeRenderData);
-        m_vulkanObjs->GetContext()->VR_SubmitEyeRender(Eye::Right, eyeRenderData);
-    }
 
     /////////////////////////////////////////////////////
     // Present the swap chain image to the screen
@@ -1038,7 +1076,7 @@ void RendererVk::RunPostProcessing(const LoadedImage& inputImage, const LoadedIm
     blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     blit.srcSubresource.mipLevel = 0;
     blit.srcSubresource.baseArrayLayer = 0;
-    blit.srcSubresource.layerCount = outputImage.image.numLayers;
+    blit.srcSubresource.layerCount = inputImage.image.numLayers; // Note that we only blit from the num layers the input image has
     blit.dstOffsets[0] = {0, 0, 0};
     blit.dstOffsets[1] = {(int)inputImage.image.size.w, (int)inputImage.image.size.h, 1};
     blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -1222,8 +1260,8 @@ void RendererVk::TransferObjectDetailImage(const LoadedImage& gPassObjectDetailI
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT),
             BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT),
-            Layers(presentLayerIndex, 1),
-            Levels(0,1),
+            Layers(0, gPassObjectDetailImage.image.numLayers),
+            Levels(0, 1),
             VK_IMAGE_ASPECT_COLOR_BIT
         )},
         // We're going to transfer to the frame object detail result image
@@ -1232,8 +1270,8 @@ void RendererVk::TransferObjectDetailImage(const LoadedImage& gPassObjectDetailI
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT),
             BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT),
-            Layers(presentLayerIndex, 1),
-            Levels(0,1),
+            Layers(0, 1),
+            Levels(0, 1),
             VK_IMAGE_ASPECT_COLOR_BIT
         )}
     }));
@@ -1250,7 +1288,7 @@ void RendererVk::TransferObjectDetailImage(const LoadedImage& gPassObjectDetailI
     vkImageCopy.srcOffset = {0, 0, 0};
     vkImageCopy.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     vkImageCopy.dstSubresource.mipLevel = 0;
-    vkImageCopy.dstSubresource.baseArrayLayer = presentLayerIndex;
+    vkImageCopy.dstSubresource.baseArrayLayer = 0;
     vkImageCopy.dstSubresource.layerCount = 1;
     vkImageCopy.dstOffset = {0, 0, 0};
     vkImageCopy.extent.width = gPassObjectDetailImage.image.size.w;
@@ -1475,6 +1513,129 @@ bool RendererVk::RefreshShadowMap(const RenderParams& renderParams,
     m_lights->OnShadowMapSynced(loadedLight.light.lightId);
 
     return true;
+}
+
+void RendererVk::BlitEyeRendersToOpenXR(const VulkanCommandBufferPtr& commandBuffer, const LoadedImage& renderImage)
+{
+    const auto leftImage = m_openXR->GetFrameEyeImage(Eye::Left);
+    const auto rightImage = m_openXR->GetFrameEyeImage(Eye::Right);
+    const auto eyeConfigurationViews = m_openXR->GetSystemEyeConfigurationViews();
+
+    //
+    // Prepare a transfer operation to blit from the render image
+    //
+    m_renderState.PrepareOperation(commandBuffer, RenderOperation({
+       {renderImage.allocation.vkImage, ImageAccess(
+           VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+           VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+           BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT),
+           BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT),
+           Layers(0, 2), // two layers, for two eyes
+           Levels(0, 1),
+           VK_IMAGE_ASPECT_COLOR_BIT
+       )}
+     }));
+
+    //
+    // Transfer OpenXR images from COLOR_ATTACHMENT_OPTIMAL to TRANSFER_DST_OPTIMAL
+    //
+    // Note: Not using RenderState/PrepareOperation because we don't own these images;
+    // OpenXR internally transitions them to other layouts, so we can't keep track of
+    // what layout they're in. However, we're guaranteed by the standard that when we've
+    // acquired them they're in VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL state, and should
+    // be in the same state when we release them, so we can manually transition them as
+    // needed.
+    //
+    VkImageSubresourceRange range;
+    range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    range.baseMipLevel = 0;
+    range.levelCount = 1;
+    range.baseArrayLayer = 0;
+    range.layerCount = 1;
+
+    VkImageMemoryBarrier imageBarrier;
+    imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    imageBarrier.pNext = nullptr;
+    imageBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    imageBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    imageBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    imageBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    imageBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    imageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    imageBarrier.image = leftImage;
+    imageBarrier.subresourceRange = range;
+    vkCmdPipelineBarrier(commandBuffer->GetVkCommandBuffer(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VkDependencyFlagBits(0), 0, nullptr, 0, nullptr, 1, &imageBarrier);
+
+    imageBarrier.image = rightImage;
+    vkCmdPipelineBarrier(commandBuffer->GetVkCommandBuffer(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VkDependencyFlagBits(0), 0, nullptr, 0, nullptr, 1, &imageBarrier);
+
+    //
+    // Blit the render images to the OpenXR swap chain images
+    //
+    // TODO: Evaluate multi-layer openxr swap chain images? Is it a possibility
+    //  for headsets to have eyes with differing image settings or can we just
+    //  use a single swap chain with 2 layer images?
+    //
+    VkImageBlit blit{};
+    blit.srcOffsets[0] = {0, 0, 0};
+    blit.srcOffsets[1] = {(int32_t)renderImage.image.size.w,
+                          (int32_t)renderImage.image.size.h,
+                          1};
+    blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    blit.srcSubresource.mipLevel = 0;
+    blit.srcSubresource.baseArrayLayer = 0;
+    blit.srcSubresource.layerCount = 1;
+    blit.dstOffsets[0] = {0, 0, 0};
+    blit.dstOffsets[1] = {(int32_t)eyeConfigurationViews.at(0).recommendedImageWidth,
+                          (int32_t)eyeConfigurationViews.at(0).recommendedImageHeight,
+                          1};
+    blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    blit.dstSubresource.mipLevel = 0;
+    blit.dstSubresource.baseArrayLayer = 0;
+    blit.dstSubresource.layerCount = 1;
+
+    m_vulkanObjs->GetCalls()->vkCmdBlitImage(
+        commandBuffer->GetVkCommandBuffer(),
+        renderImage.allocation.vkImage,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        m_openXR->GetFrameEyeImage(Eye::Left),
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1,
+        &blit,
+        VK_FILTER_LINEAR
+    );
+
+    blit.srcSubresource.baseArrayLayer = 1;
+    blit.dstOffsets[1] = {(int32_t)eyeConfigurationViews.at(1).recommendedImageWidth,
+                          (int32_t)eyeConfigurationViews.at(1).recommendedImageHeight,
+                          1};
+
+    m_vulkanObjs->GetCalls()->vkCmdBlitImage(
+        commandBuffer->GetVkCommandBuffer(),
+        renderImage.allocation.vkImage,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        m_openXR->GetFrameEyeImage(Eye::Right),
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1,
+        &blit,
+        VK_FILTER_LINEAR
+    );
+
+    //
+    // Transfer OpenXR images from TRANSFER_DST_OPTIMAL back to COLOR_ATTACHMENT_OPTIMAL
+    //
+    imageBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    imageBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+    imageBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    imageBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    imageBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    imageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    imageBarrier.image = leftImage;
+    imageBarrier.subresourceRange = range;
+    vkCmdPipelineBarrier(commandBuffer->GetVkCommandBuffer(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VkDependencyFlagBits(0), 0, nullptr, 0, nullptr, 1, &imageBarrier);
+
+    imageBarrier.image = rightImage;
+    vkCmdPipelineBarrier(commandBuffer->GetVkCommandBuffer(), VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VkDependencyFlagBits(0), 0, nullptr, 0, nullptr, 1, &imageBarrier);
 }
 
 }

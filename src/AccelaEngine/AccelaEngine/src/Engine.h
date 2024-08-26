@@ -42,11 +42,11 @@ namespace Accela::Engine
                    std::shared_ptr<Platform::IPlatform> platform,
                    std::shared_ptr<Render::IRenderer> renderer);
 
-            void Run(Scene::UPtr initialScene, bool supportVRHeadset, const std::function<void()>& onInitCallback) override;
+            void Run(Scene::UPtr initialScene, Render::OutputMode renderOutputMode, const std::function<void()>& onInitCallback) override;
 
         private:
 
-            bool InitializeRun(const RunState::Ptr& runState);
+            bool InitializeRun(const RunState::Ptr& runState, Render::OutputMode renderOutputMode);
             void DestroyRun();
 
             void RunLoop(const EngineRuntime::Ptr& runtime, const RunState::Ptr& runState);

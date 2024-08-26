@@ -11,6 +11,7 @@
 #include "IVulkanContext.h"
 
 #include <Accela/Render/IRenderer.h>
+#include <Accela/Render/IOpenXR.h>
 
 #include <Accela/Common/SharedLib.h>
 #include <Accela/Common/Log/ILogger.h>
@@ -34,6 +35,7 @@ namespace Accela::Render
 
             RendererBuilder& WithLogger(Common::ILogger::Ptr logger);
             RendererBuilder& WithMetrics(Common::IMetrics::Ptr metrics);
+            RendererBuilder& WithOpenXR(IOpenXR::Ptr openXR);
 
             [[nodiscard]] IRenderer::Ptr Build() const noexcept;
 
@@ -46,6 +48,7 @@ namespace Accela::Render
 
             Common::ILogger::Ptr m_logger;
             Common::IMetrics::Ptr m_metrics;
+            IOpenXR::Ptr m_openXR;
     };
 }
 

@@ -31,14 +31,13 @@ namespace Accela::Render
      * a thread-safe queue. Calls into OnXXX(..) methods on the render thread for each message
      * that it receives.
      */
-     // TODO! Does this need to be public? Also Ids.h
     class ACCELA_PUBLIC RendererBase : public IRenderer
     {
         public:
 
             RendererBase(Common::ILogger::Ptr logger, Common::IMetrics::Ptr metrics);
 
-            bool Startup(const RenderSettings& renderSettings, const std::vector<ShaderSpec>& shaders) override;
+            bool Startup(const RenderInit& renderInit, const RenderSettings& renderSettings) override;
             void Shutdown() override;
 
             [[nodiscard]] Ids::Ptr GetIds() const override;
@@ -62,7 +61,7 @@ namespace Accela::Render
 
             virtual void OnIdle() = 0;
 
-            virtual bool OnInitialize(const RenderSettings& renderSettings, const std::vector<ShaderSpec>& shaders) = 0;
+            virtual bool OnInitialize(const RenderInit& renderInit, const RenderSettings& renderSettings) = 0;
             virtual bool OnShutdown() = 0;
             virtual bool OnRenderFrame(RenderGraph::Ptr renderGraph) = 0;
             virtual void OnCreateTexture(std::promise<bool> resultPromise,

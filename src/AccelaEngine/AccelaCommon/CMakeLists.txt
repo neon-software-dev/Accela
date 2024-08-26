@@ -34,7 +34,7 @@ add_library(AccelaCommon
 	${AccelaCommon_Headers_Thread}
 )
 
-# TODO!
+# TODO Release: Set proper soversioning on lib outputs
 #set_target_properties(AccelaCommon PROPERTIES
 #	SOVERSION 0
 #	VERSION 0.0.1

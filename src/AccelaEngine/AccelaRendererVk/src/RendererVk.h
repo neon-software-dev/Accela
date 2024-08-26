@@ -26,6 +26,7 @@
 #include <Accela/Render/Id.h>
 #include <Accela/Render/PresentConfig.h>
 #include <Accela/Render/RendererBase.h>
+#include <Accela/Render/IOpenXR.h>
 #include <Accela/Render/Task/RenderParams.h>
 
 #include <vector>
@@ -41,7 +42,8 @@ namespace Accela::Render
                        Common::ILogger::Ptr logger,
                        Common::IMetrics::Ptr metrics,
                        IVulkanCallsPtr vulkanCalls,
-                       IVulkanContextPtr vulkanContext);
+                       IVulkanContextPtr vulkanContext,
+                       IOpenXR::Ptr openXR);
 
             [[nodiscard]] std::optional<ObjectId> GetTopObjectAtRenderPoint(const glm::vec2& renderPoint) const override;
 
@@ -49,7 +51,7 @@ namespace Accela::Render
 
             void OnIdle() override;
 
-            bool OnInitialize(const RenderSettings& renderSettings, const std::vector<ShaderSpec>& shaders) override;
+            bool OnInitialize(const RenderInit& renderInit, const RenderSettings& renderSettings) override;
             bool OnShutdown() override;
             bool OnRenderFrame(RenderGraph::Ptr renderGraph) override;
             void OnCreateTexture(std::promise<bool> resultPromise,
@@ -123,8 +125,11 @@ namespace Accela::Render
                                            const LoadedImage& frameObjectDetailImage,
                                            const VulkanCommandBufferPtr& commandBuffer);
 
+            void BlitEyeRendersToOpenXR(const VulkanCommandBufferPtr& commandBuffer, const LoadedImage& renderImage);
+
         private:
 
+            IOpenXR::Ptr m_openXR;
             VulkanObjsPtr m_vulkanObjs;
             IShadersPtr m_shaders;
             IProgramsPtr m_programs;

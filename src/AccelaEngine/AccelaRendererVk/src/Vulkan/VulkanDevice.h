@@ -13,6 +13,9 @@
 
 #include <vulkan/vulkan.h>
 
+#include <vector>
+#include <string>
+
 namespace Accela::Render
 {
     /**
@@ -32,7 +35,9 @@ namespace Accela::Render
              *
              * @return Whether the device was created successfully
              */
-            bool Create(const VulkanPhysicalDevicePtr& physicalDevice, const VulkanSurfacePtr& surface);
+            bool Create(const VulkanPhysicalDevicePtr& physicalDevice,
+                        const VulkanSurfacePtr& surface,
+                        const std::vector<std::string>& extraRequiredDeviceExtensions);
 
             /**
              * @return The VkDevice object associated with this device

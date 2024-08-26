@@ -17,8 +17,8 @@ namespace Accela::Platform
     /**
      * Abstract base class for desktop platform implementations.
      *
-     * Uses SDL for files and text subsystems, and OpenVR for VR subsystem; relies
-     * on subclass to provide events and windows subsystems.
+     * Uses SDL for files and text subsystems, relies on subclass to provide
+     * events and windows subsystems.
      */
     class ACCELA_PUBLIC PlatformDesktop : public IPlatform
     {
@@ -31,7 +31,6 @@ namespace Accela::Platform
 
             [[nodiscard]] IFiles::Ptr GetFiles() const noexcept override;
             [[nodiscard]] IText::Ptr GetText() const noexcept override;
-            [[nodiscard]] IVR::Ptr GetVR() const noexcept override;
 
         protected:
 
@@ -41,7 +40,6 @@ namespace Accela::Platform
 
             IFiles::Ptr m_files;
             IText::Ptr m_text;
-            IVR::Ptr m_vr;
     };
 }
 

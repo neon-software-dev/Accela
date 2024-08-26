@@ -43,7 +43,8 @@ namespace Accela::Engine
     enum class VROutput
     {
         None,
-        Supported
+        Optional,
+        Required
     };
 
     /**

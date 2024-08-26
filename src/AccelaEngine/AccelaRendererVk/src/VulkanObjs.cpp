@@ -22,6 +22,7 @@
 
 #include <Accela/Render/IVulkanCalls.h>
 #include <Accela/Render/IVulkanContext.h>
+#include <Accela/Render/IOpenXR.h>
 
 #include <format>
 #include <algorithm>
@@ -44,6 +45,7 @@ VulkanObjs::VulkanObjs(std::string appName,
 }
 
 RenderSettings VulkanObjs::GetRenderSettings() const noexcept { return *m_renderSettings; }
+bool VulkanObjs::IsConfiguredForHeadset() const noexcept { return m_configuredForHeadset; };
 IVulkanCallsPtr VulkanObjs::GetCalls() const noexcept { return m_vulkanCalls; }
 IVulkanContextPtr VulkanObjs::GetContext() const noexcept { return m_vulkanContext; }
 VulkanInstancePtr VulkanObjs::GetInstance() const noexcept { return m_instance; }
@@ -61,7 +63,9 @@ VulkanRenderPassPtr VulkanObjs::GetShadowCascadedRenderPass() const noexcept { r
 VulkanRenderPassPtr VulkanObjs::GetShadowSingleRenderPass() const noexcept { return m_shadowSingleRenderPass; }
 VulkanRenderPassPtr VulkanObjs::GetShadowCubeRenderPass() const noexcept { return m_shadowCubeRenderPass; }
 
-bool VulkanObjs::Initialize(bool enableValidationLayers, const RenderSettings& renderSettings)
+bool VulkanObjs::Initialize(bool enableValidationLayers,
+                            const RenderSettings& renderSettings,
+                            const IOpenXR::Ptr& openXR)
 {
     m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Initializing Vulkan objects");
 
@@ -73,7 +77,7 @@ bool VulkanObjs::Initialize(bool enableValidationLayers, const RenderSettings& r
         return false;
     }
 
-    if (!CreateInstance(m_appName, m_appVersion, enableValidationLayers))
+    if (!CreateInstance(m_appName, m_appVersion, enableValidationLayers, openXR))
     {
         m_logger->Log(Common::LogLevel::Error, "VulkanObjs: Failed to create Vulkan instance");
         return false;
@@ -85,13 +89,30 @@ bool VulkanObjs::Initialize(bool enableValidationLayers, const RenderSettings& r
         return false;
     }
 
-    if (!CreatePhysicalDevice())
+    std::optional<VkPhysicalDevice> vkRequiredPhysicalDevice;
+
+    if (openXR->IsSystemAvailable())
+    {
+        const auto openXRPhysicalDevice = openXR->GetOpenXRPhysicalDevice(m_instance->GetVkInstance());
+        if (openXRPhysicalDevice)
+        {
+            m_configuredForHeadset = true;
+            vkRequiredPhysicalDevice = *openXRPhysicalDevice;
+        }
+        else
+        {
+            m_logger->Log(Common::LogLevel::Error,
+              "VulkanObjs: Initializing for headset output but unable to determine system physical device");
+        }
+    }
+
+    if (!CreatePhysicalDevice(vkRequiredPhysicalDevice))
     {
         m_logger->Log(Common::LogLevel::Error, "VulkanObjs: Failed to create Vulkan physical device");
         return false;
     }
 
-    if (!CreateLogicalDevice())
+    if (!CreateLogicalDevice(openXR))
     {
         m_logger->Log(Common::LogLevel::Error, "VulkanObjs: Failed to create Vulkan logical device");
         return false;
@@ -175,7 +196,10 @@ void VulkanObjs::Destroy()
     m_renderSettings = std::nullopt;
 }
 
-bool VulkanObjs::CreateInstance(const std::string& appName, uint32_t appVersion, bool enableValidationLayers)
+bool VulkanObjs::CreateInstance(const std::string& appName,
+                                uint32_t appVersion,
+                                bool enableValidationLayers,
+                                const IOpenXR::Ptr& openXR)
 {
     if (m_instance != nullptr)
     {
@@ -185,8 +209,27 @@ bool VulkanObjs::CreateInstance(const std::string& appName, uint32_t appVersion,
 
     m_logger->Log(Common::LogLevel::Info, "CreateInstance: Creating a Vulkan instance");
 
+    std::vector<std::string> extraRequiredInstanceExtensions;
+    uint32_t minVulkanVersion = VULKAN_API_VERSION;
+    std::optional<uint32_t> maxVulkanVersion;
+
+    if (openXR->IsSystemAvailable())
+    {
+        const auto openXRSystemReqs = openXR->GetSystemRequirements();
+        if (openXRSystemReqs)
+        {
+            std::ranges::copy(
+                openXRSystemReqs->requiredInstanceExtensions,
+                std::back_inserter(extraRequiredInstanceExtensions)
+            );
+        }
+
+        minVulkanVersion = openXRSystemReqs->minVulkanVersionSupported;
+        maxVulkanVersion = openXRSystemReqs->maxVulkanVersionSupported;
+    }
+
     const auto vulkanInstance = std::make_shared<VulkanInstance>(m_logger, m_vulkanCalls, m_vulkanContext);
-    if (!vulkanInstance->CreateInstance(appName, appVersion, enableValidationLayers))
+    if (!vulkanInstance->CreateInstance(appName, appVersion, enableValidationLayers, extraRequiredInstanceExtensions, minVulkanVersion, maxVulkanVersion))
     {
         m_logger->Log(Common::LogLevel::Error, "CreateInstance: Failed to create a Vulkan instance");
         return false;
@@ -232,7 +275,7 @@ void VulkanObjs::DestroySurface() noexcept
     }
 }
 
-bool VulkanObjs::CreatePhysicalDevice()
+bool VulkanObjs::CreatePhysicalDevice(const std::optional<VkPhysicalDevice>& vkRequiredPhysicalDevice)
 {
     m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Choosing a Vulkan physical device");
 
@@ -247,7 +290,7 @@ bool VulkanObjs::CreatePhysicalDevice()
     // Prune out unsuitable physical devices
     std::vector<VulkanPhysicalDevicePtr> suitablePhysicalDevices;
 
-    std::ranges::copy_if(physicalDevices, std::back_inserter(suitablePhysicalDevices), [this](const auto& physicalDevice){
+    std::ranges::copy_if(physicalDevices, std::back_inserter(suitablePhysicalDevices), [&,this](const auto& physicalDevice){
         m_logger->Log(Common::LogLevel::Info, "CreatePhysicalDevice: Discovered physical device: {}", physicalDevice->GetDeviceName());
         return physicalDevice->IsDeviceSuitable(m_surface);
     });
@@ -258,12 +301,35 @@ bool VulkanObjs::CreatePhysicalDevice()
         return false;
     }
 
-    // Sort remaining physical devices by rating
+    // Sort suitable physical devices by rating
     std::ranges::sort(suitablePhysicalDevices, [](const auto& lhs, const auto& rhs){
         return lhs->GetDeviceRating() < rhs->GetDeviceRating();
     });
 
-    m_physicalDevice = suitablePhysicalDevices.back();
+    // If there's a required physical device specified, try to pick it, no matter the ratings
+    if (vkRequiredPhysicalDevice)
+    {
+        const auto it = std::ranges::find_if(suitablePhysicalDevices, [&](const auto& physicalDevice){
+            return physicalDevice->GetVkPhysicalDevice() == *vkRequiredPhysicalDevice;
+        });
+
+        if (it != suitablePhysicalDevices.cend())
+        {
+            m_physicalDevice = *it;
+            m_logger->Log(Common::LogLevel::Info,
+              "CreatePhysicalDevice: Found required physical device: {}", m_physicalDevice->GetDeviceName());
+        }
+        else
+        {
+            m_logger->Log(Common::LogLevel::Error,
+              "CreatePhysicalDevice: Required physical device not found, defaulting to highest rated suitable device");
+        }
+    }
+
+    if (m_physicalDevice == nullptr)
+    {
+        m_physicalDevice = suitablePhysicalDevices.back();
+    }
 
     m_logger->Log(Common::LogLevel::Info, "CreatePhysicalDevice: Chose physical device: {}", m_physicalDevice->GetDeviceName());
 
@@ -279,15 +345,29 @@ void VulkanObjs::DestroyPhysicalDevice() noexcept
     }
 }
 
-bool VulkanObjs::CreateLogicalDevice()
+bool VulkanObjs::CreateLogicalDevice(const IOpenXR::Ptr& openXR)
 {
     m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Creating a Vulkan logical device");
+
+    std::vector<std::string> extraRequiredDeviceExtensions;
+
+    if (openXR->IsSystemAvailable())
+    {
+        const auto openXRSystemReqs = openXR->GetSystemRequirements();
+        if (openXRSystemReqs)
+        {
+            std::ranges::copy(
+                openXRSystemReqs->requiredDeviceExtensions,
+                std::back_inserter(extraRequiredDeviceExtensions)
+            );
+        }
+    }
 
     //
     // Create the device
     //
     const auto device = std::make_shared<VulkanDevice>(m_logger, m_vulkanCalls, m_vulkanContext);
-    if (!device->Create(m_physicalDevice, m_surface))
+    if (!device->Create(m_physicalDevice, m_surface, extraRequiredDeviceExtensions))
     {
         return false;
     }
@@ -410,7 +490,7 @@ bool VulkanObjs::CreateGPassRenderPass()
 {
     m_logger->Log(Common::LogLevel::Info, "VulkanObjs: Creating gpass render pass");
 
-    const auto numGPassLayers = m_renderSettings->presentToHeadset ? 2 : 1;
+    const auto numGPassLayers = m_configuredForHeadset ? 2 : 1;
 
     //
     // Framebuffer attachments
@@ -631,7 +711,7 @@ bool VulkanObjs::CreateGPassRenderPass()
     std::optional<uint32_t> correlationMask;
 
     // If we're presenting to a headset the render pass should use multiview to render each eye in each draw call
-    if (m_renderSettings->presentToHeadset)
+    if (m_configuredForHeadset)
     {
         // If in VR mode, the offscreen subpasses are multiviewed for rendering twice, once for each eye
         viewMasks = {0b00000011, 0b00000011, 0b00000011};

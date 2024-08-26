@@ -50,6 +50,8 @@ target_compile_features(AccelaRenderer PUBLIC cxx_std_23 PRIVATE cxx_std_23)
 
 target_compile_options(AccelaRenderer PRIVATE ${ACCELA_WARNINGS_FLAGS})
 
+target_compile_definitions(AccelaRenderer PUBLIC GLM_FORCE_DEPTH_ZERO_TO_ONE)
+
 target_include_directories(AccelaRenderer
 	PUBLIC
 		$<INSTALL_INTERFACE:include>

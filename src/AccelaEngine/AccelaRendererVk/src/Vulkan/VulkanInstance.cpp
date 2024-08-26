@@ -9,6 +9,8 @@
 #include <Accela/Render/IVulkanCalls.h>
 #include <Accela/Render/IVulkanContext.h>
 
+#include <Accela/Common/Version.h>
+
 #include <format>
 #include <cstring>
 #include <set>
@@ -18,20 +20,17 @@
 namespace Accela::Render
 {
 
-VulkanInstance::VulkanInstance(Common::ILogger::Ptr logger, IVulkanCallsPtr vulkanCalls, IVulkanContextPtr vulkanContext)
-    : m_logger(std::move(logger))
-    , m_vulkanCalls(std::move(vulkanCalls))
-    , m_vulkanContext(std::move(vulkanContext))
-{
-
-}
+static bool ShouldLogDebugCallbacks = true;
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL VkDebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-                                                      VkDebugUtilsMessageTypeFlagsEXT messageType,
+                                                      VkDebugUtilsMessageTypeFlagsEXT,
                                                       const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
                                                       void* pUserData)
 {
-    (void)messageType;
+    if (!ShouldLogDebugCallbacks)
+    {
+        return VK_FALSE;
+    }
 
     auto* pLogger = (Common::ILogger*)pUserData;
 
@@ -45,24 +44,40 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL VkDebugCallback(VkDebugUtilsMessageSeverit
         default: logLevel = Common::LogLevel::Debug;
     }
 
-    // Override performance warnings to debug level, mostly because OpenVR absolutely spams us with
-    // performance warnings that we can't fix, so dropping the severity down
-    if (messageType == VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT)
-    {
-        logLevel = Common::LogLevel::Debug;
-    }
-
     pLogger->Log(logLevel, "[VulkanMessage] {}", pCallbackData->pMessage);
 
     return VK_FALSE; // Note the spec says to always return false
 }
 
-bool VulkanInstance::CreateInstance(const std::string& appName, uint32_t appVersion, bool enableValidationLayers)
+DisableValidationErrorLogging::DisableValidationErrorLogging()
+{
+    VulkanInstance::SetShouldLogDebugMessages(false);
+}
+
+DisableValidationErrorLogging::~DisableValidationErrorLogging()
+{
+    VulkanInstance::SetShouldLogDebugMessages(true);
+}
+
+VulkanInstance::VulkanInstance(Common::ILogger::Ptr logger, IVulkanCallsPtr vulkanCalls, IVulkanContextPtr vulkanContext)
+    : m_logger(std::move(logger))
+    , m_vulkanCalls(std::move(vulkanCalls))
+    , m_vulkanContext(std::move(vulkanContext))
+{
+
+}
+
+bool VulkanInstance::CreateInstance(const std::string& appName,
+                                    uint32_t appVersion,
+                                    bool enableValidationLayers,
+                                    const std::vector<std::string>& extraRequiredInstanceExtensions,
+                                    uint32_t requiredMinVulkanVersion,
+                                    const std::optional<uint32_t>& desiredMaxVulkanVersion)
 {
     //
     // Verify that the system supports the version of Vulkan we require
     //
-    if (!VerifyVulkanVersion())
+    if (!VerifyVulkanVersion(requiredMinVulkanVersion, desiredMaxVulkanVersion))
     {
         return false;
     }
@@ -75,6 +90,11 @@ bool VulkanInstance::CreateInstance(const std::string& appName, uint32_t appVers
     {
         m_logger->Log(Common::LogLevel::Error, "CreateInstance: Failed to fetch required Vulkan extensions");
         return false;
+    }
+
+    for (const auto& extraExtension : extraRequiredInstanceExtensions)
+    {
+        requiredExtensions.insert(extraExtension);
     }
 
     //
@@ -164,15 +184,12 @@ bool VulkanInstance::CreateInstance(const std::string& appName, uint32_t appVers
     debugMessengerCreateInfo.pfnUserCallback = VkDebugCallback;
     debugMessengerCreateInfo.pUserData = (void*)m_logger.get();
 
-    const std::string engineName{"ACCELA"};
-    const uint32_t engineVersion = 1;
-
     VkApplicationInfo appInfo{};
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     appInfo.pApplicationName = appName.c_str();
     appInfo.applicationVersion = appVersion;
-    appInfo.pEngineName = engineName.c_str();
-    appInfo.engineVersion = engineVersion;
+    appInfo.pEngineName = Common::ACCELA_ENGINE_NAME;
+    appInfo.engineVersion = Common::ACCELA_ENGINE_VERSION;
     appInfo.apiVersion = VULKAN_API_VERSION;
 
     VkInstanceCreateInfo createInfo{};
@@ -221,6 +238,11 @@ bool VulkanInstance::CreateInstance(const std::string& appName, uint32_t appVers
     return true;
 }
 
+void VulkanInstance::SetShouldLogDebugMessages(bool shouldLog)
+{
+    ShouldLogDebugCallbacks = shouldLog;
+}
+
 void VulkanInstance::Destroy() noexcept
 {
     if (m_vkDebugMessenger != VK_NULL_HANDLE)
@@ -236,7 +258,8 @@ void VulkanInstance::Destroy() noexcept
     }
 }
 
-bool VulkanInstance::VerifyVulkanVersion() const
+bool VulkanInstance::VerifyVulkanVersion(uint32_t requiredMinVulkanVersion,
+                                         const std::optional<uint32_t>& desiredMaxVulkanVersion) const
 {
     uint32_t queriedApiVersion{0};
     if (m_vulkanCalls->vkEnumerateInstanceVersion(&queriedApiVersion) != VK_SUCCESS)
@@ -253,17 +276,25 @@ bool VulkanInstance::VerifyVulkanVersion() const
             VK_API_VERSION_PATCH(queriedApiVersion)
         );
 
-    if (queriedApiVersion < VULKAN_API_VERSION)
+    // Check if the version is less than what we require
+    if (queriedApiVersion < requiredMinVulkanVersion)
     {
         m_logger->Log(Common::LogLevel::Error,
-          "VerifyVulkanVersion: Unsupported Vulkan version: {}", queriedApiVersionStr);
+          "VerifyVulkanVersion: Supported Vulkan version is too low: {}", queriedApiVersionStr);
         return false;
     }
-    else
+
+    // Check if the version is greater than we desire
+    if (desiredMaxVulkanVersion && (queriedApiVersion > *desiredMaxVulkanVersion))
     {
-        m_logger->Log(Common::LogLevel::Info,
-          "VerifyVulkanVersion: Found supported Vulkan version: {}", queriedApiVersionStr);
+        m_logger->Log(Common::LogLevel::Warning,
+          "VerifyVulkanVersion: Supported Vulkan version is higher than desired: {}", queriedApiVersionStr);
+
+        // Note: we warn, but continue on with a success
     }
+
+    m_logger->Log(Common::LogLevel::Info,
+      "VerifyVulkanVersion: Found usable Vulkan version: {}", queriedApiVersionStr);
 
     return true;
 }

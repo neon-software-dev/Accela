@@ -21,7 +21,7 @@ namespace Accela::Render
     {
         ViewProjection() = default;
 
-        ViewProjection(const glm::mat4& _viewTransform, Projection::Ptr _projectionTransform)
+        ViewProjection(const glm::mat4& _viewTransform, const Projection::Ptr& _projectionTransform)
             : viewTransform(_viewTransform)
             , projectionTransform(_projectionTransform->Clone())
         { }

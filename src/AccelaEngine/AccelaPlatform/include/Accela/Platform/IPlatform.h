@@ -40,7 +40,6 @@ namespace Accela::Platform
             [[nodiscard]] virtual IFiles::Ptr GetFiles() const noexcept = 0;
             [[nodiscard]] virtual IText::Ptr GetText() const noexcept = 0;
             [[nodiscard]] virtual IWindow::Ptr GetWindow() const noexcept = 0;
-            [[nodiscard]] virtual IVR::Ptr GetVR() const noexcept = 0;
     };
 }
 

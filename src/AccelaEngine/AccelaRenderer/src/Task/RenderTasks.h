@@ -8,6 +8,7 @@
 #define LIBACCELARENDERER_SRC_TASK_RENDERTASKS_H
 
 #include <Accela/Render/Id.h>
+#include <Accela/Render/RenderInit.h>
 #include <Accela/Render/RenderSettings.h>
 #include <Accela/Render/Task/RenderTask.h>
 #include <Accela/Render/Task/WorldUpdate.h>
@@ -21,7 +22,7 @@
 
 namespace Accela::Render
 {
-    using RenderTask_Initialize = DataRenderTask<RenderTaskType::Initialize, RenderSettings, std::vector<ShaderSpec>>;
+    using RenderTask_Initialize = DataRenderTask<RenderTaskType::Initialize, RenderInit, RenderSettings>;
     using RenderTask_Shutdown = DataRenderTask<RenderTaskType::Shutdown>;
     using RenderTask_RenderFrame = DataRenderTask<RenderTaskType::RenderFrame, RenderGraph::Ptr>;
     using RenderTask_CreateTexture = DataRenderTask<RenderTaskType::CreateTexture, Texture, TextureView, TextureSampler>;

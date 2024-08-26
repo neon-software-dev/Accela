@@ -8,6 +8,7 @@
 #define LIBACCELARENDERER_INCLUDE_ACCELA_RENDERER_IRENDERER_H
 
 #include "Ids.h"
+#include "RenderInit.h"
 #include "RenderSettings.h"
 #include "Shader/ShaderSpec.h"
 #include "Texture/Texture.h"
@@ -47,12 +48,12 @@ namespace Accela::Render
             /**
              * Blocking call to start the renderer with the provided initial render settings and shaders.
              *
-             * @param renderSettings The initial render settings to be applied
-             * @param shaders Sources of the shaders the renderer can use
+             * @param renderInit Renderer initialization settings
+             * @param renderSettings The initial render settings to be used
              *
              * @return Whether or not startup was successful
              */
-            virtual bool Startup(const RenderSettings& renderSettings, const std::vector<ShaderSpec>& shaders) = 0;
+            virtual bool Startup(const RenderInit& renderInit, const RenderSettings& renderSettings) = 0;
 
             /**
              * Stops the render thread and cleans up resources

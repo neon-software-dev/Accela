@@ -5,11 +5,13 @@
  */
  
 #include "RendererCommon.h"
+#include "VulkanObjs.h"
 
 #include "Util/FrustumProjection.h"
 #include "Util/OrthoProjection.h"
 
 #include <Accela/Render/IVulkanContext.h>
+#include <Accela/Render/IOpenXR.h>
 #include <Accela/Render/Util/Vector.h>
 
 #include <glm/glm.hpp>
@@ -69,14 +71,14 @@ ViewProjectionPayload GetViewProjectionPayload(const ViewProjection& viewProject
 }
 
 std::expected<ViewProjection, bool> GetCameraViewProjection(const RenderSettings& renderSettings,
-                                                            const IVulkanContextPtr& context,
+                                                            const IOpenXR::Ptr& openXR,
                                                             const RenderCamera& camera,
                                                             const std::optional<Eye>& eye)
 {
-    auto viewTransform = GetCameraViewTransform(context, camera, eye);
+    auto viewTransform = GetCameraViewTransform(openXR, camera, eye);
     viewTransform = glm::scale(viewTransform, glm::vec3(renderSettings.globalViewScale));
 
-    const auto projectionTransform = GetCameraProjectionTransform(renderSettings, context, camera, eye);
+    const auto projectionTransform = GetCameraProjectionTransform(renderSettings, openXR, camera, eye);
 
     if (!projectionTransform)
     {
@@ -86,69 +88,76 @@ std::expected<ViewProjection, bool> GetCameraViewProjection(const RenderSettings
     return ViewProjection{viewTransform, *projectionTransform};
 }
 
-glm::mat4 GetCameraViewTransform(const IVulkanContextPtr& context,
+glm::mat4 GetCameraViewTransform(const IOpenXR::Ptr& openXR,
                                  const RenderCamera& camera,
                                  const std::optional<Eye>& eye)
 {
-    const auto lookUnit = camera.lookUnit;
-
-    const auto upUnit =
-        This(camera.upUnit)
-        .ButIfParallelWith(camera.lookUnit)
-        .Then({0,0,1});
-
-    glm::mat4 viewTransform = glm::lookAt(
-        camera.position,
-        camera.position + lookUnit,
-        upUnit
-    );
-
     //
-    // If we're rendering for a specific eye we need to adjust the view transform by the headset's/eye's position
+    // If we're rendering for a specific eye, fetch the eye's view transform from OpenXR
     //
     if (eye)
     {
-        const auto headsetPoseOpt = context->VR_GetHeadsetPose();
-        if (headsetPoseOpt)
-        {
-            viewTransform = glm::inverse(headsetPoseOpt.value() * context->VR_GetEyeToHeadTransform(*eye)) * viewTransform;
-        }
-    }
+        const auto frameEyeView = openXR->GetFrameEyeViews().at((uint32_t)*eye);
 
-    return viewTransform;
+        const auto eyePosition = camera.position + frameEyeView.posePosition;
+
+        return glm::inverse(
+            glm::translate(glm::mat4(1.0f), eyePosition)
+            * glm::mat4_cast(frameEyeView.poseOrientation)
+        );
+    }
+    //
+    // Otherwise, use the camera's view transform
+    //
+    else
+    {
+        const auto lookUnit = camera.lookUnit;
+
+        const auto upUnit =
+            This(camera.upUnit)
+                .ButIfParallelWith(camera.lookUnit)
+                .Then({0,0,1});
+
+        return glm::lookAt(
+            camera.position,
+            camera.position + lookUnit,
+            upUnit
+        );
+    }
 }
 
 std::expected<Projection::Ptr, bool> GetCameraProjectionTransform(const RenderSettings& renderSettings,
-                                                                  const IVulkanContextPtr& context,
+                                                                  const IOpenXR::Ptr& openXR,
                                                                   const RenderCamera& camera,
                                                                   const std::optional<Eye>& eye)
 {
+    //
+    // If we're rendering for a specific eye, get the eye's frustum data from OpenXR
+    //
     if (eye)
     {
-        //
-        // FrustumProjection for the projectionFrustum given to us by the VR system
-        //
-        float leftTanHalfAngle{0.0f};
-        float rightTanHalfAngle{0.0f};
-        float topTanHalfAngle{0.0f};
-        float bottomTanHalfAngle{0.0f};
+        const auto frameEyeView = openXR->GetFrameEyeViews().at((uint32_t)*eye);
 
-        context->VR_GetEyeProjectionRaw(*eye, leftTanHalfAngle, rightTanHalfAngle, topTanHalfAngle, bottomTanHalfAngle);
-
-        return FrustumProjection::FromTanHalfAngles(
-            leftTanHalfAngle,
-            rightTanHalfAngle,
-            topTanHalfAngle,
-            bottomTanHalfAngle,
+        auto projection = FrustumProjection::FromTanHalfAngles(
+            frameEyeView.leftTanHalfAngle,
+            frameEyeView.rightTanHalfAngle,
+            frameEyeView.upTanHalfAngle,
+            frameEyeView.downTanHalfAngle,
             PERSPECTIVE_CLIP_NEAR,
             renderSettings.maxRenderDistance
         );
+        if (!projection)
+        {
+            return std::unexpected(false);
+        }
+
+        return *projection;
     }
+    //
+    // Otherwise, create a frustum from the camera's settings
+    //
     else
     {
-        //
-        // FrustumProjection for the projectionFrustum for the current render camera
-        //
         return FrustumProjection::From(
             camera,
             PERSPECTIVE_CLIP_NEAR,
@@ -257,12 +266,14 @@ std::expected<Projection::Ptr, bool> GetPointShadowMapProjectionTransform(const 
 }
 
 [[nodiscard]] std::expected<DirectionalShadowRender, bool> GetDirectionalShadowMapViewProjection(
-    const RenderSettings& renderSettings,
-    const IVulkanContextPtr& context,
+    const VulkanObjsPtr& vulkanObjs,
+    const IOpenXR::Ptr& openXR,
     const LoadedLight& loadedLight,
     const RenderCamera& viewCamera,
     CascadeCut cascadeCut)
 {
+    const auto renderSettings = vulkanObjs->GetRenderSettings();
+
     const auto shadowFramebufferSize = GetShadowFramebufferSize(renderSettings);
 
     //
@@ -272,20 +283,20 @@ std::expected<Projection::Ptr, bool> GetPointShadowMapProjectionTransform(const 
     std::vector<ViewProjection> eyeViewProjections;
 
     // VR Mode
-    if (renderSettings.presentToHeadset)
+    if (vulkanObjs->IsConfiguredForHeadset())
     {
-        auto viewProjection = GetCameraViewProjection(renderSettings, context, viewCamera, Eye::Left);
+        auto viewProjection = GetCameraViewProjection(renderSettings, openXR, viewCamera, Eye::Left);
         assert(viewProjection.has_value());
         if (viewProjection) { eyeViewProjections.push_back(*viewProjection); }
 
-        viewProjection = GetCameraViewProjection(renderSettings, context, viewCamera, Eye::Right);
+        viewProjection = GetCameraViewProjection(renderSettings, openXR, viewCamera, Eye::Right);
         assert(viewProjection.has_value());
         if (viewProjection) { eyeViewProjections.push_back(*viewProjection); }
     }
     // Desktop Mode
     else
     {
-        const auto viewProjection = GetCameraViewProjection(renderSettings, context, viewCamera);
+        const auto viewProjection = GetCameraViewProjection(renderSettings, openXR, viewCamera);
         assert(viewProjection.has_value());
         if (viewProjection) { eyeViewProjections.push_back(*viewProjection); }
     }
@@ -329,7 +340,7 @@ std::expected<Projection::Ptr, bool> GetPointShadowMapProjectionTransform(const 
     const float viewBoundsDiameter_worldSpace = viewBoundsRadius_worldSpace * 2.0f;
 
     // Determine depth radius of the projection, which is viewBoundsRadius_worldSpace but additionally,
-    // optional, pulled back further to a specified minimum radius
+    // optionally, pulled back further to a specified minimum radius
     const auto viewDepthRadius_worldSpace = std::max(viewBoundsRadius_worldSpace, renderSettings.shadowCascadeMinRadiusDepth);
 
     //
@@ -398,18 +409,18 @@ std::expected<Projection::Ptr, bool> GetPointShadowMapProjectionTransform(const 
 }
 
 std::expected<std::vector<DirectionalShadowRender>, bool> GetDirectionalShadowMapViewProjections(
-    const RenderSettings& renderSettings,
-    const IVulkanContextPtr& context,
+    const VulkanObjsPtr& vulkanObjs,
+    const IOpenXR::Ptr& openXR,
     const LoadedLight& loadedLight,
     const RenderCamera& viewCamera)
 {
-    const auto cascadeCuts = GetDirectionalShadowCascadeCuts(renderSettings);
+    const auto cascadeCuts = GetDirectionalShadowCascadeCuts(vulkanObjs->GetRenderSettings());
 
     std::vector<DirectionalShadowRender> shadowRenders;
 
     for (const auto& cascadeCut : cascadeCuts)
     {
-        const auto shadowRender = GetDirectionalShadowMapViewProjection(renderSettings, context, loadedLight, viewCamera, cascadeCut);
+        const auto shadowRender = GetDirectionalShadowMapViewProjection(vulkanObjs, openXR, loadedLight, viewCamera, cascadeCut);
         if (!shadowRender)
         {
             return std::unexpected(false);

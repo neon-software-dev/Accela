@@ -25,7 +25,6 @@ add_library(AccelaPlatform
 
 target_link_libraries(AccelaPlatform
 	INTERFACE
-		# TODO! Verify taht platform really doesnt use either of these
 		AccelaCommon
 		AccelaRenderer
 )

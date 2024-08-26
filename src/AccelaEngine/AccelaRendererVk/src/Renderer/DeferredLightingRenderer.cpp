@@ -421,9 +421,11 @@ bool DeferredLightingRenderer::BindDescriptorSet0_Lights(const BindState& bindSt
         lightPayload.areaOfEffect = light.lightProperties.areaOfEffect;
         lightPayload.shadowMapType = static_cast<uint32_t>(loadedLight.shadowMapType);
 
+        assert(loadedLight.shadowRenders.size() <= Max_Shadow_Render_Count);
+
         for (unsigned int x = 0; x < loadedLight.shadowRenders.size(); ++x)
         {
-            const auto& shadowRender = loadedLight.shadowRenders[x];
+            const auto& shadowRender = loadedLight.shadowRenders.at(x);
 
             lightPayload.shadowMaps[x] = {
                 .worldPos = shadowRender.worldPos,

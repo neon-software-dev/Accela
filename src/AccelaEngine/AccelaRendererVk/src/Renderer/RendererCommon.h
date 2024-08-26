@@ -16,8 +16,9 @@
 #include "../Util/ViewProjection.h"
 
 #include <Accela/Render/RenderSettings.h>
-#include <Accela/Render/Task/RenderParams.h>
+#include <Accela/Render/IOpenXR.h>
 #include <Accela/Render/Light.h>
+#include <Accela/Render/Task/RenderParams.h>
 
 #include <glm/glm.hpp>
 
@@ -43,7 +44,7 @@ namespace Accela::Render
     // Number of directional light cascading shadow maps
     constexpr uint32_t Shadow_Cascade_Count = 4;
 
-    // Maximum number of shadow renders a light can have (cubic shadow have 6)
+    // Maximum number of shadow renders a light can have (cubic shadows have 6)
     constexpr uint32_t Max_Shadow_Render_Count = 6;
 
     //
@@ -139,16 +140,16 @@ namespace Accela::Render
     ////
 
     [[nodiscard]] std::expected<ViewProjection, bool> GetCameraViewProjection(const RenderSettings& renderSettings,
-                                                                              const IVulkanContextPtr& context,
+                                                                              const IOpenXR::Ptr& openXR,
                                                                               const RenderCamera& camera,
                                                                               const std::optional<Eye>& eye = std::nullopt);
 
-    [[nodiscard]] glm::mat4 GetCameraViewTransform(const IVulkanContextPtr& context,
+    [[nodiscard]] glm::mat4 GetCameraViewTransform(const IOpenXR::Ptr& openXR,
                                                    const RenderCamera& camera,
                                                    const std::optional<Eye>& eye);
 
     [[nodiscard]] std::expected<Projection::Ptr, bool> GetCameraProjectionTransform(const RenderSettings& renderSettings,
-                                                                                    const IVulkanContextPtr& context,
+                                                                                    const IOpenXR::Ptr& openXR,
                                                                                     const RenderCamera& camera,
                                                                                     const std::optional<Eye>& eye);
 
@@ -198,7 +199,7 @@ namespace Accela::Render
     {
         DirectionalShadowRender(const glm::vec3& _render_worldPosition, CascadeCut _cut, ViewProjection _viewProjection)
             : render_worldPosition(_render_worldPosition)
-            , cut(std::move(_cut))
+            , cut(_cut)
             , viewProjection(std::move(_viewProjection))
         { }
 
@@ -207,9 +208,12 @@ namespace Accela::Render
         ViewProjection viewProjection; // The view-projection for the shadow render
     };
 
+    // TODO: Move cut cubes forward so no part of it is behind the viewer's plane? (Note: can't make it
+    //  non-square or else texel snapping won't work)
+
     [[nodiscard]] std::expected<std::vector<DirectionalShadowRender>, bool> GetDirectionalShadowMapViewProjections(
-        const RenderSettings& renderSettings,
-        const IVulkanContextPtr& context,
+        const VulkanObjsPtr& vulkanObjs,
+        const IOpenXR::Ptr& openXR,
         const LoadedLight& loadedLight,
         const RenderCamera& viewCamera);
 

@@ -22,6 +22,12 @@
 
 namespace Accela::Render
 {
+    struct DisableValidationErrorLogging
+    {
+        DisableValidationErrorLogging();
+        ~DisableValidationErrorLogging();
+    };
+
     /**
      * Wrapper class for VkInstance functionality
      */
@@ -37,15 +43,28 @@ namespace Accela::Render
              * @param appName The name of the client app
              * @param appVersion The version of the client app
              * @param enableValidationLayers Whether validation layers should be enabled, if available
+             * @param extraRequiredInstanceExtensions Extra instance extensions that are required and should be enabled
+             * @param requiredMinVulkanVersion The minimum version of Vulkan that's required
+             * @param desiredMaxVulkanVersion Optional max version of Vulkan that's desired (not required)
              *
              * @return Whether the instance was created successfully
              */
-            bool CreateInstance(const std::string& appName, uint32_t appVersion, bool enableValidationLayers);
+            bool CreateInstance(const std::string& appName,
+                                uint32_t appVersion,
+                                bool enableValidationLayers,
+                                const std::vector<std::string>& extraRequiredInstanceExtensions,
+                                uint32_t requiredMinVulkanVersion = VULKAN_API_VERSION,
+                                const std::optional<uint32_t>& desiredMaxVulkanVersion = std::nullopt);
 
             /**
              * @return The VkInstance object associated with this instance
              */
             [[nodiscard]] VkInstance GetVkInstance() const noexcept { return m_vkInstance; }
+
+            /**
+             * Configures whether debug/validation messages should be output to the logger
+             */
+            static void SetShouldLogDebugMessages(bool shouldLog);
 
             /**
              * Destroy this vulkan instance
@@ -68,7 +87,8 @@ namespace Accela::Render
 
         private:
 
-            [[nodiscard]] bool VerifyVulkanVersion() const;
+            [[nodiscard]] bool VerifyVulkanVersion(uint32_t requiredMinVulkanVersion,
+                                                   const std::optional<uint32_t>& desiredMaxVulkanVersion) const;
 
             [[nodiscard]] InstanceProperties GatherInstanceProperties() const;
             static bool InstanceSupportsExtension(const InstanceProperties& properties, const std::string& extensionName);

@@ -2,7 +2,6 @@ import os
 import argparse
 
 from prepare_physx import prepare_physx
-from prepare_openvr import prepare_openvr
 from prepare_openal import prepare_openal
 from prepare_vcpkg import prepare_vcpkg
 
@@ -31,11 +30,6 @@ install_dir_release = install_dir + "/release"
 # PhysX
 os.chdir(external_dir)
 prepare_physx(args)
-
-#######
-# OpenVR
-os.chdir(external_dir)
-prepare_openvr(args, install_dir_debug, install_dir_release)
 
 #######
 # OpenAL

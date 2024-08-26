@@ -86,7 +86,7 @@ std::optional<Render::FrameBufferId> RenderTargets::CreateGPassFramebuffer(const
     uint32_t layerCount = 1;
 
     // If we're presenting to a headset, create two layers for each render target texture, to hold the output for each eye
-    if (renderSettings.presentToHeadset)
+    if (m_vulkanObjs->IsConfiguredForHeadset())
     {
         layerCount = 2;
     }
@@ -402,12 +402,10 @@ std::optional<FrameBufferId> RenderTargets::CreateScreenFramebuffer(const std::s
 
 std::optional<ImageId> RenderTargets::CreatePostProcessOutputImage(const std::string& tag) const
 {
-    const auto renderSettings = m_vulkanObjs->GetRenderSettings();
-
     uint32_t layerCount = 1;
 
     // If we're presenting to a headset, create two layers for each render target texture, to hold the output for each eye
-    if (renderSettings.presentToHeadset)
+    if (m_vulkanObjs->IsConfiguredForHeadset())
     {
         layerCount = 2;
     }

@@ -41,7 +41,7 @@ find_dependency(Qt6 REQUIRED COMPONENTS Widgets Gui)
 find_dependency(CUDAToolkit REQUIRED)
 find_dependency(OpenAL REQUIRED)
 find_dependency(PhysX REQUIRED)
-find_dependency(OpenVR REQUIRED)
+find_dependency(OpenXR REQUIRED)
 
 ####
 # Find manually built/installed PhysX
@@ -97,14 +97,6 @@ set_target_properties(PhysXGpu PROPERTIES
     IMPORTED_IMPLIB "${PhysXGpuFile}"
 )
 
-####
-# Find manually built/installed OpenVR
-####
-find_library(OpenVRFile NAMES openvr_api HINTS "${ACCELA_INSTALL_LIB_DIR}" REQUIRED)
-    add_library(OpenVR::OpenVR IMPORTED UNKNOWN)
-    set_target_properties(OpenVR::OpenVR PROPERTIES
-        IMPORTED_LOCATION "${OpenVRFile}"
-)
 ]===]
 
 #########

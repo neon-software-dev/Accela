@@ -81,15 +81,6 @@ namespace Accela::Render
              * @return Whether the result could be set, or false if no vulkan surface exists
              */
             [[nodiscard]] virtual bool GetSurfacePixelSize(std::pair<unsigned int, unsigned int>& size) const  = 0;
-
-            [[nodiscard]] virtual bool VR_InitOutput() const = 0;
-            virtual void VR_DestroyOutput() const = 0;
-            virtual void VR_WaitGetPoses() const = 0;
-            [[nodiscard]] virtual std::optional<glm::mat4> VR_GetHeadsetPose() const = 0;
-            [[nodiscard]] virtual glm::mat4 VR_GetEyeToHeadTransform(const Eye& eye) const = 0;
-            [[nodiscard]] virtual glm::mat4 VR_GetEyeProjectionTransform(const Eye& eye, const float& nearClip, const float& farClip) const = 0;
-            virtual void VR_GetEyeProjectionRaw(const Eye& eye, float& leftTanHalfAngle, float& rightTanHalfAngle, float& topTanHalfAngle, float& bottomTanHalfAngle) const = 0;
-            virtual void VR_SubmitEyeRender(const Eye& eye, const HeadsetEyeRenderData& eyeRenderData) const = 0;
     };
 }
 

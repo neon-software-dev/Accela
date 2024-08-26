@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
  
+#include "OpenXR.h"
+
 #include <Accela/Engine/EngineDesktop.h>
 #include <Accela/Engine/Builder.h>
 #include <Accela/Engine/IEngine.h>
@@ -77,6 +79,8 @@ void EngineDesktop::Run(const std::string& appName,
     //
     // Create a renderer for the engine to use
     //
+    auto openXR = std::make_shared<Render::OpenXR>(m_logger, appName, appVersion);
+
     const auto renderer = Render::RendererBuilder(
         appName,
         appVersion,
@@ -85,6 +89,7 @@ void EngineDesktop::Run(const std::string& appName,
     )
     .WithLogger(m_logger)
     .WithMetrics(m_metrics)
+    .WithOpenXR(openXR)
     .Build();
 
     //
@@ -92,9 +97,16 @@ void EngineDesktop::Run(const std::string& appName,
     //
     auto engine = Builder::Build(m_logger, m_metrics, m_platform, renderer);
 
-    const bool supportVRHeadset = vrOutput == VROutput::Supported;
+    Render::OutputMode renderOutputMode{Render::OutputMode::Display};
 
-    engine->Run(std::move(initialScene), supportVRHeadset, [](){});
+    switch (vrOutput)
+    {
+        case VROutput::None: renderOutputMode = Render::OutputMode::Display; break;
+        case VROutput::Optional: renderOutputMode = Render::OutputMode::HeadsetOptional; break;
+        case VROutput::Required: renderOutputMode = Render::OutputMode::HeadsetRequired; break;
+    }
+
+    engine->Run(std::move(initialScene), renderOutputMode, [](){});
 
     //
     // Cleanup after the engine has finished running

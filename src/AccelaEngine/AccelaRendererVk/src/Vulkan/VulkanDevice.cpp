@@ -26,7 +26,9 @@ VulkanDevice::VulkanDevice(Common::ILogger::Ptr logger, IVulkanCallsPtr vulkanCa
 
 }
 
-bool VulkanDevice::Create(const VulkanPhysicalDevicePtr& physicalDevice, const VulkanSurfacePtr& surface)
+bool VulkanDevice::Create(const VulkanPhysicalDevicePtr& physicalDevice,
+                          const VulkanSurfacePtr& surface,
+                          const std::vector<std::string>& extraRequiredDeviceExtensions)
 {
     // From checks in VulkanPhysicalDevice we're guaranteed that the provided physical device
     // has support for graphics, present, and compute queues, and the swap chain extension.
@@ -80,6 +82,11 @@ bool VulkanDevice::Create(const VulkanPhysicalDevicePtr& physicalDevice, const V
         m_logger->Log(Common::LogLevel::Fatal,
           "Failed to fetch device required extensions: {}", physicalDevice->GetDeviceName());
         return false;
+    }
+
+    for (const auto& extension : extraRequiredDeviceExtensions)
+    {
+        extensions.insert(extension);
     }
 
     // Use the multiview extension

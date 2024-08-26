@@ -42,7 +42,7 @@ Engine::Engine(Common::ILogger::Ptr logger,
 
 }
 
-void Engine::Run(Scene::UPtr initialScene, bool supportVRHeadset, const std::function<void()>& onInitCallback)
+void Engine::Run(Scene::UPtr initialScene, Render::OutputMode renderOutputMode, const std::function<void()>& onInitCallback)
 {
     m_logger->Log(Common::LogLevel::Info, "AccelaEngine: Run start");
 
@@ -53,8 +53,6 @@ void Engine::Run(Scene::UPtr initialScene, bool supportVRHeadset, const std::fun
     renderSettings.presentMode = Render::PresentMode::Immediate;
     renderSettings.presentScaling = Render::PresentScaling::CenterInside;
     renderSettings.resolution = renderResolution;
-    renderSettings.framesInFlight = 3;
-    renderSettings.presentToHeadset = supportVRHeadset && m_platform->GetVR()->IsVRAvailable();
 
     const auto worldResources = std::make_shared<WorldResources>(m_logger, m_renderer, m_platform->GetFiles(), m_platform->GetText(), m_audioManager);
 
@@ -64,7 +62,7 @@ void Engine::Run(Scene::UPtr initialScene, bool supportVRHeadset, const std::fun
     const auto runState = std::make_shared<RunState>(std::move(initialScene), worldResources, worldState, m_platform);
     const auto runtime = std::make_shared<EngineRuntime>(m_logger, m_metrics, m_renderer, runState);
 
-    if (!InitializeRun(runState))
+    if (!InitializeRun(runState, renderOutputMode))
     {
         m_logger->Log(Common::LogLevel::Fatal, "AccelaEngine: Failed to initialize the run");
         return;
@@ -79,7 +77,7 @@ void Engine::Run(Scene::UPtr initialScene, bool supportVRHeadset, const std::fun
     m_logger->Log(Common::LogLevel::Info, "AccelaEngine: Run finish");
 }
 
-bool Engine::InitializeRun(const RunState::Ptr& runState)
+bool Engine::InitializeRun(const RunState::Ptr& runState, Render::OutputMode renderOutputMode)
 {
     m_logger->Log(Common::LogLevel::Info, "AccelaEngine: Initializing the engine run");
 
@@ -95,7 +93,11 @@ bool Engine::InitializeRun(const RunState::Ptr& runState)
         return false;
     }
 
-    if (!m_renderer->Startup(worldState->GetRenderSettings(), *assetsShadersExpect))
+    Render::RenderInit renderInit{};
+    renderInit.outputMode = renderOutputMode;
+    renderInit.shaders = *assetsShadersExpect;
+
+    if (!m_renderer->Startup(renderInit, worldState->GetRenderSettings()))
     {
         m_logger->Log(Common::LogLevel::Fatal, "AccelaEngine: Failed to initialize the renderer");
         return false;

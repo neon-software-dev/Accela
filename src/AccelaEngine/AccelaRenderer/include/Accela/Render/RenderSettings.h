@@ -61,7 +61,6 @@ namespace Accela::Render
         //
         PresentMode presentMode{PresentMode::Immediate};
         PresentScaling presentScaling{PresentScaling::CenterInside};
-        bool presentToHeadset{false};
         glm::vec3 presentClearColor{0.1f, 0.1f, 0.1f};
         Eye presentEye{Eye::Left}; // Eye render presented to the window (only relevant when in VR mode)
 

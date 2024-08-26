@@ -12,6 +12,7 @@
 #include "Vulkan/VulkanCommon.h"
 
 #include <Accela/Render/RenderSettings.h>
+#include <Accela/Render/IOpenXR.h>
 
 #include <Accela/Common/Log/ILogger.h>
 
@@ -37,7 +38,8 @@ namespace Accela::Render
                        IVulkanContextPtr vulkanContext);
 
             bool Initialize(bool enableValidationLayers,
-                            const RenderSettings& renderSettings);
+                            const RenderSettings& renderSettings,
+                            const IOpenXR::Ptr& openXR);
             void Destroy();
 
             bool OnSurfaceInvalidated();
@@ -47,6 +49,7 @@ namespace Accela::Render
             void WaitForDeviceIdle();
 
             [[nodiscard]] RenderSettings GetRenderSettings() const noexcept;
+            [[nodiscard]] bool IsConfiguredForHeadset() const noexcept;
             [[nodiscard]] IVulkanCallsPtr GetCalls() const noexcept;
             [[nodiscard]] IVulkanContextPtr GetContext() const noexcept;
             [[nodiscard]] VulkanInstancePtr GetInstance() const noexcept;
@@ -66,16 +69,19 @@ namespace Accela::Render
 
         private:
 
-            bool CreateInstance(const std::string& appName, uint32_t appVersion, bool enableValidationLayers);
+            bool CreateInstance(const std::string& appName,
+                                uint32_t appVersion,
+                                bool enableValidationLayers,
+                                const IOpenXR::Ptr& openXR);
             void DestroyInstance() noexcept;
 
             bool CreateSurface();
             void DestroySurface() noexcept;
 
-            bool CreatePhysicalDevice();
+            bool CreatePhysicalDevice(const std::optional<VkPhysicalDevice>& vkRequiredPhysicalDevice);
             void DestroyPhysicalDevice() noexcept;
 
-            bool CreateLogicalDevice();
+            bool CreateLogicalDevice(const IOpenXR::Ptr& openXR);
             void DestroyLogicalDevice() noexcept;
 
             bool InitVMA();
@@ -115,6 +121,7 @@ namespace Accela::Render
             IVulkanCallsPtr m_vulkanCalls;
             IVulkanContextPtr m_vulkanContext;
 
+            bool m_configuredForHeadset{false};
             std::optional<RenderSettings> m_renderSettings;
 
             VulkanInstancePtr m_instance;

@@ -10,6 +10,7 @@
 #include "ILights.h"
 
 #include <Accela/Render/Ids.h>
+#include <Accela/Render/IOpenXR.h>
 
 #include <Accela/Common/Log/ILogger.h>
 #include <Accela/Common/Metrics/IMetrics.h>
@@ -26,6 +27,7 @@ namespace Accela::Render
             Lights(Common::ILogger::Ptr logger,
                    Common::IMetrics::Ptr metrics,
                    VulkanObjsPtr vulkanObjs,
+                   IOpenXR::Ptr openXR,
                    IFramebuffersPtr framebuffers,
                    Ids::Ptr ids);
 
@@ -65,6 +67,7 @@ namespace Accela::Render
             Common::ILogger::Ptr m_logger;
             Common::IMetrics::Ptr m_metrics;
             VulkanObjsPtr m_vulkanObjs;
+            IOpenXR::Ptr m_openXR;
             IFramebuffersPtr m_framebuffers;
             Ids::Ptr m_ids;
 

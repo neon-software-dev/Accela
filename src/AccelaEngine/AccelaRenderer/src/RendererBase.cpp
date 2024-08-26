@@ -18,7 +18,7 @@ RendererBase::RendererBase(Common::ILogger::Ptr logger, Common::IMetrics::Ptr me
 
 }
 
-bool RendererBase::Startup(const RenderSettings& renderSettings, const std::vector<ShaderSpec>& shaders)
+bool RendererBase::Startup(const RenderInit& renderInit, const RenderSettings& renderSettings)
 {
     m_logger->Log(Common::LogLevel::Info, "RendererBase: Starting");
 
@@ -38,7 +38,7 @@ bool RendererBase::Startup(const RenderSettings& renderSettings, const std::vect
         }
     );
 
-    if (!Submit<RenderTask_Initialize, bool>(false, renderSettings, shaders).get())
+    if (!Submit<RenderTask_Initialize, bool>(false, renderInit, renderSettings).get())
     {
         Shutdown();
         return false;

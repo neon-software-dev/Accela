@@ -41,7 +41,6 @@ endif()
 
 add_compile_definitions(
     ACCELA_DO_EXPORT    # Configure SharedLib.h to mark ACCELA_PUBLIC as an export
-    OPENVR_BUILD_STATIC # TODO! Define depending on if its actually built static
 )
 
 if (ACCELA_STATIC)

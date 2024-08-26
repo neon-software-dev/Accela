@@ -23,11 +23,13 @@ namespace Accela::Render
 Lights::Lights(Common::ILogger::Ptr logger,
                Common::IMetrics::Ptr metrics,
                VulkanObjsPtr vulkanObjs,
+               IOpenXR::Ptr openXR,
                IFramebuffersPtr framebuffers,
                Ids::Ptr ids)
     : m_logger(std::move(logger))
     , m_metrics(std::move(metrics))
     , m_vulkanObjs(std::move(vulkanObjs))
+    , m_openXR(std::move(openXR))
     , m_framebuffers(std::move(framebuffers))
     , m_ids(std::move(ids))
 {
@@ -162,8 +164,8 @@ std::expected<std::vector<ShadowRender>, bool> Lights::DetermineLightShadowRende
         case ShadowMapType::Cascaded:
         {
             const auto directionalShadowRenders = *GetDirectionalShadowMapViewProjections(
-                m_vulkanObjs->GetRenderSettings(),
-                m_vulkanObjs->GetContext(),
+                m_vulkanObjs,
+                m_openXR,
                 loadedLight,
                 renderCamera
             );

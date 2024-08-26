@@ -141,7 +141,7 @@ void AccelaThread::EngineRunLoop()
 
     m_engine->Run(
         std::make_unique<Engine::WrappedScene>(m_scene),
-        false,
+        Render::OutputMode::Display,
         [this](){ SignalEngineInitFinished(); }
     );
 

@@ -10,7 +10,7 @@ Accela is a cross-platform C++23 game and render engine utilizing Vulkan 1.3.
 ## Features
 
 - Builds and runs on both Windows and Linux (Mac support planned)
-- Create 2D, 3D and VR (via OpenVR) applications
+- Create 2D, 3D and VR (via OpenXR) applications
 - ECS system for entity management
 - Asset loading system for textures, audio, fonts and models
 - Loads most texture formats (16+) and 3D model formats (40+)
@@ -63,11 +63,11 @@ A vcpkg file is provided which will allow the engine to automatically fetch its 
 - sdl2
 - sdl2-image
 - sdl2-ttf
+- OpenXR
 
 A prepare_dependencies script is provided in the `external` directory which will download and build dependencies which can not be fetched from vcpkg. You can choose whether to use this script or provide these dependencies manually. The dependencies fetched via prepare_dependencies script are:
 - PhysX
 - OpenAL
-- OpenVR
 
 The prepare_dependencies script also creates a project-local vcpkg installation so that you don't need to install it yourself. This can be disabled if desired.
 

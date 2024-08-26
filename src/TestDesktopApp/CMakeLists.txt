@@ -35,12 +35,20 @@ if (WIN32)
 endif()
 
 # Copy accela directory to the runtime output directory
-file (GLOB_RECURSE ACCELA_INPUT_RESOURCES "${CMAKE_CURRENT_SOURCE_DIR}/accela/*.*")
+#file (GLOB_RECURSE ACCELA_INPUT_RESOURCES "${CMAKE_CURRENT_SOURCE_DIR}/accela/*.*")
 
-add_custom_command(TARGET TestDesktopApp POST_BUILD
+#add_custom_command(TARGET TestDesktopApp POST_BUILD
+#	COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different
+#		"${CMAKE_CURRENT_SOURCE_DIR}/accela/"
+#		$<IF:$<CXX_COMPILER_ID:MSVC>,"${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/accela/","${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/accela/">
+#	#DEPENDS ${ACCELA_INPUT_RESOURCES}
+#	COMMENT "Copying accela directory"
+#)
+
+add_custom_target(CopyAccelaDir ALL
 	COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different
 		"${CMAKE_CURRENT_SOURCE_DIR}/accela/"
-		$<IF:$<CXX_COMPILER_ID:MSVC>,"${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>/accela/","${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/accela/">
-	DEPENDS ${ACCELA_INPUT_RESOURCES}
-	COMMENT "Copying accela directory"
+		"${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/accela/"
+	COMMENT "Copying accela directory to runtime output directory"
 )
+add_dependencies(CopyAccelaDir TestDesktopApp)

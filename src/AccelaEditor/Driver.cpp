@@ -17,8 +17,8 @@ int main(int argc, char *argv[])
 
     QApplication app(argc, argv);
 
-    const auto logger= std::make_shared<Common::StdLogger>(Common::LogLevel::Warning);
-    const auto metrics= std::make_shared<Common::InMemoryMetrics>();
+    const auto logger = std::make_shared<Common::StdLogger>(Common::LogLevel::Warning);
+    const auto metrics = std::make_shared<Common::InMemoryMetrics>();
 
     auto pMainWindow = new MainWindow(logger, metrics);
     pMainWindow->show();

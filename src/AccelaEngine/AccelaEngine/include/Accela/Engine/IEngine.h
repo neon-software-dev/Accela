@@ -9,6 +9,7 @@
 
 #include "Scene/Scene.h"
 
+#include <Accela/Render/RenderInit.h>
 #include <Accela/Common/SharedLib.h>
 
 #include <functional>
@@ -27,13 +28,12 @@ namespace Accela::Engine
              * the function will return.
              *
              * @param initialScene The initial scene to be run
-             * @param supportVRHeadset Whether the engine should attempt to output to an
-             * attached VR headset, if available.
+             * @param renderOutputMode Whether the renderer should output to a connected VR headset
              *
              * TODO: supportVRHeadset -> more complete RunSettings or such
              */
             virtual void Run(Scene::UPtr initialScene,
-                             bool supportVRHeadset,
+                             Render::OutputMode renderOutputMode,
                              const std::function<void()>& onInitCallback) = 0;
     };
 }

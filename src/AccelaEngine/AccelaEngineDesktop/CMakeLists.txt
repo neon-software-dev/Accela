@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.26.0)
 
 project(AccelaEngineDesktop VERSION 0.0.1 LANGUAGES CXX)
 
-	find_package(OpenVR)
+	find_package(OpenXR CONFIG REQUIRED)
 
 	file(GLOB AccelaEngineDesktop_Include_Headers "include/Accela/Engine/*.h")
 	file(GLOB AccelaEngineDesktop_Include_Headers_Package "include/Accela/Engine/Package/*.h")
@@ -30,12 +30,15 @@ target_link_libraries(AccelaEngineDesktop
 	PRIVATE
 		AccelaPlatformDesktopSDL
 		AccelaRendererVk
-		OpenVR::OpenVR
+		OpenXR::headers
+		OpenXR::openxr_loader
 )
 
 target_compile_features(AccelaEngineDesktop PUBLIC cxx_std_23 PRIVATE cxx_std_23)
 
 target_compile_options(AccelaEngineDesktop PRIVATE ${ACCELA_WARNINGS_FLAGS})
+
+target_compile_definitions(AccelaEngineDesktop PRIVATE XR_USE_GRAPHICS_API_VULKAN)
 
 target_include_directories(AccelaEngineDesktop
 	PUBLIC
