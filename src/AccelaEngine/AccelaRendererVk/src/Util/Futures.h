@@ -25,7 +25,13 @@ namespace Accela::Render
 
     [[nodiscard]] inline bool ErrorResult(std::promise<bool>& promise)
     {
-        return PromiseResult(false,promise);
+        return PromiseResult(false, promise);
+    }
+
+    template <typename T>
+    [[nodiscard]] inline std::expected<T, bool> ErrorResult(std::promise<bool>& promise)
+    {
+        return std::unexpected(PromiseResult(false, promise));
     }
 }
 

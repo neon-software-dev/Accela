@@ -42,78 +42,71 @@ void AudioSystem::Execute(const RunState::Ptr&, entt::registry& registry)
     );
 
     //
-    // For all entities with an audio component, start and stop their audio as needed
+    // For all entities with an audio component, destroy any static audio sources which have finished
+    // playing. (However, for streamed sources, we keep those around, even if they're temporarily "finished").
     //
     registry.view<AudioComponent>().each(
         [&](const entt::entity& entity, AudioComponent& audioComponent)
         {
-            StartAndStopAudio(registry, (EntityId)entity, audioComponent);
+            ProcessFinishedAudio(registry, (EntityId)entity, audioComponent);
         }
     );
 
+    //
+    // Clean up any finished transient audio sources
+    //
+    m_audioManager->DestroyFinishedTransientSources();
 
     //
-    // Automatically destroy any global sounds that have finished playing, without needing
-    // the user to explicit stop them
+    // Clean up played buffers for streamed audio sources
     //
-    m_audioManager->FulfillFinishedGlobalSources();
+    m_audioManager->DestroyFinishedStreamedData();
 }
 
 void AudioSystem::UpdateAudioListener()
 {
-    m_audioManager->UpdateListenerProperties(m_listener);
+    m_audioManager->UpdateAudioListener(m_listener);
 }
 
 void AudioSystem::UpdateSourceProperties(AudioComponent& audioComponent, const TransformComponent& transformComponent) const
 {
-    for (auto& activeSoundIt : audioComponent.activeSounds)
+    for (auto& activeSound : audioComponent.activeSounds)
     {
-        m_audioManager->UpdateSourceProperties(activeSoundIt.first, transformComponent.GetPosition());
+        (void)m_audioManager->UpdateLocalSourcePosition(activeSound, transformComponent.GetPosition());
     }
 }
 
-void AudioSystem::StartAndStopAudio(entt::registry& registry, const EntityId& entity, AudioComponent& audioComponent)
+void AudioSystem::ProcessFinishedAudio(entt::registry& registry, const EntityId& entity, AudioComponent& audioComponent)
 {
-    std::unordered_set<AudioSourceId> destroyedSources;
+    std::unordered_set<AudioSourceId> finishedSources;
 
     //
-    // Process every active sound associated with the entity
+    // Look for any static (non-streamed) audio sources associated with the entity
     //
-    for (auto& activeSoundIt : audioComponent.activeSounds)
+    for (auto& sourceId : audioComponent.activeSounds)
     {
-        // If the sound hasn't been started yet, start it
-        if (activeSoundIt.second.playbackState == PlaybackState::NotStarted)
+        const auto sourceDataType = m_audioManager->GetSourceDataType(sourceId);
+
+        if (!sourceDataType || *sourceDataType != SourceDataType::Static)
         {
-            m_logger->Log(Common::LogLevel::Debug,
-              "StartAndStopAudio: Starting sound, source id: {}", activeSoundIt.first);
-            m_audioManager->PlaySource(activeSoundIt.first);
-            activeSoundIt.second.playbackState = PlaybackState::Started;
+            continue;
         }
-        // Otherwise, if the sound has finished playing, destroy it
-        else if (m_audioManager->IsSourceStopped(activeSoundIt.first))
+
+        const auto sourceState = m_audioManager->GetSourceState(sourceId);
+        if (!sourceState || (sourceState->playState == PlayState::Stopped))
         {
-            m_logger->Log(Common::LogLevel::Debug,
-             "StartAndStopAudio: Sound finished playing, destroying it, source id: {}", activeSoundIt.first);
-            m_audioManager->DestroySource(activeSoundIt.first);
-            destroyedSources.insert(activeSoundIt.first);
-        }
-        // Otherwise, if the user requested the sound to be stopped, stop it
-        else if (activeSoundIt.second.playbackState == PlaybackState::Stopped)
-        {
-            m_logger->Log(Common::LogLevel::Debug,
-              "StartAndStopAudio: Sound was stopped, destroying it, source id: {}", activeSoundIt.first);
-            m_audioManager->StopSource(activeSoundIt.first);
-            m_audioManager->DestroySource(activeSoundIt.first);
-            destroyedSources.insert(activeSoundIt.first);
+            finishedSources.insert(sourceId);
+            continue;
         }
     }
 
     //
-    // Remove destroyed audio sources from the entity's audio component
+    // Remove the finished audio sources from the entity's audio component
     //
-    for (const auto& destroyedSource : destroyedSources)
+    for (const auto& finishedSource : finishedSources)
     {
-        audioComponent.activeSounds.erase(destroyedSource);
+        LogInfo("AudioSystem: Detected finished audio {} for entity {}", finishedSource, entity);
+        audioComponent.activeSounds.erase(finishedSource);
     }
 
     //

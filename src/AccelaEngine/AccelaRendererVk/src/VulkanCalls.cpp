@@ -152,6 +152,8 @@ bool VulkanCalls::InitDeviceCalls(VkDevice vkDevice)
     FIND_DEVICE_CALL(vkCmdSetViewport)
     FIND_DEVICE_CALL(vkCmdClearAttachments)
     FIND_DEVICE_CALL(vkCmdBlitImage)
+    FIND_DEVICE_CALL(vkGetDeviceBufferMemoryRequirements)
+    FIND_DEVICE_CALL(vkGetDeviceImageMemoryRequirements)
 
     return true;
 }
@@ -182,6 +184,8 @@ VmaFuncs VulkanCalls::GetVMAFuncs() const
     funcs.vkBindBufferMemory2KHR = m_vkBindBufferMemory2;
     funcs.vkBindImageMemory2KHR = m_vkBindImageMemory2;
     funcs.vkGetPhysicalDeviceMemoryProperties2KHR = m_vkGetPhysicalDeviceMemoryProperties2;
+    funcs.vkGetDeviceBufferMemoryRequirements = m_vkGetDeviceBufferMemoryRequirements;
+    funcs.vkGetDeviceImageMemoryRequirements = m_vkGetDeviceImageMemoryRequirements;
 
     return funcs;
 }

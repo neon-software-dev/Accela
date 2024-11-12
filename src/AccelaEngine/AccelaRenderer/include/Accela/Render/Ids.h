@@ -7,9 +7,10 @@
 #ifndef LIBACCELARENDERER_INCLUDE_ACCELA_RENDER_IDS_H
 #define LIBACCELARENDERER_INCLUDE_ACCELA_RENDER_IDS_H
 
-#include "IdSource.h"
+#include "Id.h"
 
 #include <Accela/Common/SharedLib.h>
+#include <Accela/Common/IdSource.h>
 
 #include <memory>
 
@@ -22,15 +23,15 @@ namespace Accela::Render
     {
         using Ptr = std::shared_ptr<Ids>;
 
-        IdSource<TextureId> textureIds;
-        IdSource<FrameBufferId> frameBufferIds;
-        IdSource<MeshId> meshIds;
-        IdSource<SpriteId> spriteIds;
-        IdSource<ObjectId> objectIds;
-        IdSource<TerrainId> terrainIds;
-        IdSource<MaterialId> materialIds;
-        IdSource<LightId> lightIds;
-        IdSource<RenderTargetId> renderTargetIds;
+        Common::IdSource<TextureId> textureIds;
+        Common::IdSource<FrameBufferId> frameBufferIds;
+        Common::IdSource<MeshId> meshIds;
+        Common::IdSource<SpriteId> spriteIds;
+        Common::IdSource<ObjectId> objectIds;
+        Common::IdSource<TerrainId> terrainIds;
+        Common::IdSource<MaterialId> materialIds;
+        Common::IdSource<LightId> lightIds;
+        Common::IdSource<RenderTargetId> renderTargetIds;
 
         void Reset()
         {

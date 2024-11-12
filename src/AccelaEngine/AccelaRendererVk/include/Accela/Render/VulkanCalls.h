@@ -297,6 +297,8 @@ namespace Accela::Render
             PFN_vkCmdSetViewport m_vkCmdSetViewport{nullptr};
             PFN_vkCmdClearAttachments m_vkCmdClearAttachments{nullptr};
             PFN_vkCmdBlitImage m_vkCmdBlitImage{nullptr};
+            PFN_vkGetDeviceBufferMemoryRequirements m_vkGetDeviceBufferMemoryRequirements{nullptr};
+            PFN_vkGetDeviceImageMemoryRequirements m_vkGetDeviceImageMemoryRequirements{nullptr};
     };
 }
 

@@ -7,7 +7,7 @@
 #include "Images.h"
 
 #include "../VulkanObjs.h"
-#include "../PostExecutionOps.h"
+#include "../PostExecutionOp.h"
 #include "../Metrics.h"
 
 #include "../Buffer/IBuffers.h"
@@ -23,6 +23,46 @@
 
 namespace Accela::Render
 {
+
+void InsertPipelineBarrier_Image(const IVulkanCallsPtr& vk,
+                                 const VulkanCommandBufferPtr& commandBuffer,
+                                 const LoadedImage& loadedImage,
+                                 const Layers& layers,
+                                 const Levels& levels,
+                                 const VkImageAspectFlags& vkImageAspectFlags,
+                                 const BarrierPoint& source,
+                                 const BarrierPoint& dest,
+                                 const ImageTransition& imageTransition)
+{
+    VkImageSubresourceRange range;
+    range.aspectMask = vkImageAspectFlags;
+    range.baseMipLevel = levels.baseLevel;
+    range.levelCount = levels.levelCount;
+    range.baseArrayLayer = layers.startLayer;
+    range.layerCount = layers.numLayers;
+
+    VkImageMemoryBarrier imageMemoryBarrier = {};
+    imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    imageMemoryBarrier.image = loadedImage.allocation.vkImage;
+    imageMemoryBarrier.oldLayout = imageTransition.oldLayout;
+    imageMemoryBarrier.newLayout = imageTransition.newLayout;
+    imageMemoryBarrier.subresourceRange = range;
+    imageMemoryBarrier.srcAccessMask = source.access;
+    imageMemoryBarrier.dstAccessMask = dest.access;
+
+    vk->vkCmdPipelineBarrier(
+        commandBuffer->GetVkCommandBuffer(),
+        source.stage,
+        dest.stage,
+        0,
+        0,
+        nullptr,
+        0,
+        nullptr,
+        1,
+        &imageMemoryBarrier
+    );
+}
 
 Images::Images(Common::ILogger::Ptr logger,
                Common::IMetrics::Ptr metrics,
@@ -111,23 +151,25 @@ std::expected<ImageId, bool> Images::CreateFilledImage(const ImageDefinition& im
     {
         m_logger->Log(Common::LogLevel::Error,
           "Images::CreateFilledImage: Failed to create image objects for: {}", imageDefinition.image.tag);
-        return std::unexpected(false);
+        return ErrorResult<ImageId>(resultPromise);
     }
 
-    auto loadedImage = *loadedImageExpect;
+    auto createdImage = *loadedImageExpect;
 
     //
     // Record result
     //
-    loadedImage.id = m_imageIds.GetId();
+    createdImage.id = m_imageIds.GetId();
 
-    m_images.insert({loadedImage.id, loadedImage});
+    m_images.insert({createdImage.id, createdImage});
 
     SyncMetrics();
 
     //
     // Start an asynchronous data transfer to the image
     //
+    auto& loadedImage = m_images.at(createdImage.id);
+
     if (!TransferImageData(loadedImage, data, true, std::move(resultPromise)))
     {
         m_logger->Log(Common::LogLevel::Error,
@@ -136,6 +178,50 @@ std::expected<ImageId, bool> Images::CreateFilledImage(const ImageDefinition& im
     }
 
     return loadedImage.id;
+}
+
+bool Images::UpdateImage(const ImageId& imageId, const Common::ImageData::Ptr& data, std::promise<bool> resultPromise)
+{
+    m_logger->Log(Common::LogLevel::Debug, "Images: Updating image: {}", imageId.id);
+
+    const auto it = m_images.find(imageId);
+
+    if (it == m_images.cend())
+    {
+        m_logger->Log(Common::LogLevel::Error, "Images::UpdateImage: Image doesn't exist: {}", imageId.id);
+        return ErrorResult(resultPromise);
+    }
+
+    auto& loadedImage = it->second;
+
+    if (loadedImage.image.numLayers != data->GetNumLayers())
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "Images::UpdateImage: Mismatching layer count between image and new data: {}", imageId.id);
+        return ErrorResult(resultPromise);
+    }
+
+    if (!TransferImageData(loadedImage, data, false, std::move(resultPromise)))
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "Images::UpdateImage: Failed to transfer image data for: {}", imageId.id);
+        return false;
+    }
+
+    return true;
+}
+
+void Images::RecordImageLayout(const ImageId& imageId, VkImageLayout vkImageLayout)
+{
+    auto it = m_images.find(imageId);
+
+    if (it == m_images.cend())
+    {
+        m_logger->Log(Common::LogLevel::Error, "Images::RecordImageLayout: Image doesn't exist: {}", imageId.id);
+        return ;
+    }
+
+    it->second.vkImageLayout = vkImageLayout;
 }
 
 std::expected<LoadedImage, bool> Images::CreateImageObjects(const ImageDefinition& imageDefinition)
@@ -411,21 +497,12 @@ bool Images::DoesImageFormatSupportMipMapGeneration(const VkFormat& vkFormat) co
     return vkFormatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT;
 }
 
-bool Images::TransferImageData(const LoadedImage& loadedImage,
+bool Images::TransferImageData(LoadedImage& loadedImage,
                                const Common::ImageData::Ptr& data,
                                bool isInitialDataTransfer,
                                std::promise<bool> resultPromise)
 {
-    m_logger->Log(Common::LogLevel::Debug,
-      "Images: Starting data transfer for image: {}", loadedImage.id.id);
-
-    // If we're already actively transferring data to the image, error out
-    if (m_imagesLoading.contains(loadedImage.id))
-    {
-        m_logger->Log(Common::LogLevel::Error,
-          "Images::TransferImageData: A data transfer for the image is already in progress: {}", loadedImage.id.id);
-        return ErrorResult(resultPromise);
-    }
+    m_logger->Log(Common::LogLevel::Debug, "Images: Starting data transfer for image: {}", loadedImage.id.id);
 
     //
     // Determine if we need to generate image mip levels
@@ -459,7 +536,14 @@ bool Images::TransferImageData(const LoadedImage& loadedImage,
         [&](const VulkanCommandBufferPtr& commandBuffer, VkFence vkFence)  {
 
             // Mark the image as loading
-            m_imagesLoading.insert(loadedImage.id);
+            if (m_imagesLoading.contains(loadedImage.id))
+            {
+                m_imagesLoading[loadedImage.id]++;
+            }
+            else
+            {
+                m_imagesLoading.insert({loadedImage.id, 1});
+            }
 
             SyncMetrics();
 
@@ -476,22 +560,25 @@ bool Images::TransferImageData(const LoadedImage& loadedImage,
             //
             // Transfer from the provided data to the image's base mip level
             //
-            const auto transferResult = vulkanFuncs.TransferImageData(
+            const auto transferResult = TransferImageData(
                 m_buffers,
                 m_postExecutionOps,
-                commandBuffer->GetVkCommandBuffer(),
+                commandBuffer,
                 vkFence,
                 data,
-                loadedImage.allocation.vkImage,
-                mipLevels,
-                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                finalLayout
+                loadedImage,
+                VK_IMAGE_ASPECT_COLOR_BIT,              // Transferring color data
+                loadedImage.vkImageLayout,              // Current image layout
+                finalLayout,                            // Final layout the image should be in after the transfer
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT   // Earliest usage of the transferred data
             );
             if (!transferResult)
             {
                 m_logger->Log(Common::LogLevel::Error, "Images::TransferImageData: Failed to transfer data to GPU image");
                 return false;
             }
+
+            loadedImage.vkImageLayout = finalLayout;
 
             //
             // If requested, generate mip maps for the image's other mip levels
@@ -508,6 +595,8 @@ bool Images::TransferImageData(const LoadedImage& loadedImage,
                 );
             }
 
+            loadedImage.vkImageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
             return true;
         },
         [=,this](bool commandsSuccessful){
@@ -518,15 +607,154 @@ bool Images::TransferImageData(const LoadedImage& loadedImage,
     );
 }
 
+bool Images::TransferImageData(const IBuffersPtr& buffers,
+                               const PostExecutionOpsPtr& postExecutionOps,
+                               const VulkanCommandBufferPtr& commandBuffer,
+                               VkFence vkExecutionFence,
+                               const Common::ImageData::Ptr& sourceImageData,
+                               const LoadedImage& destImage,
+                               VkImageAspectFlags vkTransferImageAspectFlags,
+                               VkImageLayout vkCurrentImageLayout,
+                               VkImageLayout vkFinalImageLayout,
+                               VkPipelineStageFlags vkEarliestUsageFlags)
+{
+    const auto vkDestImage = destImage.allocation.vkImage;
+
+    //
+    // Create a CPU-only staging buffer and fill it with the image data
+    //
+    const auto stagingBuffer = buffers->CreateBuffer(
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
+        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+        sourceImageData->GetTotalByteSize(),
+        std::format("TransferStaging-{}", (uint64_t)vkDestImage)
+    );
+    if (!stagingBuffer.has_value())
+    {
+        m_logger->Log(Common::LogLevel::Error,
+                      "TransferImageData: Failed to create staging buffer for: {}", (uint64_t)vkDestImage);
+        return false;
+    }
+
+    BufferUpdate stagingUpdate{};
+    stagingUpdate.pData = (void*)sourceImageData->GetPixelBytes().data();
+    stagingUpdate.updateOffset = 0;
+    stagingUpdate.dataByteSize = sourceImageData->GetTotalByteSize();
+
+    if (!buffers->MappedUpdateBuffer(*stagingBuffer, {stagingUpdate}))
+    {
+        m_logger->Log(Common::LogLevel::Error,
+                      "TransferImageData: Failed to update staging buffer for: {}", (uint64_t)vkDestImage);
+        buffers->DestroyBuffer((*stagingBuffer)->GetBufferId());
+        return false;
+    }
+
+    //
+    // Pipeline barrier to prepare the dest image to receive new data
+    //
+    InsertPipelineBarrier_Image(
+        m_vulkanObjs->GetCalls(),
+        commandBuffer,
+        destImage,
+        Layers(0, destImage.image.numLayers),
+        Levels(0, destImage.image.numMipLevels),
+        vkTransferImageAspectFlags,
+        // All previous work must finish reading and writing from the image
+        BarrierPoint(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+        // Before we can transfer data to it
+        BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT),
+        // Transition the image layout from whatever it currently is to transfer dest optimal
+        ImageTransition(vkCurrentImageLayout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+    );
+
+    RecordImageLayout(destImage.id, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+    //
+    // Copy the data from the staging buffer to the VkImage
+    //
+    VkExtent3D sourceExtent{};
+    sourceExtent.width = sourceImageData->GetPixelWidth();
+    sourceExtent.height = sourceImageData->GetPixelHeight();
+    sourceExtent.depth = 1;
+
+    VkBufferImageCopy copyRegion = {};
+    copyRegion.bufferOffset = 0;
+    copyRegion.bufferRowLength = 0;
+    copyRegion.bufferImageHeight = 0;
+    copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    copyRegion.imageSubresource.mipLevel = 0;
+    copyRegion.imageSubresource.baseArrayLayer = 0;
+    copyRegion.imageSubresource.layerCount = sourceImageData->GetNumLayers();
+    copyRegion.imageExtent = sourceExtent;
+
+    m_vulkanObjs->GetCalls()->vkCmdCopyBufferToImage(
+        commandBuffer->GetVkCommandBuffer(),
+        (*stagingBuffer)->GetVkBuffer(),
+        vkDestImage,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1,
+        &copyRegion
+    );
+
+    //
+    // Pipeline barrier post-data transfer
+    //
+    InsertPipelineBarrier_Image(
+        m_vulkanObjs->GetCalls(),
+        commandBuffer,
+        destImage,
+        Layers(0, destImage.image.numLayers),
+        Levels(0, destImage.image.numMipLevels),
+        vkTransferImageAspectFlags,
+        // Data transfer must finish writing to the image
+        BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT),
+        // Before what follows can use it
+        BarrierPoint(vkEarliestUsageFlags, VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT),
+        // Transition the image layout to whatever its post-transfer / final layout should be
+        ImageTransition(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, vkFinalImageLayout)
+    );
+
+    RecordImageLayout(destImage.id, vkFinalImageLayout);
+
+    //
+    // Record a task to clean up the staging buffer once the transfer work is complete
+    //
+    postExecutionOps->EnqueueFrameless(vkExecutionFence, BufferDeleteOp(buffers, (*stagingBuffer)->GetBufferId()));
+
+    return true;
+}
+
 bool Images::OnImageTransferFinished(bool commandsSuccessful, const LoadedImage& loadedImage, bool isInitialDataTransfer)
 {
     m_logger->Log(Common::LogLevel::Debug, "Images: Image transfer finished for image: {}", loadedImage.id.id);
 
+    if (!m_imagesLoading.contains(loadedImage.id))
+    {
+        m_logger->Log(Common::LogLevel::Error,
+          "Images::OnImageTransferFinished: Image transfer finished but image has no load record: {}", loadedImage.id.id);
+        return false;
+    }
+
     // Mark the image as no longer loading
-    m_imagesLoading.erase(loadedImage.id);
+    auto& loadRecord = m_imagesLoading[loadedImage.id];
+    loadRecord--;
+
+    if (loadRecord == 0)
+    {
+        m_imagesLoading.erase(loadedImage.id);
+    }
+    else
+    {
+        m_logger->Log(Common::LogLevel::Debug,
+          "Images::OnImageTransferFinished: Image transfer finished but image still has active loads: {}", loadedImage.id.id);
+
+        // Note: Not an error condition, nothing else to do until all active loads have finished
+        return true;
+    }
 
     // Now that the transfer is finished, we want to destroy the image in two cases:
-    // 1) While the transfer was happening, we received a call to destroy the image
+    // 1) While an active transfer was happening, we received a call to destroy the image
     // 2) The transfer was an initial data transfer, which failed
     //
     // Note that for update transfers, we're (currently) allowing the image to still

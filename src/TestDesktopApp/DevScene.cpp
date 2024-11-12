@@ -44,7 +44,7 @@ void DevScene::ConfigureScene()
     engine->SyncAudioListenerToWorldCamera(Engine::DEFAULT_SCENE, true);
 
     // Configure ambient lighting levels
-    engine->GetWorldState()->SetAmbientLighting(Engine::DEFAULT_SCENE, 0.5f, glm::vec3(1));
+    engine->GetWorldState()->SetAmbientLighting(Engine::DEFAULT_SCENE, 1.0f, glm::vec3(1));
 
     // Display a skybox
     engine->GetWorldState()->SetSkyBox(Engine::DEFAULT_SCENE, m_skyBoxTextureId);
@@ -69,10 +69,10 @@ void DevScene::CreateSceneEntities()
     // Configuration for which entities are placed in the test world
     //
 
-    CreateDirectionalLight({0, 1000, 0}, glm::normalize(glm::vec3{0,-1,0}), true);
+    CreateDirectionalLight({0, 1000, 0}, glm::normalize(glm::vec3{0, -1, 0}), true);
     //CreatePointLight({0, 4, 6}, true);
     //CreateSpotLight({0, 10, 2}, glm::normalize(glm::vec3{-1,-1,0}), 45.0f, true);
-    CreateTerrainEntity(10.0f, {0, 0, 0});
+    CreateTerrainEntity(30.0f, {0, 0, 0});
     //CreateFloorEntity({0,0,0}, 150);
 
     /*CreateModelEntity(
@@ -82,12 +82,14 @@ void DevScene::CreateSceneEntities()
         Engine::ModelAnimationState(Engine::ModelAnimationType::Looping, "")
     );*/
 
-    Engine::StandardTreeParams treeParams{};
-   // treeParams.maturity = 0.85f;
-   // treeParams.trunk_baseLength = 3.0f;
-    CreateTreeEntity(0, {5,0,0}, treeParams);
+    //Engine::StandardTreeParams treeParams{};
+    //CreateTreeEntity(0, {5,0,0}, treeParams);
 
-    //CreateForest(m_terrainEid, 200);
+    //CreateForest(m_terrainEid, 50);
+
+    //CreateMediaPlayer({0, 10, -10}, glm::vec3{17.777f, 10.0f, 0.2f}, Engine::PRI("TestDesktopApp", "test.mkv"));
+    CreateMediaPlayer({0, 10, -10}, glm::vec3{17.777f, 10.0f, 0.2f}, "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4");
+    //CreateMediaPlayer({0, 10, -10}, glm::vec3{17.777f, 10.0f, 0.2f}, "https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4");
 }
 
 bool DevScene::LoadResources()
@@ -394,17 +396,18 @@ void DevScene::CreateTerrainEntity(const float& scale, const glm::vec3& position
     m_terrainEid = eid;
 }
 
-void DevScene::CreateCubeEntity(glm::vec3 position,
-                                 glm::vec3 scale,
-                                 bool isStatic,
-                                 glm::vec3 linearVelocity) const
+Engine::EntityId DevScene::CreateCubeEntity(glm::vec3 position,
+                                            glm::vec3 scale,
+                                            Render::MaterialId materialId,
+                                            bool isStatic,
+                                            glm::vec3 linearVelocity) const
 {
     const auto eid = engine->GetWorldState()->CreateEntity();
 
     auto objectRenderableComponent = Engine::ObjectRenderableComponent{};
     objectRenderableComponent.sceneName = "default";
     objectRenderableComponent.meshId = m_cubeMeshId;
-    objectRenderableComponent.materialId = m_solidRedMaterialId;
+    objectRenderableComponent.materialId = materialId;
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, objectRenderableComponent);
 
     auto transformComponent = Engine::TransformComponent{};
@@ -434,6 +437,8 @@ void DevScene::CreateCubeEntity(glm::vec3 position,
     physicsComponent->linearDamping = 0.4f;
     physicsComponent->angularDamping = 0.4f;
     Engine::AddOrUpdateComponent(engine->GetWorldState(), eid, *physicsComponent);
+
+    return eid;
 }
 
 void DevScene::CreateTreeEntity(unsigned int id, const glm::vec3& pos, Engine::StandardTreeParams treeParams, Engine::TreeMeshParams meshParams)
@@ -531,6 +536,60 @@ void DevScene::CreateForest(Engine::EntityId terrainEid, unsigned int numTrees)
     }
 }
 
+void DevScene::CreateMediaPlayer(const glm::vec3& pos, const glm::vec3& scale, const Engine::PackageResourceIdentifier& pri)
+{
+    Engine::AudioSourceProperties audioSourceProperties{};
+    audioSourceProperties.gain = 10.0f;
+    audioSourceProperties.referenceDistance = 0.2f;
+
+    const auto sessionId = engine->GetWorldState()->StartMediaSession(pri, audioSourceProperties, true);
+    if (!sessionId) { return; }
+
+    const auto entityId = CreateMediaPlayerEntity(pos, scale, *sessionId);
+
+    (void)engine->GetWorldState()->AssociateMediaSessionWithEntity(*sessionId, entityId);
+}
+
+void DevScene::CreateMediaPlayer(const glm::vec3& pos, const glm::vec3& scale, const std::string& url)
+{
+    Engine::AudioSourceProperties audioSourceProperties{};
+    audioSourceProperties.gain = 10.0f;
+    audioSourceProperties.referenceDistance = 0.2f;
+
+    const auto sessionId = engine->GetWorldState()->StartMediaSession(url, audioSourceProperties, true);
+    if (!sessionId) { return; }
+
+    const auto entityId = CreateMediaPlayerEntity(pos, scale, *sessionId);
+
+    (void)engine->GetWorldState()->AssociateMediaSessionWithEntity(*sessionId, entityId);
+}
+
+Engine::EntityId DevScene::CreateMediaPlayerEntity(const glm::vec3& pos, const glm::vec3& scale, const Engine::MediaSessionId& sessionId)
+{
+    const auto textureId = engine->GetWorldState()->GetMediaSessionTextureId(sessionId);
+    if (!textureId) { return 0; }
+
+    Engine::ObjectMaterialProperties material{};
+    material.isAffectedByLighting = true;
+    material.ambientColor = {1,1,1,1};
+    material.ambientTexture = *textureId;
+    material.diffuseColor = {1,1,1,1};
+    material.diffuseTexture = *textureId;
+    material.specularColor = {1,1,1,1};
+    material.shininess = 0.0f;
+    const auto materialId = engine->GetWorldResources()->Materials()->LoadObjectMaterial(
+        Engine::CRI(std::format("MediaMaterial-{}", sessionId.id)),
+        material,
+        Engine::ResultWhen::Ready).get();
+    if (!materialId.IsValid()) { return 0; }
+
+    const auto entityId = CreateCubeEntity(pos, scale, materialId, true);
+
+    m_mediaSessions.push_back(sessionId);
+
+    return entityId;
+}
+
 void DevScene::OnSimulationStep(unsigned int timeStep)
 {
     Scene::OnSimulationStep(timeStep);
@@ -563,6 +622,48 @@ void DevScene::OnSimulationStep(unsigned int timeStep)
 void DevScene::OnKeyEvent(const Platform::KeyEvent& event)
 {
     Scene::OnKeyEvent(event);
+
+    if (event.action == Platform::KeyEvent::Action::KeyRelease)
+    {
+        if (!m_commandEntryEntity)
+        {
+            if (event.logicalKey == Platform::LogicalKey::J)
+            {
+                for (const auto mediaSession: m_mediaSessions)
+                {
+                    (void) engine->GetWorldState()->MediaSessionPlay(mediaSession, std::nullopt);
+                }
+            }
+            else if (event.logicalKey == Platform::LogicalKey::K)
+            {
+                for (const auto mediaSession: m_mediaSessions)
+                {
+                    (void) engine->GetWorldState()->MediaSessionPause(mediaSession);
+                }
+            }
+            else if (event.logicalKey == Platform::LogicalKey::L)
+            {
+                for (const auto mediaSession: m_mediaSessions)
+                {
+                    (void) engine->GetWorldState()->MediaSessionStop(mediaSession);
+                }
+            }
+            else if (event.physicalKey == Platform::PhysicalKey::LControl)
+            {
+                for (const auto mediaSession: m_mediaSessions)
+                {
+                    (void) engine->GetWorldState()->MediaSessionSeekByOffset(mediaSession, Engine::MediaDuration(-10.0));
+                }
+            }
+            else if (event.physicalKey == Platform::PhysicalKey::RControl)
+            {
+                for (const auto mediaSession: m_mediaSessions)
+                {
+                    (void) engine->GetWorldState()->MediaSessionSeekByOffset(mediaSession, Engine::MediaDuration(10.0));
+                }
+            }
+        }
+    }
 
     if (m_commandEntryEntity)
     {
@@ -677,12 +778,15 @@ void DevScene::ShootCubeFromCamera()
 
     CreateCubeEntity(camera->GetPosition() + camera->GetLookUnit(),
                      glm::vec3{scale},
+                     m_solidRedMaterialId,
                      false,
                      shootVelocity);
 
     //
     // Play the whoosh sound effect
     //
+    /*(void)engine->GetWorldState()->PlayEntitySound(Engine::EntityId(4), Engine::PackageResourceIdentifier("TestDesktopApp", "sample-15s-mono.wav"),
+                                                   Engine::AudioSourceProperties{});*/
     (void)engine->GetWorldState()->PlayGlobalSound(
         Engine::PackageResourceIdentifier("TestDesktopApp", "whoosh.wav"),
         Engine::AudioSourceProperties{}
@@ -759,7 +863,7 @@ void DevScene::OnNormalKeyEvent(const Platform::KeyEvent& event)
                             std::uniform_real_distribution<float>(-40.0f, 40.0f)(m_mt)
                         );
 
-                        CreateCubeEntity({x,y+3,z}, {1,1,1}, false, velocity);
+                        CreateCubeEntity({x,y+3,z}, {1,1,1}, m_solidRedMaterialId, false, velocity);
                     }
                 }
             }
@@ -839,6 +943,10 @@ void DevScene::HandleSetCommand(const std::vector<std::string>& tokens)
     {
         if (v == "0") { m_freeFlyCamera = false; }
         if (v == "1") { m_freeFlyCamera = true; }
+    }
+    else if (k == "stream")
+    {
+        (void)engine->GetWorldState()->MediaSessionLoadStreams(m_mediaSessions.at(0), {(unsigned int)std::stoi(v)});
     }
     else if (k == "camera.fov")
     {

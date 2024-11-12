@@ -76,7 +76,7 @@ RendererVk::RendererVk(std::string appName,
     , m_renderTargets(std::make_shared<RenderTargets>(m_logger, m_vulkanObjs, m_postExecutionOps, m_framebuffers, m_images, m_ids))
     , m_renderables(std::make_shared<Renderables>(m_logger, m_ids, m_postExecutionOps, m_textures, m_buffers, m_meshes, m_lights))
     , m_frames(m_logger, m_vulkanObjs, m_renderTargets, m_images)
-    , m_renderState(m_logger, m_vulkanObjs->GetCalls())
+    , m_renderState(m_logger, m_vulkanObjs->GetCalls(), m_images)
     , m_swapChainRenderers(m_logger, m_metrics, m_ids, m_postExecutionOps, m_vulkanObjs, m_programs, m_shaders, m_pipelines, m_buffers, m_materials, m_images, m_textures, m_meshes, m_lights, m_renderables)
     , m_spriteRenderers(m_logger, m_metrics, m_ids, m_postExecutionOps, m_vulkanObjs, m_programs, m_shaders, m_pipelines, m_buffers, m_materials, m_images, m_textures, m_meshes, m_lights, m_renderables)
     , m_objectRenderers(m_logger, m_metrics, m_ids, m_postExecutionOps, m_vulkanObjs, m_programs, m_shaders, m_pipelines, m_buffers, m_materials, m_images, m_textures, m_meshes, m_lights, m_renderables)
@@ -271,6 +271,16 @@ void RendererVk::OnCreateTexture(std::promise<bool> resultPromise,
                                  const TextureSampler& textureSampler)
 {
     m_textures->CreateTexture(TextureDefinition(texture, {textureView}, {textureSampler}), std::move(resultPromise));
+}
+
+// TODO Perf: "Accumulate" updates until the next frame is rendered, and then collapse the updates
+//  and apply them at one point. Allows for lots of texture updates for the same texture per one frame
+//  to be collapsed down to just the latest update. (Also for other update funcs)
+void RendererVk::OnUpdateTexture(std::promise<bool> resultPromise,
+                                 const TextureId& textureId,
+                                 const Common::ImageData::Ptr& imageData)
+{
+    m_textures->UpdateTexture(textureId, imageData, std::move(resultPromise));
 }
 
 bool RendererVk::OnDestroyTexture(TextureId textureId)
@@ -711,14 +721,9 @@ bool RendererVk::RenderGraphFunc_Present(const uint32_t& swapChainImageIndex, co
     }
 
     const auto gPassColorImage = gPassFramebufferObjs->GetAttachmentImage(Offscreen_Attachment_Color)->first;
-    const auto gPassColorVkImage = gPassColorImage.allocation.vkImage;
-
     const auto gPassObjectDetailAttachment = gPassFramebufferObjs->GetAttachmentImage(Offscreen_Attachment_ObjectDetail);
     const auto gPassObjectDetailImage = gPassObjectDetailAttachment->first;
-
     const auto screenColorImage = screenFramebufferObjs->GetAttachmentImage(Screen_Attachment_Color)->first;
-    const auto screenColorVkImage = screenColorImage.allocation.vkImage;
-
     const auto frameObjectDetailResultImage = *m_images->GetImage(currentFrame.GetObjectDetailImageId());
 
     //////////////////////////
@@ -758,7 +763,7 @@ bool RendererVk::RenderGraphFunc_Present(const uint32_t& swapChainImageIndex, co
     // Prepare the input textures for read by the swap chain blit pass
     m_renderState.PrepareOperation(swapChainBlitCommandBuffer, RenderOperation({
        // We're going to read from the offscreen texture
-       {gPassColorVkImage, ImageAccess(
+       {gPassColorImage.id, ImageAccess(
            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
            BarrierPoint(
@@ -772,7 +777,7 @@ bool RendererVk::RenderGraphFunc_Present(const uint32_t& swapChainImageIndex, co
            VK_IMAGE_ASPECT_COLOR_BIT
        )},
        // We're going to read from the screen texture
-       {screenColorVkImage, ImageAccess(
+       {screenColorImage.id, ImageAccess(
            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
            BarrierPoint(
@@ -984,9 +989,9 @@ void RendererVk::RunPostProcessing(const LoadedImage& inputImage, const LoadedIm
     //
     // Prepare post-processing memory access
     //
-    std::unordered_map<VkImage, ImageAccess> imageAccesses = {
+    std::unordered_map<ImageId, ImageAccess> imageAccesses = {
         // We're going to read from the input texture
-        {inputImage.allocation.vkImage, ImageAccess(
+        {inputImage.id, ImageAccess(
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             BarrierPoint(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_READ_BIT),
@@ -996,7 +1001,7 @@ void RendererVk::RunPostProcessing(const LoadedImage& inputImage, const LoadedIm
             VK_IMAGE_ASPECT_COLOR_BIT
         )},
         // We're going to write to the output texture
-        {outputImage.allocation.vkImage, ImageAccess(
+        {outputImage.id, ImageAccess(
             VK_IMAGE_LAYOUT_GENERAL,
             VK_IMAGE_LAYOUT_GENERAL,
             BarrierPoint(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_ACCESS_SHADER_WRITE_BIT),
@@ -1013,7 +1018,7 @@ void RendererVk::RunPostProcessing(const LoadedImage& inputImage, const LoadedIm
         const auto& vkImageAspectFlags = std::get<2>(inputSampler);
 
         imageAccesses.insert({
-            loadedImage.allocation.vkImage,
+            loadedImage.id,
             ImageAccess(
                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -1041,7 +1046,7 @@ void RendererVk::RunPostProcessing(const LoadedImage& inputImage, const LoadedIm
     //
     m_renderState.PrepareOperation(commandBuffer, RenderOperation({
           // We're going to transfer/blit the result to the input texture
-          {inputImage.allocation.vkImage,  ImageAccess(
+          {inputImage.id,  ImageAccess(
               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
               VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
               BarrierPoint(
@@ -1055,7 +1060,7 @@ void RendererVk::RunPostProcessing(const LoadedImage& inputImage, const LoadedIm
               VK_IMAGE_ASPECT_COLOR_BIT
           )},
           // We're going to transfer/blit the result from the output texture
-          {outputImage.allocation.vkImage, ImageAccess(
+          {outputImage.id, ImageAccess(
               VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
               VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
               BarrierPoint(
@@ -1255,7 +1260,7 @@ void RendererVk::TransferObjectDetailImage(const LoadedImage& gPassObjectDetailI
     // Prepare access to the object detail image
     m_renderState.PrepareOperation(commandBuffer, RenderOperation({
         // We're going to transfer from the gpass object detail image
-        {gPassObjectDetailImage.allocation.vkImage, ImageAccess(
+        {gPassObjectDetailImage.id, ImageAccess(
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT),
@@ -1265,7 +1270,7 @@ void RendererVk::TransferObjectDetailImage(const LoadedImage& gPassObjectDetailI
             VK_IMAGE_ASPECT_COLOR_BIT
         )},
         // We're going to transfer to the frame object detail result image
-        {frameObjectDetailImage.allocation.vkImage, ImageAccess(
+        {frameObjectDetailImage.id, ImageAccess(
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_WRITE_BIT),
@@ -1525,7 +1530,7 @@ void RendererVk::BlitEyeRendersToOpenXR(const VulkanCommandBufferPtr& commandBuf
     // Prepare a transfer operation to blit from the render image
     //
     m_renderState.PrepareOperation(commandBuffer, RenderOperation({
-       {renderImage.allocation.vkImage, ImageAccess(
+       {renderImage.id, ImageAccess(
            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
            BarrierPoint(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_ACCESS_TRANSFER_READ_BIT),
@@ -1546,22 +1551,20 @@ void RendererVk::BlitEyeRendersToOpenXR(const VulkanCommandBufferPtr& commandBuf
     // be in the same state when we release them, so we can manually transition them as
     // needed.
     //
-    VkImageSubresourceRange range;
+    VkImageSubresourceRange range{};
     range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     range.baseMipLevel = 0;
     range.levelCount = 1;
     range.baseArrayLayer = 0;
     range.layerCount = 1;
 
-    VkImageMemoryBarrier imageBarrier;
+    VkImageMemoryBarrier imageBarrier{};
     imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     imageBarrier.pNext = nullptr;
     imageBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
     imageBarrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
     imageBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     imageBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    imageBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    imageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     imageBarrier.image = leftImage;
     imageBarrier.subresourceRange = range;
     vkCmdPipelineBarrier(commandBuffer->GetVkCommandBuffer(), VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VkDependencyFlagBits(0), 0, nullptr, 0, nullptr, 1, &imageBarrier);

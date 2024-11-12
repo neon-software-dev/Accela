@@ -152,6 +152,19 @@ std::pair<LoadedTexture, LoadedImage> Textures::GetMissingCubeTexture()
     return GetTextureAndImage(m_missingCubeTextureId).value();
 }
 
+bool Textures::UpdateTexture(TextureId textureId, const Common::ImageData::Ptr& imageData, std::promise<bool> resultPromise)
+{
+    const auto it = m_textures.find(textureId);
+    if (it == m_textures.cend())
+    {
+        m_logger->Log(Common::LogLevel::Warning,
+          "Textures: Asked to update texture which doesn't exist: {}", textureId.id);
+        return false;
+    }
+
+    return m_images->UpdateImage(it->second.imageId, imageData, std::move(resultPromise));
+}
+
 void Textures::DestroyTexture(TextureId textureId, bool destroyImmediately)
 {
     const auto it = m_textures.find(textureId);

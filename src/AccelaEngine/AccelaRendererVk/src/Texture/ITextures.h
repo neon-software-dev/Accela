@@ -43,6 +43,7 @@ namespace Accela::Render
             virtual std::optional<std::pair<LoadedTexture, LoadedImage>> GetTextureAndImage(TextureId textureId) = 0;
             virtual std::pair<LoadedTexture, LoadedImage> GetMissingTexture() = 0;
             virtual std::pair<LoadedTexture, LoadedImage> GetMissingCubeTexture() = 0;
+            virtual bool UpdateTexture(TextureId textureId, const Common::ImageData::Ptr& imageData, std::promise<bool> resultPromise) = 0;
             virtual void DestroyTexture(TextureId textureId, bool destroyImmediately) = 0;
     };
 }

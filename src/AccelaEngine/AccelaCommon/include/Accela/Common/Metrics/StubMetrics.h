@@ -16,6 +16,7 @@ namespace Accela::Common
         public:
 
             void SetCounterValue(const std::string&, uintmax_t) override {};
+            void IncrementCounterValue(const std::string&) override {};
             [[nodiscard]] std::optional<uintmax_t> GetCounterValue(const std::string&) const override { return std::nullopt; };
 
             void SetDoubleValue(const std::string&, double) override {};

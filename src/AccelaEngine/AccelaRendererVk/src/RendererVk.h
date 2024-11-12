@@ -58,6 +58,9 @@ namespace Accela::Render
                                  const Texture& texture,
                                  const TextureView& textureView,
                                  const TextureSampler& textureSampler) override;
+            void OnUpdateTexture(std::promise<bool> resultPromise,
+                                 const TextureId& textureId,
+                                 const Common::ImageData::Ptr& imageData) override;
             bool OnDestroyTexture(TextureId textureId) override;
             bool OnCreateMesh(std::promise<bool> resultPromise,
                               const Mesh::Ptr& mesh,

@@ -7,7 +7,8 @@ project(AccelaEngine VERSION 0.0.1 LANGUAGES CXX)
 	find_package(AudioFile CONFIG REQUIRED)
 	find_package(CUDAToolkit REQUIRED)
 	find_package(PhysX REQUIRED)
-	find_package(OpenAL REQUIRED)
+	find_package(OpenAL CONFIG REQUIRED)
+	find_package(FFMPEG REQUIRED)
 
 	# PhysX installs a Gpu shared lib on linux but not windows. Link against it on linux and not on windows.
 	if (PhysXGpu_FOUND)
@@ -26,6 +27,7 @@ project(AccelaEngine VERSION 0.0.1 LANGUAGES CXX)
 	file(GLOB AccelaEngine_Include_Headers_Material "include/Accela/Engine/Material/*.h")
 	file(GLOB AccelaEngine_Include_Headers_Package "include/Accela/Engine/Package/*.h")
 	file(GLOB AccelaEngine_Include_Headers_Extra "include/Accela/Engine/Extra/*.h")
+	file(GLOB AccelaEngine_Include_Headers_Media "include/Accela/Engine/Media/*.h")
 
 	file(GLOB AccelaEngine_Sources "src/*.cpp")
 	file(GLOB AccelaEngine_Headers "src/*.h")
@@ -49,6 +51,10 @@ project(AccelaEngine VERSION 0.0.1 LANGUAGES CXX)
 	file(GLOB AccelaEngine_Headers_Package "src/Package/*.h")
 	file(GLOB AccelaEngine_Sources_Extra "src/Extra/*.cpp")
 	file(GLOB AccelaEngine_Headers_Extra "src/Extra/*.h")
+	file(GLOB AccelaEngine_Sources_Media "src/Media/*.cpp")
+	file(GLOB AccelaEngine_Headers_Media "src/Media/*.h")
+	file(GLOB AccelaEngine_Sources_Media_FFMPEG "src/Media/FFMPEG/*.cpp")
+	file(GLOB AccelaEngine_Headers_Media_FFMPEG "src/Media/FFMPEG/*.h")
 
 add_library(AccelaEngine
 	${AccelaEngine_Include_Headers}
@@ -63,6 +69,7 @@ add_library(AccelaEngine
 	${AccelaEngine_Include_Headers_Material}
 	${AccelaEngine_Include_Headers_Package}
 	${AccelaEngine_Include_Headers_Extra}
+	${AccelaEngine_Include_Headers_Media}
 
 	${AccelaEngine_Sources}
 	${AccelaEngine_Headers}
@@ -86,7 +93,13 @@ add_library(AccelaEngine
 	${AccelaEngine_Headers_Package}
 	${AccelaEngine_Sources_Extra}
 	${AccelaEngine_Headers_Extra}
+	${AccelaEngine_Sources_Media}
+	${AccelaEngine_Headers_Media}
+	${AccelaEngine_Sources_Media_FFMPEG}
+	${AccelaEngine_Headers_Media_FFMPEG}
 )
+
+target_link_directories(AccelaEngine PRIVATE ${FFMPEG_LIBRARY_DIRS})
 
 target_link_libraries(AccelaEngine
 	PUBLIC
@@ -98,6 +111,7 @@ target_link_libraries(AccelaEngine
 		EnTT::EnTT
 		OpenAL::OpenAL
 		AudioFile
+		${FFMPEG_LIBRARIES}
 		PhysXCharacterKinematic
 		PhysXExtensions
 		PhysX
@@ -119,6 +133,7 @@ target_include_directories(AccelaEngine
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 	PRIVATE
 		${CMAKE_CURRENT_SOURCE_DIR}/src
+		${FFMPEG_INCLUDE_DIRS}
 )
 
 ####

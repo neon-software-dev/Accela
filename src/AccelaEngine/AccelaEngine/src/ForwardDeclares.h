@@ -15,6 +15,7 @@ namespace Accela::Engine
     class IWorldResources; using IWorldResourcesPtr = std::shared_ptr<IWorldResources>;
     class IWorldState; using IWorldStatePtr = std::shared_ptr<IWorldState>;
     class AudioManager; using AudioManagerPtr = std::shared_ptr<AudioManager>;
+    class MediaManager; using MediaManagerPtr = std::shared_ptr<MediaManager>;
     class IPhysics; using IPhysicsPtr = std::shared_ptr<IPhysics>;
     class IPhysicsRuntime; using IPhysicsRuntimePtr = std::shared_ptr<IPhysicsRuntime>;
     class IPackageResources; using IPackageResourcesPtr = std::shared_ptr<IPackageResources>;

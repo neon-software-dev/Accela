@@ -9,7 +9,13 @@
 
 #include <Accela/Render/Id.h>
 
-DEFINE_ID_TYPE(BufferId)
-DEFINE_ID_TYPE(ImageId)
+namespace Accela::Render
+{
+    DEFINE_ID_TYPE(BufferId)
+    DEFINE_ID_TYPE(ImageId)
+}
+
+DEFINE_ID_HASH(Accela::Render::BufferId)
+DEFINE_ID_HASH(Accela::Render::ImageId)
 
 #endif //LIBACCELARENDERERVK_SRC_INTERNALID_H

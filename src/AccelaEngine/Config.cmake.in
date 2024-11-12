@@ -37,11 +37,12 @@ find_dependency(SDL2_ttf CONFIG REQUIRED)
 find_dependency(nlohmann_json CONFIG REQUIRED)
 find_dependency(unofficial-spirv-reflect CONFIG REQUIRED)
 find_dependency(VulkanMemoryAllocator CONFIG REQUIRED)
+find_dependency(OpenXR CONFIG REQUIRED)
 find_dependency(Qt6 REQUIRED COMPONENTS Widgets Gui)
 find_dependency(CUDAToolkit REQUIRED)
 find_dependency(OpenAL REQUIRED)
 find_dependency(PhysX REQUIRED)
-find_dependency(OpenXR REQUIRED)
+find_dependency(FFMPEG REQUIRED)
 
 ####
 # Find manually built/installed PhysX

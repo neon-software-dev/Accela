@@ -14,6 +14,13 @@ void InMemoryMetrics::SetCounterValue(const std::string& name, uintmax_t value)
     m_counters.insert_or_assign(name, value);
 }
 
+void InMemoryMetrics::IncrementCounterValue(const std::string& name)
+{
+    const auto curValue = GetCounterValue(name);
+    const auto newValue = curValue ? *curValue + 1 : 0;
+    SetCounterValue(name, newValue);
+}
+
 std::optional<uintmax_t> InMemoryMetrics::GetCounterValue(const std::string& name) const
 {
     const auto it = m_counters.find(name);

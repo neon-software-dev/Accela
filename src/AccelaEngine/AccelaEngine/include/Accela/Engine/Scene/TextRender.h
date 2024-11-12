@@ -20,7 +20,7 @@ namespace Accela::Engine
      */
     struct ACCELA_PUBLIC TextRender
     {
-        Render::TextureId textureId{Render::INVALID_ID};
+        Render::TextureId textureId{INVALID_ID};
         uint32_t textPixelWidth{0};
         uint32_t textPixelHeight{0};
     };

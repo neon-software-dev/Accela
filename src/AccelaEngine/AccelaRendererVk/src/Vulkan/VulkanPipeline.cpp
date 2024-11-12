@@ -453,7 +453,7 @@ bool VulkanPipeline::Create(const ComputePipelineConfig& config)
     VkComputePipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     pipelineInfo.layout = m_vkPipelineLayout;
-    pipelineInfo.stage = shaderStages[0];
+    pipelineInfo.stage = shaderStages.at(0);
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
     pipelineInfo.basePipelineIndex = -1; // Optional
 

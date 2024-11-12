@@ -32,6 +32,7 @@ namespace Accela::Common
             virtual ~IMetrics() = default;
 
             virtual void SetCounterValue(const std::string& name, uintmax_t value) = 0;
+            virtual void IncrementCounterValue(const std::string& name) = 0;
             [[nodiscard]] virtual std::optional<uintmax_t> GetCounterValue(const std::string& name) const = 0;
 
             virtual void SetDoubleValue(const std::string& name, double value) = 0;

@@ -40,6 +40,8 @@ namespace Accela::Render
         PFN_vkBindBufferMemory2KHR vkBindBufferMemory2KHR{nullptr};
         PFN_vkBindImageMemory2KHR vkBindImageMemory2KHR{nullptr};
         PFN_vkGetPhysicalDeviceMemoryProperties2KHR vkGetPhysicalDeviceMemoryProperties2KHR{nullptr};
+        PFN_vkGetDeviceBufferMemoryRequirements vkGetDeviceBufferMemoryRequirements{nullptr};
+        PFN_vkGetDeviceImageMemoryRequirements vkGetDeviceImageMemoryRequirements{nullptr};
     };
 }
 

@@ -45,6 +45,8 @@ namespace Accela::Render
             std::future<bool> CreateTexture(const Texture& texture,
                                             const TextureView& textureView,
                                             const TextureSampler& textureSampler) override;
+            std::future<bool> UpdateTexture(const TextureId& textureId,
+                                            const Common::ImageData::Ptr& imageData) override;
             std::future<bool> DestroyTexture(TextureId textureId) override;
             std::future<bool> CreateMesh(const Mesh::Ptr& mesh, MeshUsage usage) override;
             std::future<bool> DestroyMesh(MeshId meshId) override;
@@ -68,6 +70,9 @@ namespace Accela::Render
                                          const Texture& texture,
                                          const TextureView& textureView,
                                          const TextureSampler& textureSampler) = 0;
+            virtual void OnUpdateTexture(std::promise<bool> resultPromise,
+                                         const TextureId& textureId,
+                                         const Common::ImageData::Ptr& imageData) = 0;
             virtual bool OnDestroyTexture(TextureId textureId) = 0;
             virtual bool OnCreateMesh(std::promise<bool> resultPromise,
                                       const Mesh::Ptr& mesh,

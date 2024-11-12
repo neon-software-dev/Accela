@@ -429,7 +429,7 @@ void TextureResources::DestroyTexture(const Render::TextureId& textureId)
         return;
     }
 
-    m_logger->Log(Common::LogLevel::Info, "TextureResources: Destroying texture resource: {}", it->second.texture.tag);
+    m_logger->Log(Common::LogLevel::Debug, "TextureResources: Destroying texture resource: {}", it->second.texture.tag);
 
     //
     // Destroy any texture data

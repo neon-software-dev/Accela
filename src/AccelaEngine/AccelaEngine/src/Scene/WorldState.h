@@ -45,6 +45,7 @@ namespace Accela::Engine
                        Platform::IWindow::Ptr window,
                        Render::IRenderer::Ptr renderer,
                        AudioManagerPtr audioManager,
+                       MediaManagerPtr mediaManager,
                        IPhysicsPtr physics,
                        const Render::RenderSettings& renderSettings,
                        const glm::vec2& virtualResolution);
@@ -170,6 +171,23 @@ namespace Accela::Engine
             void SetAudioListener(const AudioListener& listener) override;
 
             //
+            // Media
+            //
+            [[nodiscard]] std::expected<MediaSessionId, bool> StartMediaSession(const PackageResourceIdentifier& resource,
+                                                                                const AudioSourceProperties& audioSourceProperties,
+                                                                                bool associatedWithEntity) override;
+            [[nodiscard]] std::expected<MediaSessionId, bool> StartMediaSession(const std::string& url,
+                                                                                const AudioSourceProperties& audioSourceProperties,
+                                                                                bool associatedWithEntity) override;
+            [[nodiscard]] std::optional<Render::TextureId> GetMediaSessionTextureId(const MediaSessionId& mediaSessionId) const override;
+            [[nodiscard]] bool AssociateMediaSessionWithEntity(const MediaSessionId& mediaSessionId, const EntityId& entityId) override;
+            [[nodiscard]] std::future<bool> MediaSessionPlay(const MediaSessionId& mediaSessionId, const std::optional<MediaPoint>& playPoint) const override;
+            [[nodiscard]] std::future<bool> MediaSessionPause(const MediaSessionId& mediaSessionId) const override;
+            [[nodiscard]] std::future<bool> MediaSessionStop(const MediaSessionId& mediaSessionId) const override;
+            [[nodiscard]] std::future<bool> MediaSessionSeekByOffset(const MediaSessionId& mediaSessionId, const MediaDuration& offset) const override;
+            [[nodiscard]] std::future<bool> MediaSessionLoadStreams(const MediaSessionId& mediaSessionId, const std::unordered_set<unsigned int>& streamIndices) const override;
+
+            //
             // Physics
             //
             [[nodiscard]] IPhysicsRuntime::Ptr GetPhysics() const override;
@@ -201,6 +219,7 @@ namespace Accela::Engine
             void OnPhysicsComponentDestroyed(entt::registry& registry, entt::entity entity);
             void OnAudioComponentDestroyed(entt::registry& registry, entt::entity entity);
             void OnPhysicsStateComponentDestroyed(entt::registry& registry, entt::entity entity);
+            void OnMediaComponentDestroyed(entt::registry& registry, entt::entity entity);
 
         private:
 
@@ -210,6 +229,7 @@ namespace Accela::Engine
             Platform::IWindow::Ptr m_window;
             Render::IRenderer::Ptr m_renderer;
             AudioManagerPtr m_audioManager;
+            MediaManagerPtr m_mediaManager;
             // TODO: entt::registry<uint64_t>? (https://github.com/skypjack/entt/issues/197)
             entt::registry m_registry;
             IPhysicsPtr m_physics;

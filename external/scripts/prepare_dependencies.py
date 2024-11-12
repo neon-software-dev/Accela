@@ -12,9 +12,6 @@ parser.add_argument('--physx-preset',
                     choices=['linux', 'linux-aarch64', 'vc16win64', 'vc17win64'],
                     help='PhysX build preset to use')
 
-# vcpkg arguments
-parser.add_argument('--no-local-vcpkg', action='store_true', help='Disables local vcpkg installation')
-
 args = parser.parse_args()
 
 # Create and switch to External directory 
@@ -33,8 +30,8 @@ prepare_physx(args)
 
 #######
 # OpenAL
-os.chdir(external_dir)
-prepare_openal(args, install_dir_debug, install_dir_release)
+#os.chdir(external_dir)
+#prepare_openal(args, install_dir_debug, install_dir_release)
 
 #######
 # vcpkg

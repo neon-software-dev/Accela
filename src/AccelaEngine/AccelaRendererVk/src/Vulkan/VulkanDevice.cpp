@@ -11,6 +11,8 @@
 #include <Accela/Render/IVulkanCalls.h>
 #include <Accela/Render/IVulkanContext.h>
 
+#include <vulkan/vk_enum_string_helper.h>
+
 #include <set>
 #include <algorithm>
 #include <functional>
@@ -86,7 +88,12 @@ bool VulkanDevice::Create(const VulkanPhysicalDevicePtr& physicalDevice,
 
     for (const auto& extension : extraRequiredDeviceExtensions)
     {
-        extensions.insert(extension);
+        // TODO! Fails if not removed with OpenXR and release builds, requires validation layers? but we don't
+        //  use them for release builds
+        if (extension != "VK_EXT_debug_marker")
+        {
+            extensions.insert(extension);
+        }
     }
 
     // Use the multiview extension
@@ -108,7 +115,7 @@ bool VulkanDevice::Create(const VulkanPhysicalDevicePtr& physicalDevice,
     const auto result = m_vulkanCalls->vkCreateDevice(physicalDevice->GetVkPhysicalDevice(), &createInfo, nullptr, &m_vkDevice);
     if (result != VK_SUCCESS)
     {
-        m_logger->Log(Common::LogLevel::Fatal, "vkCreateDevice call failure, result code: {}", (uint32_t)result);
+        m_logger->Log(Common::LogLevel::Fatal, "vkCreateDevice call failure, result code: {}", string_VkResult(result));
         return false;
     }
 

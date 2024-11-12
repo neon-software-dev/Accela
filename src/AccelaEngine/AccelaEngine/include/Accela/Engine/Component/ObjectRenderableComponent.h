@@ -26,10 +26,10 @@ namespace Accela::Engine
         std::string sceneName = DEFAULT_SCENE;
 
         /** The id of the mesh to be displayed */
-        Render::MeshId meshId{Render::INVALID_ID};
+        Render::MeshId meshId{INVALID_ID};
 
         /** The id of the material to be applied to the mesh */
-        Render::MaterialId materialId{Render::INVALID_ID};
+        Render::MaterialId materialId{INVALID_ID};
 
         /** Whether the object is included in shadow passes */
         bool shadowPass{true};

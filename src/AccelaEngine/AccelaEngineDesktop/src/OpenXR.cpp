@@ -611,7 +611,7 @@ bool OpenXR::CreateXrInstance()
                    std::back_inserter(enabledInstanceExtensionCStrs), std::mem_fn(&std::string::c_str));
 
     XrApplicationInfo xrApplicationInfo{};
-    strncpy(xrApplicationInfo.applicationName, m_appName.c_str(), XR_MAX_APPLICATION_NAME_SIZE);
+    strncpy(xrApplicationInfo.applicationName, m_appName.c_str(), XR_MAX_APPLICATION_NAME_SIZE - 1);
     xrApplicationInfo.applicationVersion = m_appVersion;
     strncpy(xrApplicationInfo.engineName, Common::ACCELA_ENGINE_NAME, XR_MAX_ENGINE_NAME_SIZE);
     xrApplicationInfo.engineVersion = Common::ACCELA_ENGINE_VERSION;

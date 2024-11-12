@@ -42,9 +42,9 @@ namespace Accela::Engine
             void UpdateSourceProperties(AudioComponent& audioComponent,
                                         const TransformComponent& transformComponent) const;
 
-            void StartAndStopAudio(entt::registry& registry,
-                                   const EntityId& entity,
-                                   AudioComponent& audioComponent);
+            void ProcessFinishedAudio(entt::registry& registry,
+                                      const EntityId& entity,
+                                      AudioComponent& audioComponent);
 
         private:
 

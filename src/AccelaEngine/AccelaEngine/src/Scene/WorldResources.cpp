@@ -13,8 +13,6 @@
 #include "FontResources.h"
 #include "ModelResources.h"
 
-#include "../Audio/AudioManager.h"
-
 #include <Accela/Platform/File/IFiles.h>
 #include <Accela/Platform/Text/IText.h>
 

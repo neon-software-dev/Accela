@@ -100,3 +100,11 @@ https://github.com/hghdev/NVIDIAGameWorks-GraphicsSamples
 Original Author: TIMOTHY LOTTES
 This software contains source code provided by NVIDIA Corporation.
 
+[OpenXR]
+Apache License Version 2.0
+https://www.khronos.org/OpenXR/
+
+[ffmpeg]
+GNU LGPL 2.1 or later
+https://ffmpeg.org/
+

@@ -11,10 +11,9 @@
 
 #include "../ForwardDeclares.h"
 
-#include <Accela/Render/IdSource.h>
-
 #include <Accela/Common/Log/ILogger.h>
 #include <Accela/Common/Metrics/IMetrics.h>
+#include <Accela/Common/IdSource.h>
 
 #include <unordered_map>
 
@@ -108,7 +107,7 @@ namespace Accela::Render
             VulkanObjsPtr m_vulkanObjs;
             PostExecutionOpsPtr m_postExecutionOps;
 
-            IdSource<BufferId> m_bufferIds;
+            Common::IdSource<BufferId> m_bufferIds;
             std::unordered_map<BufferId, BufferPtr> m_buffers;
     };
 }

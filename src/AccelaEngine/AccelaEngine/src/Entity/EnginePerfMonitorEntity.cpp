@@ -116,7 +116,7 @@ void EnginePerfMonitorEntity::CreateEntities()
         textProperties,
         currentYPos
     );
-    currentYPos += CreateEntity(
+    /*currentYPos += CreateEntity(
         Common::MetricType::Counter,
         "Renderer: Texture Count: ",
         "Renderer_Textures_Count",
@@ -255,7 +255,7 @@ void EnginePerfMonitorEntity::CreateEntities()
         "Renderer_Object_Transparent_DrawCalls_Count",
         textProperties,
         currentYPos
-    );
+    );*/
     currentYPos += CreateEntity(
         Common::MetricType::Counter,
         "Renderer: Total Memory Usage: ",
@@ -288,6 +288,55 @@ void EnginePerfMonitorEntity::CreateEntities()
         Common::MetricType::Counter,
         "Physics: Dynamic Rigid Body Count: ",
         "Engine_Physics_Dynamic_Rigid_Bodies_Count",
+        textProperties,
+        currentYPos
+    );
+    currentYPos += CreateEntity(
+        Common::MetricType::Counter,
+        "VIDEO_PACKET_QUEUE_COUNT: ",
+        "VIDEO_PACKET_QUEUE_COUNT",
+        textProperties,
+        currentYPos
+    );
+    currentYPos += CreateEntity(
+        Common::MetricType::Counter,
+        "AUDIO_PACKET_QUEUE_COUNT: ",
+        "AUDIO_PACKET_QUEUE_COUNT",
+        textProperties,
+        currentYPos
+    );
+    currentYPos += CreateEntity(
+        Common::MetricType::Counter,
+        "SUBTITLE_PACKET_QUEUE_COUNT: ",
+        "SUBTITLE_PACKET_QUEUE_COUNT",
+        textProperties,
+        currentYPos
+    );
+    currentYPos += CreateEntity(
+        Common::MetricType::Counter,
+        "VIDEO_QUEUE_COUNT: ",
+        "DECODER_QUEUE_COUNT_VideoDecoder",
+        textProperties,
+        currentYPos
+    );
+    currentYPos += CreateEntity(
+        Common::MetricType::Counter,
+        "AUDIO_QUEUE_COUNT: ",
+        "DECODER_QUEUE_COUNT_AudioDecoder",
+        textProperties,
+        currentYPos
+    );
+    currentYPos += CreateEntity(
+        Common::MetricType::Counter,
+        "DROPPED_FRAME_COUNT: ",
+        "DROPPED_FRAME_COUNT",
+        textProperties,
+        currentYPos
+    );
+    currentYPos += CreateEntity(
+        Common::MetricType::Double,
+        "AUDIO_SYNC_DIFF: ",
+        "AUDIO_SYNC_DIFF",
         textProperties,
         currentYPos
     );

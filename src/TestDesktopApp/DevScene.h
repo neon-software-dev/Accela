@@ -71,14 +71,20 @@ namespace Accela
             void CreateTerrainEntity(const float& scale, const glm::vec3& position);
 
             /** Add a cube entity with the specified physical properties */
-            void CreateCubeEntity(glm::vec3 position,
-                                  glm::vec3 scale,
-                                  bool isStatic,
-                                  glm::vec3 linearVelocity = glm::vec3(0)) const;
+            Engine::EntityId CreateCubeEntity(
+                glm::vec3 position,
+                glm::vec3 scale,
+                Render::MaterialId materialId,
+                bool isStatic,
+                glm::vec3 linearVelocity = glm::vec3(0)) const;
 
             void CreateTreeEntity(unsigned int id, const glm::vec3& pos, Engine::StandardTreeParams treeParams = {}, Engine::TreeMeshParams meshParams = {});
 
             void CreateForest(Engine::EntityId terrainEid, unsigned int numTrees);
+
+            void CreateMediaPlayer(const glm::vec3& pos, const glm::vec3& scale, const Engine::PackageResourceIdentifier& pri);
+            void CreateMediaPlayer(const glm::vec3& pos, const glm::vec3& scale, const std::string& url);
+            Engine::EntityId CreateMediaPlayerEntity(const glm::vec3& pos, const glm::vec3& scale, const Engine::MediaSessionId& sessionId);
 
             //
             // Scene Manipulation
@@ -125,6 +131,8 @@ namespace Accela
             std::mt19937 m_mt{m_rd()};
 
             Engine::PlayerController::UPtr m_player;
+
+            std::vector<Engine::MediaSessionId> m_mediaSessions;
     };
 }
 

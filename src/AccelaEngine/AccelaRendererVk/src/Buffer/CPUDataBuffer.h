@@ -11,6 +11,7 @@
 
 namespace Accela::Render
 {
+    // TODO! The CPU variants of buffer helpers aren't synchronized when data is mapped updated
     class CPUDataBuffer : public DataBuffer
     {
         public:

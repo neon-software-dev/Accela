@@ -15,11 +15,13 @@ namespace Accela::Common
 MessageDrivenThreadPool::MessageDrivenThreadPool(std::string tag,
                                                  unsigned int poolSize,
                                                  std::optional<MessageHandler> msgHandler,
-                                                 std::optional<IdleHandler> idleHandler)
+                                                 std::optional<IdleHandler> idleHandler,
+                                                 const std::chrono::milliseconds& idleInterval)
     : m_tag(std::move(tag))
     , m_poolSize(poolSize)
     , m_msgHandler(std::move(msgHandler))
     , m_idleHandler(std::move(idleHandler))
+    , m_idleInterval(idleInterval)
     , m_msgQueue(std::make_unique<ConcurrentQueue<EnqueuedMessage>>())
 {
     for (unsigned int x = 0; x < m_poolSize; ++x)
@@ -64,33 +66,31 @@ void MessageDrivenThreadPool::MessageReceiverThreadFunc(const std::string& threa
 
     if (m_idleHandler)
     {
-        maxWait = std::chrono::milliseconds(50);
+        maxWait = m_idleInterval;
     }
 
     while (m_run)
     {
-        EnqueuedMessage msg{};
-
         // Wait until either we receive a message to be handled, or the queue has stopped us
         // from listening due to a UnblockPopper call when this class is destructed, or
         // max wait time has expired
-        const bool popResult = m_msgQueue->BlockingPop(msg, threadIdentifier, maxWait);
+        const auto msg = m_msgQueue->BlockingPop(threadIdentifier, maxWait);
 
         // Check whether we were told to stop, and stop the thread if so.
         if (!m_run) { return; }
 
         // Otherwise, if there was a message popped, process it
-        if (popResult)
+        if (msg)
         {
             // If the message has a handler set, invoke it
-            if (msg.handler)
+            if (msg->handler)
             {
-                (*msg.handler)(msg.message);
+                (*msg->handler)(msg->message);
             }
             // Otherwise, if a global message handler was provided, invoke it
             else if (m_msgHandler)
             {
-                (*m_msgHandler)(msg.message);
+                (*m_msgHandler)(msg->message);
             }
         }
         // Otherwise, if the pop timed out, give the handler an idle callback

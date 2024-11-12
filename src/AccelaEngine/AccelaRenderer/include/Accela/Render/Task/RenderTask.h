@@ -20,6 +20,7 @@ namespace Accela::Render
         Shutdown,               // Shut-Down message
         RenderFrame,            // Render a frame
         CreateTexture,          // Register a texture
+        UpdateTexture,          // Update a textures data
         DestroyTexture,         // Destroy a texture
         CreateMesh,             // Register a mesh
         DestroyMesh,            // Destroy a mesh

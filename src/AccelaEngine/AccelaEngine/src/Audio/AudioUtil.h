@@ -13,17 +13,32 @@
 
 #include <AudioFile.h>
 
+#include <Accela/Common/AudioData.h>
+
 #include <vector>
 #include <cstddef>
+#include <array>
+#include <cstdint>
+#include <numeric>
+#include <expected>
 
 namespace Accela::Engine
 {
     struct AudioUtil
     {
         /**
+         * Appends a sample value (range of [-1,1]) to a byte buffer. Converts the sample to bytes as determined by
+         * bitDepth parameter. A bitDepth of 8 results in a single byte sample value being appended, while any other
+         * bitDepth results in a 16 bit sample value being appended.
+         */
+        static void AppendSample(std::vector<std::byte>& byteBuffer, const int& bitDepth, const double& sample);
+
+        /**
          * Converts an AudioFile to a vector of bytes which represent the audio file
          */
         static std::vector<std::byte> AudioFileToByteBuffer(const AudioFile<double>& audioFile);
+
+        static std::expected<Common::AudioData::Ptr, int> CombineAudioDatas(const std::vector<Common::AudioData::Ptr>& audioDatas);
     };
 }
 

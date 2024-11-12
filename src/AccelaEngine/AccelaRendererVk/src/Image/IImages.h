@@ -39,6 +39,12 @@ namespace Accela::Render
                                                                                  const Common::ImageData::Ptr& data,
                                                                                  std::promise<bool> resultPromise) = 0;
 
+            [[nodiscard]] virtual bool UpdateImage(const ImageId& imageId,
+                                                   const Common::ImageData::Ptr& data,
+                                                   std::promise<bool> resultPromise) = 0;
+
+            virtual void RecordImageLayout(const ImageId& imageId, VkImageLayout vkImageLayout) = 0;
+
             [[nodiscard]] virtual std::optional<LoadedImage> GetImage(ImageId imageId) const = 0;
 
             virtual void DestroyImage(ImageId imageId, bool destroyImmediately) = 0;

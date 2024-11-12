@@ -47,7 +47,7 @@ namespace Accela::Engine
         private:
 
             bool InitializeRun(const RunState::Ptr& runState, Render::OutputMode renderOutputMode);
-            void DestroyRun();
+            void DestroyRun(const RunState::Ptr& runState);
 
             void RunLoop(const EngineRuntime::Ptr& runtime, const RunState::Ptr& runState);
             void RunStep(const EngineRuntime::Ptr& runtime, const RunState::Ptr& runState);
@@ -71,7 +71,6 @@ namespace Accela::Engine
             Common::IMetrics::Ptr m_metrics;
             std::shared_ptr<Platform::IPlatform> m_platform;
             std::shared_ptr<Render::IRenderer> m_renderer;
-            AudioManagerPtr m_audioManager;
 
             Render::RenderTargetId m_renderTargetId;
     };

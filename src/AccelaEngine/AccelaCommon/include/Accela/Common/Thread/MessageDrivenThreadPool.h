@@ -19,8 +19,13 @@
 
 namespace Accela::Common
 {
+    static constexpr auto DEFAULT_IDLE_INTERVAL = std::chrono::milliseconds(50);
+
     /**
      * Manages a thread pool which messages can be posted to for asynchronous processing on thread pool threads.
+     *
+     * Even though it can manage an entire thread pool, specifying a pool size of 1 is a normal use case; spawning
+     * a single thread that can be communicated with via messages.
      *
      * Use the PostMessage() method to submit messages to be processed by the thread pool.
      *
@@ -28,7 +33,7 @@ namespace Accela::Common
      * the thread pool. If not, the global message handler provided to the constructor will be invoked.
      *
      * An optional idle handler can be provided to the constructor. If so, *every* thread in the thread pool which
-     * has not received a message within the last 50ms will invoke that handler.
+     * has not received a message within the last m_idleInterval milliseconds will invoke that handler.
      */
     class ACCELA_PUBLIC MessageDrivenThreadPool
     {
@@ -43,13 +48,15 @@ namespace Accela::Common
              * @param tag Tag to associate with the thread pool
              * @param poolSize Number of threads to spawn for handling messages
              * @param msgHandler An optional MessageHandler that should be executed when messages arrive
-             * @param idleHandler An optional handler, that if provided, will be executed every 50ms that no message has arrived
+             * @param idleHandler An optional handler, that if provided, will be executed every idleInterval that no message has arrived
+             * @param idleInterval The interval upon which the idle handler should be called if no messages are being received
              */
             explicit MessageDrivenThreadPool(
                 std::string tag,
                 unsigned int poolSize = 1,
                 std::optional<MessageHandler> msgHandler = std::nullopt,
-                std::optional<IdleHandler> idleHandler = std::nullopt);
+                std::optional<IdleHandler> idleHandler = std::nullopt,
+                const std::chrono::milliseconds& idleInterval = DEFAULT_IDLE_INTERVAL);
             ~MessageDrivenThreadPool();
 
             /**
@@ -61,6 +68,19 @@ namespace Accela::Common
              * @param messageHandler An optional handler to be invoked, overriding the global message handler
              */
             void PostMessage(const Message::Ptr& message, const std::optional<MessageHandler>& messageHandler = std::nullopt);
+
+            /**
+             * Send a simple, no-data, message from the current thread to the message handling thread pool.
+             *
+             * Full thread safety to be called from any thread.
+             *
+             * @param typeIdentifier String which identifies the message
+             * @param messageHandler An optional handler to be invoked, overriding the global message handler
+             */
+            void PostMessage(const std::string& typeIdentifier, const std::optional<MessageHandler>& messageHandler = std::nullopt)
+            {
+                return PostMessage(std::make_shared<Common::Message>(typeIdentifier), messageHandler);
+            }
 
         private:
 
@@ -89,6 +109,7 @@ namespace Accela::Common
             unsigned int m_poolSize;
             std::optional<MessageHandler> m_msgHandler;
             std::optional<IdleHandler> m_idleHandler;
+            std::chrono::milliseconds m_idleInterval;
             std::unique_ptr<ConcurrentQueue<EnqueuedMessage>> m_msgQueue;
 
             bool m_run = true;

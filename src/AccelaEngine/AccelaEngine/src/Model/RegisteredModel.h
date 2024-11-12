@@ -20,7 +20,7 @@ namespace Accela::Engine
 {
     struct LoadedModelMesh
     {
-        Render::MeshId meshId{Render::INVALID_ID};
+        Render::MeshId meshId{INVALID_ID};
         Render::MaterialId meshMaterialId{};
     };
 

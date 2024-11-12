@@ -6,6 +6,7 @@
  
 #include "VulkanFuncs.h"
 #include "PostExecutionOp.h"
+#include "Synchronization.h"
 
 #include "../VulkanObjs.h"
 
@@ -25,8 +26,7 @@
 namespace Accela::Render
 {
 
-VulkanFuncs::VulkanFuncs(Common::ILogger::Ptr logger,
-                         VulkanObjsPtr vulkanObjs)
+VulkanFuncs::VulkanFuncs(Common::ILogger::Ptr logger, VulkanObjsPtr vulkanObjs)
     : m_logger(std::move(logger))
     , m_vulkanObjs(std::move(vulkanObjs))
 {
@@ -145,138 +145,6 @@ bool VulkanFuncs::QueueSubmit(const std::string& tag,
             return false;
         }
     }
-
-    return true;
-}
-
-bool VulkanFuncs::TransferImageData(const IBuffersPtr& buffers,
-                                    const PostExecutionOpsPtr& postExecutionOps,
-                                    VkCommandBuffer vkCommandBuffer,
-                                    VkFence vkExecutionFence,
-                                    const Common::ImageData::Ptr& imageData,
-                                    VkImage vkDestImage,
-                                    const uint32_t & mipLevels,
-                                    VkPipelineStageFlags vkPipelineUsageFlags,
-                                    VkImageLayout vkFinalImageLayout)
-{
-    //
-    // Create a CPU-only staging buffer and fill it with the image's data
-    //
-    const auto stagingBuffer = buffers->CreateBuffer(
-        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-        VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
-        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-        imageData->GetTotalByteSize(),
-        std::format("TransferStaging-{}", (uint64_t)vkDestImage)
-    );
-    if (!stagingBuffer.has_value())
-    {
-        m_logger->Log(Common::LogLevel::Error,
-          "TransferImageData: Failed to create staging buffer for: {}", (uint64_t)vkDestImage);
-        return false;
-    }
-
-    BufferUpdate stagingUpdate{};
-    stagingUpdate.pData = (void*)imageData->GetPixelBytes().data();
-    stagingUpdate.updateOffset = 0;
-    stagingUpdate.dataByteSize = imageData->GetTotalByteSize();
-
-    if (!buffers->MappedUpdateBuffer(*stagingBuffer, {stagingUpdate}))
-    {
-        m_logger->Log(Common::LogLevel::Error,
-          "TransferImageData: Failed to update staging buffer for: {}", (uint64_t)vkDestImage);
-        buffers->DestroyBuffer((*stagingBuffer)->GetBufferId());
-        return false;
-    }
-
-    //
-    // Append commands to copy from the staging buffer to the VkImage
-    //
-
-    // Pipeline barrier before the data copy to transition the VkImage into transfer destination optimal format
-    VkImageSubresourceRange range;
-    range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    range.baseMipLevel = 0;
-    range.levelCount = mipLevels;
-    range.baseArrayLayer = 0;
-    range.layerCount = imageData->GetNumLayers();
-
-    VkImageMemoryBarrier imageBarrierToTransfer = {};
-    imageBarrierToTransfer.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    imageBarrierToTransfer.image = vkDestImage;
-    imageBarrierToTransfer.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    imageBarrierToTransfer.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    imageBarrierToTransfer.subresourceRange = range;
-    imageBarrierToTransfer.srcAccessMask = 0;
-    imageBarrierToTransfer.dstAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
-
-    // TODO Perf
-    m_vulkanObjs->GetCalls()->vkCmdPipelineBarrier(
-        vkCommandBuffer,
-        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        0,
-        0,
-        nullptr,
-        0,
-        nullptr,
-        1,
-        &imageBarrierToTransfer
-    );
-
-    // Copy the data from the staging buffer to the VkImage
-    VkExtent3D sourceExtent{};
-    sourceExtent.width = imageData->GetPixelWidth();
-    sourceExtent.height = imageData->GetPixelHeight();
-    sourceExtent.depth = 1;
-
-    VkBufferImageCopy copyRegion = {};
-    copyRegion.bufferOffset = 0;
-    copyRegion.bufferRowLength = 0;
-    copyRegion.bufferImageHeight = 0;
-    copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    copyRegion.imageSubresource.mipLevel = 0;
-    copyRegion.imageSubresource.baseArrayLayer = 0;
-    copyRegion.imageSubresource.layerCount = imageData->GetNumLayers();
-    copyRegion.imageExtent = sourceExtent;
-
-    m_vulkanObjs->GetCalls()->vkCmdCopyBufferToImage(
-        vkCommandBuffer,
-        (*stagingBuffer)->GetVkBuffer(),
-        vkDestImage,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        1,
-        &copyRegion
-    );
-
-    // Pipeline to barrier reading from the VkImage until the transfer is done, and
-    // convert the VkImage from transfer destination optimal format to its final format
-    VkImageMemoryBarrier imageBarrierToReadable = {};
-    imageBarrierToReadable.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    imageBarrierToReadable.image = vkDestImage;
-    imageBarrierToReadable.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    imageBarrierToReadable.newLayout = vkFinalImageLayout;
-    imageBarrierToReadable.subresourceRange = range;
-    imageBarrierToReadable.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    imageBarrierToReadable.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-    m_vulkanObjs->GetCalls()->vkCmdPipelineBarrier(
-        vkCommandBuffer,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        vkPipelineUsageFlags,
-        0,
-        0,
-        nullptr,
-        0,
-        nullptr,
-        1,
-        &imageBarrierToReadable
-    );
-
-    //
-    // Record a task to clean up the staging buffer once the transfer is complete
-    //
-    postExecutionOps->EnqueueFrameless(vkExecutionFence, BufferDeleteOp(buffers, (*stagingBuffer)->GetBufferId()));
 
     return true;
 }

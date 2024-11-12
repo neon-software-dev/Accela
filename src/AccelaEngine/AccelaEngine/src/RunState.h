@@ -30,7 +30,9 @@ namespace Accela::Engine
         RunState(std::shared_ptr<Scene> _initialScene,
                  std::shared_ptr<IWorldResources> worldResources,
                  std::shared_ptr<IWorldState> worldState,
-                 std::shared_ptr<Platform::IPlatform> platform);
+                 std::shared_ptr<Platform::IPlatform> platform,
+                 AudioManagerPtr audioManager,
+                 MediaManagerPtr mediaManager);
 
         //
         // Execution State
@@ -54,6 +56,8 @@ namespace Accela::Engine
         Platform::IMouseState::CPtr mouseState;
         std::shared_ptr<IWorldResources> worldResources;
         std::shared_ptr<IWorldState> worldState;
+        AudioManagerPtr audioManager;
+        MediaManagerPtr mediaManager;
     };
 }
 

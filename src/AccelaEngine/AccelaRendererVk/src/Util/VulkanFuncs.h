@@ -7,11 +7,12 @@
 #ifndef LIBACCELARENDERERVK_SRC_UTIL_VULKANFUNCS_H
 #define LIBACCELARENDERERVK_SRC_UTIL_VULKANFUNCS_H
 
-#include "../ForwardDeclares.h"
-
 #include "Synchronization.h"
 #include "ImageAllocation.h"
 #include "PostExecutionOps.h"
+
+#include "../ForwardDeclares.h"
+#include "../Image/LoadedImage.h"
 
 #include <Accela/Render/Util/Rect.h>
 #include <Accela/Render/Texture/Texture.h>
@@ -114,34 +115,6 @@ namespace Accela::Render
                 const WaitOn& waitOn,
                 const SignalOn& signalOn,
                 const std::optional<VkFence>& fence
-            );
-
-            /**
-             * Transfers image data (asynchronously) to (the base mip level of) a GPU VkImage
-             *
-             * @param buffers Buffers instance
-             * @param postExecutionOps PostExecutionOps instance
-             * @param vkCommandBuffer Command buffer to execute the commands on
-             * @param vkExecutionFence Fence which tracks execution of vkCommandBuffer
-             * @param imageData The image to be transferred
-             * @param vkDestImage The VkImage to transfer to
-             * @param mipLevels How many mipLevels the image has in total
-             * @param vkPipelineUsageFlags Earliest pipeline stage the VkImage will be used in
-             * @param vkFinalImageLayout The layout (each mip level) of the image should be set to
-             * after the transfer is completed
-             *
-             * @return True if the transfer was started successfully
-             */
-            bool TransferImageData(
-                const IBuffersPtr& buffers,
-                const PostExecutionOpsPtr& postExecutionOps,
-                VkCommandBuffer vkCommandBuffer,
-                VkFence vkExecutionFence,
-                const Common::ImageData::Ptr& imageData,
-                VkImage vkDestImage,
-                const uint32_t & mipLevels,
-                VkPipelineStageFlags vkPipelineUsageFlags,
-                VkImageLayout vkFinalImageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
             );
 
             /**

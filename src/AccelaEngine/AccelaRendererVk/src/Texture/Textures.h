@@ -45,6 +45,7 @@ namespace Accela::Render
             std::optional<std::pair<LoadedTexture, LoadedImage>> GetTextureAndImage(TextureId textureId) override;
             std::pair<LoadedTexture, LoadedImage> GetMissingTexture() override;
             std::pair<LoadedTexture, LoadedImage> GetMissingCubeTexture() override;
+            bool UpdateTexture(TextureId textureId, const Common::ImageData::Ptr& imageData, std::promise<bool> resultPromise) override;
             void DestroyTexture(TextureId textureId, bool destroyImmediately) override;
 
         private:

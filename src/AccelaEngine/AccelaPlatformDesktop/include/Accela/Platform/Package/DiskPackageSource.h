@@ -75,6 +75,7 @@ namespace Accela::Platform
             [[nodiscard]] std::expected<std::vector<std::byte>, unsigned int> GetManifestFileData() const override;
             [[nodiscard]] std::expected<std::vector<std::byte>, unsigned int> GetFontData(const std::string& resourceName) const override;
             [[nodiscard]] std::expected<std::vector<std::byte>, unsigned int> GetAudioData(const std::string& resourceName) const override;
+            [[nodiscard]] std::expected<std::string, unsigned int> GetVideoUrl(const std::string& resourceName) const override;
             [[nodiscard]] std::expected<std::vector<std::byte>, unsigned int> GetModelData(const std::string& resourceName) const override;
             [[nodiscard]] std::expected<std::vector<std::byte>, unsigned int> GetTextureData(const std::string& resourceName) const override;
             [[nodiscard]] std::expected<std::vector<std::byte>, unsigned int> GetModelTextureData(const std::string& modelResourceName,

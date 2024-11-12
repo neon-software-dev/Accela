@@ -18,7 +18,7 @@
 
 namespace Accela::Render
 {
-    static const uint32_t VULKAN_API_VERSION = VK_API_VERSION_1_2;
+    static const uint32_t VULKAN_API_VERSION = VK_API_VERSION_1_3;
 
     // {Variant, Major, Minor, Patch}
     using VulkanVersionCode = std::tuple<uint32_t, uint32_t, uint32_t, uint32_t>;

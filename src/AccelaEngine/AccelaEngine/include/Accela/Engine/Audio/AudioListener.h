@@ -26,6 +26,9 @@ namespace Accela::Engine
             , upUnit(_upUnit)
         { }
 
+        // Output master gain to apply to audio (1.0f = unattenuated)
+        float gain{1.0f};
+
         // The listener's position, in world space
         glm::vec3 worldPosition{0.0f, 0.0f, 0.0f};
 

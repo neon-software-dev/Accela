@@ -45,6 +45,19 @@ endif()
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules/")
 
 ####
+# Provide vcpkg manually installed libraries to cmake
+####
+
+if (WIN32)
+    set(VCPKG_MANUAL_INSTALLED_DIR "${ACCELA_EXTERNAL_DIR}/vcpkg_manual/installed/x64-windows")
+else()
+    set(VCPKG_MANUAL_INSTALLED_DIR "${ACCELA_EXTERNAL_DIR}/vcpkg_manual/installed/x64-linux-dynamic")
+endif()
+
+list(APPEND CMAKE_PREFIX_PATH "${VCPKG_MANUAL_INSTALLED_DIR}/share/")
+list(APPEND CMAKE_MODULE_PATH "${VCPKG_MANUAL_INSTALLED_DIR}/share/ffmpeg")
+
+####
 # Add projects
 ####
 

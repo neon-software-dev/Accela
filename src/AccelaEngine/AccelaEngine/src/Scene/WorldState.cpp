@@ -12,11 +12,13 @@
 #include "WorldLogic.h"
 
 #include "../Audio/AudioManager.h"
-
+#include "../Media/MediaManager.h"
 #include "../Physics/IPhysics.h"
+#include "../Scene/PackageResources.h"
 
 #include "../Component/LightRenderableStateComponent.h"
 #include "../Component/PhysicsStateComponent.h"
+#include "../Component/MediaComponent.h"
 
 #include <Accela/Engine/Camera2D.h>
 #include <Accela/Engine/Camera3D.h>
@@ -39,6 +41,7 @@ WorldState::WorldState(Common::ILogger::Ptr logger,
                        Platform::IWindow::Ptr window,
                        Render::IRenderer::Ptr renderer,
                        AudioManagerPtr audioManager,
+                       MediaManagerPtr mediaManager,
                        IPhysicsPtr physics,
                        const Render::RenderSettings& renderSettings,
                        const glm::vec2& virtualResolution)
@@ -48,6 +51,7 @@ WorldState::WorldState(Common::ILogger::Ptr logger,
     , m_window(std::move(window))
     , m_renderer(std::move(renderer))
     , m_audioManager(std::move(audioManager))
+    , m_mediaManager(std::move(mediaManager))
     , m_physics(std::move(physics))
     , m_renderSettings(renderSettings)
     , m_virtualResolution(virtualResolution)
@@ -86,6 +90,7 @@ void WorldState::CreateRegistryListeners()
     m_registry.on_destroy<PhysicsComponent>().connect<&WorldState::OnPhysicsComponentDestroyed>(this);
     m_registry.on_destroy<AudioComponent>().connect<&WorldState::OnAudioComponentDestroyed>(this);
     m_registry.on_destroy<PhysicsStateComponent>().connect<&WorldState::OnPhysicsStateComponentDestroyed>(this);
+    m_registry.on_destroy<MediaComponent>().connect<&WorldState::OnMediaComponentDestroyed>(this);
 }
 
 void WorldState::CreateSystems()
@@ -517,10 +522,9 @@ void WorldState::OnAudioComponentDestroyed(entt::registry&, entt::entity entity)
     for (const auto& activeSound : audioComponent.activeSounds)
     {
         m_logger->Log(Common::LogLevel::Info,
-          "OnAudioComponentDestroyed: Cleaning up source id: {} associated with entity id: {}", activeSound.first, (EntityId)entity);
+          "OnAudioComponentDestroyed: Cleaning up source id: {} associated with entity id: {}", activeSound, (EntityId)entity);
 
-        m_audioManager->StopSource(activeSound.first);
-        m_audioManager->DestroySource(activeSound.first);
+        m_audioManager->DestroySource(activeSound);
     }
 }
 
@@ -528,6 +532,19 @@ void WorldState::OnPhysicsStateComponentDestroyed(entt::registry&, entt::entity 
 {
     auto physicsSyncSystem = std::dynamic_pointer_cast<PhysicsSyncSystem>(m_physicsSyncSystem);
     physicsSyncSystem->OnPhysicsStateComponentDestroyed((EntityId)entity);
+}
+
+void WorldState::OnMediaComponentDestroyed(entt::registry&, entt::entity entity)
+{
+    const MediaComponent& mediaComponent = m_registry.get<MediaComponent>(entity);
+
+    for (const auto& mediaSession : mediaComponent.activeSessions)
+    {
+        m_logger->Log(Common::LogLevel::Info,
+          "OnMediaComponentDestroyed: Cleaning up media session id: {} associated with entity id: {}", mediaSession.id, (EntityId)entity);
+
+        m_mediaManager->DestroySession(mediaSession);
+    }
 }
 
 void WorldState::SetWorldCamera(const std::string& sceneName, const Camera3D::Ptr& camera) noexcept
@@ -575,16 +592,28 @@ std::expected<AudioSourceId, bool> WorldState::PlayEntitySound(const EntityId& e
                                                                const ResourceIdentifier& resource,
                                                                const AudioSourceProperties& properties)
 {
-    AudioManager::SourceProperties sourceProperties{};
-    sourceProperties.localSource = true;
-    sourceProperties.audioProperties = properties;
+    //
+    // Determine the initial local audio play location from the entity's position
+    //
+    glm::vec3 entityPosition{0,0,0};
 
-    const auto sourceIdExpected = m_audioManager->CreateSource(resource, sourceProperties);
-    if (!sourceIdExpected.has_value())
+    if (HasComponent<TransformComponent>(entity))
     {
-        return std::unexpected(sourceIdExpected.error());
+        entityPosition = GetComponent<TransformComponent>(entity)->GetPosition();
     }
 
+    //
+    // Create a transient local audio source
+    //
+    const auto sourceId = m_audioManager->CreateLocalResourceSource(resource, properties, entityPosition, true);
+    if (!sourceId)
+    {
+        return std::unexpected(false);
+    }
+
+    //
+    // Create or update the entity's audio component to track that the source is associated with it
+    //
     AudioComponent audioComponent{};
 
     if (HasComponent<AudioComponent>(entity))
@@ -592,43 +621,148 @@ std::expected<AudioSourceId, bool> WorldState::PlayEntitySound(const EntityId& e
         audioComponent = GetComponent<AudioComponent>(entity).value();
     }
 
-    audioComponent.activeSounds.insert({sourceIdExpected.value(), AudioState{}});
+    audioComponent.activeSounds.insert(sourceId.value());
 
     AddOrUpdateComponent(entity, audioComponent);
 
-    return sourceIdExpected.value();
+    //
+    // Play the audio source
+    //
+    (void)m_audioManager->PlaySource(*sourceId);
+
+    return *sourceId;
 }
 
 std::expected<AudioSourceId, bool> WorldState::PlayGlobalSound(const ResourceIdentifier& resource, const AudioSourceProperties& properties)
 {
-    AudioManager::SourceProperties sourceProperties{};
-    sourceProperties.localSource = false;
-    sourceProperties.audioProperties = properties;
-
-    const auto sourceIdExpected = m_audioManager->CreateSource(resource, sourceProperties);
-    if (!sourceIdExpected.has_value())
+    const auto sourceId = m_audioManager->CreateGlobalResourceSource(resource, properties, true);
+    if (!sourceId)
     {
-        return std::unexpected(sourceIdExpected.error());
+        return std::unexpected(false);
     }
 
-    // For global sounds, once the audio source is created we start playing it right away
+    (void)m_audioManager->PlaySource(*sourceId);
 
-    m_audioManager->PlaySource(sourceIdExpected.value());
-
-    return sourceIdExpected;
+    return sourceId;
 }
 
 void WorldState::StopGlobalSound(AudioSourceId sourceId)
 {
-    // For global sounds, immediately stop and destroy it
-
-    m_audioManager->StopSource(sourceId);
     m_audioManager->DestroySource(sourceId);
 }
 
 void WorldState::SetAudioListener(const AudioListener& listener)
 {
     std::dynamic_pointer_cast<AudioSystem>(m_audioSystem)->SetAudioListener(listener);
+}
+
+std::expected<MediaSessionId, bool> WorldState::StartMediaSession(const PackageResourceIdentifier& resource,
+                                                                  const AudioSourceProperties& audioSourceProperties,
+                                                                  bool associatedWithEntity)
+{
+    const auto package = std::dynamic_pointer_cast<PackageResources>(m_worldResources->Packages())
+        ->GetPackageSource(*resource.GetPackageName());
+    if (!package)
+    {
+        LogError("WorldState::StartMediaSession: No such package is loaded: {}", resource.GetPackageName()->name);
+        return std::unexpected(false);
+    }
+
+    const auto videoUrl = (*package)->GetVideoUrl(resource.GetResourceName());
+    if (!videoUrl)
+    {
+        LogError("WorldState::StartMediaSession: Failed to get video url from package: {}", resource.GetResourceName());
+        return std::unexpected(false);
+    }
+
+    return StartMediaSession(*videoUrl, audioSourceProperties, associatedWithEntity);
+}
+
+std::expected<MediaSessionId, bool> WorldState::StartMediaSession(const std::string& url,
+                                                                  const AudioSourceProperties& audioSourceProperties,
+                                                                  bool associatedWithEntity)
+{
+    const auto sessionId = m_mediaManager->CreateURLMediaSession(url, audioSourceProperties, associatedWithEntity);
+    if (!sessionId)
+    {
+        LogError("WorldState::StartMediaSession: Failed to load url video: {}", url);
+        return std::unexpected(false);
+    }
+
+    return *sessionId;
+}
+
+std::optional<Render::TextureId> WorldState::GetMediaSessionTextureId(const MediaSessionId& mediaSessionId) const
+{
+    return m_mediaManager->GetMediaSessionTextureId(mediaSessionId);
+}
+
+bool WorldState::AssociateMediaSessionWithEntity(const MediaSessionId& mediaSessionId, const EntityId& entityId)
+{
+    AssertEntityValid(entityId, "AssociateMediaSessionWithEntity");
+
+    const auto audioSourceId = m_mediaManager->GetMediaSessionAudioSourceId(mediaSessionId);
+    if (!audioSourceId)
+    {
+        LogError("WorldState::AssociateMediaSessionWithEntity: Media session doesn't exist or has no audio source");
+        return false;
+    }
+
+    //
+    // Create or update the entity's internal MediaComponent component. Keeps track of the fact that the
+    // entity has a media session associated with it.
+    //
+    MediaComponent mediaComponent{};
+
+    if (HasComponent<MediaComponent>(entityId))
+    {
+        mediaComponent = GetComponent<MediaComponent>(entityId).value();
+    }
+
+    mediaComponent.activeSessions.insert(mediaSessionId);
+
+    AddOrUpdateComponent(entityId, mediaComponent);
+
+    //
+    // Create or update the entity's internal AudioComponent component.
+    //
+    AudioComponent audioComponent{};
+
+    if (HasComponent<AudioComponent>(entityId))
+    {
+        audioComponent = GetComponent<AudioComponent>(entityId).value();
+    }
+
+    audioComponent.activeSounds.insert(audioSourceId.value());
+
+    AddOrUpdateComponent(entityId, audioComponent);
+
+    return true;
+}
+
+std::future<bool> WorldState::MediaSessionPlay(const MediaSessionId& mediaSessionId, const std::optional<MediaPoint>& playPoint) const
+{
+    return m_mediaManager->PlayMediaSession(mediaSessionId, playPoint);
+}
+
+std::future<bool> WorldState::MediaSessionPause(const MediaSessionId& mediaSessionId) const
+{
+    return m_mediaManager->PauseMediaSession(mediaSessionId);
+}
+
+std::future<bool> WorldState::MediaSessionStop(const MediaSessionId& mediaSessionId) const
+{
+    return m_mediaManager->StopMediaSession(mediaSessionId);
+}
+
+std::future<bool> WorldState::MediaSessionSeekByOffset(const MediaSessionId& mediaSessionId, const MediaDuration& offset) const
+{
+    return m_mediaManager->SeekMediaSessionByOffset(mediaSessionId, offset);
+}
+
+std::future<bool> WorldState::MediaSessionLoadStreams(const MediaSessionId& mediaSessionId, const std::unordered_set<unsigned int>& streamIndices) const
+{
+    return m_mediaManager->LoadStreams(mediaSessionId, streamIndices);
 }
 
 IPhysicsRuntime::Ptr WorldState::GetPhysics() const

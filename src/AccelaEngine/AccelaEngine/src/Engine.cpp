@@ -14,7 +14,9 @@
 #include "Scene/WorldLogic.h"
 #include "Scene/WorldResources.h"
 #include "Scene/TextureResources.h"
+#include "Scene/PackageResources.h"
 #include "Audio/AudioManager.h"
+#include "Media/MediaManager.h"
 #include "Physics/PhysXPhysics.h"
 #include "Component/RenderableStateComponent.h"
 
@@ -37,7 +39,6 @@ Engine::Engine(Common::ILogger::Ptr logger,
     , m_metrics(std::move(metrics))
     , m_platform(std::move(platform))
     , m_renderer(std::move(renderer))
-    , m_audioManager(std::make_shared<AudioManager>(m_logger))
 {
 
 }
@@ -54,12 +55,13 @@ void Engine::Run(Scene::UPtr initialScene, Render::OutputMode renderOutputMode, 
     renderSettings.presentScaling = Render::PresentScaling::CenterInside;
     renderSettings.resolution = renderResolution;
 
-    const auto worldResources = std::make_shared<WorldResources>(m_logger, m_renderer, m_platform->GetFiles(), m_platform->GetText(), m_audioManager);
+    const auto audioManager = std::make_shared<AudioManager>(m_logger);
+    const auto worldResources = std::make_shared<WorldResources>(m_logger, m_renderer, m_platform->GetFiles(), m_platform->GetText(), audioManager);
+    const auto physics = std::make_shared<PhysXPhysics>(m_logger, m_metrics, worldResources);
+    const auto mediaManager = std::make_shared<MediaManager>(m_logger, m_metrics, worldResources, audioManager, m_renderer);
+    const auto worldState = std::make_shared<WorldState>(m_logger, m_metrics, worldResources, m_platform->GetWindow(), m_renderer, audioManager, mediaManager, physics, renderSettings, virtualResolution);
 
-    auto physics = std::make_shared<PhysXPhysics>(m_logger, m_metrics, worldResources);
-    const auto worldState = std::make_shared<WorldState>(m_logger, m_metrics, worldResources, m_platform->GetWindow(), m_renderer, m_audioManager, physics, renderSettings, virtualResolution);
-
-    const auto runState = std::make_shared<RunState>(std::move(initialScene), worldResources, worldState, m_platform);
+    const auto runState = std::make_shared<RunState>(std::move(initialScene), worldResources, worldState, m_platform, audioManager, mediaManager);
     const auto runtime = std::make_shared<EngineRuntime>(m_logger, m_metrics, m_renderer, runState);
 
     if (!InitializeRun(runState, renderOutputMode))
@@ -72,7 +74,7 @@ void Engine::Run(Scene::UPtr initialScene, Render::OutputMode renderOutputMode, 
 
     RunLoop(runtime, runState);
 
-    DestroyRun();
+    DestroyRun(runState);
 
     m_logger->Log(Common::LogLevel::Info, "AccelaEngine: Run finish");
 }
@@ -119,20 +121,30 @@ bool Engine::InitializeRun(const RunState::Ptr& runState, Render::OutputMode ren
     //
     // Start the audio manager
     //
-    if (!m_audioManager->Startup())
+    if (!runState->audioManager->Startup())
     {
         m_logger->Log(Common::LogLevel::Fatal, "AccelaEngine: Failed to start the audio manager");
+        return false;
+    }
+
+    //
+    // Start the media manager
+    //
+    if (!runState->mediaManager->Startup())
+    {
+        m_logger->Log(Common::LogLevel::Fatal, "AccelaEngine: Failed to start the media manager");
         return false;
     }
 
     return true;
 }
 
-void Engine::DestroyRun()
+void Engine::DestroyRun(const RunState::Ptr& runState)
 {
     m_logger->Log(Common::LogLevel::Info, "AccelaEngine: Destroying the engine run");
 
-    m_audioManager->Shutdown();
+    runState->mediaManager->Shutdown();
+    runState->audioManager->Shutdown();
     m_renderer->Shutdown();
 
     m_renderTargetId = {};

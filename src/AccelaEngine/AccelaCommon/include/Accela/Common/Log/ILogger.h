@@ -13,6 +13,21 @@
 #include <memory>
 #include <format>
 
+#define LogFatal(...) \
+    m_logger->Log(Common::LogLevel::Fatal, __VA_ARGS__) \
+
+#define LogError(...) \
+    m_logger->Log(Common::LogLevel::Error, __VA_ARGS__) \
+
+#define LogWarning(...) \
+    m_logger->Log(Common::LogLevel::Warning, __VA_ARGS__) \
+
+#define LogInfo(...) \
+    m_logger->Log(Common::LogLevel::Info, __VA_ARGS__) \
+
+#define LogDebug(...) \
+    m_logger->Log(Common::LogLevel::Debug, __VA_ARGS__) \
+
 namespace Accela::Common
 {
     enum class LogLevel

@@ -275,7 +275,7 @@ bool ModelResources::LoadPackageModelTextures(const PackageResourceIdentifier& r
         {
             m_logger->Log(Common::LogLevel::Error,
               "ModelResources::LoadPackageTexture: Failed to convert texture to an image: {}", resource.GetUniqueName());
-            return Render::INVALID_ID;
+            return INVALID_ID;
         }
 
         result.insert({textureResourceName, *textureDataExpect});

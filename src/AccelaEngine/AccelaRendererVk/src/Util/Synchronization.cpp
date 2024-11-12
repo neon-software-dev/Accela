@@ -7,7 +7,7 @@
 #include "Synchronization.h"
 
 #include "../Buffer/Buffer.h"
-
+#include "../Image/IImages.h"
 #include "../Vulkan/VulkanCommandBuffer.h"
 
 #include <Accela/Render/IVulkanCalls.h>
@@ -95,8 +95,9 @@ void InsertPipelineBarrier_Buffer(const IVulkanCallsPtr& vk,
 }
 
 void InsertPipelineBarrier_Image(const IVulkanCallsPtr& vk,
+                                 const IImagesPtr& images,
                                  const VulkanCommandBufferPtr& commandBuffer,
-                                 const VkImage& vkImage,
+                                 const LoadedImage& loadedImage,
                                  const Layers& layers,
                                  const Levels& levels,
                                  const VkImageAspectFlags& vkImageAspectFlags,
@@ -104,6 +105,9 @@ void InsertPipelineBarrier_Image(const IVulkanCallsPtr& vk,
                                  const BarrierPoint& dest,
                                  const ImageTransition& imageTransition)
 {
+    //
+    // Create image barrier
+    //
     VkImageSubresourceRange range;
     range.aspectMask = vkImageAspectFlags;
     range.baseMipLevel = levels.baseLevel;
@@ -113,7 +117,7 @@ void InsertPipelineBarrier_Image(const IVulkanCallsPtr& vk,
 
     VkImageMemoryBarrier imageMemoryBarrier = {};
     imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    imageMemoryBarrier.image = vkImage;
+    imageMemoryBarrier.image = loadedImage.allocation.vkImage;
     imageMemoryBarrier.oldLayout = imageTransition.oldLayout;
     imageMemoryBarrier.newLayout = imageTransition.newLayout;
     imageMemoryBarrier.subresourceRange = range;
@@ -132,6 +136,11 @@ void InsertPipelineBarrier_Image(const IVulkanCallsPtr& vk,
         1,
         &imageMemoryBarrier
     );
+
+    //
+    // Update the internal image state to track the image's layout after the barrier
+    //
+    images->RecordImageLayout(loadedImage.id, imageTransition.newLayout);
 }
 
 }

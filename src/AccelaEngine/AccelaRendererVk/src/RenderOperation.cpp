@@ -11,7 +11,7 @@
 namespace Accela::Render
 {
 
-RenderOperation::RenderOperation(std::unordered_map<VkImage, ImageAccess> _imageAccesses)
+RenderOperation::RenderOperation(std::unordered_map<ImageId, ImageAccess> _imageAccesses)
     : m_imageAccesses(std::move(_imageAccesses))
 {
 
@@ -19,7 +19,7 @@ RenderOperation::RenderOperation(std::unordered_map<VkImage, ImageAccess> _image
 
 std::optional<RenderOperation> RenderOperation::FromRenderPass(const FramebufferObjs& frameBufferObjs, const VulkanRenderPassPtr& renderPass)
 {
-    std::unordered_map<VkImage, ImageAccess> imageAccesses;
+    std::unordered_map<ImageId, ImageAccess> imageAccesses;
 
     const auto attachmentInitialLayouts = renderPass->GetAttachmentInitialLayouts();
     const auto attachmentFinalLayouts = renderPass->GetAttachmentFinalLayouts();
@@ -38,9 +38,9 @@ std::optional<RenderOperation> RenderOperation::FromRenderPass(const Framebuffer
 
     for (unsigned int attachmentIndex = 0; attachmentIndex < attachmentImages->size(); ++attachmentIndex)
     {
-        const auto attachmentVkImage = attachmentImages->at(attachmentIndex).first.allocation.vkImage;
+        const auto& attachmentLoadedImage = attachmentImages->at(attachmentIndex).first;
 
-        const auto imageAccessIt = imageAccesses.find(attachmentVkImage);
+        const auto imageAccessIt = imageAccesses.find(attachmentLoadedImage.id);
         if (imageAccessIt != imageAccesses.cend())
         {
             return std::nullopt;
@@ -52,7 +52,7 @@ std::optional<RenderOperation> RenderOperation::FromRenderPass(const Framebuffer
             return std::nullopt;
         }
 
-        imageAccesses.insert({attachmentVkImage, *attachmentImageAccess});
+        imageAccesses.insert({attachmentLoadedImage.id, *attachmentImageAccess});
     }
 
     return RenderOperation(imageAccesses);

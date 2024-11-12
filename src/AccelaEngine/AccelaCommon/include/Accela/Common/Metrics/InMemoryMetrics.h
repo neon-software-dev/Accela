@@ -13,11 +13,13 @@
 
 namespace Accela::Common
 {
+    // TODO: Memory safety, add mutexes
     class ACCELA_PUBLIC InMemoryMetrics : public IMetrics
     {
         public:
 
             void SetCounterValue(const std::string& name, uintmax_t value) override;
+            void IncrementCounterValue(const std::string& name) override;
             [[nodiscard]] std::optional<uintmax_t> GetCounterValue(const std::string& name) const override;
 
             void SetDoubleValue(const std::string& name, double value) override;

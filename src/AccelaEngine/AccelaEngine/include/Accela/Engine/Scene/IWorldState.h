@@ -16,6 +16,8 @@
 #include "../Audio/AudioSourceProperties.h"
 #include "../Audio/AudioListener.h"
 
+#include "../Media/MediaCommon.h"
+
 #include "../Physics/IPhysicsRuntime.h"
 
 #include "../Package/Construct.h"
@@ -32,6 +34,8 @@
 #include <vector>
 #include <optional>
 #include <utility>
+#include <future>
+#include <unordered_set>
 
 namespace Accela::Engine
 {
@@ -284,6 +288,24 @@ namespace Accela::Engine
              * @param listener The properties of the audio listener
              */
             virtual void SetAudioListener(const AudioListener& listener) = 0;
+
+            //
+            // Media
+            //
+
+            [[nodiscard]] virtual std::expected<MediaSessionId, bool> StartMediaSession(const PackageResourceIdentifier& resource,
+                                                                                        const AudioSourceProperties& audioSourceProperties,
+                                                                                        bool associatedWithEntity) = 0;
+            [[nodiscard]] virtual std::expected<MediaSessionId, bool> StartMediaSession(const std::string& url,
+                                                                                        const AudioSourceProperties& audioSourceProperties,
+                                                                                        bool associatedWithEntity) = 0;
+            [[nodiscard]] virtual std::optional<Render::TextureId> GetMediaSessionTextureId(const MediaSessionId& mediaSessionId) const = 0;
+            [[nodiscard]] virtual bool AssociateMediaSessionWithEntity(const MediaSessionId& mediaSessionId, const EntityId& entityId) = 0;
+            [[nodiscard]] virtual std::future<bool> MediaSessionPlay(const MediaSessionId& mediaSessionId, const std::optional<MediaPoint>& playPoint) const = 0;
+            [[nodiscard]] virtual std::future<bool> MediaSessionPause(const MediaSessionId& mediaSessionId) const = 0;
+            [[nodiscard]] virtual std::future<bool> MediaSessionStop(const MediaSessionId& mediaSessionId) const = 0;
+            [[nodiscard]] virtual std::future<bool> MediaSessionSeekByOffset(const MediaSessionId& mediaSessionId, const MediaDuration& offset) const = 0;
+            [[nodiscard]] virtual std::future<bool> MediaSessionLoadStreams(const MediaSessionId& mediaSessionId, const std::unordered_set<unsigned int>& streamIndices) const = 0;
 
             //
             // Physics

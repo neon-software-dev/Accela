@@ -1015,11 +1015,11 @@ VulkanRenderPassPtr VulkanObjs::CreateShadowRenderPass(const std::optional<std::
     VulkanRenderPass::Attachment depthAttachment(VulkanRenderPass::AttachmentType::Depth);
     depthAttachment.description.format = VK_FORMAT_D32_SFLOAT; // TODO PERF: need this many bytes?
     depthAttachment.description.samples = VK_SAMPLE_COUNT_1_BIT;
-    depthAttachment.description.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    depthAttachment.description.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     depthAttachment.description.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     depthAttachment.description.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     depthAttachment.description.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    depthAttachment.description.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    depthAttachment.description.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     depthAttachment.description.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     const ImageAccess depthAttachmentAccess(

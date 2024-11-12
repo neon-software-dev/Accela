@@ -28,6 +28,7 @@ namespace Accela::Platform
     static constexpr const char* SHADERS_SUBDIR = "shaders";
     static constexpr const char* TEXTURES_SUBDIR = "textures";
     static constexpr const char* AUDIO_SUBDIR = "audio";
+    static constexpr const char* VIDEO_SUBDIR = "videos";
     static constexpr const char* FONTS_SUBDIR = "fonts";
     static constexpr const char* MODELS_SUBDIR = "models";
 

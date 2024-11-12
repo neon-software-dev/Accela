@@ -163,6 +163,8 @@ bool PhysXPhysics::CreateRigidBody(const PhysicsSceneName& scene, const EntityId
 
     const bool result = sceneIt->second.CreateRigidBody(eid, data);
 
+    m_entityToScene.insert({eid, scene});
+
     SyncMetrics();
 
     return result;
@@ -208,6 +210,8 @@ bool PhysXPhysics::DestroyRigidBody(const EntityId& eid, const std::optional<Phy
     }
 
     const bool result = sceneIt->second.DestroyRigidBody(eid);
+
+    m_entityToScene.erase(eid);
 
     SyncMetrics();
 

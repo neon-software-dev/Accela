@@ -5,21 +5,17 @@
  */
  
 #include "AudioManager.h"
+#include "AudioUtil.h"
 
-#include <vector>
-#include <string>
-#include <cstring>
+#include <cassert>
 
 namespace Accela::Engine
 {
 
-AudioManager::AudioManager(Common::ILogger::Ptr logger)
-    : m_logger(std::move(logger))
-{
+#define AssertStartedUp() \
+    assert(m_pDevice != nullptr && m_pContext != nullptr) \
 
-}
-
-std::vector<std::string> ParseALCStringList(const ALCchar* pStringList)
+static std::vector<std::string> ParseALCStringList(const ALCchar* pStringList)
 {
     if (pStringList == nullptr) { return {}; }
 
@@ -37,11 +33,29 @@ std::vector<std::string> ParseALCStringList(const ALCchar* pStringList)
     return strs;
 }
 
+static ALenum AudioDataFormatToAlFormat(const Common::AudioDataFormat& format)
+{
+    switch (format)
+    {
+        case Common::AudioDataFormat::Mono8: return AL_FORMAT_MONO8;
+        case Common::AudioDataFormat::Mono16: return AL_FORMAT_MONO16;
+        case Common::AudioDataFormat::Stereo8: return AL_FORMAT_STEREO8;
+        case Common::AudioDataFormat::Stereo16: return AL_FORMAT_STEREO16;
+    }
+
+    assert(false);
+    return AL_FORMAT_MONO8;
+}
+
+AudioManager::AudioManager(Common::ILogger::Ptr logger)
+    : m_logger(std::move(logger))
+{
+
+}
+
 bool AudioManager::Startup()
 {
-    m_logger->Log(Common::LogLevel::Info, "AudioManager initializing");
-
-    ALenum error{AL_NO_ERROR};
+    LogInfo("AudioManager starting up");
 
     //
     // Determine the output device to use
@@ -76,39 +90,40 @@ bool AudioManager::Startup()
         }
     }
 
-    m_logger->Log(Common::LogLevel::Info, "AudioManager: Discovered {} audio device(s)", candidateDevices.size());
+    LogInfo("AudioManager: Discovered {} audio device(s)", candidateDevices.size());
 
     //
     // Open an audio device for output
     //
     for (const auto& device : candidateDevices)
     {
-        m_logger->Log(Common::LogLevel::Info, "AudioManager: Attempting to open output device: {}", device);
+        LogInfo("AudioManager: Attempting to open output device: {}", device);
 
+        alGetError();
         m_pDevice = alcOpenDevice(device.c_str());
         if (m_pDevice == nullptr)
         {
-            m_logger->Log(Common::LogLevel::Error, "AudioManager: Failed to open audio device: {}", device);
+            LogError("AudioManager: alcOpenDevice failed for device: {}, error code: {}", device, alGetError());
             continue;
         }
 
-        m_logger->Log(Common::LogLevel::Info, "AudioManager: Using output device: {}", device);
+        LogInfo("AudioManager: Using output device: {}", device);
     }
 
     if (m_pDevice == nullptr)
     {
-        m_logger->Log(Common::LogLevel::Error, "AudioManager: Exhausted all audio devices, aborting");
+        LogError("AudioManager: Exhausted all available audio devices, aborting");
         return false;
     }
 
     //
-    // Create an audio context
+    // Create an OpenAL audio context
     //
     alGetError();
     m_pContext = alcCreateContext(m_pDevice, nullptr);
     if (m_pContext == nullptr)
     {
-        m_logger->Log(Common::LogLevel::Info, "AudioManager: Failed to create audio context, error code: {}", alGetError());
+        LogError("AudioManager: alcCreateContext failed, error code: {}", alGetError());
         Shutdown();
         return false;
     }
@@ -117,10 +132,9 @@ bool AudioManager::Startup()
     // Activate the audio context
     //
     alGetError();
-    alcMakeContextCurrent(m_pContext);
-    if ((error = alGetError()) != AL_NO_ERROR)
+    if (alcMakeContextCurrent(m_pContext) == ALC_FALSE)
     {
-        m_logger->Log(Common::LogLevel::Error, "AudioManager: Failed to activate audio context, error code: {}", error);
+        LogError("AudioManager: alcMakeContextCurrent failed, error code: {}", alGetError());
         Shutdown();
         return false;
     }
@@ -130,10 +144,10 @@ bool AudioManager::Startup()
 
 void AudioManager::Shutdown()
 {
-    m_logger->Log(Common::LogLevel::Info, "AudioManager shutting down");
+    LogInfo("AudioManager shutting down");
 
-    // Unload any sounds + sources currently loaded
-    DestroyAllAudio();
+    // Unload any existing resources
+    DestroyAll();
 
     // Shutdown and destroy the audio context + device
     alcMakeContextCurrent(nullptr);
@@ -151,273 +165,633 @@ void AudioManager::Shutdown()
     }
 }
 
-bool AudioManager::RegisterAudio(const ResourceIdentifier& resource, const Common::AudioData::Ptr& audioData)
+void AudioManager::DestroyAll()
 {
-    std::lock_guard<std::recursive_mutex> lock(m_buffersMutex);
+    LogInfo("AudioManager: Destroying all");
 
-    if (m_pDevice == nullptr || m_pContext == nullptr) { return false; }
-
-    m_logger->Log(Common::LogLevel::Info, "RegisterAudio: Registering audio: {}", resource.GetUniqueName());
-
-    if (m_buffers.find(resource) != m_buffers.cend())
+    while (!m_sources.empty())
     {
-        m_logger->Log(Common::LogLevel::Warning, "RegisterAudio: Audio already loaded, ignoring: {}", resource.GetUniqueName());
+        DestroySource(m_sources.cbegin()->first);
+    }
+
+    while (!m_buffers.empty())
+    {
+        DestroyBuffer(m_buffers.cbegin()->first);
+    }
+}
+
+bool AudioManager::LoadResourceAudio(const ResourceIdentifier& resource, const Common::AudioData::Ptr& audioData)
+{
+    AssertStartedUp();
+
+    LogInfo("AudioManager: Loading resource audio: {}", resource.GetUniqueName());
+
+    std::lock_guard buffersLock(m_buffersMutex);
+
+    if (IsResourceAudioLoaded(resource))
+    {
+        LogWarning("AudioManager::LoadResourceAudio: Resource already has audio loaded, ignoring: {}", resource.GetUniqueName());
         return true;
     }
 
-    ALenum error{AL_NO_ERROR};
-
-    ALuint bufferId{0};
-
-    alGetError();
-    alGenBuffers(1, &bufferId);
-    if ((error = alGetError()) != AL_NO_ERROR)
+    const auto bufferId = ALCreateBuffer({audioData});
+    if (!bufferId)
     {
-        m_logger->Log(Common::LogLevel::Debug,
-          "RegisterAudio: Failed to generate a buffer for audio: {}, error code: {}", resource.GetUniqueName(), error);
+        LogError("AudioManager::LoadResourceAudio: Failed to create buffer for resource audio: {}", resource.GetUniqueName());
         return false;
     }
 
-    ALenum audioFormat{0};
+    const auto bufferFormat = AudioDataFormatToAlFormat(audioData->format);
 
-    switch (audioData->format)
-    {
-        case Common::AudioData::Format::Mono8:
-            audioFormat = AL_FORMAT_MONO8;
-        break;
-        case Common::AudioData::Format::Mono16:
-            audioFormat = AL_FORMAT_MONO16;
-        break;
-        case Common::AudioData::Format::Stereo8:
-            audioFormat = AL_FORMAT_STEREO8;
-        break;
-        case Common::AudioData::Format::Stereo16:
-            audioFormat = AL_FORMAT_STEREO16;
-        break;
-    }
+    const auto buffer = Buffer(*bufferId, bufferFormat, resource, audioData->Duration());
 
-    alGetError();
-    alBufferData(bufferId, audioFormat, audioData->data.data(), (ALsizei)audioData->data.size(), (ALsizei)audioData->sampleRate);
-    if ((error = alGetError()) != AL_NO_ERROR)
-    {
-        m_logger->Log(Common::LogLevel::Debug,
-          "RegisterAudio: Failed to buffer data for sound: {}, error code: {}", resource.GetUniqueName(), error);
-        alDeleteBuffers(1, &bufferId);
-        return false;
-    }
+    m_buffers.insert({*bufferId, buffer});
+    m_resourceToBuffer.insert({resource, *bufferId});
 
-    m_buffers.insert(std::make_pair(resource, BufferProperties(bufferId, audioFormat)));
+    LogInfo("AudioManager: Created buffer {} for resource audio: {}", *bufferId, resource.GetUniqueName());
 
     return true;
 }
 
-void AudioManager::DestroyAudio(const ResourceIdentifier& resource)
+std::expected<ALuint, bool> AudioManager::LoadStreamedAudio(const Common::AudioData::Ptr& audioData, double streamStartTime)
 {
-    std::lock_guard<std::recursive_mutex> lock(m_buffersMutex);
+    AssertStartedUp();
 
-    const auto it = m_buffers.find(resource);
-    if (it == m_buffers.cend())
+    LogDebug("AudioManager: Loading streamed audio");
+
+    std::lock_guard buffersLock(m_buffersMutex);
+
+    const auto bufferId = ALCreateBuffer({audioData});
+    if (!bufferId)
     {
-        return;
-    }
-
-    m_logger->Log(Common::LogLevel::Info, "DestroyAudio: Destroying audio: {}", resource.GetUniqueName());
-
-    // Delete all the sources that were using this buffer
-    while (!it->second.sources.empty())
-    {
-        const auto sourceId = *it->second.sources.cbegin();
-        m_logger->Log(Common::LogLevel::Debug, "DestroyAudio: Destroying dependent active source: {}", sourceId);
-        DestroySource(sourceId);
-    }
-
-    // Delete the buffer
-    alDeleteBuffers(1, &it->second.bufferId);
-
-    m_buffers.erase(it);
-}
-
-void AudioManager::DestroyAllAudio()
-{
-    std::lock_guard<std::recursive_mutex> lock(m_buffersMutex);
-
-    // Note that sources are destroyed as part of DestroyAudio
-    while (!m_buffers.empty())
-    {
-        DestroyAudio(m_buffers.cbegin()->first);
-    }
-}
-
-std::expected<AudioSourceId, bool>
-AudioManager::CreateSource(const ResourceIdentifier& resource, const AudioManager::SourceProperties& properties)
-{
-    std::lock_guard<std::recursive_mutex> lock(m_buffersMutex);
-
-    if (m_pDevice == nullptr || m_pContext == nullptr) { return false; }
-
-    auto bufferIt = m_buffers.find(resource);
-    if (bufferIt == m_buffers.cend())
-    {
-        m_logger->Log(Common::LogLevel::Error, "CreateSource: Unable to create source as audio is not loaded: {}", resource.GetUniqueName());
+        LogError("AudioManager::LoadStreamedAudio: Failed to create buffer for streamed audio");
         return std::unexpected(false);
     }
 
-    // Local (non-global) audio sources must be mono audio format or else 3D spatialization won't work
-    if (properties.localSource)
+    const auto bufferFormat = AudioDataFormatToAlFormat(audioData->format);
+
+    const auto buffer = Buffer(*bufferId, bufferFormat, std::nullopt, audioData->Duration(), streamStartTime);
+
+    m_buffers.insert({*bufferId, buffer});
+
+    LogDebug("AudioManager: Created buffer {} for streamed audio", *bufferId);
+
+    return *bufferId;
+}
+
+bool AudioManager::IsResourceAudioLoaded(const ResourceIdentifier& resource)
+{
+    std::lock_guard buffersLock(m_buffersMutex);
+
+    return m_resourceToBuffer.contains(resource);
+}
+
+void AudioManager::DestroyResourceAudio(const ResourceIdentifier& resource)
+{
+    AssertStartedUp();
+
+    LogInfo("AudioManager: Destroying resource audio: {}", resource.GetUniqueName());
+
+    std::lock_guard buffersLock(m_buffersMutex);
+
+    const auto it = m_resourceToBuffer.find(resource);
+    if (it == m_resourceToBuffer.cend())
+    {
+        LogWarning("AudioManager::DestroyResourceAudio: No such resource audio record exists: {}", resource.GetUniqueName());
+        return;
+    }
+
+    DestroyBuffer(it->second);
+}
+
+[[nodiscard]] std::expected<AudioSourceId, bool> AudioManager::CreateGlobalResourceSource(
+    const ResourceIdentifier& resource,
+    const AudioSourceProperties& properties,
+    bool isTransient
+)
+{
+    return CreateResourceSource(SourcePlayType::Global, resource, properties, std::nullopt, isTransient);
+}
+
+[[nodiscard]] std::expected<AudioSourceId, bool> AudioManager::CreateLocalResourceSource(
+    const ResourceIdentifier& resource,
+    const AudioSourceProperties& properties,
+    const glm::vec3& position,
+    bool isTransient
+)
+{
+    return CreateResourceSource(SourcePlayType::Local, resource, properties, position, isTransient);
+}
+
+std::expected<AudioSourceId, bool> AudioManager::CreateGlobalStreamedSource(
+    const AudioSourceProperties& properties
+)
+{
+    return CreateStreamedSource(SourcePlayType::Global, properties, std::nullopt);
+}
+
+std::expected<AudioSourceId, bool> AudioManager::CreateLocalStreamedSource(
+    const AudioSourceProperties& properties,
+    const glm::vec3& position
+)
+{
+    return CreateStreamedSource(SourcePlayType::Local, properties, position);
+}
+
+std::expected<AudioSourceId, bool> AudioManager::CreateResourceSource(
+    SourcePlayType sourcePlayType,
+    const ResourceIdentifier& resource,
+    const AudioSourceProperties& properties,
+    const std::optional<glm::vec3>& initialPosition,
+    bool isTransient
+)
+{
+    AssertStartedUp();
+
+    LogInfo("AudioManager: Creating source for resource audio: {}", resource.GetUniqueName());
+
+    std::lock_guard lock(m_buffersMutex);
+
+    const auto resourceIt = m_resourceToBuffer.find(resource);
+    if (resourceIt == m_resourceToBuffer.cend())
+    {
+        LogError("AudioManager::CreateResourceSource: Unable to create source as resource has no audio loaded: {}", resource.GetUniqueName());
+        return std::unexpected(false);
+    }
+
+    const auto bufferIt = m_buffers.find(resourceIt->second);
+    if (bufferIt == m_buffers.cend())
+    {
+        LogError("AudioManager::CreateResourceSource: No such buffer exists: {}", resourceIt->second);
+        return std::unexpected(false);
+    }
+
+    // If we're creating a local source, the audio must be in mono format, as OpenAL can't spatialize a
+    // stereo audio source
+    if (sourcePlayType == SourcePlayType::Local)
     {
         if (bufferIt->second.bufferFormat != AL_FORMAT_MONO8 && bufferIt->second.bufferFormat != AL_FORMAT_MONO16)
         {
-            m_logger->Log(Common::LogLevel::Error,
-              "CreateSource: non-mono audio format local source is disallowed: {}", resource.GetUniqueName());
+            LogError("AudioManager::CreateResourceSource: Local audio sources require mono-format audio data");
             return std::unexpected(false);
         }
     }
 
-    ALenum error{AL_NO_ERROR};
+    //
+    // Create the source
+    //
+    std::vector<ALuint> initialBuffers = {bufferIt->first};
 
-    ALuint sourceId{0};
-
-    alGetError();
-    alGenSources(1, &sourceId);
-    if ((error = alGetError()) != AL_NO_ERROR)
+    const auto sourceId = ALCreateSource(SourceDataType::Static, properties, initialBuffers, initialPosition);
+    if (!sourceId)
     {
-        m_logger->Log(Common::LogLevel::Error,
-          "CreateSource: Failed to generate source for: {}, error code: {}", resource.GetUniqueName(), error);
+        LogError("AudioManager::CreateResourceSource: Failed to create source for resource: {}", resourceIt->second);
         return std::unexpected(false);
     }
 
-    alSourcei(sourceId, AL_BUFFER, (ALint)bufferIt->second.bufferId);
-    alSourcei(sourceId, AL_LOOPING, properties.audioProperties.looping);
-    alSourcef(sourceId, AL_REFERENCE_DISTANCE, properties.audioProperties.referenceDistance);
-    alSourcef(sourceId, AL_GAIN, properties.audioProperties.gain);
+    //
+    // Update the resource buffer to know it's in-use by this source
+    //
+    bufferIt->second.sourceUsage.insert(*sourceId);
 
-    // Make a record of the source
-    m_sources.insert(std::make_pair(sourceId, properties));
-    m_sourceToResource.insert(std::make_pair(sourceId, resource));
+    //
+    // Record the source and return
+    //
+    Source source(sourcePlayType, SourceDataType::Static, *sourceId, properties, isTransient, initialBuffers);
 
-    // Update the buffer's record to show that the source is using it
-    bufferIt->second.sources.insert(sourceId);
+    m_sources.insert({*sourceId, std::move(source)});
 
-    return sourceId;
+    return *sourceId;
 }
 
-void AudioManager::DestroySource(const AudioSourceId& sourceId)
+std::expected<AudioSourceId, bool> AudioManager::CreateStreamedSource(
+    SourcePlayType sourcePlayType,
+    const AudioSourceProperties& properties,
+    const std::optional<glm::vec3>& initialPosition
+)
 {
-    if (m_pDevice == nullptr || m_pContext == nullptr) { return; }
+    AssertStartedUp();
 
-    const auto sourceIt = m_sources.find(sourceId);
-    if (sourceIt == m_sources.cend())
+    LogInfo("AudioManager: Creating source for streamed audio");
+
+    //
+    // Create the source
+    //
+    const auto sourceId = ALCreateSource(SourceDataType::Streamed, properties, {}, initialPosition);
+    if (!sourceId)
     {
-        return;
+        LogError("AudioManager::CreateStreamedSource: Failed to create source");
+        return std::unexpected(false);
     }
 
-    m_logger->Log(Common::LogLevel::Debug, "DestroySource: Destroying source: {}", sourceId);
+    //
+    // Record the source and return
+    //
+    Source source(sourcePlayType, SourceDataType::Streamed, *sourceId, properties, false, {});
 
-    // Mark the buffer as not being used by this source
-    const auto bufferNameIt = m_sourceToResource.find(sourceId);
-    if (bufferNameIt != m_sourceToResource.cend())
-    {
-        std::lock_guard<std::recursive_mutex> lock(m_buffersMutex);
+    m_sources.insert({*sourceId, std::move(source)});
 
-        auto bufferIt = m_buffers.find(bufferNameIt->second);
-        if (bufferIt != m_buffers.cend())
-        {
-            bufferIt->second.sources.erase(sourceId);
-        }
-    }
-
-    // Delete the source
-    alDeleteSources(1, &sourceIt->first);
-    m_sourceToResource.erase(sourceId);
-    m_sources.erase(sourceIt);
+    return *sourceId;
 }
 
-bool AudioManager::PlaySource(const AudioSourceId& sourceId)
+bool AudioManager::PlaySource(const AudioSourceId& sourceId) const
 {
-    if (m_pDevice == nullptr || m_pContext == nullptr) { return false; }
+    AssertStartedUp();
 
-    const auto it = m_sources.find(sourceId);
-    if (it == m_sources.cend())
-    {
-        return false;
-    }
+    LogDebug("AudioManager: Playing audio source: {}", sourceId);
 
-    m_logger->Log(Common::LogLevel::Debug, "PlaySource: Starting play of source: {}", sourceId);
+    if (!m_sources.contains(sourceId)) { return false; }
 
-    alSourcePlay(it->first);
+    alSourcePlay(sourceId);
 
     return true;
 }
 
-bool AudioManager::IsSourceStopped(const AudioSourceId& sourceId)
+bool AudioManager::PauseSource(const AudioSourceId& sourceId) const
 {
-    if (m_pDevice == nullptr || m_pContext == nullptr) { return false; }
+    AssertStartedUp();
 
-    ALint sourceState{0};
-    alGetSourcei(sourceId, AL_SOURCE_STATE, &sourceState);
-    return sourceState == AL_STOPPED;
+    LogInfo("AudioManager: Pausing audio source: {}", sourceId);
+
+    if (!m_sources.contains(sourceId)) { return false; }
+
+    alSourcePause(sourceId);
+
+    return true;
 }
 
-bool AudioManager::StopSource(const AudioSourceId& sourceId)
+bool AudioManager::StopSource(const AudioSourceId& sourceId) const
 {
-    if (m_pDevice == nullptr || m_pContext == nullptr) { return false; }
+    AssertStartedUp();
 
-    m_logger->Log(Common::LogLevel::Debug, "StopSource: Stopping play of source: {}", sourceId);
+    LogDebug("AudioManager: Stopping audio source: {}", sourceId);
+
+    if (!m_sources.contains(sourceId)) { return false; }
 
     alSourceStop(sourceId);
 
     return true;
 }
 
-bool AudioManager::UpdateSourceProperties(const AudioSourceId& sourceId, const glm::vec3& position)
+std::optional<PlayState> AudioManager::GetPlayState(const AudioSourceId& sourceId) const
 {
-    if (m_pDevice == nullptr || m_pContext == nullptr) { return false; }
+    AssertStartedUp();
 
+    const auto sourceIt = m_sources.find(sourceId);
+    if (sourceIt == m_sources.cend())
+    {
+        LogError("AudioManager::GetPlayState: No such source exists: {}", sourceId);
+        return std::nullopt;
+    }
+
+    alGetError();
+    ALint sourceState{AL_INVALID};
+    alGetSourcei(sourceId, AL_SOURCE_STATE, &sourceState);
+    if (const auto error = alGetError(); error != AL_NO_ERROR)
+    {
+        return std::nullopt;
+    }
+
+    if (sourceState == AL_INITIAL)      { return PlayState::Initial; }
+    else if (sourceState == AL_PLAYING) { return PlayState::Playing; }
+    else if (sourceState == AL_PAUSED)  { return PlayState::Paused; }
+    else if (sourceState == AL_STOPPED) { return PlayState::Stopped; }
+    else
+    {
+        LogError("AudioManager::GetSourceState: Unhandled OpenAL source state: {}", sourceState);
+        return std::nullopt;
+    }
+}
+
+std::optional<double> AudioManager::GetPlayTime(const AudioSourceId& sourceId) const
+{
+    AssertStartedUp();
+
+    const auto sourceIt = m_sources.find(sourceId);
+    if (sourceIt == m_sources.cend())
+    {
+        LogError("AudioManager::GetPlayTime: No such source exists: {}", sourceId);
+        return std::nullopt;
+    }
+
+    // If the source has no data associated with it, we can't determine play time
+    if (sourceIt->second.attachedBuffers.empty())
+    {
+        return std::nullopt;
+    }
+
+    const auto frontBufferId = sourceIt->second.attachedBuffers.front();
+    const auto frontBufferIt = m_buffers.find(frontBufferId);
+    if (frontBufferIt == m_buffers.cend())
+    {
+        LogError("AudioManager::GetPlayTime: Front buffer {} for source {} doesn't exist", frontBufferId, sourceId);
+        return std::nullopt;
+    }
+
+    const auto backBufferId = sourceIt->second.attachedBuffers.back();
+    const auto backBufferIt = m_buffers.find(backBufferId);
+    if (backBufferIt == m_buffers.cend())
+    {
+        LogError("AudioManager::GetPlayTime: Back buffer {} for source {} doesn't exist", backBufferId, sourceId);
+        return std::nullopt;
+    }
+
+    const auto playState = GetPlayState(sourceId);
+    if (!playState)
+    {
+        LogError("AudioManager::GetPlayTime: Failed to get play state");
+        return std::nullopt;
+    }
+
+    switch (*playState)
+    {
+        // If the source hasn't started playing yet, its play time is the stream start time of its
+        // first buffer (it's effectively stuck at its play point until it's played)
+        case PlayState::Initial:
+        {
+            return frontBufferIt->second.streamStartTime;
+        }
+        // Otherwise, if the source is playing or paused, we can query OpenAL for the offset since
+        // the start of its initial (attached) buffer
+        case PlayState::Playing:
+        case PlayState::Paused:
+        {
+            float sourceSecOffset{0.0f};
+
+            alGetError();
+            alGetSourcef(sourceId, AL_SEC_OFFSET, &sourceSecOffset);
+            if (const auto error = alGetError(); error != AL_NO_ERROR)
+            {
+                LogError("AudioManager::GetPlayTime: Failed to query for source offset");
+                return std::nullopt;
+            }
+
+            return frontBufferIt->second.streamStartTime + (double)sourceSecOffset;
+        }
+        // Otherwise, if the source is stopped, querying for sec offset would return 0, so return
+        // that it's at the end of its last buffer (similar to Initial state, it's effectively
+        // stuck at the end of its play duration)
+        case PlayState::Stopped:
+        {
+            return backBufferIt->second.streamStartTime + backBufferIt->second.length.count();
+        }
+    }
+
+    assert(false);
+    return std::nullopt;
+}
+
+std::optional<AudioSourceState> AudioManager::GetSourceState(const AudioSourceId& sourceId) const
+{
+    AssertStartedUp();
+
+    const auto playState = GetPlayState(sourceId);
+    if (!playState)
+    {
+        LogError("AudioManager::GetSourceState: Failed to get play state for source: {}", sourceId);
+        return std::nullopt;
+    }
+
+    return AudioSourceState{
+        .playState = *playState,
+        .playTime = GetPlayTime(sourceId)
+    };
+}
+
+std::optional<SourceDataType> AudioManager::GetSourceDataType(const AudioSourceId& sourceId) const
+{
     const auto it = m_sources.find(sourceId);
     if (it == m_sources.cend())
     {
+        return std::nullopt;
+    }
+
+    return it->second.dataType;
+}
+
+bool AudioManager::EnqueueStreamedData(const AudioSourceId& sourceId,
+                                       const std::vector<Common::AudioData::Ptr>& audioDatas,
+                                       double streamStartTime,
+                                       bool autoPlayIfStopped)
+{
+    AssertStartedUp();
+
+    std::lock_guard lock(m_buffersMutex);
+
+    const auto sourceIt = m_sources.find(sourceId);
+    if (sourceIt == m_sources.cend())
+    {
+        LogError("AudioManager::EnqueueStreamedData: No such source exists: {}", sourceId);
         return false;
     }
 
-    alSource3f(sourceId, AL_POSITION, position.x, position.y, position.z);
+    std::optional<Common::AudioDataFormat> audioFormat;
+    std::optional<uint32_t> audioSampleRate;
+    bool audioDatasMatch = true;
+
+    for (const auto& audioData : audioDatas)
+    {
+        // If the source is a local source, the audio must be in mono format, as OpenAL can't spatialize a
+        // stereo audio source
+        if (sourceIt->second.playType == SourcePlayType::Local)
+        {
+            if (!audioData->IsMonoFormat())
+            {
+                LogError("AudioManager::EnqueueStreamedData: Local audio source require mono-formatted audio data");
+                return false;
+            }
+        }
+
+        if (!audioFormat || !audioSampleRate)
+        {
+            audioFormat = audioData->format;
+            audioSampleRate = audioData->sampleRate;
+        }
+        else if (*audioFormat != audioData->format ||
+                 *audioSampleRate != audioData->sampleRate)
+        {
+            audioDatasMatch = false;
+            break;
+        }
+    }
+
+    std::vector<Common::AudioData::Ptr> audioDataToLoad;
+
+    // If all the audio data's configuration (format, sample rate) matches, we can combine them
+    // all into one audio data in one buffer, rather than creating separate buffers for each one
+    if (audioDatasMatch)
+    {
+        const auto combinedAudioData = AudioUtil::CombineAudioDatas(audioDatas);
+        if (combinedAudioData)
+        {
+            audioDataToLoad.push_back(*combinedAudioData);
+        }
+        else
+        {
+            LogError("AudioManager::EnqueueStreamedData: Failed to combine audio data");
+            audioDataToLoad = audioDatas;
+        }
+    }
+    // Otherwise, create a separate buffer for each provided audio data
+    else
+    {
+        audioDataToLoad = audioDatas;
+    }
+
+    //
+    // Load the audio data into buffers
+    //
+    std::vector<ALuint> audioDataBufferIds;
+
+    const auto destroyCreatedBuffers = [&](){
+        for (const auto& toDelete : audioDataBufferIds)
+        {
+            DestroyBuffer(toDelete);
+        }
+    };
+
+    for (const auto& audioData : audioDataToLoad)
+    {
+        const auto bufferId = LoadStreamedAudio(audioData, streamStartTime);
+        if (!bufferId)
+        {
+            LogError("AudioManager::EnqueueStreamedData: Failed to load streamed audio");
+            destroyCreatedBuffers();
+            return false;
+        }
+
+        audioDataBufferIds.push_back(*bufferId);
+    }
+
+    //
+    // Enqueue the buffers with the source
+    //
+    alGetError();
+    alSourceQueueBuffers(sourceId, (ALsizei)audioDataBufferIds.size(), audioDataBufferIds.data());
+    if (const auto error = alGetError(); error != AL_NO_ERROR)
+    {
+        LogError("AudioManager::EnqueueStreamedData: alSourceQueueBuffers failed, error code: {}", error);
+        destroyCreatedBuffers();
+        return false;
+    }
+
+    for (const auto& bufferId : audioDataBufferIds)
+    {
+        sourceIt->second.attachedBuffers.push_back(bufferId);
+    }
+
+    //
+    // For each buffer, mark it as in use by the source
+    //
+    for (const auto& bufferId : audioDataBufferIds)
+    {
+        m_buffers.at(bufferId).sourceUsage.insert(sourceId);
+    }
+
+    //
+    // Play the source if requested
+    //
+    if (autoPlayIfStopped)
+    {
+        const auto playState = GetPlayState(sourceId);
+        if (playState == PlayState::Initial || playState == PlayState::Stopped)
+        {
+            return PlaySource(sourceId);
+        }
+    }
 
     return true;
 }
 
-void AudioManager::FulfillFinishedGlobalSources()
+void AudioManager::FlushEnqueuedData(const AudioSourceId& sourceId)
 {
-    if (m_pDevice == nullptr || m_pContext == nullptr) { return; }
-
-    //
-    // Finds any global audio sources that have finished and destroys them
-    //
-    std::unordered_set<unsigned int> sourceIdsToDestroy;
-
-    for (const auto& sourceIt : m_sources)
+    const auto sourceIt = m_sources.find(sourceId);
+    if (sourceIt == m_sources.cend())
     {
-        // Ignore local sources
-        if (sourceIt.second.localSource)
-        {
-            continue;
-        }
-
-        if (IsSourceStopped(sourceIt.first))
-        {
-            sourceIdsToDestroy.insert(sourceIt.first);
-        }
+        LogError("AudioManager::FlushEnqueuedData: No such source exists: {}", sourceId);
+        return;
     }
 
-    for (const auto& sourceId : sourceIdsToDestroy)
+    if (sourceIt->second.dataType != SourceDataType::Streamed)
     {
-        m_logger->Log(Common::LogLevel::Debug,
-          "FulfillFinishedGlobalSources: Cleaning up finished global source: {}", sourceId);
-        DestroySource(sourceId);
+        LogError("AudioManager::FlushEnqueuedData: Can't flush enqueued data for non-streamed audio source: {}", sourceId);
+        return;
+    }
+
+    (void)StopSource(sourceId);
+
+    //
+    // Unqueue the buffers from the source
+    //
+    std::vector<ALuint> attachedBuffers;
+
+    std::ranges::copy(sourceIt->second.attachedBuffers, std::back_inserter(attachedBuffers));
+    sourceIt->second.attachedBuffers.clear();
+
+    alGetError();
+    alSourceUnqueueBuffers(sourceId, (ALsizei)attachedBuffers.size(), attachedBuffers.data());
+    if (const auto error = alGetError(); error != AL_NO_ERROR)
+    {
+        LogError("AudioManager::FlushEnqueuedData: alSourceUnqueueBuffers failed, error code: {}", error);
+    }
+
+    //
+    // Mark the buffers as no longer in use by the source
+    //
+    for (const auto& bufferId : attachedBuffers)
+    {
+        m_buffers.at(bufferId).sourceUsage.erase(sourceId);
+    }
+
+    //
+    // Destroy the buffers
+    //
+    for (const auto& bufferId : attachedBuffers)
+    {
+        DestroyBuffer(bufferId);
     }
 }
 
-void AudioManager::UpdateListenerProperties(const AudioListener& listener) const
+void AudioManager::DestroySource(const AudioSourceId& sourceId)
 {
-    if (m_pDevice == nullptr || m_pContext == nullptr) { return; }
+    AssertStartedUp();
+
+    LogInfo("AudioManager: Destroying audio source: {}", sourceId);
+
+    const auto sourceIt = m_sources.find(sourceId);
+    if (sourceIt == m_sources.cend())
+    {
+        LogWarning("AudioManager::DestroySource: No such source exists: {}", sourceId);
+        return;
+    }
+
+    // Make sure the source isn't playing
+    alSourceStop(sourceId);
+
+    // For each buffer attached to the source, record it that it's no longer in use by the source
+    {
+        std::lock_guard lock(m_buffersMutex);
+
+        for (const auto& attachedBuffer : sourceIt->second.attachedBuffers)
+        {
+            const auto bufferIt = m_buffers.find(attachedBuffer);
+            if (bufferIt != m_buffers.cend())
+            {
+                bufferIt->second.sourceUsage.erase(sourceId);
+            }
+        }
+    }
+
+    // Destroy and erase the source
+    ALDestroySource(sourceId);
+    m_sources.erase(sourceId);
+}
+
+void AudioManager::UpdateAudioListener(const AudioListener& listener) const
+{
+    AssertStartedUp();
+
+    alListenerf(AL_GAIN, listener.gain);
 
     alListener3f(AL_POSITION, listener.worldPosition.x, listener.worldPosition.y, listener.worldPosition.z);
 
@@ -429,6 +803,321 @@ void AudioManager::UpdateListenerProperties(const AudioListener& listener) const
     orientationVals[4] = listener.upUnit.y;
     orientationVals[5] = listener.upUnit.z;
     alListenerfv(AL_ORIENTATION, orientationVals);
+}
+
+bool AudioManager::UpdateLocalSourcePosition(const AudioSourceId& sourceId, const glm::vec3& worldPosition) const
+{
+    AssertStartedUp();
+
+    const auto sourceIt = m_sources.find(sourceId);
+    if (sourceIt == m_sources.cend())
+    {
+        LogError("AudioManager::UpdateLocalSourcePosition: No such source exists: {}", sourceId);
+        return false;
+    }
+
+    alSource3f(sourceId, AL_POSITION, worldPosition.x, worldPosition.y, worldPosition.z);
+
+    return true;
+}
+
+void AudioManager::DestroyFinishedTransientSources()
+{
+    AssertStartedUp();
+
+    std::unordered_set<ALuint> toDestroy;
+
+    //
+    // Find sources that are marked as transient and are in stopped state
+    //
+    for (const auto& sourceIt : m_sources)
+    {
+        if (!sourceIt.second.isTransient)
+        {
+            continue;
+        }
+
+        const auto playState = GetPlayState(sourceIt.first);
+        if (!playState)
+        {
+            continue;
+        }
+
+        if (*playState == PlayState::Stopped)
+        {
+            toDestroy.insert(sourceIt.first);
+        }
+    }
+
+    //
+    // Destroy each such identified source
+    //
+    for (const auto& sourceId : toDestroy)
+    {
+        LogInfo("AudioManager: Found stopped transient source to be destroyed: {}", sourceId);
+        DestroySource(sourceId);
+    }
+}
+
+void AudioManager::DestroyFinishedStreamedData()
+{
+    AssertStartedUp();
+
+    std::lock_guard buffersLock(m_buffersMutex);
+
+    //
+    // Find streamed sources with finished/processed/played buffers that can now be
+    // unqueued from the source and destroyed
+    //
+    for (auto& sourceIt : m_sources)
+    {
+        const auto sourceId = sourceIt.first;
+
+        // Skip non-streamed sources
+        if (sourceIt.second.dataType != SourceDataType::Streamed)
+        {
+            continue;
+        }
+
+        //
+        // Query for the source's number of finished/processed buffers
+        //
+        ALint numBuffersProcessed{0};
+        alGetSourcei(sourceId, AL_BUFFERS_PROCESSED, &numBuffersProcessed);
+
+        // Nothing to clean up
+        if (numBuffersProcessed <= 0)
+        {
+            continue;
+        }
+
+        // Edge case: if more buffers are processed than we know about (shouldn't ever be the case)
+        if ((unsigned int)numBuffersProcessed > sourceIt.second.attachedBuffers.size())
+        {
+            LogError("AudioManager::DestroyFinishedStreamedData: numBuffersProcessed is larger than the number of buffers we know about");
+            numBuffersProcessed = std::min(numBuffersProcessed, (int)sourceIt.second.attachedBuffers.size());
+        }
+
+        // We want to unqueue all but the LAST processed buffer, so that even when a streamed source
+        // has finished playing all its enqueued data, a call to GetSourcePlayTime() will be able to
+        // return that the source's play position is at the end of its previously enqueued stream length
+        if (numBuffersProcessed == (int)sourceIt.second.attachedBuffers.size())
+        {
+            // If there's one buffer and its finished, leave it alone
+            if (numBuffersProcessed == 1)
+            {
+                return;
+            }
+
+            // Otherwise, decrement the num buffers processed so we unqueue all but the last
+            numBuffersProcessed--;
+        }
+
+        //
+        // Unqueue the buffers from the source
+        //
+        std::vector<ALuint> processedBuffers;
+
+        for (int x = 0; x < numBuffersProcessed; ++x)
+        {
+            const auto bufferId = sourceIt.second.attachedBuffers.front();
+            processedBuffers.push_back(bufferId);
+            sourceIt.second.attachedBuffers.pop_front();
+        }
+
+        alGetError();
+        alSourceUnqueueBuffers(sourceId, (ALsizei)processedBuffers.size(), processedBuffers.data());
+        if (const auto error = alGetError(); error != AL_NO_ERROR)
+        {
+            LogError("AudioManager::DestroyFinishedStreamedData: alSourceUnqueueBuffers failed, error code: {}", error);
+        }
+
+        //
+        // Mark the buffers as no longer in use by the source
+        //
+        for (const auto& bufferId : processedBuffers)
+        {
+            m_buffers.at(bufferId).sourceUsage.erase(sourceId);
+        }
+
+        //
+        // Destroy the buffers
+        //
+        for (const auto& bufferId : processedBuffers)
+        {
+            DestroyBuffer(bufferId);
+        }
+    }
+}
+
+void AudioManager::DestroyBuffer(ALuint bufferId)
+{
+    AssertStartedUp();
+
+    LogDebug("AudioManager: Destroying buffer: {}", bufferId);
+
+    std::lock_guard buffersLock(m_buffersMutex);
+
+    const auto bufferIt = m_buffers.find(bufferId);
+    if (bufferIt == m_buffers.cend())
+    {
+        LogWarning("AudioManager::DestroyBuffer: No such buffer record exists: {}", bufferId);
+        return;
+    }
+
+    //
+    // Erase any mapping of resources to the buffer
+    //
+    if (bufferIt->second.resource)
+    {
+        m_resourceToBuffer.erase(*bufferIt->second.resource);
+    }
+
+    //
+    // Destroy any sources that have the buffer actively attached
+    //
+    const auto sourceUsages = bufferIt->second.sourceUsage; // Copy, because DestroySource below modifies the buffer's sourceUsage
+
+    for (const auto& sourceUsage : sourceUsages)
+    {
+        LogDebug("AudioManager::DestroyBuffer: Destroying buffer {} while source {} is actively using it", bufferId, sourceUsage);
+        DestroySource(sourceUsage);
+    }
+
+    //
+    // Destroy and erase the buffer
+    //
+    ALDestroyBuffer(bufferId);
+    m_buffers.erase(bufferIt);
+}
+
+std::expected<ALuint, bool> AudioManager::ALCreateBuffer(const std::vector<Common::AudioData::Ptr>& audioDatas)
+{
+    AssertStartedUp();
+
+    const auto audioData = AudioUtil::CombineAudioDatas(audioDatas);
+    if (!audioData)
+    {
+        LogError("AudioManager::ALCreateBuffer: Failed to combine audio datas, error code: {}", audioData.error());
+        return std::unexpected(false);
+    }
+
+    //
+    // Generate an audio buffer
+    //
+    ALuint bufferId{AL_NONE};
+
+    alGetError();
+    alGenBuffers(1, &bufferId);
+    if (const auto error = alGetError(); error != AL_NO_ERROR)
+    {
+        LogError("AudioManager::ALCreateBuffer: alGenBuffers failed, error code: {}", error);
+        return std::unexpected(false);
+    }
+
+    //
+    // Populate the audio buffer
+    //
+    alGetError();
+    alBufferData(bufferId,
+                 AudioDataFormatToAlFormat((*audioData)->format),
+                 (*audioData)->data.data(),
+                 (ALsizei)(*audioData)->data.size(),
+                 (ALsizei)(*audioData)->sampleRate);
+    if (const auto error = alGetError(); error != AL_NO_ERROR)
+    {
+        LogError("AudioManager::ALCreateBuffer: alBufferData failed, error code: {}", error);
+        alDeleteBuffers(1, &bufferId);
+        return std::unexpected(false);
+    }
+
+    return bufferId;
+}
+
+void AudioManager::ALDestroyBuffer(ALuint bufferId)
+{
+    AssertStartedUp();
+
+    alGetError();
+    alDeleteBuffers(1, &bufferId);
+    if (const auto error = alGetError(); error != AL_NO_ERROR)
+    {
+        LogError("AudioManager::ALDestroyBuffer: alDeleteBuffers failed, error code: {}", error);
+    }
+}
+
+std::expected<ALuint, bool> AudioManager::ALCreateSource(const SourceDataType& dataType,
+                                                         const AudioSourceProperties& audioSourceProperties,
+                                                         const std::vector<ALuint>& initialBufferIds,
+                                                         const std::optional<glm::vec3>& initialPosition)
+{
+    AssertStartedUp();
+
+    //
+    // Create the audio source
+    //
+    ALuint sourceId{AL_NONE};
+
+    alGetError();
+    alGenSources(1, &sourceId);
+    if (const auto error = alGetError(); error != AL_NO_ERROR)
+    {
+        LogError("AudioManager::ALCreateSource: alGenSources failed, error code: {}", error);
+        return std::unexpected(false);
+    }
+
+    //
+    // Set source audio properties
+    //
+    alSourcef(sourceId, AL_REFERENCE_DISTANCE, audioSourceProperties.referenceDistance);
+    alSourcef(sourceId, AL_GAIN, audioSourceProperties.gain);
+
+    if (dataType == SourceDataType::Static)
+    {
+        alSourcei(sourceId, AL_LOOPING, audioSourceProperties.looping);
+    }
+
+    if (initialPosition)
+    {
+        alSource3f(sourceId, AL_POSITION, initialPosition->x, initialPosition->y, initialPosition->z);
+    }
+
+    //
+    // Attach initial buffers to the source
+    //
+
+    // Validation
+    if (dataType == SourceDataType::Static && initialBufferIds.size() != 1)
+    {
+        LogError("AudioManager::ALCreateSource: Static sources require exactly one initial data buffer to be provided");
+        return std::unexpected(false);
+    }
+
+    if (!initialBufferIds.empty())
+    {
+        switch (dataType)
+        {
+            case SourceDataType::Static:
+            {
+                alSourcei(sourceId, AL_BUFFER, (ALint)initialBufferIds.front());
+            }
+            break;
+            case SourceDataType::Streamed:
+            {
+                alSourceQueueBuffers(sourceId, (ALsizei)initialBufferIds.size(), initialBufferIds.data());
+            }
+            break;
+        }
+    }
+
+    return sourceId;
+}
+
+void AudioManager::ALDestroySource(ALuint sourceId)
+{
+    AssertStartedUp();
+
+    alDeleteSources(1, &sourceId);
 }
 
 }

@@ -49,7 +49,7 @@ std::expected<VulkanPipelinePtr, bool> PipelineFactory::GetPipelineT(const Vulka
     }
 
     // Otherwise, create a new pipeline
-    m_logger->Log(Common::LogLevel::Info, "Pipelines: Creating a new pipeline for config: {}", config.GetUniqueKey());
+    m_logger->Log(Common::LogLevel::Debug, "Pipelines: Creating a new pipeline for config: {}", config.GetUniqueKey());
 
     auto pipeline = std::make_shared<VulkanPipeline>(m_logger, m_vulkanObjs->GetCalls(), m_shaders, device);
     if (!pipeline->Create(config))
@@ -81,7 +81,7 @@ void PipelineFactory::DestroyPipeline(const size_t& pipelineKey)
         return;
     }
 
-    m_logger->Log(Common::LogLevel::Info, "Pipelines: Destroying pipeline {}", pipelineKey);
+    m_logger->Log(Common::LogLevel::Debug, "Pipelines: Destroying pipeline {}", pipelineKey);
 
     it->second->Destroy();
     m_pipelines.erase(it);

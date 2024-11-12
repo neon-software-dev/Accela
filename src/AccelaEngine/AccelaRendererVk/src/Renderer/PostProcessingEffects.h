@@ -9,6 +9,8 @@
 
 #include "PostProcessingRenderer.h"
 
+#include <Accela/Common/Build.h>
+
 #include <unordered_set>
 
 namespace Accela::Render
@@ -39,8 +41,8 @@ namespace Accela::Render
         GammaCorrection
     };
 
-    [[nodiscard]] [[maybe_unused]] static PostProcessEffect ColorCorrectionEffect(const RenderSettings& renderSettings,
-                                                                                  const std::unordered_set<ColorCorrection>& corrections)
+    [[nodiscard]] SUPPRESS_IS_NOT_USED static PostProcessEffect ColorCorrectionEffect(const RenderSettings& renderSettings,
+                                                                                      const std::unordered_set<ColorCorrection>& corrections)
     {
         ColorCorrectionPushPayload pushPayload{};
         pushPayload.renderWidth = renderSettings.resolution.w;
@@ -78,7 +80,7 @@ namespace Accela::Render
         alignas(4) uint32_t renderHeight{0};
     };
 
-    [[nodiscard]] [[maybe_unused]] static PostProcessEffect FXAAEffect(const RenderSettings& renderSettings)
+    [[nodiscard]] SUPPRESS_IS_NOT_USED static PostProcessEffect FXAAEffect(const RenderSettings& renderSettings)
     {
         FXAAPushPayload pushPayload{};
         pushPayload.renderWidth = renderSettings.resolution.w;
@@ -113,10 +115,10 @@ namespace Accela::Render
         alignas(4) uint32_t numHighlightedObjects{0};
     };
 
-    [[nodiscard]] [[maybe_unused]] static PostProcessEffect ObjectHighlightEffect(const RenderSettings& renderSettings,
-                                                                                  const LoadedImage& objectDetailImage,
-                                                                                  const LoadedImage& depthImage,
-                                                                                  const std::unordered_set<ObjectId>& highlightedObjects)
+    [[nodiscard]] SUPPRESS_IS_NOT_USED static PostProcessEffect ObjectHighlightEffect(const RenderSettings& renderSettings,
+                                                                                      const LoadedImage& objectDetailImage,
+                                                                                      const LoadedImage& depthImage,
+                                                                                      const std::unordered_set<ObjectId>& highlightedObjects)
     {
         //
         // Highlighted Objects Input Buffer

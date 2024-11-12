@@ -167,7 +167,7 @@ namespace Accela::Render
 
         private:
 
-            MeshId m_terrainMeshId{Render::INVALID_ID};
+            MeshId m_terrainMeshId{INVALID_ID};
             ProgramDefPtr m_programDef;
             std::optional<std::size_t> m_pipelineHash;
     };

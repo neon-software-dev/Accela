@@ -24,9 +24,9 @@ namespace Accela::Render
     {
         public:
 
-            explicit RenderOperation(std::unordered_map<VkImage, ImageAccess> _imageAccesses);
+            explicit RenderOperation(std::unordered_map<ImageId, ImageAccess> _imageAccesses);
 
-            [[nodiscard]] std::unordered_map<VkImage, ImageAccess> GetImageAccesses() const noexcept { return m_imageAccesses; }
+            [[nodiscard]] std::unordered_map<ImageId, ImageAccess> GetImageAccesses() const noexcept { return m_imageAccesses; }
 
             /**
              * Creates a RenderOperation for starting a render pass. The operation, when given to RenderState, will
@@ -41,7 +41,7 @@ namespace Accela::Render
 
         private:
 
-            std::unordered_map<VkImage, ImageAccess> m_imageAccesses;
+            std::unordered_map<ImageId, ImageAccess> m_imageAccesses;
     };
 }
 

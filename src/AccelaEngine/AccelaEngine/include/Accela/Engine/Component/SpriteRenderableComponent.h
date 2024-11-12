@@ -33,7 +33,7 @@ namespace Accela::Engine
         /**
          * The TextureId of the texture that should be applied to this sprite
          */
-        Render::TextureId textureId{Render::INVALID_ID};
+        Render::TextureId textureId{INVALID_ID};
 
         /**
          * An optional subset of the source texture's pixel size to create the sprite

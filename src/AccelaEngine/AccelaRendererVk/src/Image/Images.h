@@ -11,10 +11,9 @@
 
 #include "../Util/ImageAllocation.h"
 
-#include <Accela/Render/IdSource.h>
-
 #include <Accela/Common/Log/ILogger.h>
 #include <Accela/Common/Metrics/IMetrics.h>
+#include <Accela/Common/IdSource.h>
 
 #include <unordered_map>
 #include <unordered_set>
@@ -40,6 +39,12 @@ namespace Accela::Render
                                                                          const Common::ImageData::Ptr& data,
                                                                          std::promise<bool> resultPromise) override;
 
+            [[nodiscard]] bool UpdateImage(const ImageId& imageId,
+                                           const Common::ImageData::Ptr& data,
+                                           std::promise<bool> resultPromise) override;
+
+            void RecordImageLayout(const ImageId& imageId, VkImageLayout vkImageLayout) override;
+
             [[nodiscard]] std::optional<LoadedImage> GetImage(ImageId imageId) const override;
 
             void DestroyImage(ImageId imageId, bool destroyImmediately) override;
@@ -56,10 +61,21 @@ namespace Accela::Render
 
             bool DoesImageFormatSupportMipMapGeneration(const VkFormat& vkFormat) const;
 
-            [[nodiscard]] bool TransferImageData(const LoadedImage& loadedImage,
+            [[nodiscard]] bool TransferImageData(LoadedImage& loadedImage,
                                                  const Common::ImageData::Ptr& data,
                                                  bool isInitialDataTransfer,
                                                  std::promise<bool> resultPromise);
+
+            [[nodiscard]] bool TransferImageData(const IBuffersPtr& buffers,
+                                                 const PostExecutionOpsPtr& postExecutionOps,
+                                                 const VulkanCommandBufferPtr& commandBuffer,
+                                                 VkFence vkExecutionFence,
+                                                 const Common::ImageData::Ptr& sourceImageData,
+                                                 const LoadedImage& destImage,
+                                                 VkImageAspectFlags vkTransferImageAspectFlags,
+                                                 VkImageLayout vkCurrentImageLayout,
+                                                 VkImageLayout vkFinalImageLayout,
+                                                 VkPipelineStageFlags vkEarliestUsageFlags);
 
             [[nodiscard]] bool OnImageTransferFinished(bool commandsSuccessful,
                                                        const LoadedImage& loadedImage,
@@ -78,10 +94,10 @@ namespace Accela::Render
             VulkanCommandPoolPtr m_transferCommandPool;
             VkQueue m_vkTransferQueue{VK_NULL_HANDLE};
 
-            IdSource<ImageId> m_imageIds;
+            Common::IdSource<ImageId> m_imageIds;
 
             std::unordered_map<ImageId, LoadedImage> m_images;
-            std::unordered_set<ImageId> m_imagesLoading;
+            std::unordered_map<ImageId, unsigned int> m_imagesLoading; // ImageId -> Number of active data transfers
             std::unordered_set<ImageId> m_imagesToDestroy;
     };
 }

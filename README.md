@@ -9,21 +9,21 @@ Accela is a cross-platform C++23 game and render engine utilizing Vulkan 1.3.
 
 ## Features
 
-- Builds and runs on both Windows and Linux (Mac support planned)
+- Builds and runs on both Windows and Linux
 - Create 2D, 3D and VR (via OpenXR) applications
 - ECS system for entity management
-- Asset loading system for textures, audio, fonts and models
+- Asset loading system for textures, audio, fonts, models, and videos
 - Loads most texture formats (16+) and 3D model formats (40+)
 - Dynamic lighting with deferred and forward lighting passes
 - Dynamic shadows with cascaded and point-based shadow maps
 - Compute-based post-processing: HDR Tone Mapping, Gamma Correction, FXAA
 - Node-based and skeleton/bone-based model animations
-- Realistic 3D physics simulation via PhysX
-- Positional and global audio sources
-- Height-mapped terrain generation
+- Realistic 3D physics simulation (via PhysX)
+- Media playback (via FFMPEG)
+- Positional and global audio sources with 3D spatialization
 - Cubemap-based skybox rendering
 - Arbitrary text/font rendering
-- Renderer can be used standalone, for non-game applications
+- The renderer can be used standalone, for non-game applications
 
 ## Disclaimer
 
@@ -49,9 +49,12 @@ Accela is currently distributed under the GPL v3 software license. Please see th
 
 ### Overview
 
-The engine is defined by a standard CMake project.
+The project is defined by a standard CMake project. 
 
-A vcpkg file is provided which will allow the engine to automatically fetch its build dependencies. You can choose whether to use vcpkg or provide these dependencies manually. The dependencies fetched via vcpkg are:
+A batch/schell script is provided in the 'external' directory which automatically takes care of all dependency fetching.
+
+If you choose not to use the script for fetching dependencies, you must manually make the following dependencies available to CMake:
+
 - glm
 - entt
 - audiofile
@@ -64,18 +67,15 @@ A vcpkg file is provided which will allow the engine to automatically fetch its 
 - sdl2-image
 - sdl2-ttf
 - OpenXR
-
-A prepare_dependencies script is provided in the `external` directory which will download and build dependencies which can not be fetched from vcpkg. You can choose whether to use this script or provide these dependencies manually. The dependencies fetched via prepare_dependencies script are:
 - PhysX
 - OpenAL
-
-The prepare_dependencies script also creates a project-local vcpkg installation so that you don't need to install it yourself. This can be disabled if desired.
+- FFmpeg
 
 ### System Dependencies
 
 #### Qt6
 
-On Windows: Download and install the (LGPL / open source) development kit from the Qt website.
+On Windows: Download and install the (LGPL / open source) development kit from the Qt website. Take note of the installation directory.
 
 On Linux: Most distributions have Qt6 development files in the package management system for easy installation (e.g. the qt6-base-dev package). 
 
@@ -83,11 +83,11 @@ Alternatively: Build Qt from source. (Note: If building from source, the qtbase 
 
 ### Python
 
-Download/install python3 if you want to use the prepare_dependencies script
+Download/install python3 if you want to use the dependencies script.
 
 ### Windows Developer Prompt
 
-On Windows: The instructions below for running the prepare_dependencies script and building the project from a command prompt must be run from a Visual Studio Developer Command Prompt which has msbuild available.
+On Windows: The instructions below for running the dependencies script and building the project from a command prompt must be run from a Visual Studio Developer Command Prompt which has msbuild available.
 
 ### Building Accela
 
@@ -100,49 +100,41 @@ Pull the project code from Github:
 
 #### Prepare Dependencies
 
-If you want to use the prepare_dependencies script to provide the non-vcpkg dependenices, and to create a package-local vcpkg installation:
+If you want to use the dependencies script to automatically prepare all needed dependencies:
 
 - `cd external`
 - Windows: `prepare_dependencies.bat` , Linux: `./prepare_dependencies.sh`
-
-Options:
-
-- By default, the script will create a project-local vcpkg install. If you want to use your own separately installed vcpkg repo, or if you don't want to use vcpkg at all, then provide the argument `--no-local-vcpkg` when running the script.
-- To remove script prompts relating to PhysX build variant, provide a `-physx-preset={variant}` argument, where variant is one of: `[linux, linux-aarch64, vc16win64, vc17win64]`
 
 #### Configure the project
 
 Use cmake to configure the project. 
 
-Note that all values in braces must be filled in by you with the proper values.
+Note that all values in braces must be filled in by you with the proper values. Also note that there's additional options listed below which might be required, depending on your OS.
 
-- `cd ../`
+- (If you ran the prepare_dependencies script): `cd ../`
 - `mkdir build`
 - `cd build`
-- `cmake -DCMAKE_INSTALL_PREFIX="{/desired/install/directory}" ../src/`
+- `cmake -DCMAKE_TOOLCHAIN_FILE="../external/vcpkg_manifest/scripts/buildsystems/vcpkg.cmake" -DCMAKE_INSTALL_PREFIX="{/desired/install/directory}" ../src/`
 
 Options:
-
-If you want to use the project-local vcpkg install provided by the prepare_dependencies script, also provide this argument:
-- `-DCMAKE_TOOLCHAIN_FILE="../external/vcpkg/scripts/buildsystems/vcpkg.cmake"`
-
-(If using your own vcpkg install, then provide a -DCMAKE_TOOLCHAIN_FILE argument which points to your vcpkg install.)
 
 On Linux: If you want to create a release build, also provide this argument:
 - `-DCMAKE_BUILD_TYPE=Release`
 
-On Windows: You need to point CMake to your Qt installation by providing this argument:
+On Windows: You will need to point CMake to your Qt installation by also providing this argument:
 - `-DCMAKE_PREFIX_PATH="C:\path\to\qt\6.7.0\{variant}"`
 
-On Windows: Configure CMake to use a Visual Studio toolchain. Ideally, also use a Visual Studio generator. If not using a Visual Studio generator, then some files that are copied to the build output during post-build step may be copied to the wrong location and will need to be relocated.
+On Windows: Configure CMake to use a Visual Studio toolchain. Ideally, also use a Visual Studio generator. If not using a Visual Studio generator, then some asssets files that are copied to the build output during the post-build step may be copied to the wrong location and will need to be relocated.
 
 #### Build the project
 
-- Linux: `make` Windows: `msbuild Accela.sln /p:Configuration=[Debug/Release]`
+On Linux: `make` 
 
-On Windows, in order to run the AccelaEditor project, you need to deploy Qt6 files to the build output directory:
+On Windows: `msbuild Accela.sln /p:Configuration=[Debug/Release]`
 
-- `windeployqt6.exe [--debug/--release] C:\{path\to\}Accela\{build_output_dir}`
+On Windows, in order to run the AccelaEditor project, you also need to deploy Qt6 runtime files to the build output directory:
+
+- `windeployqt6.exe [--debug/--release] C:\{path\to\Accela\build_output_dir}`
 
 # Usage
 

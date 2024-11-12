@@ -32,13 +32,13 @@ namespace Accela::Engine
         std::string sceneName = DEFAULT_SCENE;
 
         /** The id of the material to draw the terrain with */
-        Render::MaterialId materialId{Render::INVALID_ID};
+        Render::MaterialId materialId{INVALID_ID};
 
         /** The dimensions, in x/z world space, of the terrain's area */
         Render::USize size{0, 0};
 
         /** The id of the height map texture to be used */
-        Render::TextureId heightMapTextureId{Render::INVALID_ID};
+        Render::TextureId heightMapTextureId{INVALID_ID};
 
         /** The tesselation level/amount to use for the terrain */
         float tesselationLevel{0.0f};

@@ -31,7 +31,7 @@ namespace Accela::Render
     {
         public:
 
-            RenderState(Common::ILogger::Ptr logger, IVulkanCallsPtr vulkanCalls);
+            RenderState(Common::ILogger::Ptr logger, IVulkanCallsPtr vulkanCalls, IImagesPtr images);
 
             /**
              * Report a render operation as about to happen. Will synchronize resources as needed to
@@ -48,21 +48,21 @@ namespace Accela::Render
 
             struct ImageState
             {
-                VkImageLayout currentLayout{VK_IMAGE_LAYOUT_UNDEFINED};
                 std::optional<ImageAccess> currentAccess;
             };
 
         private:
 
-            void PrepareImageAccess(const VulkanCommandBufferPtr& commandBuffer, VkImage vkImage, const ImageAccess& imageAccess);
-            void PrepareImageAccess(const VulkanCommandBufferPtr& commandBuffer, VkImage vkImage, const ImageAccess& imageAccess, ImageState& currentState);
+            void PrepareImageAccess(const VulkanCommandBufferPtr& commandBuffer, const LoadedImage& loadedImage, const ImageAccess& imageAccess);
+            void PrepareImageAccess(const VulkanCommandBufferPtr& commandBuffer, const LoadedImage& loadedImage, const ImageAccess& imageAccess, ImageState& currentState);
 
         private:
 
             Common::ILogger::Ptr m_logger;
             IVulkanCallsPtr m_vulkanCalls;
+            IImagesPtr m_images;
 
-            std::unordered_map<VkImage, ImageState> m_imageStates;
+            std::unordered_map<ImageId, ImageState> m_imageStates;
     };
 }
 

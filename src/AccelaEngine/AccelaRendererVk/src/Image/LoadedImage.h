@@ -34,6 +34,7 @@ namespace Accela::Render
         ImageId id;
         Image image;
         ImageAllocation allocation;
+        VkImageLayout vkImageLayout{VK_IMAGE_LAYOUT_UNDEFINED};
         std::unordered_map<ImageViewName, VkImageView> vkImageViews;
         std::unordered_map<ImageViewName, VkSampler> vkSamplers;
     };

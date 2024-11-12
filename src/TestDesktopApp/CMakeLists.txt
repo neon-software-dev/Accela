@@ -28,7 +28,7 @@ install(
 if (WIN32)
 	add_custom_command(TARGET TestDesktopApp POST_BUILD
 		COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different
-			$<IF:$<CONFIG:Debug>,"${EXTERNAL_BINARIES_DIR_DEBUG}/","${EXTERNAL_BINARIES_DIR_RELEASE}/">
+			$<IF:$<CONFIG:Debug>,"${VCPKG_MANUAL_INSTALLED_DIR}/bin/","${VCPKG_MANUAL_INSTALLED_DIR}/debug/bin/">
 			$<IF:$<CXX_COMPILER_ID:MSVC>,"${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/$<CONFIG>","${CMAKE_RUNTIME_OUTPUT_DIRECTORY}">
 		COMMENT "Copying external binaries"
 	)

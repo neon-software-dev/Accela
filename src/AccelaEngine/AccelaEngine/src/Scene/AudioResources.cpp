@@ -69,7 +69,7 @@ bool AudioResources::LoadAudio(const CustomResourceIdentifier& resource, const C
         return true;
     }
 
-    if (!m_audioManager->RegisterAudio(resource, audioData))
+    if (!m_audioManager->LoadResourceAudio(resource, audioData))
     {
         m_logger->Log(Common::LogLevel::Warning,
           "AudioResources::LoadAudio: Failed to register audio: {}", resource.GetUniqueName());
@@ -154,7 +154,7 @@ void AudioResources::DestroyAudio(const ResourceIdentifier& resource)
     std::lock_guard<std::mutex> lock(m_audioMutex);
 
     // Destroy the audio in the audio manager
-    m_audioManager->DestroyAudio(resource);
+    m_audioManager->DestroyResourceAudio(resource);
 
     // Erase our knowledge of the resource
     if (resource.IsPackageResource())
@@ -199,7 +199,7 @@ void AudioResources::DestroyAllAudio(const PackageName& packageName)
         m_logger->Log(Common::LogLevel::Info, "AudioResources: Destroying audio resource: {}", resource.GetUniqueName());
 
         // Destroy the resource in the audio manager
-        m_audioManager->DestroyAudio(resource);
+        m_audioManager->DestroyResourceAudio(resource);
     }
 
     // Erase our knowledge of the package
@@ -245,7 +245,7 @@ bool AudioResources::LoadPackageAudio(const Platform::PackageSource::Ptr& packag
         return false;
     }
 
-    if (!m_audioManager->RegisterAudio(resource, *audioData))
+    if (!m_audioManager->LoadResourceAudio(resource, *audioData))
     {
         m_logger->Log(Common::LogLevel::Error,
           "AudioResources::LoadPackageAudio: Failed to register audio: {}", resource.GetUniqueName());
@@ -259,6 +259,7 @@ bool AudioResources::LoadPackageAudio(const Platform::PackageSource::Ptr& packag
 
 std::expected<Common::AudioData::Ptr, bool> AudioResources::AudioDataFromBytes(std::vector<std::byte>& bytes, const std::string& tag) const
 {
+    // TODO Perf: Can we avoid the copy?
     std::vector<uint8_t> audioUInts(bytes.size());
     memcpy(audioUInts.data(), bytes.data(), bytes.size());
 
@@ -270,33 +271,33 @@ std::expected<Common::AudioData::Ptr, bool> AudioResources::AudioDataFromBytes(s
         return std::unexpected(false);
     }
 
-    Common::AudioData::Format audioFileFormat{};
+    Common::AudioDataFormat audioFileFormat{};
 
     if (audioFile.getNumChannels() == 1 && audioFile.getBitDepth() == 8)
     {
-        audioFileFormat = Common::AudioData::Format::Mono8;
+        audioFileFormat = Common::AudioDataFormat::Mono8;
     }
     else if (audioFile.getNumChannels() == 1)
     {
         // We transform all bit depth >= 16 to 16 bit as that's the most OpenAL supports
-        audioFileFormat = Common::AudioData::Format::Mono16;
+        audioFileFormat = Common::AudioDataFormat::Mono16;
     }
     else if (audioFile.getNumChannels() == 2 && audioFile.getBitDepth() == 8)
     {
-        audioFileFormat = Common::AudioData::Format::Stereo8;
+        audioFileFormat = Common::AudioDataFormat::Stereo8;
     }
     else if (audioFile.getNumChannels() == 2)
     {
         // We transform all bit depth >= 16 to 16 bit as that's the most OpenAL supports
-        audioFileFormat = Common::AudioData::Format::Stereo16;
+        audioFileFormat = Common::AudioDataFormat::Stereo16;
     }
     else
     {
         m_logger->Log(Common::LogLevel::Error,
-                      "AudioResources::AudioDataFromBytes: Unsupported audio file: {}. Num channels: {}, bit depth: {}",
-                      tag,
-                      audioFile.getNumChannels(),
-                      audioFile.getBitDepth()
+          "AudioResources::AudioDataFromBytes: Unsupported audio file: {}. Num channels: {}, bit depth: {}",
+          tag,
+          audioFile.getNumChannels(),
+          audioFile.getBitDepth()
         );
         return std::unexpected(false);
     }

@@ -38,6 +38,8 @@ namespace Accela::Render
         vmaVulkanFuncs.vkBindBufferMemory2KHR = vmaFuncs.vkBindBufferMemory2KHR;
         vmaVulkanFuncs.vkBindImageMemory2KHR = vmaFuncs.vkBindImageMemory2KHR;
         vmaVulkanFuncs.vkGetPhysicalDeviceMemoryProperties2KHR = vmaFuncs.vkGetPhysicalDeviceMemoryProperties2KHR;
+        vmaVulkanFuncs.vkGetDeviceBufferMemoryRequirements = vmaFuncs.vkGetDeviceBufferMemoryRequirements;
+        vmaVulkanFuncs.vkGetDeviceImageMemoryRequirements = vmaFuncs.vkGetDeviceImageMemoryRequirements;
 
         return vmaVulkanFuncs;
     }

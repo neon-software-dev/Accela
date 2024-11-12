@@ -259,6 +259,11 @@ std::expected<std::vector<std::byte>, unsigned int> DiskPackageSource::GetAudioD
     return GetFileBytes(m_packageDir / Platform::ASSETS_DIR / Platform::AUDIO_SUBDIR / resourceName);
 }
 
+std::expected<std::string, unsigned int> DiskPackageSource::GetVideoUrl(const std::string& resourceName) const
+{
+    return std::filesystem::path(m_packageDir / Platform::ASSETS_DIR / Platform::VIDEO_SUBDIR / resourceName).string();
+}
+
 std::expected<std::vector<std::byte>, unsigned int> DiskPackageSource::GetModelData(const std::string& resourceName) const
 {
     std::filesystem::path fileNamePath(resourceName);

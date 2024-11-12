@@ -9,6 +9,8 @@
 
 #include "../ForwardDeclares.h"
 
+#include "../Image/LoadedImage.h"
+
 #include <vulkan/vulkan.h>
 
 #include <vector>
@@ -189,8 +191,9 @@ namespace Accela::Render
                                       const BufferMemoryBarrier& memoryBarrier);
 
     void InsertPipelineBarrier_Image(const IVulkanCallsPtr& vk,
+                                     const IImagesPtr& images,
                                      const VulkanCommandBufferPtr& commandBuffer,
-                                     const VkImage& vkImage,
+                                     const LoadedImage& loadedImage,
                                      const Layers& layers,
                                      const Levels& levels,
                                      const VkImageAspectFlags& vkImageAspectFlags,

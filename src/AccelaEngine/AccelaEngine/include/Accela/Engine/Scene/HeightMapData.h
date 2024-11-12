@@ -7,6 +7,7 @@
 #ifndef LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_SCENE_HEIGHTMAPDATA_H
 #define LIBACCELAENGINE_INCLUDE_ACCELA_ENGINE_SCENE_HEIGHTMAPDATA_H
 
+#include <Accela/Render/Id.h>
 #include <Accela/Render/Mesh/Mesh.h>
 #include <Accela/Render/Util/Rect.h>
 

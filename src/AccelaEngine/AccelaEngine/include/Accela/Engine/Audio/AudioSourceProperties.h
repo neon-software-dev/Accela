@@ -17,6 +17,7 @@ namespace Accela::Engine
     struct ACCELA_PUBLIC AudioSourceProperties
     {
         // Whether the audio loops (repeats)
+        // Note: only applicable to static audio data
         bool looping{false};
 
         // The distance in world space that no attenuation occurs. At 0.0, no distance

@@ -73,6 +73,12 @@ std::future<bool> RendererBase::CreateTexture(const Texture& texture,
     return Submit<RenderTask_CreateTexture, bool>(false, texture, textureView, textureSampler);
 }
 
+std::future<bool> RendererBase::UpdateTexture(const TextureId& textureId,
+                                              const Common::ImageData::Ptr& imageData)
+{
+    return Submit<RenderTask_UpdateTexture, bool>(false, textureId, imageData);
+}
+
 std::future<bool> RendererBase::DestroyTexture(TextureId textureId)
 {
     return Submit<RenderTask_DestroyTexture, bool>(false, textureId);
@@ -171,6 +177,9 @@ void RendererBase::OnTaskMessageReceived(const Common::Message::Ptr& msg)
         break;
         case RenderTaskType::CreateTexture:
             FulfillManual<RenderTask_CreateTexture, bool>(msg, std::bind_front(&RendererBase::OnCreateTexture, this));
+        break;
+        case RenderTaskType::UpdateTexture:
+            FulfillManual<RenderTask_UpdateTexture, bool>(msg, std::bind_front(&RendererBase::OnUpdateTexture, this));
         break;
         case RenderTaskType::DestroyTexture:
             FulfillDirect<RenderTask_DestroyTexture, bool>(msg, std::bind_front(&RendererBase::OnDestroyTexture, this));

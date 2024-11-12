@@ -395,7 +395,7 @@ bool DeferredLightingRenderer::BindDescriptorSet0_Lights(const BindState& bindSt
     //
     // Calculate light data
     //
-    const auto defaultLightImages = std::vector<ImageId>(Max_Light_Count, Render::ImageId(Render::INVALID_ID));
+    const auto defaultLightImages = std::vector<ImageId>(Max_Light_Count, Render::ImageId(INVALID_ID));
 
     std::unordered_map<ShadowMapType, std::vector<ImageId>> shadowMapImageIds {
         {ShadowMapType::Cascaded, defaultLightImages},
