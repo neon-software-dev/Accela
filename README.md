@@ -238,6 +238,27 @@ class TestScene : public Engine::Scene
 
         Engine::ScreenTextEntity::UPtr m_textEntity;
 };
+
+int main()
+{
+    auto logger = std::make_shared<Common::StdLogger>(Common::LogLevel::Info);
+    auto metrics = std::make_shared<Common::InMemoryMetrics>();
+
+    auto desktopEngine = Engine::EngineDesktop(logger, metrics);
+    desktopEngine.Startup();
+
+    desktopEngine.Run(
+        "TestApp",
+        1,
+        Engine::WindowParams("TestApp", Render::USize(1920, 1080)),
+        Engine::VROutput::None,
+        std::make_unique<TestScene>()
+    );
+
+    desktopEngine.Shutdown();
+
+    return 0;
+}
 ```
 
 
